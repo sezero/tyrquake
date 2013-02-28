@@ -440,7 +440,7 @@ R_AliasSetUpTransform(const entity_t *e, aliashdr_t *pahdr, int trivial_accept)
 
 	VectorSubtract(e->currentangles, e->previousangles, lerpvec);
 	for (i = 0; i < 3; i++) {
-	    if (lerpvec[i] > 180.0f)
+	    if (lerpvec[i] >= 180.0f)
 		lerpvec[i] -= 360.0f;
 	    else if (lerpvec[i] < -180.0f)
 		lerpvec[i] += 360.0f;

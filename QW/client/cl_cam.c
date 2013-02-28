@@ -419,7 +419,7 @@ adjustang(float current, float ideal, float speed)
 	if (move >= 180)
 	    move = move - 360;
     } else {
-	if (move <= -180)
+	if (move < -180)
 	    move = move + 360;
     }
     if (move > 0) {

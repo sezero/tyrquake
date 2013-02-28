@@ -476,7 +476,7 @@ CL_LinkPacketEntities(void)
 	    for (i = 0; i < 3; i++) {
 		a1 = s1->angles[i];
 		a2 = s2->angles[i];
-		if (a1 - a2 > 180)
+		if (a1 - a2 >= 180)
 		    a1 -= 360;
 		if (a1 - a2 < -180)
 		    a1 += 360;

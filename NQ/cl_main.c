@@ -513,7 +513,7 @@ CL_RelinkEntities(void)
 	// interpolate the angles
 	for (j = 0; j < 3; j++) {
 	    d = cl.mviewangles[0][j] - cl.mviewangles[1][j];
-	    if (d > 180)
+	    if (d >= 180)
 		d -= 360;
 	    else if (d < -180)
 		d += 360;
@@ -566,7 +566,7 @@ CL_RelinkEntities(void)
 	    for (j = 0; j < 3; j++) {
 		ent->origin[j] = ent->msg_origins[1][j] + f * delta[j];
 		d = ent->msg_angles[0][j] - ent->msg_angles[1][j];
-		if (d > 180)
+		if (d >= 180)
 		    d -= 360;
 		else if (d < -180)
 		    d += 360;
