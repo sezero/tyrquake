@@ -130,7 +130,7 @@ typedef struct glpoly_s {
     struct glpoly_s *chain;
     int numverts;
     int flags;			// for SURF_UNDERWATER
-    float verts[0][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
+    float verts[][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
 } glpoly_t;
 #endif
 
@@ -240,7 +240,7 @@ typedef struct mspriteframe_s {
     int width;
     int height;
     float up, down, left, right;
-    byte rdata[0];	/* Renderer data, variable sized */
+    byte rdata[];	/* Renderer data, variable sized */
 } mspriteframe_t;
 
 /*
@@ -259,7 +259,7 @@ void R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
 typedef struct {
     int numframes;
     float *intervals;
-    mspriteframe_t *frames[0];	/* variable sized */
+    mspriteframe_t *frames[];	/* variable sized */
 } mspritegroup_t;
 
 typedef struct {
@@ -273,7 +273,7 @@ typedef struct {
     int maxheight;
     int numframes;
     float beamlength;		// remove?
-    mspriteframedesc_t frames[0];	/* variable sized */
+    mspriteframedesc_t frames[];	/* variable sized */
 } msprite_t;
 
 #if defined (GLQUAKE) && defined(QW_HACK)
@@ -325,7 +325,7 @@ typedef struct {
     int numposes;
     int poseintervals;
     int posedata;	// (numposes * numverts) trivertx_t
-    maliasframedesc_t frames[0];	// variable sized
+    maliasframedesc_t frames[];	// variable sized
 } aliashdr_t;
 
 #ifdef GLQUAKE
@@ -479,7 +479,7 @@ void Mod_Print(void);
 typedef unsigned long leafblock_t;
 typedef struct {
     int numleafs;
-    leafblock_t bits[0]; /* Variable Sized */
+    leafblock_t bits[]; /* Variable Sized */
 } leafbits_t;
 
 mleaf_t *Mod_PointInLeaf(const model_t *model, const vec3_t point);
