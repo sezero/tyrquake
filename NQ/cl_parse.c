@@ -949,7 +949,7 @@ CL_ParseServerMessage
 void
 CL_ParseServerMessage(void)
 {
-    int cmd;
+    int cmd, prevcmd;
     char *s;
     int i;
     unsigned int bits;
@@ -967,6 +967,7 @@ CL_ParseServerMessage(void)
 //
 // parse the message
 //
+    prevcmd = svc_bad;
     MSG_BeginReading();
 
     while (1) {
@@ -1214,7 +1215,9 @@ CL_ParseServerMessage(void)
 	    break;
 
 	default:
-	    Host_Error("%s: Illegible server message", __func__);
+	    Host_Error("%s: Illegible server message. Previous was %s",
+		       __func__, svc_strings[prevcmd]);
 	}
+	prevcmd = cmd;
     }
 }
