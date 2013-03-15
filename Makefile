@@ -106,7 +106,7 @@ USE_XF86DGA ?= Y
 endif
 endif
 
-ifeq ($(TARGET_OS),WIN32)
+ifneq (,$(findstring $(TARGET_OS),WIN32 WIN64))
 EXT = .exe
 CD_TARGET ?= win
 VID_TARGET ?= win
@@ -121,13 +121,23 @@ endif
 ifeq ($(TARGET_OS),WIN32)
 EXT = .exe
 ifneq ($(HOST_OS),WIN32)
-TARGET ?= $(MINGW_CROSS_GUESS)
+TARGET ?= $(MINGW32_CROSS_GUESS)
 CC = $(TARGET)-gcc
 STRIP = $(TARGET)-strip
 WINDRES = $(TARGET)-windres
 endif
 else
-EXT =
+ifeq ($(TARGET_OS),WIN64)
+EXT=.exe
+ifneq ($(HOST_OS),WIN64)
+TARGET ?= $(MINGW64_CROSS_GUESS)
+CC = $(TARGET)-gcc
+STRIP = $(TARGET)-strip
+WINDRES = $(TARGET)-windres
+endif
+else
+EXT=
+endif
 endif
 
 # ============================================================================
@@ -177,13 +187,20 @@ OGLBASE ?= $(OGLBASE_GUESS)
 #   i486-mingw32 (Arch).
 # ------------------------------------------------------------------------
 
-MINGW_CROSS_GUESS := $(shell \
+MINGW32_CROSS_GUESS := $(shell \
 	if which i486-mingw32-gcc > /dev/null 2>&1; then \
 		echo i486-mingw32; \
 	elif which i586-mingw32msvc-gcc > /dev/null 2>&1; then \
 		echo i586-mingw32msvc; \
 	else \
 		echo i386-mingw32msvc; \
+	fi)
+
+MINGW64_CROSS_GUESS := $(shell \
+	if which x86_64-w64-mingw32-gcc > /dev/null 2>&1; then \
+		echo x86_64-w64-mingw32; \
+	else \
+		echo x86_64-w64-mingw32; \
 	fi)
 
 # --------------------------------
@@ -646,7 +663,7 @@ endif
 # Target OS Options
 # ----------------------------------------------------------------------------
 
-ifeq ($(TARGET_OS),WIN32)
+ifneq (,$(findstring $(TARGET_OS),WIN32 WIN64))
 COMMON_CPPFLAGS += -DWIN32_LEAN_AND_MEAN
 COMMON_OBJS += net_wins.o sys_win.o
 CL_OBJS     += winquake.res
