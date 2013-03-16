@@ -57,7 +57,6 @@ typedef struct {
     bounds_t object;		/* size of the moving object */
     bounds_t monster;		/* size when clipping against monsters */
     vec3_t start, end;
-    trace_t *trace;
     movetype_t type;
     const edict_t *passedict;
 } moveclip_t;
@@ -848,13 +847,13 @@ Mins and maxs enclose the entire area swept by the move
 ====================
 */
 static void
-SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
+SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
 {
     link_t *l, *next;
     edict_t *touch;
-    trace_t trace;
+    trace_t stacktrace;
 
-// touch linked edicts
+    /* touch linked edicts */
     for (l = node->solid_edicts.next; l != &node->solid_edicts; l = next) {
 	next = l->next;
 	touch = EDICT_FROM_AREA(l);
@@ -880,42 +879,44 @@ SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
 	    && !touch->v.size[0])
 	    continue;		// points never interact
 
-	// might intersect, so do an exact clip
-	if (clip->trace->allsolid)
+	/* might intersect, so do an exact clip */
+	if (trace->allsolid)
 	    return;
 	if (clip->passedict) {
+	    /* don't clip against own missiles */
 	    if (PROG_TO_EDICT(touch->v.owner) == clip->passedict)
-		continue;	// don't clip against own missiles
+		continue;
+	    /* don't clip against owner */
 	    if (PROG_TO_EDICT(clip->passedict->v.owner) == touch)
-		continue;	// don't clip against owner
+		continue;
 	}
 
 	if ((int)touch->v.flags & FL_MONSTER)
 	    SV_ClipMoveToEntity(touch, clip->start, clip->monster.mins,
-				clip->monster.maxs, clip->end, &trace);
+				clip->monster.maxs, clip->end, &stacktrace);
 	else
 	    SV_ClipMoveToEntity(touch, clip->start, clip->object.mins,
-				clip->object.maxs, clip->end, &trace);
-	if (trace.allsolid || trace.startsolid
-	    || trace.fraction < clip->trace->fraction) {
-	    trace.ent = touch;
-	    if (clip->trace->startsolid) {
-		*clip->trace = trace;
-		clip->trace->startsolid = true;
+				clip->object.maxs, clip->end, &stacktrace);
+	if (stacktrace.allsolid || stacktrace.startsolid
+	    || stacktrace.fraction < trace->fraction) {
+	    stacktrace.ent = touch;
+	    if (trace->startsolid) {
+		*trace = stacktrace;
+		trace->startsolid = true;
 	    } else
-		*clip->trace = trace;
-	} else if (trace.startsolid)
-	    clip->trace->startsolid = true;
+		*trace = stacktrace;
+	} else if (stacktrace.startsolid)
+	    trace->startsolid = true;
     }
 
-// recurse down both sides
+    /* recurse down both sides */
     if (node->axis == -1)
 	return;
 
     if (clip->move.maxs[node->axis] > node->dist)
-	SV_ClipToLinks(node->children[0], clip);
+	SV_ClipToLinks(node->children[0], clip, trace);
     if (clip->move.mins[node->axis] < node->dist)
-	SV_ClipToLinks(node->children[1], clip);
+	SV_ClipToLinks(node->children[1], clip, trace);
 }
 
 
@@ -956,7 +957,6 @@ SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
 
     memset(&clip, 0, sizeof(moveclip_t));
 
-    clip.trace = trace;
     VectorCopy(start, clip.start);
     VectorCopy(end, clip.end);
     VectorCopy(mins, clip.object.mins);
@@ -965,7 +965,7 @@ SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
     clip.passedict = passedict;
 
     /* clip to world */
-    SV_ClipMoveToEntity(sv.edicts, start, mins, maxs, end, clip.trace);
+    SV_ClipMoveToEntity(sv.edicts, start, mins, maxs, end, trace);
 
     if (type == MOVE_MISSILE) {
 	for (i = 0; i < 3; i++) {
@@ -981,5 +981,5 @@ SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
     SV_MoveBounds(&clip.monster, start, end, &clip.move);
 
     /* clip to entities */
-    SV_ClipToLinks(sv_areanodes, &clip);
+    SV_ClipToLinks(sv_areanodes, &clip, trace);
 }
