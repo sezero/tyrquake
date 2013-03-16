@@ -63,15 +63,15 @@ void SV_LinkEdict(edict_t *ent, qboolean touch_triggers);
 // sets ent->v.absmin and ent->v.absmax
 // if touchtriggers, calls prog functions for the intersected triggers
 
-int SV_PointContents(vec3_t p);
+int SV_PointContents(const vec3_t point);
 
 // returns the CONTENTS_* value from the world at the given point.
 // does not check any entities at all
 
-edict_t *SV_TestEntityPosition(edict_t *ent);
+edict_t *SV_TestEntityPosition(const edict_t *ent);
 
-trace_t SV_Move(vec3_t start, vec3_t mins, vec3_t maxs, vec3_t end,
-		int type, edict_t *passedict);
+trace_t SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
+		const vec3_t end, int type, const edict_t *passedict);
 // mins and maxs are reletive
 
 // if the entire move stays in a solid volume, trace.allsolid will be set
@@ -90,8 +90,10 @@ void SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs);
 #ifdef NQ_HACK
 // FIXME - needed in chase.c, but doesn't seem like the right interface
 #include "model.h"
-qboolean SV_RecursiveHullCheck(hull_t *hull, int num, float p1f, float p2f,
-			       vec3_t p1, vec3_t p2, trace_t *trace);
+qboolean SV_RecursiveHullCheck(const hull_t *hull, int num,
+			       const float p1f, const float p2f,
+			       const vec3_t p1, const vec3_t p2,
+			       trace_t *trace);
 #endif
 
 #endif /* WORLD_H */
