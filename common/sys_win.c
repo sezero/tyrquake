@@ -891,12 +891,14 @@ Sys_MakeCodeWriteable
 ================
 */
 void
-Sys_MakeCodeWriteable(unsigned long startaddr, unsigned long length)
+Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
 {
     DWORD dummy;
     BOOL success;
+    size_t length;
 
-    success = VirtualProtect((LPVOID)startaddr, length, PAGE_READWRITE, &dummy);
+    length = (byte *)end_addr - (byte *)start_addr;
+    success = VirtualProtect(start_addr, length, PAGE_READWRITE, &dummy);
     if (!success)
 	Sys_Error("Protection change failed");
 }

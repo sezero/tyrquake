@@ -267,8 +267,7 @@ R_Init(void)
 
 // TODO: collect 386-specific code in one place
 #ifdef USE_X86_ASM
-    Sys_MakeCodeWriteable((long)R_EdgeCodeStart,
-			  (long)R_EdgeCodeEnd - (long)R_EdgeCodeStart);
+    Sys_MakeCodeWriteable(R_EdgeCodeStart, R_EdgeCodeEnd);
 #endif
 
     D_Init();
@@ -505,13 +504,11 @@ R_ViewChanged(vrect_t *pvrect, int lineadj, float aspect)
 // TODO: collect 386-specific code in one place
 #ifdef USE_X86_ASM
     if (r_pixbytes == 1) {
-	Sys_MakeCodeWriteable((long)R_Surf8Start,
-			      (long)R_Surf8End - (long)R_Surf8Start);
+	Sys_MakeCodeWriteable(R_Surf8Start, R_Surf8End);
 	colormap = vid.colormap;
 	R_Surf8Patch();
     } else {
-	Sys_MakeCodeWriteable((long)R_Surf16Start,
-			      (long)R_Surf16End - (long)R_Surf16Start);
+	Sys_MakeCodeWriteable(R_Surf16Start, R_Surf16End);
 	colormap = vid.colormap16;
 	R_Surf16Patch();
     }

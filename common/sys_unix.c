@@ -298,19 +298,18 @@ Sys_MakeCodeWriteable
 ================
 */
 void
-Sys_MakeCodeWriteable(unsigned long startaddr, unsigned long length)
+Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
 {
-    int r;
-    unsigned long addr;
-    int psize = getpagesize();
+    void *addr;
+    size_t length;
+    intptr_t pagesize;
+    int result;
 
-    addr = (startaddr & ~(psize - 1)) - psize;
-
-//      fprintf(stderr, "writable code %lx(%lx)-%lx, length=%lx\n", startaddr,
-//                      addr, startaddr+length, length);
-
-    r = mprotect((char *)addr, length + startaddr - addr + psize, 7);
-
-    if (r < 0)
+    pagesize = getpagesize();
+    addr = (void *)((intptr_t)start_addr & ~(pagesize - 1));
+    length = ((byte *)end_addr - (byte *)addr) + pagesize - 1;
+    length &= ~(pagesize - 1);
+    result = mprotect(addr, length, PROT_READ | PROT_WRITE | PROT_EXEC);
+    if (result < 0)
 	Sys_Error("Protection change failed");
 }

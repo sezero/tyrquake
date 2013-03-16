@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "d_local.h"
 #include "render.h"
-#include "sys.h"		/* Sys_MakeCodeWriteable() */
+#include "sys.h"
 
 int d_vrectx, d_vrecty, d_vrectright_particle, d_vrectbottom_particle;
 
@@ -40,13 +40,9 @@ void
 D_Patch(void)
 {
 #ifdef USE_X86_ASM
-
     static qboolean protectset8 = false;
-
     if (!protectset8) {
-	Sys_MakeCodeWriteable((unsigned long)D_PolysetAff8Start,
-			      (unsigned long)D_PolysetAff8End -
-			      (unsigned long)D_PolysetAff8Start);
+	Sys_MakeCodeWriteable(D_PolysetAff8Start, D_PolysetAff8End);
 	protectset8 = true;
     }
 #endif /* USE_X86_ASM */

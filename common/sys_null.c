@@ -59,7 +59,7 @@ SYSTEM IO
 */
 
 void
-Sys_MakeCodeWriteable(unsigned long startaddr, unsigned long length)
+Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
 {
 }
 
