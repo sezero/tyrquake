@@ -59,7 +59,7 @@ typedef struct {
 } moveclip_t;
 
 
-int SV_HullPointContents(hull_t *hull, int num, vec3_t p);
+int SV_HullPointContents(const hull_t *hull, int num, const vec3_t point);
 
 /*
 ===============================================================================
@@ -570,11 +570,11 @@ SV_HullPointContents
 ==================
 */
 int
-SV_HullPointContents(hull_t *hull, int num, vec3_t p)
+SV_HullPointContents(const hull_t *hull, int num, const vec3_t point)
 {
-    float d;
-    mclipnode_t *node;
-    mplane_t *plane;
+    float dist;
+    const mclipnode_t *node;
+    const mplane_t *plane;
 
     while (num >= 0) {
 	if (num < hull->firstclipnode || num > hull->lastclipnode)
@@ -584,10 +584,10 @@ SV_HullPointContents(hull_t *hull, int num, vec3_t p)
 	plane = hull->planes + node->planenum;
 
 	if (plane->type < 3)
-	    d = p[plane->type] - plane->dist;
+	    dist = point[plane->type] - plane->dist;
 	else
-	    d = DotProduct(plane->normal, p) - plane->dist;
-	if (d < 0)
+	    dist = DotProduct(plane->normal, point) - plane->dist;
+	if (dist < 0)
 	    num = node->children[1];
 	else
 	    num = node->children[0];
