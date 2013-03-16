@@ -48,16 +48,11 @@ void GL_EndRendering(void);
 
 extern unsigned char d_15to8table[65536];
 
-#ifdef _WIN32
-
-// ARB Multitexture
+/* ARB Multitexture compatibilty for old GL headers... remove this? */
 #ifndef GL_VERSION_1_2
-# define   GL_TEXTURE0_ARB  0x84C0
-# define   GL_TEXTURE1_ARB  0x84C1
+#define GL_TEXTURE0_ARB 0x84C0
+#define GL_TEXTURE1_ARB 0x84C1
 #endif
-
-#endif /* _WIN32 */
-
 #ifndef GL_VERSION_1_3
 #define GL_MAX_TEXTURE_UNITS GL_MAX_TEXTURE_UNITS_ARB
 #endif
