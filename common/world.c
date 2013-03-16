@@ -54,7 +54,7 @@ typedef struct {
     vec3_t mins2, maxs2;	// size when clipping against mosnters
     const float *start, *end;
     trace_t trace;
-    int type;
+    movetype_t type;
     const edict_t *passedict;
 } moveclip_t;
 
@@ -639,7 +639,7 @@ SV_TestEntityPosition(const edict_t *ent)
     edict_t *ret = NULL;
     trace_t trace;
 
-    trace = SV_Move(v->origin, v->mins, v->maxs, v->origin, 0, ent);
+    trace = SV_Move(v->origin, v->mins, v->maxs, v->origin, MOVE_NORMAL, ent);
     if (trace.startsolid)
 	ret = sv.edicts;
 
@@ -952,7 +952,7 @@ SV_Move
 */
 trace_t
 SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-	const vec3_t end, int type, const edict_t *passedict)
+	const vec3_t end, movetype_t type, const edict_t *passedict)
 {
     moveclip_t clip;
     int i;

@@ -749,7 +749,7 @@ PF_traceline(void)
 {
     float *v1, *v2;
     trace_t trace;
-    int nomonsters;
+    movetype_t nomonsters;
     edict_t *ent;
 
     v1 = G_VECTOR(OFS_PARM0);
@@ -1288,7 +1288,8 @@ PF_droptofloor(void)
     VectorCopy(ent->v.origin, end);
     end[2] -= 256;
 
-    trace = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, false, ent);
+    trace = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, MOVE_NORMAL,
+		    ent);
 
     if (trace.fraction == 1 || trace.allsolid)
 	G_FLOAT(OFS_RETURN) = 0;
@@ -1478,7 +1479,7 @@ PF_aim(void)
 // try sending a trace straight
     VectorCopy(pr_global_struct->v_forward, dir);
     VectorMA(start, 2048, dir, end);
-    tr = SV_Move(start, vec3_origin, vec3_origin, end, false, ent);
+    tr = SV_Move(start, vec3_origin, vec3_origin, end, MOVE_NORMAL, ent);
     if (tr.ent && tr.ent->v.takedamage == DAMAGE_AIM
 	&& (!teamplay.value || ent->v.team <= 0
 	    || ent->v.team != tr.ent->v.team)) {
@@ -1506,7 +1507,7 @@ PF_aim(void)
 	dist = DotProduct(dir, pr_global_struct->v_forward);
 	if (dist < bestdist)
 	    continue;		// to far to turn
-	tr = SV_Move(start, vec3_origin, vec3_origin, end, false, ent);
+	tr = SV_Move(start, vec3_origin, vec3_origin, end, MOVE_NORMAL, ent);
 	if (tr.ent == check) {	// can shoot at this one
 	    bestdist = dist;
 	    bestent = check;

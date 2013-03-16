@@ -40,10 +40,11 @@ typedef struct {
     const edict_t *ent;		// entity the surface is on
 } trace_t;
 
-
-#define	MOVE_NORMAL	0
-#define	MOVE_NOMONSTERS	1
-#define	MOVE_MISSILE	2
+typedef enum {
+    MOVE_NORMAL = 0,
+    MOVE_NOMONSTERS = 1,
+    MOVE_MISSILE = 2,
+} movetype_t;
 
 
 void SV_ClearWorld(void);
@@ -71,7 +72,7 @@ int SV_PointContents(const vec3_t point);
 edict_t *SV_TestEntityPosition(const edict_t *ent);
 
 trace_t SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-		const vec3_t end, int type, const edict_t *passedict);
+		const vec3_t end, movetype_t type, const edict_t *passedict);
 // mins and maxs are reletive
 
 // if the entire move stays in a solid volume, trace.allsolid will be set
