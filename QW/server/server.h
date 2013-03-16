@@ -423,7 +423,6 @@ void SV_CheckVelocity(edict_t *ent);
 void SV_AddGravity(edict_t *ent, float scale);
 void SV_Physics_Toss(edict_t *ent);
 void SV_RunNewmis(void);
-void SV_Impact(edict_t *e1, edict_t *e2);
 void SV_SetMoveVars(void);
 
 //

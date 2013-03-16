@@ -164,8 +164,8 @@ SV_Impact
 Two entities have touched, so run their touch functions
 ==================
 */
-void
-SV_Impact(edict_t *e1, edict_t *e2)
+static void
+SV_Impact(const edict_t *e1, const edict_t *e2)
 {
     int old_self, old_other;
 
