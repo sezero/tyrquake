@@ -47,12 +47,16 @@ line of sight checks trace->crosscontent, but bullets don't
 
 */
 
+typedef struct {
+    vec3_t mins;
+    vec3_t maxs;
+} bounds_t;
 
 typedef struct {
-    vec3_t boxmins, boxmaxs;	// enclose the test object along entire move
-    const float *mins, *maxs;		// size of the moving object
-    vec3_t mins2, maxs2;	// size when clipping against mosnters
-    const float *start, *end;
+    bounds_t move;		/* enclose the test object along entire move */
+    bounds_t object;		/* size of the moving object */
+    bounds_t monster;		/* size when clipping against monsters */
+    vec3_t start, end;
     trace_t trace;
     movetype_t type;
     const edict_t *passedict;
@@ -869,12 +873,12 @@ SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
 	if (clip->type == MOVE_NOMONSTERS && touch->v.solid != SOLID_BSP)
 	    continue;
 
-	if (clip->boxmins[0] > touch->v.absmax[0]
-	    || clip->boxmins[1] > touch->v.absmax[1]
-	    || clip->boxmins[2] > touch->v.absmax[2]
-	    || clip->boxmaxs[0] < touch->v.absmin[0]
-	    || clip->boxmaxs[1] < touch->v.absmin[1]
-	    || clip->boxmaxs[2] < touch->v.absmin[2])
+	if (clip->move.mins[0] > touch->v.absmax[0]
+	    || clip->move.mins[1] > touch->v.absmax[1]
+	    || clip->move.mins[2] > touch->v.absmax[2]
+	    || clip->move.maxs[0] < touch->v.absmin[0]
+	    || clip->move.maxs[1] < touch->v.absmin[1]
+	    || clip->move.maxs[2] < touch->v.absmin[2])
 	    continue;
 
 	if (clip->passedict && clip->passedict->v.size[0]
@@ -892,13 +896,11 @@ SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
 	}
 
 	if ((int)touch->v.flags & FL_MONSTER)
-	    trace =
-		SV_ClipMoveToEntity(touch, clip->start, clip->mins2,
-				    clip->maxs2, clip->end);
+	    trace = SV_ClipMoveToEntity(touch, clip->start, clip->monster.mins,
+					clip->monster.maxs, clip->end);
 	else
-	    trace =
-		SV_ClipMoveToEntity(touch, clip->start, clip->mins,
-				    clip->maxs, clip->end);
+	    trace = SV_ClipMoveToEntity(touch, clip->start, clip->object.mins,
+					clip->object.maxs, clip->end);
 	if (trace.allsolid || trace.startsolid
 	    || trace.fraction < clip->trace.fraction) {
 	    trace.ent = touch;
@@ -915,9 +917,9 @@ SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
     if (node->axis == -1)
 	return;
 
-    if (clip->boxmaxs[node->axis] > node->dist)
+    if (clip->move.maxs[node->axis] > node->dist)
 	SV_ClipToLinks(node->children[0], clip);
-    if (clip->boxmins[node->axis] < node->dist)
+    if (clip->move.mins[node->axis] < node->dist)
 	SV_ClipToLinks(node->children[1], clip);
 }
 
@@ -928,19 +930,18 @@ SV_MoveBounds
 ==================
 */
 static void
-SV_MoveBounds(const vec3_t start, const vec3_t mins,
-	      const vec3_t maxs, const vec3_t end,
-	      vec3_t boxmins, vec3_t boxmaxs)
+SV_MoveBounds(const bounds_t *object, const vec3_t start, const vec3_t end,
+	      bounds_t *move)
 {
     int i;
 
     for (i = 0; i < 3; i++) {
 	if (end[i] > start[i]) {
-	    boxmins[i] = start[i] + mins[i] - 1;
-	    boxmaxs[i] = end[i] + maxs[i] + 1;
+	    move->mins[i] = start[i] + object->mins[i] - 1;
+	    move->maxs[i] = end[i] + object->maxs[i] + 1;
 	} else {
-	    boxmins[i] = end[i] + mins[i] - 1;
-	    boxmaxs[i] = start[i] + maxs[i] + 1;
+	    move->mins[i] = end[i] + object->mins[i] - 1;
+	    move->maxs[i] = start[i] + object->maxs[i] + 1;
 	}
     }
 }
@@ -959,29 +960,27 @@ SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
 
     memset(&clip, 0, sizeof(moveclip_t));
 
-// clip to world
+    /* clip to world */
     clip.trace = SV_ClipMoveToEntity(sv.edicts, start, mins, maxs, end);
-
-    clip.start = start;
-    clip.end = end;
-    clip.mins = mins;
-    clip.maxs = maxs;
+    VectorCopy(start, clip.start);
+    VectorCopy(end, clip.end);
+    VectorCopy(mins, clip.object.mins);
+    VectorCopy(maxs, clip.object.maxs);
     clip.type = type;
     clip.passedict = passedict;
 
     if (type == MOVE_MISSILE) {
 	for (i = 0; i < 3; i++) {
-	    clip.mins2[i] = -15;
-	    clip.maxs2[i] = 15;
+	    clip.monster.mins[i] = -15;
+	    clip.monster.maxs[i] = 15;
 	}
     } else {
-	VectorCopy(mins, clip.mins2);
-	VectorCopy(maxs, clip.maxs2);
+	VectorCopy(mins, clip.monster.mins);
+	VectorCopy(maxs, clip.monster.maxs);
     }
 
 // create the bounding box of the entire move
-    SV_MoveBounds(start, clip.mins2, clip.maxs2, end, clip.boxmins,
-		  clip.boxmaxs);
+    SV_MoveBounds(&clip.monster, start, end, &clip.move);
 
 // clip to entities
     SV_ClipToLinks(sv_areanodes, &clip);
