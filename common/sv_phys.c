@@ -565,11 +565,6 @@ SV_Push(edict_t *pusher, const vec3_t move)
 #endif
 	    continue;
 	}
-
-#ifdef NQ_HACK
-	VectorCopy(moved_from[num_moved - 1], check->v.origin);
-	SV_LinkEdict(check, true);
-#endif
 	VectorCopy(pushorig, pusher->v.origin);
 	SV_LinkEdict(pusher, false);
 
