@@ -399,7 +399,6 @@ qboolean SV_movestep(edict_t *ent, vec3_t move, qboolean relink);
 void SV_WriteClientdataToMessage(client_t *client, sizebuf_t *msg);
 void SV_MoveToGoal(void);
 void SV_SaveSpawnparms(void);
-void SV_Physics_Client(edict_t *ent);
 void SV_ExecuteUserCommand(const char *s);
 void SV_InitOperatorCommands(void);
 void SV_SendServerinfo(client_t *client);
@@ -419,9 +418,6 @@ void SV_FlushSignon(void);
 qboolean SV_RunThink(edict_t *ent);
 void SV_ProgStartFrame(void);
 void SV_Physics(void);
-void SV_CheckVelocity(edict_t *ent);
-void SV_AddGravity(edict_t *ent, float scale);
-void SV_Physics_Toss(edict_t *ent);
 void SV_RunNewmis(void);
 void SV_SetMoveVars(void);
 
