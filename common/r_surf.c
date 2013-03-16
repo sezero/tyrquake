@@ -542,7 +542,7 @@ R_DrawSurfaceBlock16(void)
 	pbasesource += sourcetstep;
 	lightright += lightrightstep;
 	lightleft += lightleftstep;
-	prowdest = (unsigned short *)((long)prowdest + surfrowbytes);
+	prowdest = (unsigned short *)((byte *)prowdest + surfrowbytes);
     }
 
     prowdestbase = prowdest;

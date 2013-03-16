@@ -24,8 +24,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
+#include "qtypes.h"
 #include "cmd.h"
 #include "console.h"
 #include "glquake.h" /* FIXME - make usable in software mode too */
@@ -38,21 +40,18 @@ struct list_node {
     struct list_node *prev;
 };
 
-#define list_entry(ptr, type, member) \
-	((type *)((char *)(ptr)-(unsigned long)(&((type *)0)->member)))
-
 /* Iterate over each entry in the list */
 #define list_for_each_entry(pos, head, member)				\
-	for (pos = list_entry((head)->next, typeof(*pos), member);	\
+	for (pos = container_of((head)->next, typeof(*pos), member);	\
 	     &pos->member != (head);					\
-	     pos = list_entry(pos->member.next, typeof(*pos), member))
+	     pos = container_of(pos->member.next, typeof(*pos), member))
 
 /* Iterate over the list, safe for removal of entries */
 #define list_for_each_entry_safe(pos, n, head, member)			\
-	for (pos = list_entry((head)->next, typeof(*pos), member),	\
-	     n = list_entry(pos->member.next, typeof(*pos), member);	\
+	for (pos = container_of((head)->next, typeof(*pos), member),	\
+	     n = container_of(pos->member.next, typeof(*pos), member);	\
 	     &pos->member != (head);					\
-	     pos = n, n = list_entry(n->member.next, typeof(*n), member))
+	     pos = n, n = container_of(n->member.next, typeof(*n), member))
 
 #define LIST_HEAD_INIT(name) { &(name), &(name) }
 
@@ -722,7 +721,7 @@ R_DrawWorldHull(void)
     int i;
 
     list_for_each_entry(poly, &hull_polys, chain) {
-	srand((unsigned long)poly);
+	srand((intptr_t)poly);
 	glColor3f(rand() % 256 / 255.0, rand() % 256 / 255.0,
 		  rand() % 256 / 255.0);
 	glBegin(GL_POLYGON);

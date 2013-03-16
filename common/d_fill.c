@@ -17,7 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-// d_clear: clears a specified rectangle to the specified color
+
+#include <stdint.h>
 
 #include "quakedef.h"
 #include "vid.h"
@@ -57,7 +58,7 @@ D_FillRect(vrect_t *rect, int color)
 
     dest = ((byte *)vid.buffer + ry * vid.rowbytes + rx);
 
-    if (((rwidth & 0x03) == 0) && (((long)dest & 0x03) == 0)) {
+    if (((rwidth & 0x03) == 0) && (((intptr_t)dest & 0x03) == 0)) {
 	// faster aligned dword clear
 	ldest = (unsigned *)dest;
 	color += color << 16;

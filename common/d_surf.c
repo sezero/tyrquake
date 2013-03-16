@@ -17,7 +17,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-// d_surf.c: rasterization driver surface heap manager
+
+/* rasterization driver surface heap manager */
+
+#include <stdint.h>
 
 #include "console.h"
 #include "d_local.h"
@@ -147,7 +150,7 @@ D_SCAlloc(int width, int size)
     if ((size <= 0) || (size > 0x10000))
 	Sys_Error("%s: bad cache size %d", __func__, size);
 
-    size = (unsigned long)&((surfcache_t *)0)->data[size];
+    size = offsetof(surfcache_t, data[size]);
     size = (size + 3) & ~3;
     if (size > sc_size)
 	Sys_Error("%s: %i > cache size", __func__, size);

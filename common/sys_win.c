@@ -817,17 +817,17 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 	// FIXME - What is QHOST?
 	if ((t = COM_CheckParm("-HFILE")) > 0) {
 	    if (t < com_argc)
-		hFile = (HANDLE)Q_atoi(com_argv[t + 1]);
+		hFile = (HANDLE)(intptr_t)Q_atoi(com_argv[t + 1]);
 	}
 
 	if ((t = COM_CheckParm("-HPARENT")) > 0) {
 	    if (t < com_argc)
-		heventParent = (HANDLE)Q_atoi(com_argv[t + 1]);
+		heventParent = (HANDLE)(intptr_t)Q_atoi(com_argv[t + 1]);
 	}
 
 	if ((t = COM_CheckParm("-HCHILD")) > 0) {
 	    if (t < com_argc)
-		heventChild = (HANDLE)Q_atoi(com_argv[t + 1]);
+		heventChild = (HANDLE)(intptr_t)Q_atoi(com_argv[t + 1]);
 	}
 
 	InitConProc(hFile, heventParent, heventChild);

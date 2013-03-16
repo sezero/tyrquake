@@ -17,7 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-// d_edge.c
+
+#include <stdint.h>
 
 #include "d_local.h"
 #include "quakedef.h"
@@ -178,7 +179,7 @@ D_DrawSurfaces(void)
 	    d_zistepv = s->d_zistepv;
 	    d_ziorigin = s->d_ziorigin;
 
-	    D_DrawSolidSurface(s, (unsigned long)s->data & 0xFF);
+	    D_DrawSolidSurface(s, (intptr_t)s->data & 0xFF);
 	    D_DrawZSpans(s->spans);
 	}
     } else {

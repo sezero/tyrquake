@@ -17,9 +17,10 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-// d_scan.c
-//
-// Portable C scan-level rasterization code, all pixel depths.
+
+/* Portable C scan-level rasterization code, all pixel depths. */
+
+#include <stdint.h>
 
 #include "quakedef.h"
 #include "r_local.h"
@@ -417,7 +418,7 @@ D_DrawZSpans(espan_t *pspan)
 	// we count on FP exceptions being turned off to avoid range problems
 	izi = (int)(zi * 0x8000 * 0x10000);
 
-	if ((long)pdest & 0x02) {
+	if ((intptr_t)pdest & 0x02) {
 	    *pdest++ = (short)(izi >> 16);
 	    izi += izistep;
 	    count--;

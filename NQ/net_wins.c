@@ -73,7 +73,7 @@ SockadrToNetadr(const struct sockaddr_in *s, netadr_t *a)
     a->port = s->sin_port;
 }
 
-static BOOL PASCAL FAR
+static int
 BlockingHook(void)
 {
     MSG msg;
@@ -129,7 +129,8 @@ WINS_Init(void)
     } else {
 	buff[MAXHOSTNAMELEN - 1] = 0;
 	blocktime = Sys_DoubleTime();
-	WSASetBlockingHook(BlockingHook);
+	/* FIXME - WSASetBlockingHook is deprecated in Winsock2 */
+	WSASetBlockingHook((FARPROC)BlockingHook);
 	local = gethostbyname(buff);
 	WSAUnhookBlockingHook();
 	if (!local) {
