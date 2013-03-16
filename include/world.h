@@ -71,8 +71,9 @@ int SV_PointContents(const vec3_t point);
 
 edict_t *SV_TestEntityPosition(const edict_t *ent);
 
-trace_t SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-		const vec3_t end, movetype_t type, const edict_t *passedict);
+void SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
+	     const vec3_t end, movetype_t type, const edict_t *passedict,
+	     trace_t *trace);
 // mins and maxs are reletive
 
 // if the entire move stays in a solid volume, trace.allsolid will be set

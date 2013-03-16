@@ -291,8 +291,8 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
 	for (i = 0; i < 3; i++)
 	    end[i] = ent->v.origin[i] + time_left * ent->v.velocity[i];
 
-	trace = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end,
-			MOVE_NORMAL, ent);
+	SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, MOVE_NORMAL, ent,
+		&trace);
 
 	if (trace.allsolid) {	// entity is trapped in another solid
 	    VectorCopy(vec3_origin, ent->v.velocity);
@@ -429,15 +429,15 @@ SV_PushEntity(edict_t *ent, const vec3_t push)
     VectorAdd(ent->v.origin, push, end);
 
     if (ent->v.movetype == MOVETYPE_FLYMISSILE)
-	trace = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end,
-			MOVE_MISSILE, ent);
+	SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, MOVE_MISSILE,
+		ent, &trace);
     else if (ent->v.solid == SOLID_TRIGGER || ent->v.solid == SOLID_NOT)
 	// only clip against bmodels
-	trace = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end,
-			MOVE_NOMONSTERS, ent);
+	SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, MOVE_NOMONSTERS,
+		ent, &trace);
     else
-	trace = SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end,
-			MOVE_NORMAL, ent);
+	SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, MOVE_NORMAL, ent,
+		&trace);
 
     VectorCopy(trace.endpos, ent->v.origin);
     SV_LinkEdict(ent, true);

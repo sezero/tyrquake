@@ -57,11 +57,10 @@ typedef struct {
     bounds_t object;		/* size of the moving object */
     bounds_t monster;		/* size when clipping against monsters */
     vec3_t start, end;
-    trace_t trace;
+    trace_t *trace;
     movetype_t type;
     const edict_t *passedict;
 } moveclip_t;
-
 
 int SV_HullPointContents(const hull_t *hull, int num, const vec3_t point);
 
@@ -72,7 +71,6 @@ HULL BOXES
 
 ===============================================================================
 */
-
 
 static hull_t box_hull;
 static mclipnode_t box_clipnodes[6];
@@ -643,7 +641,7 @@ SV_TestEntityPosition(const edict_t *ent)
     edict_t *ret = NULL;
     trace_t trace;
 
-    trace = SV_Move(v->origin, v->mins, v->maxs, v->origin, MOVE_NORMAL, ent);
+    SV_Move(v->origin, v->mins, v->maxs, v->origin, MOVE_NORMAL, ent, &trace);
     if (trace.startsolid)
 	ret = sv.edicts;
 
@@ -807,40 +805,37 @@ Handles selection or creation of a clipping hull, and offseting (and
 eventually rotation) of the end points
 ==================
 */
-static trace_t
+static void
 SV_ClipMoveToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
-		    const vec3_t maxs, const vec3_t end)
+		    const vec3_t maxs, const vec3_t end, trace_t *trace)
 {
     const hull_t *hull;
-    trace_t trace;
     vec3_t offset;
     vec3_t start_l, end_l;
 
-// fill in a default trace
-    memset(&trace, 0, sizeof(trace_t));
-    trace.fraction = 1;
-    trace.allsolid = true;
-    VectorCopy(end, trace.endpos);
+    /* fill in a default trace */
+    memset(trace, 0, sizeof(trace_t));
+    trace->fraction = 1;
+    trace->allsolid = true;
+    VectorCopy(end, trace->endpos);
 
-// get the clipping hull
+    /* get the clipping hull */
     hull = SV_HullForEntity(ent, mins, maxs, offset);
 
     VectorSubtract(start, offset, start_l);
     VectorSubtract(end, offset, end_l);
 
-// trace a line through the apropriate clipping hull
+    /* trace a line through the apropriate clipping hull */
     SV_RecursiveHullCheck(hull, hull->firstclipnode, 0, 1, start_l, end_l,
-			  &trace);
+			  trace);
 
-// fix trace up by the offset
-    if (trace.fraction != 1)
-	VectorAdd(trace.endpos, offset, trace.endpos);
+    /* fix trace up by the offset */
+    if (trace->fraction != 1)
+	VectorAdd(trace->endpos, offset, trace->endpos);
 
-// did we clip the move?
-    if (trace.fraction < 1 || trace.startsolid)
-	trace.ent = ent;
-
-    return trace;
+    /* did we clip the move? */
+    if (trace->fraction < 1 || trace->startsolid)
+	trace->ent = ent;
 }
 
 //===========================================================================
@@ -886,7 +881,7 @@ SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
 	    continue;		// points never interact
 
 	// might intersect, so do an exact clip
-	if (clip->trace.allsolid)
+	if (clip->trace->allsolid)
 	    return;
 	if (clip->passedict) {
 	    if (PROG_TO_EDICT(touch->v.owner) == clip->passedict)
@@ -896,21 +891,21 @@ SV_ClipToLinks(const areanode_t *node, moveclip_t *clip)
 	}
 
 	if ((int)touch->v.flags & FL_MONSTER)
-	    trace = SV_ClipMoveToEntity(touch, clip->start, clip->monster.mins,
-					clip->monster.maxs, clip->end);
+	    SV_ClipMoveToEntity(touch, clip->start, clip->monster.mins,
+				clip->monster.maxs, clip->end, &trace);
 	else
-	    trace = SV_ClipMoveToEntity(touch, clip->start, clip->object.mins,
-					clip->object.maxs, clip->end);
+	    SV_ClipMoveToEntity(touch, clip->start, clip->object.mins,
+				clip->object.maxs, clip->end, &trace);
 	if (trace.allsolid || trace.startsolid
-	    || trace.fraction < clip->trace.fraction) {
+	    || trace.fraction < clip->trace->fraction) {
 	    trace.ent = touch;
-	    if (clip->trace.startsolid) {
-		clip->trace = trace;
-		clip->trace.startsolid = true;
+	    if (clip->trace->startsolid) {
+		*clip->trace = trace;
+		clip->trace->startsolid = true;
 	    } else
-		clip->trace = trace;
+		*clip->trace = trace;
 	} else if (trace.startsolid)
-	    clip->trace.startsolid = true;
+	    clip->trace->startsolid = true;
     }
 
 // recurse down both sides
@@ -951,23 +946,26 @@ SV_MoveBounds(const bounds_t *object, const vec3_t start, const vec3_t end,
 SV_Move
 ==================
 */
-trace_t
+void
 SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-	const vec3_t end, movetype_t type, const edict_t *passedict)
+	const vec3_t end, movetype_t type, const edict_t *passedict,
+	trace_t *trace)
 {
     moveclip_t clip;
     int i;
 
     memset(&clip, 0, sizeof(moveclip_t));
 
-    /* clip to world */
-    clip.trace = SV_ClipMoveToEntity(sv.edicts, start, mins, maxs, end);
+    clip.trace = trace;
     VectorCopy(start, clip.start);
     VectorCopy(end, clip.end);
     VectorCopy(mins, clip.object.mins);
     VectorCopy(maxs, clip.object.maxs);
     clip.type = type;
     clip.passedict = passedict;
+
+    /* clip to world */
+    SV_ClipMoveToEntity(sv.edicts, start, mins, maxs, end, clip.trace);
 
     if (type == MOVE_MISSILE) {
 	for (i = 0; i < 3; i++) {
@@ -979,11 +977,9 @@ SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
 	VectorCopy(maxs, clip.monster.maxs);
     }
 
-// create the bounding box of the entire move
+    /* create the bounding box of the entire move */
     SV_MoveBounds(&clip.monster, start, end, &clip.move);
 
-// clip to entities
+    /* clip to entities */
     SV_ClipToLinks(sv_areanodes, &clip);
-
-    return clip.trace;
 }
