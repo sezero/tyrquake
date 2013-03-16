@@ -560,9 +560,7 @@ SV_Push(edict_t *pusher, const vec3_t move)
 	    /* corpse */
 	    check->v.mins[0] = check->v.mins[1] = 0;
 	    VectorCopy(check->v.mins, check->v.maxs);
-#ifdef QW_HACK
 	    SV_LinkEdict(check, false);
-#endif
 	    continue;
 	}
 	VectorCopy(pushorig, pusher->v.origin);
