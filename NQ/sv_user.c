@@ -38,19 +38,8 @@ edict_t *sv_player;
 cvar_t sv_idealpitchscale = { "sv_idealpitchscale", "0.8" };
 cvar_t sv_edgefriction = { "edgefriction", "2" };
 
-static vec3_t forward, right, up;
-static vec3_t wishdir;
-static float wishspeed;
-
-/* world */
-static float *angles;
-static float *origin;
-static float *velocity;
-
 static qboolean onground;
 static usercmd_t cmd;
-
-
 
 /*
 ===============
@@ -126,23 +115,19 @@ SV_UserFriction
 ==================
 */
 static void
-SV_UserFriction(void)
+SV_UserFriction(const vec3_t origin, vec3_t velocity)
 {
-    float *vel;
-    float speed, newspeed, control;
+    vec_t speed, newspeed, control, friction;
     vec3_t start, stop;
-    float friction;
     trace_t trace;
 
-    vel = velocity;
-
-    speed = sqrt(vel[0] * vel[0] + vel[1] * vel[1]);
+    speed = sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
     if (!speed)
 	return;
 
 // if the leading edge is over a dropoff, increase friction
-    start[0] = stop[0] = origin[0] + vel[0] / speed * 16;
-    start[1] = stop[1] = origin[1] + vel[1] / speed * 16;
+    start[0] = stop[0] = origin[0] + velocity[0] / speed * 16;
+    start[1] = stop[1] = origin[1] + velocity[1] / speed * 16;
     start[2] = origin[2] + sv_player->v.mins[2];
     stop[2] = start[2] - 34;
 
@@ -160,9 +145,9 @@ SV_UserFriction(void)
 	newspeed = 0;
     newspeed /= speed;
 
-    vel[0] = vel[0] * newspeed;
-    vel[1] = vel[1] * newspeed;
-    vel[2] = vel[2] * newspeed;
+    velocity[0] = velocity[0] * newspeed;
+    velocity[1] = velocity[1] * newspeed;
+    velocity[2] = velocity[2] * newspeed;
 }
 
 /*
@@ -174,7 +159,7 @@ cvar_t sv_maxspeed = { "sv_maxspeed", "320", false, true };
 cvar_t sv_accelerate = { "sv_accelerate", "10" };
 
 static void
-SV_Accelerate(void)
+SV_Accelerate(const vec3_t wishdir, const vec_t wishspeed, vec3_t velocity)
 {
     int i;
     float addspeed, accelspeed, currentspeed;
@@ -192,7 +177,7 @@ SV_Accelerate(void)
 }
 
 static void
-SV_AirAccelerate(vec3_t wishveloc)
+SV_AirAccelerate(vec3_t wishveloc, const vec_t wishspeed, vec3_t velocity)
 {
     int i;
     float addspeed, wishspd, accelspeed, currentspeed;
@@ -204,7 +189,6 @@ SV_AirAccelerate(vec3_t wishveloc)
     addspeed = wishspd - currentspeed;
     if (addspeed <= 0)
 	return;
-//      accelspeed = sv_accelerate.value * host_frametime;
     accelspeed = sv_accelerate.value * wishspeed * host_frametime;
     if (accelspeed > addspeed)
 	accelspeed = addspeed;
@@ -234,17 +218,16 @@ SV_WaterMove
 ===================
 */
 static void
-SV_WaterMove(void)
+SV_WaterMove(vec3_t velocity)
 {
     int i;
-    vec3_t wishvel;
+    vec3_t wishvel, forward, right, up;
     float speed, newspeed, wishspeed, addspeed, accelspeed;
 
 //
 // user intentions
 //
     AngleVectors(sv_player->v.v_angle, forward, right, up);
-
     for (i = 0; i < 3; i++)
 	wishvel[i] = forward[i] * cmd.forwardmove + right[i] * cmd.sidemove;
 
@@ -310,11 +293,11 @@ SV_AirMove
 ===================
 */
 static void
-SV_AirMove(void)
+SV_AirMove(const vec3_t origin, vec3_t velocity)
 {
     int i;
-    vec3_t wishvel;
-    float fmove, smove;
+    vec3_t wishvel, wishdir, forward, right, up;
+    vec_t wishspeed, fmove, smove;
 
     AngleVectors(sv_player->v.angles, forward, right, up);
 
@@ -343,10 +326,10 @@ SV_AirMove(void)
     if (sv_player->v.movetype == MOVETYPE_NOCLIP) {	// noclip
 	VectorCopy(wishvel, velocity);
     } else if (onground) {
-	SV_UserFriction();
-	SV_Accelerate();
+	SV_UserFriction(origin, velocity);
+	SV_Accelerate(wishdir, wishspeed, velocity);
     } else {			// not on ground, so little effect on velocity
-	SV_AirAccelerate(wishvel);
+	SV_AirAccelerate(wishvel, wishspeed, velocity);
     }
 }
 
@@ -362,6 +345,8 @@ static void
 SV_ClientThink(void)
 {
     vec3_t v_angle;
+    vec_t *angles, *velocity;
+    const vec_t *origin;
 
     if (sv_player->v.movetype == MOVETYPE_NONE)
 	return;
@@ -401,11 +386,11 @@ SV_ClientThink(void)
 //
     if ((sv_player->v.waterlevel >= 2)
 	&& (sv_player->v.movetype != MOVETYPE_NOCLIP)) {
-	SV_WaterMove();
+	SV_WaterMove(velocity);
 	return;
     }
 
-    SV_AirMove();
+    SV_AirMove(origin, velocity);
 }
 
 
