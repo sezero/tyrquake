@@ -49,8 +49,6 @@ typedef struct edict_s {
 // other fields from progs come immediately after
 } edict_t;
 
-#define	EDICT_FROM_AREA(l) container_of(l,edict_t,area)
-
 //============================================================================
 
 extern dprograms_t *progs;
@@ -86,14 +84,10 @@ void ED_ParseGlobals(const char *data);
 
 void ED_LoadFromFile(const char *data);
 
-//define EDICT_NUM(n) ((edict_t *)(sv.edicts+ (n)*pr_edict_size))
-//define NUM_FOR_EDICT(e) (((byte *)(e) - sv.edicts)/pr_edict_size)
-
 edict_t *EDICT_NUM(int n);
 int NUM_FOR_EDICT(const edict_t *e);
 
-#define	NEXT_EDICT(e) ((edict_t *)( (byte *)e + pr_edict_size))
-
+#define	NEXT_EDICT(e) ((edict_t *)((byte *)e + pr_edict_size))
 #define	EDICT_TO_PROG(e) ((byte *)e - (byte *)sv.edicts)
 #define PROG_TO_EDICT(e) ((edict_t *)((byte *)sv.edicts + e))
 
@@ -115,7 +109,6 @@ int NUM_FOR_EDICT(const edict_t *e);
 typedef void (*builtin_t) (void);
 extern builtin_t *pr_builtins;
 extern int pr_numbuiltins;
-
 extern int pr_argc;
 
 extern qboolean pr_trace;

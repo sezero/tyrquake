@@ -216,21 +216,22 @@ static void
 SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
 		     const vec3_t maxs)
 {
-    const link_t *l, *next;
+    const link_t *link, *next;
+    const link_t *const solids = &node->solid_edicts;
     const edict_t *check;
-    int pl;
-    int i;
-    physent_t *pe;
+    int i, playernum;
+    physent_t *physent;
 
-    pl = EDICT_TO_PROG(sv_player);
+    playernum = EDICT_TO_PROG(sv_player);
 
-    // touch linked edicts
-    for (l = node->solid_edicts.next; l != &node->solid_edicts; l = next) {
-	next = l->next;
-	check = EDICT_FROM_AREA(l);
+    /* touch linked edicts */
+    for (link = solids->next; link != solids; link = next) {
+	next = link->next;
+	check = container_of(link, edict_t, area);
 
-	if (check->v.owner == pl)
-	    continue;		// player's own missile
+	/* player's own missile */
+	if (check->v.owner == playernum)
+	    continue;
 	if (check->v.solid == SOLID_BSP
 	    || check->v.solid == SOLID_BBOX
 	    || check->v.solid == SOLID_SLIDEBOX) {
@@ -245,22 +246,22 @@ SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
 		continue;
 	    if (pmove.numphysent == MAX_PHYSENTS)
 		return;
-	    pe = &pmove.physents[pmove.numphysent];
+	    physent = &pmove.physents[pmove.numphysent];
 	    pmove.numphysent++;
 
-	    VectorCopy(check->v.origin, pe->origin);
-	    pe->info = NUM_FOR_EDICT(check);
+	    VectorCopy(check->v.origin, physent->origin);
+	    physent->info = NUM_FOR_EDICT(check);
 	    if (check->v.solid == SOLID_BSP)
-		pe->model = sv.models[(int)(check->v.modelindex)];
+		physent->model = sv.models[(int)(check->v.modelindex)];
 	    else {
-		pe->model = NULL;
-		VectorCopy(check->v.mins, pe->mins);
-		VectorCopy(check->v.maxs, pe->maxs);
+		physent->model = NULL;
+		VectorCopy(check->v.mins, physent->mins);
+		VectorCopy(check->v.maxs, physent->maxs);
 	    }
 	}
     }
 
-// recurse down both sides
+    /* recurse down both sides */
     if (node->axis == -1)
 	return;
 
@@ -364,17 +365,18 @@ SV_TouchLinks
 static void
 SV_TouchLinks(edict_t *ent, const areanode_t *node)
 {
-    link_t *l, *next;
+    link_t *link, *next;
+    const link_t *const triggers = &node->trigger_edicts;
     edict_t *touch;
     int old_self, old_other;
 
     /* touch linked edicts */
-    for (l = node->trigger_edicts.next; l != &node->trigger_edicts; l = next) {
+    for (link = triggers->next; link != triggers; link = next) {
 	/*
 	 * FIXME - Just paranoia? Check if this can really happen...
 	 *         (I think it was related to the E2M2 drawbridge bug)
 	 */
-	if (!l || !l->next)
+	if (!link || !link->next)
 #ifdef NQ_HACK
 	    Host_Error("%s: encountered NULL link", __func__);
 #endif
@@ -382,8 +384,8 @@ SV_TouchLinks(edict_t *ent, const areanode_t *node)
 	    SV_Error("%s: encountered NULL link", __func__);
 #endif
 
-	next = l->next;
-	touch = EDICT_FROM_AREA(l);
+	next = link->next;
+	touch = container_of(link, edict_t, area);
 	if (touch == ent)
 	    continue;
 	if (!touch->v.touch || touch->v.solid != SOLID_TRIGGER)
@@ -408,9 +410,9 @@ SV_TouchLinks(edict_t *ent, const areanode_t *node)
 	/* FIXME:
 	 * - what if (touch->free == true && l->next == NULL) ? (etc.)
 	 */
-	if (next != l->next && l->next) {
+	if (next != link->next && link->next) {
 	    Con_DPrintf("Warning: fixed up link in %s\n", __func__);
-	    next = l->next;
+	    next = link->next;
 	}
 	pr_global_struct->self = old_self;
 	pr_global_struct->other = old_other;
@@ -845,14 +847,15 @@ Mins and maxs enclose the entire area swept by the move
 static void
 SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
 {
-    link_t *l, *next;
+    link_t *link, *next;
+    const link_t *const solids = &node->solid_edicts;
     edict_t *touch;
     trace_t stacktrace;
 
     /* touch linked edicts */
-    for (l = node->solid_edicts.next; l != &node->solid_edicts; l = next) {
-	next = l->next;
-	touch = EDICT_FROM_AREA(l);
+    for (link = solids->next; link != solids; link = next) {
+	next = link->next;
+	touch = container_of(link, edict_t, area);
 	if (touch->v.solid == SOLID_NOT)
 	    continue;
 	if (touch == clip->passedict)
