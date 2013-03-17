@@ -92,7 +92,7 @@ void SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs);
 #ifdef NQ_HACK
 // FIXME - needed in chase.c, but doesn't seem like the right interface
 #include "model.h"
-qboolean SV_RecursiveHullCheck(const hull_t *hull, int num,
+qboolean SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 			       const float p1f, const float p2f,
 			       const vec3_t p1, const vec3_t p2,
 			       trace_t *trace);

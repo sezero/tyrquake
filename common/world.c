@@ -61,7 +61,7 @@ typedef struct {
     const edict_t *passedict;
 } moveclip_t;
 
-int SV_HullPointContents(const hull_t *hull, int num, const vec3_t point);
+int SV_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
 
 /*
 ===============================================================================
@@ -569,17 +569,17 @@ SV_HullPointContents
 ==================
 */
 int
-SV_HullPointContents(const hull_t *hull, int num, const vec3_t point)
+SV_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point)
 {
     float dist;
     const mclipnode_t *node;
     const mplane_t *plane;
 
-    while (num >= 0) {
-	if (num < hull->firstclipnode || num > hull->lastclipnode)
-	    SV_Error("%s: bad node number (%i)", __func__, num);
+    while (nodenum >= 0) {
+	if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
+	    SV_Error("%s: bad node number (%i)", __func__, nodenum);
 
-	node = hull->clipnodes + num;
+	node = hull->clipnodes + nodenum;
 	plane = hull->planes + node->planenum;
 
 	if (plane->type < 3)
@@ -587,12 +587,12 @@ SV_HullPointContents(const hull_t *hull, int num, const vec3_t point)
 	else
 	    dist = DotProduct(plane->normal, point) - plane->dist;
 	if (dist < 0)
-	    num = node->children[1];
+	    nodenum = node->children[1];
 	else
-	    num = node->children[0];
+	    nodenum = node->children[0];
     }
 
-    return num;
+    return nodenum;
 }
 
 #endif /* USE_X86_ASM */
@@ -663,7 +663,7 @@ SV_RecursiveHullCheck
 ==================
 */
 qboolean
-SV_RecursiveHullCheck(const hull_t *hull, int num,
+SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 		      const float p1f, const float p2f,
 		      const vec3_t p1, const vec3_t p2, trace_t *trace)
 {
@@ -677,10 +677,10 @@ SV_RecursiveHullCheck(const hull_t *hull, int num,
     float midf;
 
 // check for empty
-    if (num < 0) {
-	if (num != CONTENTS_SOLID) {
+    if (nodenum < 0) {
+	if (nodenum != CONTENTS_SOLID) {
 	    trace->allsolid = false;
-	    if (num == CONTENTS_EMPTY)
+	    if (nodenum == CONTENTS_EMPTY)
 		trace->inopen = true;
 	    else
 		trace->inwater = true;
@@ -689,13 +689,13 @@ SV_RecursiveHullCheck(const hull_t *hull, int num,
 	return true;		// empty
     }
 
-    if (num < hull->firstclipnode || num > hull->lastclipnode)
+    if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
 	SV_Error("%s: bad node number", __func__);
 
 //
 // find the point distances
 //
-    node = hull->clipnodes + num;
+    node = hull->clipnodes + nodenum;
     plane = hull->planes + node->planenum;
 
     if (plane->type < 3) {
