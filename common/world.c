@@ -440,28 +440,23 @@ SV_FindTouchedLeafs(edict_t *ent, const mnode_t *node)
     if (node->contents == CONTENTS_SOLID)
 	return;
 
-// add an efrag if the node is a leaf
-
+    /* add an efrag if the node is a leaf */
     if (node->contents < 0) {
 	if (ent->num_leafs == MAX_ENT_LEAFS)
 	    return;
 
 	leaf = (mleaf_t *)node;
 	leafnum = leaf - sv.worldmodel->leafs - 1;
-
 	ent->leafnums[ent->num_leafs] = leafnum;
 	ent->num_leafs++;
 	return;
     }
-// NODE_MIXED
 
+    /* recurse down the contacted sides */
     splitplane = node->plane;
     sides = BOX_ON_PLANE_SIDE(ent->v.absmin, ent->v.absmax, splitplane);
-
-// recurse down the contacted sides
     if (sides & PSIDE_FRONT)
 	SV_FindTouchedLeafs(ent, node->children[0]);
-
     if (sides & PSIDE_BACK)
 	SV_FindTouchedLeafs(ent, node->children[1]);
 }
