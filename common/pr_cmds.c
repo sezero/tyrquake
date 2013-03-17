@@ -1284,9 +1284,7 @@ PF_droptofloor(void)
     VectorCopy(ent->v.origin, end);
     end[2] -= 256;
 
-    SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, end, MOVE_NORMAL, ent,
-	    &trace);
-
+    SV_MoveEntity(ent, ent->v.origin, end, MOVE_NORMAL, &trace);
     if (trace.fraction == 1 || trace.allsolid)
 	G_FLOAT(OFS_RETURN) = 0;
     else {

@@ -71,20 +71,26 @@ int SV_PointContents(const vec3_t point);
 
 edict_t *SV_TestEntityPosition(const edict_t *ent);
 
+/*
+ * SV_Move
+ * - mins and maxs are reletive
+ * - if the entire move stays in a solid volume, trace.allsolid will be set
+ * - if the starting point is in a solid, it will be allowed to move out
+ *   to an open area
+ * - MOVE_NOMONSTERS is used for line of sight or edge testing, where monsters
+ *   shouldn't be considered solid objects
+ * - passedict is explicitly excluded from clipping checks (normally NULL)
+ */
 void SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
 	     const vec3_t end, movetype_t type, const edict_t *passedict,
 	     trace_t *trace);
-// mins and maxs are reletive
 
-// if the entire move stays in a solid volume, trace.allsolid will be set
-
-// if the starting point is in a solid, it will be allowed to move out
-// to an open area
-
-// nomonsters is used for line of sight or edge testing, where mosnters
-// shouldn't be considered solid objects
-
-// passedict is explicitly excluded from clipping checks (normally NULL)
+static inline void
+SV_MoveEntity(const edict_t *entity, const vec3_t start, const vec3_t end,
+	      movetype_t type, trace_t *trace)
+{
+    SV_Move(start, entity->v.mins, entity->v.maxs, end, type, entity, trace);
+}
 
 #if defined(QW_HACK) && defined(SERVERONLY)
 void SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs);

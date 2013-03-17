@@ -145,8 +145,7 @@ SV_movestep(edict_t *ent, vec3_t move, qboolean relink)
 		if (dz < 30)
 		    neworg[2] += 8;
 	    }
-	    SV_Move(ent->v.origin, ent->v.mins, ent->v.maxs, neworg,
-		    MOVE_NORMAL, ent, &trace);
+	    SV_MoveEntity(ent, ent->v.origin, neworg, MOVE_NORMAL, &trace);
 
 	    if (trace.fraction == 1) {
 		if (((int)ent->v.flags & FL_SWIM)
@@ -170,15 +169,13 @@ SV_movestep(edict_t *ent, vec3_t move, qboolean relink)
     VectorCopy(neworg, end);
     end[2] -= STEPSIZE * 2;
 
-    SV_Move(neworg, ent->v.mins, ent->v.maxs, end, MOVE_NORMAL, ent, &trace);
-
+    SV_MoveEntity(ent, neworg, end, MOVE_NORMAL, &trace);
     if (trace.allsolid)
 	return false;
 
     if (trace.startsolid) {
 	neworg[2] -= STEPSIZE;
-	SV_Move(neworg, ent->v.mins, ent->v.maxs, end, MOVE_NORMAL, ent,
-		&trace);
+	SV_MoveEntity(ent, neworg, end, MOVE_NORMAL, &trace);
 	if (trace.allsolid || trace.startsolid)
 	    return false;
     }
