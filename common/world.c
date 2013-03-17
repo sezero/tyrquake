@@ -40,12 +40,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 /*
-
-entities never clip against themselves, or their owner
-
-line of sight checks trace->crosscontent, but bullets don't
-
-*/
+ * Entities never clip against themselves, or their owner.
+ * Line of sight checks trace->crosscontent, but bullets don't.
+ */
 
 typedef struct {
     vec3_t mins;
@@ -55,7 +52,7 @@ typedef struct {
 typedef struct {
     bounds_t move;		/* enclose the test object along entire move */
     bounds_t object;		/* size of the moving object */
-    bounds_t monster;		/* size when clipping against monsters */
+    bounds_t monster;		/* size to test against monsters (>= object) */
     vec3_t start, end;
     movetype_t type;
     const edict_t *passedict;
