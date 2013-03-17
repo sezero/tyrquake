@@ -35,23 +35,21 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 edict_t *sv_player;
 
+cvar_t sv_idealpitchscale = { "sv_idealpitchscale", "0.8" };
 cvar_t sv_edgefriction = { "edgefriction", "2" };
 
 static vec3_t forward, right, up;
+static vec3_t wishdir;
+static float wishspeed;
 
-vec3_t wishdir;
-float wishspeed;
+/* world */
+static float *angles;
+static float *origin;
+static float *velocity;
 
-// world
-float *angles;
-float *origin;
-float *velocity;
+static qboolean onground;
+static usercmd_t cmd;
 
-qboolean onground;
-
-usercmd_t cmd;
-
-cvar_t sv_idealpitchscale = { "sv_idealpitchscale", "0.8" };
 
 
 /*
@@ -127,7 +125,7 @@ SV_UserFriction
 
 ==================
 */
-void
+static void
 SV_UserFriction(void)
 {
     float *vel;
@@ -175,29 +173,7 @@ SV_Accelerate
 cvar_t sv_maxspeed = { "sv_maxspeed", "320", false, true };
 cvar_t sv_accelerate = { "sv_accelerate", "10" };
 
-#if 0
-void
-SV_Accelerate(vec3_t wishvel)
-{
-    int i;
-    float addspeed, accelspeed;
-    vec3_t pushvec;
-
-    if (wishspeed == 0)
-	return;
-
-    VectorSubtract(wishvel, velocity, pushvec);
-    addspeed = VectorNormalize(pushvec);
-
-    accelspeed = sv_accelerate.value * host_frametime * addspeed;
-    if (accelspeed > addspeed)
-	accelspeed = addspeed;
-
-    for (i = 0; i < 3; i++)
-	velocity[i] += accelspeed * pushvec[i];
-}
-#endif
-void
+static void
 SV_Accelerate(void)
 {
     int i;
@@ -215,7 +191,7 @@ SV_Accelerate(void)
 	velocity[i] += accelspeed * wishdir[i];
 }
 
-void
+static void
 SV_AirAccelerate(vec3_t wishveloc)
 {
     int i;
@@ -238,7 +214,7 @@ SV_AirAccelerate(vec3_t wishveloc)
 }
 
 
-void
+static void
 DropPunchAngle(void)
 {
     float len;
@@ -257,7 +233,7 @@ SV_WaterMove
 
 ===================
 */
-void
+static void
 SV_WaterMove(void)
 {
     int i;
@@ -315,7 +291,7 @@ SV_WaterMove(void)
 	velocity[i] += accelspeed * wishvel[i];
 }
 
-void
+static void
 SV_WaterJump(void)
 {
     if (sv.time > sv_player->v.teleport_time || !sv_player->v.waterlevel) {
@@ -333,7 +309,7 @@ SV_AirMove
 
 ===================
 */
-void
+static void
 SV_AirMove(void)
 {
     int i;
@@ -382,7 +358,7 @@ the move fields specify an intended velocity in pix/sec
 the angle fields specify an exact angular motion in degrees
 ===================
 */
-void
+static void
 SV_ClientThink(void)
 {
     vec3_t v_angle;
@@ -438,7 +414,7 @@ SV_ClientThink(void)
 SV_ReadClientMove
 ===================
 */
-void
+static void
 SV_ReadClientMove(usercmd_t *move)
 {
     int i;
@@ -486,12 +462,12 @@ SV_ReadClientMessage
 Returns false if the client should be killed
 ===================
 */
-qboolean
+static qboolean
 SV_ReadClientMessage(void)
 {
     int ret;
     int cmd;
-    char *s;
+    char *message;
 
     do {
       nextmsg:
@@ -529,51 +505,52 @@ SV_ReadClientMessage(void)
 		break;
 
 	    case clc_stringcmd:
-		s = MSG_ReadString();
+		message = MSG_ReadString();
 		ret = 0;
-		if (strncasecmp(s, "status", 6) == 0)
+		if (strncasecmp(message, "status", 6) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "god", 3) == 0)
+		else if (strncasecmp(message, "god", 3) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "notarget", 8) == 0)
+		else if (strncasecmp(message, "notarget", 8) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "fly", 3) == 0)
+		else if (strncasecmp(message, "fly", 3) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "name", 4) == 0)
+		else if (strncasecmp(message, "name", 4) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "noclip", 6) == 0)
+		else if (strncasecmp(message, "noclip", 6) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "say", 3) == 0)
+		else if (strncasecmp(message, "say", 3) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "say_team", 8) == 0)
+		else if (strncasecmp(message, "say_team", 8) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "tell", 4) == 0)
+		else if (strncasecmp(message, "tell", 4) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "color", 5) == 0)
+		else if (strncasecmp(message, "color", 5) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "kill", 4) == 0)
+		else if (strncasecmp(message, "kill", 4) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "pause", 5) == 0)
+		else if (strncasecmp(message, "pause", 5) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "spawn", 5) == 0)
+		else if (strncasecmp(message, "spawn", 5) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "begin", 5) == 0)
+		else if (strncasecmp(message, "begin", 5) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "prespawn", 8) == 0)
+		else if (strncasecmp(message, "prespawn", 8) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "kick", 4) == 0)
+		else if (strncasecmp(message, "kick", 4) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "ping", 4) == 0)
+		else if (strncasecmp(message, "ping", 4) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "give", 4) == 0)
+		else if (strncasecmp(message, "give", 4) == 0)
 		    ret = 1;
-		else if (strncasecmp(s, "ban", 3) == 0)
+		else if (strncasecmp(message, "ban", 3) == 0)
 		    ret = 1;
 
 		if (ret == 1)
-		    Cmd_ExecuteString(s, src_client);
+		    Cmd_ExecuteString(message, src_client);
 		else
-		    Con_DPrintf("%s tried to %s\n", host_client->name, s);
+		    Con_DPrintf("%s tried to %s\n",
+				host_client->name, message);
 		break;
 
 	    case clc_disconnect:

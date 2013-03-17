@@ -399,7 +399,6 @@ qboolean SV_movestep(edict_t *ent, vec3_t move, qboolean relink);
 void SV_WriteClientdataToMessage(client_t *client, sizebuf_t *msg);
 void SV_MoveToGoal(void);
 void SV_SaveSpawnparms(void);
-void SV_ExecuteUserCommand(const char *s);
 void SV_InitOperatorCommands(void);
 void SV_SendServerinfo(client_t *client);
 void SV_SendServerInfoChange(const char *key, const char *value);

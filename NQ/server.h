@@ -221,7 +221,6 @@ void SV_SetIdealPitch(void);
 
 void SV_AddUpdates(void);
 
-void SV_ClientThink(void);
 void SV_AddClientToServer(struct qsocket_s *ret);
 
 void SV_ClientPrintf(const char *fmt, ...) __attribute__((format(printf,1,2)));

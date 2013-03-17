@@ -29,13 +29,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 edict_t *sv_player;
 
-usercmd_t cmd;
+static cvar_t cl_rollspeed = { "cl_rollspeed", "200" };
+static cvar_t cl_rollangle = { "cl_rollangle", "2.0" };
+static cvar_t sv_spectalk = { "sv_spectalk", "1" };
+static cvar_t sv_mapcheck = { "sv_mapcheck", "1" };
 
-cvar_t cl_rollspeed = { "cl_rollspeed", "200" };
-cvar_t cl_rollangle = { "cl_rollangle", "2.0" };
-cvar_t sv_spectalk = { "sv_spectalk", "1" };
-
-cvar_t sv_mapcheck = { "sv_mapcheck", "1" };
+static usercmd_t cmd;
 
 /*
 ============================================================
@@ -54,7 +53,7 @@ Sends the first message from the server to a connected client.
 This will be sent on the initial connection and upon each server load.
 ================
 */
-void
+static void
 SV_New_f(void)
 {
     const char *gamedir;
@@ -124,11 +123,11 @@ SV_New_f(void)
 SV_Soundlist_f
 ==================
 */
-void
+static void
 SV_Soundlist_f(void)
 {
-    const char **s;
-    int n;
+    const char **soundlist;
+    int nextsound;
 
     if (host_client->state != cs_connected) {
 	Con_Printf("soundlist not valid -- allready spawned\n");
@@ -141,7 +140,7 @@ SV_Soundlist_f(void)
 	return;
     }
 
-    n = atoi(Cmd_Argv(2));
+    nextsound = atoi(Cmd_Argv(2));
 
 //NOTE:  This doesn't go through ClientReliableWrite since it's before the user
 //spawns.  These functions are written to not overflow
@@ -153,17 +152,21 @@ SV_Soundlist_f(void)
     }
 
     MSG_WriteByte(&host_client->netchan.message, svc_soundlist);
-    MSG_WriteByte(&host_client->netchan.message, n);
-    for (s = sv.sound_precache + 1 + n;
-	 *s && host_client->netchan.message.cursize < (MAX_MSGLEN / 2);
-	 s++, n++)
-	MSG_WriteString(&host_client->netchan.message, *s);
+    MSG_WriteByte(&host_client->netchan.message, nextsound);
 
+    soundlist = sv.sound_precache + 1 + nextsound;
+    while (*soundlist) {
+	if (host_client->netchan.message.cursize >= (MAX_MSGLEN / 2))
+	    break;
+	MSG_WriteString(&host_client->netchan.message, *soundlist);
+	soundlist++;
+	nextsound++;
+    }
     MSG_WriteByte(&host_client->netchan.message, 0);
 
-    // next msg
-    if (*s)
-	MSG_WriteByte(&host_client->netchan.message, n);
+    /* next msg */
+    if (*soundlist)
+	MSG_WriteByte(&host_client->netchan.message, nextsound);
     else
 	MSG_WriteByte(&host_client->netchan.message, 0);
 }
@@ -173,11 +176,11 @@ SV_Soundlist_f(void)
 SV_Modellist_f
 ==================
 */
-void
+static void
 SV_Modellist_f(void)
 {
-    const char **s;
-    int n;
+    const char **modellist;
+    int nextmodel;
 
     if (host_client->state != cs_connected) {
 	Con_Printf("modellist not valid -- allready spawned\n");
@@ -190,7 +193,7 @@ SV_Modellist_f(void)
 	return;
     }
 
-    n = atoi(Cmd_Argv(2));
+    nextmodel = atoi(Cmd_Argv(2));
 
 //NOTE:  This doesn't go through ClientReliableWrite since it's before the user
 //spawns.  These functions are written to not overflow
@@ -202,16 +205,21 @@ SV_Modellist_f(void)
     }
 
     MSG_WriteByte(&host_client->netchan.message, svc_modellist);
-    MSG_WriteByte(&host_client->netchan.message, n);
-    for (s = sv.model_precache + 1 + n;
-	 *s && host_client->netchan.message.cursize < (MAX_MSGLEN / 2);
-	 s++, n++)
-	MSG_WriteString(&host_client->netchan.message, *s);
+    MSG_WriteByte(&host_client->netchan.message, nextmodel);
+
+    modellist = sv.model_precache + 1 + nextmodel;
+    while (*modellist) {
+	if (host_client->netchan.message.cursize >= (MAX_MSGLEN / 2))
+	    break;
+	MSG_WriteString(&host_client->netchan.message, *modellist);
+	modellist++;
+	nextmodel++;
+    }
     MSG_WriteByte(&host_client->netchan.message, 0);
 
-    // next msg
-    if (*s)
-	MSG_WriteByte(&host_client->netchan.message, n);
+    /* next msg */
+    if (*modellist)
+	MSG_WriteByte(&host_client->netchan.message, nextmodel);
     else
 	MSG_WriteByte(&host_client->netchan.message, 0);
 }
@@ -221,7 +229,7 @@ SV_Modellist_f(void)
 SV_PreSpawn_f
 ==================
 */
-void
+static void
 SV_PreSpawn_f(void)
 {
     unsigned buf;
@@ -289,10 +297,10 @@ SV_PreSpawn_f(void)
 SV_Spawn_f
 ==================
 */
-void
+static void
 SV_Spawn_f(void)
 {
-    int i;
+    int i, length;
     client_t *client;
     edict_t *ent;
     eval_t *val;
@@ -329,12 +337,8 @@ SV_Spawn_f(void)
 
 // send all current light styles
     for (i = 0; i < MAX_LIGHTSTYLES; i++) {
-	ClientReliableWrite_Begin(host_client, svc_lightstyle,
-				  3 +
-				  (sv.
-				   lightstyles[i] ? strlen(sv.
-							   lightstyles[i]) :
-				   1));
+	length = 3 + (sv.lightstyles[i] ? strlen(sv.lightstyles[i]) : 1);
+	ClientReliableWrite_Begin(host_client, svc_lightstyle, length);
 	ClientReliableWrite_Byte(host_client, (char)i);
 	ClientReliableWrite_String(host_client, sv.lightstyles[i]);
     }
@@ -389,7 +393,7 @@ SV_Spawn_f(void)
 SV_SpawnSpectator
 ==================
 */
-void
+static void
 SV_SpawnSpectator(void)
 {
     int i;
@@ -415,7 +419,7 @@ SV_SpawnSpectator(void)
 SV_Begin_f
 ==================
 */
-void
+static void
 SV_Begin_f(void)
 {
     unsigned pmodel = 0, emodel = 0;
@@ -505,7 +509,7 @@ SV_Begin_f(void)
 SV_NextDownload_f
 ==================
 */
-void
+static void
 SV_NextDownload_f(void)
 {
     byte buffer[1024];
@@ -562,7 +566,7 @@ OutofBandPrintf(netadr_t where, const char *fmt, ...)
 SV_NextUpload
 ==================
 */
-void
+static void
 SV_NextUpload(void)
 {
     int percent;
@@ -634,7 +638,7 @@ SV_NextUpload(void)
 SV_BeginDownload_f
 ==================
 */
-void
+static void
 SV_BeginDownload_f(void)
 {
     char name[MAX_OSPATH], *p;
@@ -701,7 +705,7 @@ SV_BeginDownload_f(void)
 SV_Say
 ==================
 */
-void
+static void
 SV_Say(qboolean team)
 {
     client_t *client;
@@ -798,7 +802,7 @@ SV_Say(qboolean team)
 SV_Say_f
 ==================
 */
-void
+static void
 SV_Say_f(void)
 {
     SV_Say(false);
@@ -809,7 +813,7 @@ SV_Say_f(void)
 SV_Say_Team_f
 ==================
 */
-void
+static void
 SV_Say_Team_f(void)
 {
     SV_Say(true);
@@ -827,7 +831,7 @@ The client is showing the scoreboard, so send new ping times for all
 clients
 =================
 */
-void
+static void
 SV_Pings_f(void)
 {
     client_t *client;
@@ -853,7 +857,7 @@ SV_Pings_f(void)
 SV_Kill_f
 ==================
 */
-void
+static void
 SV_Kill_f(void)
 {
     if (sv_player->v.health <= 0) {
@@ -898,7 +902,7 @@ SV_TogglePause(const char *msg)
 SV_Pause_f
 ==================
 */
-void
+static void
 SV_Pause_f(void)
 {
     char st[sizeof(host_client->name) + 32];
@@ -930,7 +934,7 @@ SV_Drop_f
 The client is going to disconnect, so remove the connection immediately
 =================
 */
-void
+static void
 SV_Drop_f(void)
 {
     SV_EndRedirect();
@@ -946,7 +950,7 @@ SV_PTrack_f
 Change the bandwidth estimate for a client
 =================
 */
-void
+static void
 SV_PTrack_f(void)
 {
     int i;
@@ -989,7 +993,7 @@ SV_Rate_f
 Change the bandwidth estimate for a client
 =================
 */
-void
+static void
 SV_Rate_f(void)
 {
     int rate;
@@ -1018,7 +1022,7 @@ SV_Msg_f
 Change the message level for a client
 =================
 */
-void
+static void
 SV_Msg_f(void)
 {
     if (Cmd_Argc() != 2) {
@@ -1040,12 +1044,11 @@ SV_SetInfo_f
 Allow clients to change userinfo
 ==================
 */
-void
+static void
 SV_SetInfo_f(void)
 {
     int i;
     char oldval[MAX_INFO_STRING];
-
 
     if (Cmd_Argc() == 1) {
 	Con_Printf("User info settings:\n");
@@ -1092,13 +1095,13 @@ SV_ShowServerinfo_f
 Dumps the serverinfo info string
 ==================
 */
-void
+static void
 SV_ShowServerinfo_f(void)
 {
     Info_Print(svs.info);
 }
 
-void
+static void
 SV_NoSnap_f(void)
 {
     if (*host_client->uploadfn) {
@@ -1113,7 +1116,7 @@ typedef struct {
     void (*func)(void);
 } ucmd_t;
 
-ucmd_t ucmds[] = {
+static ucmd_t ucmds[] = {
     { "new", SV_New_f },
     { "modellist", SV_Modellist_f },
     { "soundlist", SV_Soundlist_f },
@@ -1152,23 +1155,23 @@ ucmd_t ucmds[] = {
 SV_ExecuteUserCommand
 ==================
 */
-void
-SV_ExecuteUserCommand(const char *s)
+static void
+SV_ExecuteUserCommand(const char *cmdstring)
 {
-    ucmd_t *u;
+    ucmd_t *command;
 
-    Cmd_TokenizeString(s);
+    Cmd_TokenizeString(cmdstring);
     sv_player = host_client->edict;
 
     SV_BeginRedirect(RD_CLIENT);
 
-    for (u = ucmds; u->name; u++)
-	if (!strcmp(Cmd_Argv(0), u->name)) {
-	    u->func();
+    for (command = ucmds; command->name; command++)
+	if (!strcmp(Cmd_Argv(0), command->name)) {
+	    command->func();
 	    break;
 	}
 
-    if (!u->name)
+    if (!command->name)
 	Con_Printf("Bad user command: %s\n", Cmd_Argv(0));
 
     SV_EndRedirect();
@@ -1189,7 +1192,7 @@ V_CalcRoll
 Used by view and sv_user
 ===============
 */
-float
+static float
 V_CalcRoll(vec3_t angles, vec3_t velocity)
 {
     vec3_t forward, right, up;
@@ -1225,7 +1228,8 @@ AddAllEntsToPmove
 For debugging
 ================
 */
-void
+#if 0
+static void
 AddAllEntsToPmove(const vec3_t mins, const vec3_t maxs)
 {
     int e;
@@ -1270,6 +1274,7 @@ AddAllEntsToPmove(const vec3_t mins, const vec3_t maxs)
 	}
     }
 }
+#endif
 
 /*
 ===========
@@ -1277,9 +1282,9 @@ SV_PreRunCmd
 ===========
 Done before running a player command.  Clears the touch array
 */
-byte playertouch[(MAX_EDICTS + 7) / 8];
+static byte playertouch[(MAX_EDICTS + 7) / 8];
 
-void
+static void
 SV_PreRunCmd(void)
 {
     memset(playertouch, 0, sizeof(playertouch));
@@ -1290,7 +1295,7 @@ SV_PreRunCmd(void)
 SV_RunCmd
 ===========
 */
-void
+static void
 SV_RunCmd(usercmd_t *ucmd)
 {
     edict_t *ent;
@@ -1436,7 +1441,7 @@ SV_PostRunCmd
 ===========
 Done after running a player command.
 */
-void
+static void
 SV_PostRunCmd(void)
 {
     // run post-think
@@ -1578,7 +1583,6 @@ SV_ExecuteClientMessage(client_t *cl)
 	    cl->lastcmd.buttons = 0;	// avoid multiple fires on lag
 	    break;
 
-
 	case clc_stringcmd:
 	    SV_ExecuteUserCommand(MSG_ReadString());
 	    break;
@@ -1597,7 +1601,6 @@ SV_ExecuteClientMessage(client_t *cl)
 	case clc_upload:
 	    SV_NextUpload();
 	    break;
-
 	}
     }
 }
