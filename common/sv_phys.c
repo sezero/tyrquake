@@ -524,10 +524,10 @@ SV_Push(edict_t *pusher, const vec3_t move)
 	pusher->v.solid = SOLID_NOT;
 	SV_PushEntity(check, move);
 	pusher->v.solid = SOLID_BSP;
-	/* if it is still inside the pusher, block */
 	block = SV_TestEntityPosition(check);
 	if (!block) {
-	    num_moved--;
+	    /* TODO - fix extra link in NQ due to SV_PushEntity above */
+	    SV_LinkEdict(check, false);
 	    continue;
 	}
 	if (check->v.mins[0] == check->v.maxs[0])
