@@ -400,42 +400,34 @@ SV_ReadClientMove
 static void
 SV_ReadClientMove(usercmd_t *move)
 {
-    int i;
-    vec3_t angle;
-    int bits;
+    int i, ping, buttonbits, impulse;
 
-// read ping time
-    host_client->ping_times[host_client->num_pings % NUM_PING_TIMES]
-	= sv.time - MSG_ReadFloat();
+    /* read ping time */
+    ping = host_client->num_pings % NUM_PING_TIMES;
+    host_client->ping_times[ping] = sv.time - MSG_ReadFloat();
     host_client->num_pings++;
 
-// read current angles
-    for (i = 0; i < 3; i++)
+    /* read current angles */
+    for (i = 0; i < 3; i++) {
 	if (sv.protocol == PROTOCOL_VERSION_FITZ)
-	    angle[i] = MSG_ReadAngle16();
+	    host_client->edict->v.v_angle[i] = MSG_ReadAngle16();
 	else
-	    angle[i] = MSG_ReadAngle();
+	    host_client->edict->v.v_angle[i] = MSG_ReadAngle();
+    }
 
-    VectorCopy(angle, host_client->edict->v.v_angle);
-
-// read movement
+    /* read movement */
     move->forwardmove = MSG_ReadShort();
     move->sidemove = MSG_ReadShort();
     move->upmove = MSG_ReadShort();
 
-// read buttons
-    bits = MSG_ReadByte();
-    host_client->edict->v.button0 = bits & 1;
-    host_client->edict->v.button2 = (bits & 2) >> 1;
+    /* read buttons */
+    buttonbits = MSG_ReadByte();
+    host_client->edict->v.button0 = buttonbits & 1;
+    host_client->edict->v.button2 = (buttonbits & 2) >> 1;
 
-    i = MSG_ReadByte();
-    if (i)
-	host_client->edict->v.impulse = i;
-
-#ifdef QUAKE2
-// read light level
-    host_client->edict->v.light_level = MSG_ReadByte();
-#endif
+    impulse = MSG_ReadByte();
+    if (impulse)
+	host_client->edict->v.impulse = impulse;
 }
 
 /*
