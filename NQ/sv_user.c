@@ -343,52 +343,41 @@ static void
 SV_ClientThink(void)
 {
     vec3_t v_angle;
-    vec_t *angles, *velocity;
-    const vec_t *origin;
     qboolean onground;
 
     if (sv_player->v.movetype == MOVETYPE_NONE)
 	return;
 
     onground = (int)sv_player->v.flags & FL_ONGROUND;
-
-    origin = sv_player->v.origin;
-    velocity = sv_player->v.velocity;
-
     DropPunchAngle();
 
-//
-// if dead, behave differently
-//
+    /* if dead, behave differently */
     if (sv_player->v.health <= 0)
 	return;
 
-//
-// angles
-// show 1/3 the pitch angle and all the roll angle
-    angles = sv_player->v.angles;
-
+    /* angles - show 1/3 the pitch angle and all the roll angle */
     VectorAdd(sv_player->v.v_angle, sv_player->v.punchangle, v_angle);
-    angles[ROLL] = V_CalcRoll(sv_player->v.angles, sv_player->v.velocity) * 4;
+    sv_player->v.angles[ROLL] = V_CalcRoll(sv_player->v.angles,
+					   sv_player->v.velocity) * 4;
     if (!sv_player->v.fixangle) {
-	angles[PITCH] = -v_angle[PITCH] / 3;
-	angles[YAW] = v_angle[YAW];
+	sv_player->v.angles[PITCH] = -v_angle[PITCH] / 3;
+	sv_player->v.angles[YAW] = v_angle[YAW];
     }
 
     if ((int)sv_player->v.flags & FL_WATERJUMP) {
 	SV_WaterJump();
 	return;
     }
-//
-// walk
-//
-    if ((sv_player->v.waterlevel >= 2)
-	&& (sv_player->v.movetype != MOVETYPE_NOCLIP)) {
-	SV_WaterMove(&host_client->cmd, velocity);
+
+    /* walk */
+    if (sv_player->v.waterlevel >= 2
+	&& sv_player->v.movetype != MOVETYPE_NOCLIP) {
+	SV_WaterMove(&host_client->cmd, sv_player->v.velocity);
 	return;
     }
 
-    SV_AirMove(&host_client->cmd, origin, velocity, onground);
+    SV_AirMove(&host_client->cmd, sv_player->v.origin, sv_player->v.velocity,
+	       onground);
 }
 
 
