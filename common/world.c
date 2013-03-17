@@ -37,6 +37,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #if defined(QW_HACK) && defined(SERVERONLY)
 #include "qwsvdef.h"
 #include "pmove.h"
+/* FIXME - quick hack to enable merging of NQ/QWSV shared code */
+#define Host_Error SV_Error
 #endif
 
 /*
@@ -374,12 +376,7 @@ SV_TouchLinks(edict_t *ent, const areanode_t *node)
 	 *         (I think it was related to the E2M2 drawbridge bug)
 	 */
 	if (!link || !link->next)
-#ifdef NQ_HACK
 	    Host_Error("%s: encountered NULL link", __func__);
-#endif
-#if defined(QW_HACK) && defined(SERVERONLY)
-	    SV_Error("%s: encountered NULL link", __func__);
-#endif
 
 	next = link->next;
 	touch = container_of(link, edict_t, area);
