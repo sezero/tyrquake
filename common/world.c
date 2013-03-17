@@ -628,11 +628,10 @@ supplied entity.  TODO: This could be a lot more efficient?
 edict_t *
 SV_TestEntityPosition(const edict_t *ent)
 {
-    const entvars_t *v = &ent->v;
     edict_t *ret = NULL;
     trace_t trace;
 
-    SV_Move(v->origin, v->mins, v->maxs, v->origin, MOVE_NORMAL, ent, &trace);
+    SV_TraceMoveEntity(ent, ent->v.origin, ent->v.origin, MOVE_NORMAL, &trace);
     if (trace.startsolid)
 	ret = sv.edicts;
 
@@ -937,13 +936,13 @@ SV_MoveBounds(const bounds_t *object, const vec3_t start, const vec3_t end,
 
 /*
 ==================
-SV_Move
+SV_TraceMove
 ==================
 */
 void
-SV_Move(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-	const vec3_t end, movetype_t type, const edict_t *passedict,
-	trace_t *trace)
+SV_TraceMove(const vec3_t start, const vec3_t mins, const vec3_t maxs,
+	     const vec3_t end, movetype_t type, const edict_t *passedict,
+	     trace_t *trace)
 {
     moveclip_t clip;
     int i;
