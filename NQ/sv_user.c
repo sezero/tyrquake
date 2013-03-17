@@ -38,8 +38,6 @@ edict_t *sv_player;
 cvar_t sv_idealpitchscale = { "sv_idealpitchscale", "0.8" };
 cvar_t sv_edgefriction = { "edgefriction", "2" };
 
-static usercmd_t cmd;
-
 /*
 ===============
 SV_SetIdealPitch
@@ -217,7 +215,7 @@ SV_WaterMove
 ===================
 */
 static void
-SV_WaterMove(vec3_t velocity)
+SV_WaterMove(const usercmd_t *cmd, vec3_t velocity)
 {
     int i;
     vec3_t wishvel, forward, right, up;
@@ -228,12 +226,12 @@ SV_WaterMove(vec3_t velocity)
 //
     AngleVectors(sv_player->v.v_angle, forward, right, up);
     for (i = 0; i < 3; i++)
-	wishvel[i] = forward[i] * cmd.forwardmove + right[i] * cmd.sidemove;
+	wishvel[i] = forward[i] * cmd->forwardmove + right[i] * cmd->sidemove;
 
-    if (!cmd.forwardmove && !cmd.sidemove && !cmd.upmove)
+    if (!cmd->forwardmove && !cmd->sidemove && !cmd->upmove)
 	wishvel[2] -= 60;	// drift towards bottom
     else
-	wishvel[2] += cmd.upmove;
+	wishvel[2] += cmd->upmove;
 
     wishspeed = Length(wishvel);
     if (wishspeed > sv_maxspeed.value) {
@@ -292,7 +290,8 @@ SV_AirMove
 ===================
 */
 static void
-SV_AirMove(const vec3_t origin, vec3_t velocity, qboolean onground)
+SV_AirMove(const usercmd_t *cmd, const vec3_t origin, vec3_t velocity,
+	   qboolean onground)
 {
     int i;
     vec3_t wishvel, wishdir, forward, right, up;
@@ -300,8 +299,8 @@ SV_AirMove(const vec3_t origin, vec3_t velocity, qboolean onground)
 
     AngleVectors(sv_player->v.angles, forward, right, up);
 
-    fmove = cmd.forwardmove;
-    smove = cmd.sidemove;
+    fmove = cmd->forwardmove;
+    smove = cmd->sidemove;
 
 // hack to not let you back into teleporter
     if (sv.time < sv_player->v.teleport_time && fmove < 0)
@@ -311,7 +310,7 @@ SV_AirMove(const vec3_t origin, vec3_t velocity, qboolean onground)
 	wishvel[i] = forward[i] * fmove + right[i] * smove;
 
     if ((int)sv_player->v.movetype != MOVETYPE_WALK)
-	wishvel[2] = cmd.upmove;
+	wishvel[2] = cmd->upmove;
     else
 	wishvel[2] = 0;
 
@@ -367,7 +366,6 @@ SV_ClientThink(void)
 //
 // angles
 // show 1/3 the pitch angle and all the roll angle
-    cmd = host_client->cmd;
     angles = sv_player->v.angles;
 
     VectorAdd(sv_player->v.v_angle, sv_player->v.punchangle, v_angle);
@@ -386,11 +384,11 @@ SV_ClientThink(void)
 //
     if ((sv_player->v.waterlevel >= 2)
 	&& (sv_player->v.movetype != MOVETYPE_NOCLIP)) {
-	SV_WaterMove(velocity);
+	SV_WaterMove(&host_client->cmd, velocity);
 	return;
     }
 
-    SV_AirMove(origin, velocity, onground);
+    SV_AirMove(&host_client->cmd, origin, velocity, onground);
 }
 
 
