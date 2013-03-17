@@ -326,18 +326,18 @@ static void
 PF_bprint(void)
 {
 #ifdef NQ_HACK
-    const char *s;
+    const char *message;
 
-    s = PF_VarString(0);
-    SV_BroadcastPrintf("%s", s);
+    message = PF_VarString(0);
+    SV_BroadcastPrintf("%s", message);
 #endif
 #ifdef QW_HACK
-    const char *s;
+    const char *message;
     int level;
 
     level = G_FLOAT(OFS_PARM0);
-    s = PF_VarString(1);
-    SV_BroadcastPrintf(level, "%s", s);
+    message = PF_VarString(1);
+    SV_BroadcastPrintf(level, "%s", message);
 #endif
 }
 
@@ -354,12 +354,12 @@ static void
 PF_sprint(void)
 {
 #ifdef NQ_HACK
-    const char *s;
+    const char *message;
     client_t *client;
     int entnum;
 
     entnum = G_EDICTNUM(OFS_PARM0);
-    s = PF_VarString(1);
+    message = PF_VarString(1);
 
     if (entnum < 1 || entnum > svs.maxclients) {
 	Con_Printf("tried to sprint to a non-client\n");
@@ -368,17 +368,17 @@ PF_sprint(void)
 
     client = &svs.clients[entnum - 1];
     MSG_WriteChar(&client->message, svc_print);
-    MSG_WriteString(&client->message, s);
+    MSG_WriteString(&client->message, message);
 #endif
 #ifdef QW_HACK
-    const char *s;
+    const char *message;
     client_t *client;
     int entnum;
     int level;
 
     entnum = G_EDICTNUM(OFS_PARM0);
     level = G_FLOAT(OFS_PARM1);
-    s = PF_VarString(2);
+    message = PF_VarString(2);
 
     if (entnum < 1 || entnum > MAX_CLIENTS) {
 	Con_Printf("tried to sprint to a non-client\n");
@@ -386,7 +386,7 @@ PF_sprint(void)
     }
 
     client = &svs.clients[entnum - 1];
-    SV_ClientPrintf(client, level, "%s", s);
+    SV_ClientPrintf(client, level, "%s", message);
 #endif
 }
 
@@ -403,12 +403,12 @@ centerprint(clientent, value)
 static void
 PF_centerprint(void)
 {
-    const char *s;
+    const char *message;
     client_t *client;
     int entnum;
 
     entnum = G_EDICTNUM(OFS_PARM0);
-    s = PF_VarString(1);
+    message = PF_VarString(1);
 
 #ifdef NQ_HACK
     if (entnum < 1 || entnum > svs.maxclients) {
@@ -423,11 +423,11 @@ PF_centerprint(void)
     client = &svs.clients[entnum - 1];
 #ifdef NQ_HACK
     MSG_WriteChar(&client->message, svc_centerprint);
-    MSG_WriteString(&client->message, s);
+    MSG_WriteString(&client->message, message);
 #endif
 #ifdef QW_HACK
-    ClientReliableWrite_Begin(client, svc_centerprint, 2 + strlen(s));
-    ClientReliableWrite_String(client, s);
+    ClientReliableWrite_Begin(client, svc_centerprint, 2 + strlen(message));
+    ClientReliableWrite_String(client, message);
 #endif
 }
 
