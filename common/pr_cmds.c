@@ -156,24 +156,24 @@ setorigin (entity, origin)
 static void
 PF_setorigin(void)
 {
-    edict_t *e;
-    float *org;
+    edict_t *entity;
+    const vec_t *origin;
 
-    e = G_EDICT(OFS_PARM0);
-    org = G_VECTOR(OFS_PARM1);
-    VectorCopy(org, e->v.origin);
-    SV_LinkEdict(e, false);
+    entity = G_EDICT(OFS_PARM0);
+    origin = G_VECTOR(OFS_PARM1);
+    VectorCopy(origin, entity->v.origin);
+    SV_LinkEdict(entity, false);
 }
 
 #ifdef NQ_HACK
 static void
-SetMinMaxSize(edict_t *e, float *min, float *max, qboolean rotate)
+SetMinMaxSize(edict_t *entity, const vec_t *min, const vec_t *max,
+	      qboolean rotate)
 {
-    float *angles;
     vec3_t rmin, rmax;
-    float bounds[2][3];
-    float xvector[2], yvector[2];
-    float a;
+    vec3_t bounds[2];
+    vec_t xvec[2], yvec[2];
+    vec_t angle;
     vec3_t base, transformed;
     int i, j, k, l;
 
@@ -181,21 +181,20 @@ SetMinMaxSize(edict_t *e, float *min, float *max, qboolean rotate)
 	if (min[i] > max[i])
 	    PR_RunError("backwards mins/maxs");
 
-    rotate = false;		// FIXME: implement rotation properly again
+    /* FIXME: implement rotation properly again */
+    rotate = false;
 
     if (!rotate) {
 	VectorCopy(min, rmin);
 	VectorCopy(max, rmax);
     } else {
-	// find min / max for rotations
-	angles = e->v.angles;
+	/* find min / max for rotations */
+	angle = entity->v.angles[1] / 180.0 * M_PI;
 
-	a = angles[1] / 180 * M_PI;
-
-	xvector[0] = cos(a);
-	xvector[1] = sin(a);
-	yvector[0] = -sin(a);
-	yvector[1] = cos(a);
+	xvec[0] = cos(angle);
+	xvec[1] = sin(angle);
+	yvec[0] = -sin(angle);
+	yvec[1] = cos(angle);
 
 	VectorCopy(min, bounds[0]);
 	VectorCopy(max, bounds[1]);
@@ -210,11 +209,9 @@ SetMinMaxSize(edict_t *e, float *min, float *max, qboolean rotate)
 		for (k = 0; k <= 1; k++) {
 		    base[2] = bounds[k][2];
 
-		    // transform the point
-		    transformed[0] =
-			xvector[0] * base[0] + yvector[0] * base[1];
-		    transformed[1] =
-			xvector[1] * base[0] + yvector[1] * base[1];
+		    /* transform the point */
+		    transformed[0] = xvec[0] * base[0] + yvec[0] * base[1];
+		    transformed[1] = xvec[1] * base[0] + yvec[1] * base[1];
 		    transformed[2] = base[2];
 
 		    for (l = 0; l < 3; l++) {
@@ -228,12 +225,10 @@ SetMinMaxSize(edict_t *e, float *min, float *max, qboolean rotate)
 	}
     }
 
-// set derived values
-    VectorCopy(rmin, e->v.mins);
-    VectorCopy(rmax, e->v.maxs);
-    VectorSubtract(max, min, e->v.size);
-
-    SV_LinkEdict(e, false);
+    /* set derived values */
+    VectorCopy(rmin, entity->v.mins);
+    VectorCopy(rmax, entity->v.maxs);
+    VectorSubtract(max, min, entity->v.size);
 }
 #endif
 
@@ -249,21 +244,21 @@ setsize (entity, minvector, maxvector)
 static void
 PF_setsize(void)
 {
-    edict_t *e;
-    float *min, *max;
+    edict_t *entity;
+    vec_t *min, *max;
 
-    e = G_EDICT(OFS_PARM0);
+    entity = G_EDICT(OFS_PARM0);
     min = G_VECTOR(OFS_PARM1);
     max = G_VECTOR(OFS_PARM2);
 #ifdef NQ_HACK
-    SetMinMaxSize(e, min, max, false);
+    SetMinMaxSize(entity, min, max, false);
 #endif
 #ifdef QW_HACK
-    VectorCopy(min, e->v.mins);
-    VectorCopy(max, e->v.maxs);
-    VectorSubtract(max, min, e->v.size);
-    SV_LinkEdict(e, false);
+    VectorCopy(min, entity->v.mins);
+    VectorCopy(max, entity->v.maxs);
+    VectorSubtract(max, min, entity->v.size);
 #endif
+    SV_LinkEdict(entity, false);
 }
 
 
@@ -278,41 +273,42 @@ Also sets size, mins, and maxs for inline bmodels
 static void
 PF_setmodel(void)
 {
-    edict_t *e;
+    edict_t *entity;
     const char **check;
-    const char *m;
-    model_t *mod;
+    const char *modelname;
+    model_t *model;
     int i;
 
-    e = G_EDICT(OFS_PARM0);
-    m = G_STRING(OFS_PARM1);
+    entity = G_EDICT(OFS_PARM0);
+    modelname = G_STRING(OFS_PARM1);
 
     /* check to see if model was properly precached */
     for (i = 0, check = sv.model_precache; *check; i++, check++)
-	if (!strcmp(*check, m))
+	if (!strcmp(*check, modelname))
 	    break;
 
     if (!*check)
-	PR_RunError("no precache: %s\n", m);
+	PR_RunError("no precache: %s\n", modelname);
 
-    e->v.model = PR_SetString(m);
-    e->v.modelindex = i;
+    entity->v.model = PR_SetString(modelname);
+    entity->v.modelindex = i;
 
 #ifdef NQ_HACK
-    mod = sv.models[(int)e->v.modelindex];
-    if (mod)
-	SetMinMaxSize(e, mod->mins, mod->maxs, true);
+    model = sv.models[(int)entity->v.modelindex];
+    if (model)
+	SetMinMaxSize(entity, model->mins, model->maxs, true);
     else
-	SetMinMaxSize(e, vec3_origin, vec3_origin, true);
+	SetMinMaxSize(entity, vec3_origin, vec3_origin, true);
+    SV_LinkEdict(entity, false);
 #endif
 #ifdef QW_HACK
     /* if it is an inline model, get the size information for it */
-    if (m[0] == '*') {
-	mod = Mod_ForName(m, true);
-	VectorCopy(mod->mins, e->v.mins);
-	VectorCopy(mod->maxs, e->v.maxs);
-	VectorSubtract(mod->maxs, mod->mins, e->v.size);
-	SV_LinkEdict(e, false);
+    if (modelname[0] == '*') {
+	model = Mod_ForName(modelname, true);
+	VectorCopy(model->mins, entity->v.mins);
+	VectorCopy(model->maxs, entity->v.maxs);
+	VectorSubtract(model->maxs, model->mins, entity->v.size);
+	SV_LinkEdict(entity, false);
     }
 #endif
 }
