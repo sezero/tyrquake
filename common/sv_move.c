@@ -81,9 +81,8 @@ SV_CheckBottom(edict_t *ent)
     start[0] = stop[0] = (mins[0] + maxs[0]) * 0.5;
     start[1] = stop[1] = (mins[1] + maxs[1]) * 0.5;
     stop[2] = start[2] - 2 * STEPSIZE;
-    SV_TraceMove(start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS, ent,
-		 &trace);
 
+    SV_TraceLine(start, stop, MOVE_NOMONSTERS, ent, &trace);
     if (trace.fraction == 1.0)
 	return false;
     mid = bottom = trace.endpos[2];
@@ -94,9 +93,7 @@ SV_CheckBottom(edict_t *ent)
 	    start[0] = stop[0] = x ? maxs[0] : mins[0];
 	    start[1] = stop[1] = y ? maxs[1] : mins[1];
 
-	    SV_TraceMove(start, vec3_origin, vec3_origin, stop, MOVE_NOMONSTERS,
-			 ent, &trace);
-
+	    SV_TraceLine(start, stop, MOVE_NOMONSTERS, ent, &trace);
 	    if (trace.fraction != 1.0 && trace.endpos[2] > bottom)
 		bottom = trace.endpos[2];
 	    if (trace.fraction == 1.0 || mid - trace.endpos[2] > STEPSIZE)

@@ -93,6 +93,13 @@ SV_TraceMoveEntity(const edict_t *entity, const vec3_t start, const vec3_t end,
 		 trace);
 }
 
+static inline void
+SV_TraceLine(const vec3_t start, const vec3_t end, movetype_t type,
+	     const edict_t *passedict, trace_t *trace)
+{
+    SV_TraceMove(start, vec3_origin, vec3_origin, end, type, passedict, trace);
+}
+
 #if defined(QW_HACK) && defined(SERVERONLY)
 void SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs);
 #endif
