@@ -3,7 +3,7 @@
 #
 # By default, all executables will be built and placed in the ./bin
 # subdirectory. If you want to build just one, type e.g. "make bin/tyr-quake".
-# 
+#
 
 TYR_RELEASE := v0.63-pre
 TYR_GIT := $(shell git describe 2> /dev/null)
@@ -16,6 +16,7 @@ TYR_VERSION ?= $(patsubst v%,%,$(TYR_AUTO_VERSION))
 
 BUILD_DIR        ?= build
 BIN_DIR          ?= bin
+DOC_DIR          ?= doc
 DEBUG            ?= N# Compile with debug info
 OPTIMIZED_CFLAGS ?= Y# Enable compiler optimisations (if DEBUG != Y)
 USE_X86_ASM      ?= $(I386_GUESS)
@@ -27,7 +28,7 @@ TARGET_UNIX      ?= $(if $(filter UNIX,$(TARGET_OS)),$(HOST_UNIX),)
 
 # ============================================================================
 
-.PHONY:	default clean
+.PHONY:	default clean docs
 
 # ============================================================================
 
@@ -138,6 +139,9 @@ else
 EXT=
 endif
 endif
+
+# For generating html/text documentation
+GROFF ?= groff
 
 # ============================================================================
 # Helper functions
@@ -277,7 +281,7 @@ else
   quiet = quiet_
 endif
 
-quiet_cmd_mkdir = '  MKDIR   $(@D)'
+quiet_cmd_mkdir = '  MKDIR    $(@D)'
       cmd_mkdir = mkdir -p $(@D)
 
 define do_mkdir
@@ -300,7 +304,7 @@ cmd_cc_dep_c = \
 	$(CC) -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< ; \
 	$(cmd_fixdep)
 
-quiet_cmd_cc_o_c = '  CC      $@'
+quiet_cmd_cc_o_c = '  CC       $@'
       cmd_cc_o_c = $(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
 
 define do_cc_o_c
@@ -314,7 +318,7 @@ cmd_cc_dep_rc = \
 	$(CC) -x c-header -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< ; \
 	$(cmd_fixdep)
 
-quiet_cmd_windres_res_rc = '  WINDRES $@'
+quiet_cmd_windres_res_rc = '  WINDRES  $@'
       cmd_windres_res_rc = $(WINDRES) -I $(<D) -i $< -O coff -o $@
 
 define do_windres_res_rc
@@ -324,7 +328,7 @@ define do_windres_res_rc
 	@$(cmd_windres_res_rc);
 endef
 
-quiet_cmd_cc_link = '  LINK    $@'
+quiet_cmd_cc_link = '  LINK     $@'
       cmd_cc_link = $(CC) -o $@ $^ $(1)
 
 define do_cc_link
@@ -333,7 +337,7 @@ define do_cc_link
 	@$(call cmd_cc_link,$(1))
 endef
 
-quiet_cmd_strip = '  STRIP   $(1)'
+quiet_cmd_strip = '  STRIP    $(1)'
       cmd_strip = $(STRIP) $(1)
 
 ifeq ($(DEBUG),Y)
@@ -348,6 +352,30 @@ define do_strip
 endef
 endif
 endif
+
+# The sed magic is a little ugly, but I wanted something that would work
+# across Linux/BSD/Msys/Darwin
+quiet_cmd_man2txt = '  MAN2TXT  $@'
+      cmd_man2txt = \
+	$(GROFF) -man -Tascii $< | cat -v | \
+	sed -e 's/\^\[\[\([0-9]\)\{1,2\}[a-z]//g' \
+	    -e 's/$$/'`echo \\\r`'/' > $@
+
+define do_man2txt
+	@$(do_mkdir)
+	@echo $($(quiet)cmd_man2txt);
+	@$(call cmd_man2txt);
+endef
+
+quiet_cmd_man2html = '  MAN2HTML $@'
+      cmd_man2html = $(GROFF) -man -Thtml $< > $@
+
+define do_man2html
+	@$(do_mkdir)
+	@echo $($(quiet)cmd_man2html);
+	@$(call cmd_man2html);
+endef
+
 
 DEPFILES = \
 	$(wildcard $(NQSWDIR)/.*.d) \
@@ -854,6 +882,19 @@ $(BIN_DIR)/tyr-qwsv$(EXT):	$(patsubst %,$(QWSVDIR)/%,$(ALL_QWSV_OBJS))
 	$(call do_cc_link,$(ALL_QWSV_LFLAGS))
 	$(call do_strip,$@)
 
+# Build text and/or html docs from man page source
+$(DOC_DIR)/%.txt:	man/%.6	; $(do_man2txt)
+$(DOC_DIR)/%.html:	man/%.6	; $(do_man2html)
+
+# ----------------------------------------------------------------------------
+# Documentation
+# ----------------------------------------------------------------------------
+MAN_DOCS = tyrquake.6
+HTML_DOCS = $(patsubst %.6,$(DOC_DIR)/%.html,$(MAN_DOCS))
+TEXT_DOCS = $(patsubst %.6,$(DOC_DIR)/%.txt,$(MAN_DOCS))
+
+docs:	$(HTML_DOCS) $(TEXT_DOCS)
+
 # ----------------------------------------------------------------------------
 # Very basic clean target (can't use xargs on MSYS)
 # ----------------------------------------------------------------------------
@@ -862,6 +903,7 @@ $(BIN_DIR)/tyr-qwsv$(EXT):	$(patsubst %,$(QWSVDIR)/%,$(ALL_QWSV_OBJS))
 clean:
 	@rm -rf $(BUILD_DIR)
 	@rm -rf $(BIN_DIR)
+	@rm -rf $(DOC_DIR)
 	@rm -f $(shell find . \( \
 		-name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' \
 	\) -print)
