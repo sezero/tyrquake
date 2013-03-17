@@ -38,7 +38,6 @@ edict_t *sv_player;
 cvar_t sv_idealpitchscale = { "sv_idealpitchscale", "0.8" };
 cvar_t sv_edgefriction = { "edgefriction", "2" };
 
-static qboolean onground;
 static usercmd_t cmd;
 
 /*
@@ -293,7 +292,7 @@ SV_AirMove
 ===================
 */
 static void
-SV_AirMove(const vec3_t origin, vec3_t velocity)
+SV_AirMove(const vec3_t origin, vec3_t velocity, qboolean onground)
 {
     int i;
     vec3_t wishvel, wishdir, forward, right, up;
@@ -347,6 +346,7 @@ SV_ClientThink(void)
     vec3_t v_angle;
     vec_t *angles, *velocity;
     const vec_t *origin;
+    qboolean onground;
 
     if (sv_player->v.movetype == MOVETYPE_NONE)
 	return;
@@ -390,7 +390,7 @@ SV_ClientThink(void)
 	return;
     }
 
-    SV_AirMove(origin, velocity);
+    SV_AirMove(origin, velocity, onground);
 }
 
 
