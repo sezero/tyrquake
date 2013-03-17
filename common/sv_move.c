@@ -42,8 +42,6 @@ is not a staircase.
 
 =============
 */
-int c_yes, c_no;
-
 qboolean
 SV_CheckBottom(edict_t *ent)
 {
@@ -59,19 +57,17 @@ SV_CheckBottom(edict_t *ent)
 // with the tougher checks
 // the corners must be within 16 of the midpoint
     start[2] = mins[2] - 1;
-    for (x = 0; x <= 1; x++)
+    for (x = 0; x <= 1; x++) {
 	for (y = 0; y <= 1; y++) {
 	    start[0] = x ? maxs[0] : mins[0];
 	    start[1] = y ? maxs[1] : mins[1];
 	    if (SV_PointContents(start) != CONTENTS_SOLID)
 		goto realcheck;
 	}
-
-    c_yes++;
+    }
     return true;		// we got out easy
 
   realcheck:
-    c_no++;
 //
 // check it for real...
 //
@@ -88,7 +84,7 @@ SV_CheckBottom(edict_t *ent)
     mid = bottom = trace.endpos[2];
 
 // the corners must be within 16 of the midpoint
-    for (x = 0; x <= 1; x++)
+    for (x = 0; x <= 1; x++) {
 	for (y = 0; y <= 1; y++) {
 	    start[0] = stop[0] = x ? maxs[0] : mins[0];
 	    start[1] = stop[1] = y ? maxs[1] : mins[1];
@@ -99,8 +95,8 @@ SV_CheckBottom(edict_t *ent)
 	    if (trace.fraction == 1.0 || mid - trace.endpos[2] > STEPSIZE)
 		return false;
 	}
+    }
 
-    c_yes++;
     return true;
 }
 
