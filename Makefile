@@ -5,11 +5,10 @@
 # subdirectory. If you want to build just one, type e.g. "make bin/tyr-quake".
 # 
 
-TYR_VERSION_MAJOR = 0
-TYR_VERSION_MINOR = 62
-TYR_VERSION_BUILD =
-
-TYR_VERSION = $(TYR_VERSION_MAJOR).$(TYR_VERSION_MINOR)$(TYR_VERSION_BUILD)
+TYR_RELEASE := v0.63-pre
+TYR_GIT := $(shell git describe 2> /dev/null)
+TYR_AUTO_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
+TYR_VERSION ?= $(patsubst v%,%,$(TYR_AUTO_VERSION))
 
 # ============================================================================
 # User configurable options here:
