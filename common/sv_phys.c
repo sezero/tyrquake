@@ -519,29 +519,23 @@ SV_Push(edict_t *pusher, const vec3_t move)
 	moved_edict[num_moved] = check;
 	num_moved++;
 
-#ifdef NQ_HACK
 	/* try moving the contacted entity */
+#ifdef NQ_HACK
 	pusher->v.solid = SOLID_NOT;
 	SV_PushEntity(check, move);
 	pusher->v.solid = SOLID_BSP;
-	block = SV_TestEntityPosition(check);
-	if (!block) {
-	    /* TODO - fix extra link in NQ due to SV_PushEntity above */
-	    SV_LinkEdict(check, false);
-	    continue;
-	}
-	if (check->v.mins[0] == check->v.maxs[0])
-	    continue;
 #endif
 #ifdef QW_HACK
-	/* try moving the contacted entity */
 	VectorAdd(check->v.origin, move, check->v.origin);
+#endif
 	block = SV_TestEntityPosition(check);
 	if (!block) {
-	    /* pushed ok */
+	    /* TODO - fix redundant link in NQ due to SV_PushEntity above */
 	    SV_LinkEdict(check, false);
 	    continue;
 	}
+
+#ifdef QW_HACK
 	/* if it is ok to leave in the old position, do it */
 	VectorSubtract(check->v.origin, move, check->v.origin);
 	block = SV_TestEntityPosition(check);
@@ -549,12 +543,12 @@ SV_Push(edict_t *pusher, const vec3_t move)
 	    num_moved--;
 	    continue;
 	}
-	/* if it is still inside the pusher, block */
+#endif
+	/* if entity has no volume (no model?), leave it */
 	if (check->v.mins[0] == check->v.maxs[0]) {
 	    SV_LinkEdict(check, false);
 	    continue;
 	}
-#endif
 
 	if (check->v.solid == SOLID_NOT || check->v.solid == SOLID_TRIGGER) {
 	    /* corpse */
