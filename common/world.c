@@ -71,10 +71,6 @@ HULL BOXES
 ===============================================================================
 */
 
-static hull_t box_hull;
-static mclipnode_t box_clipnodes[6];
-static mplane_t box_planes[6];
-
 /*
 ===================
 SV_InitBoxHull
@@ -84,29 +80,22 @@ can just be stored out and get a proper hull_t structure.
 ===================
 */
 static void
-SV_InitBoxHull(void)
+SV_InitBoxHull(hull_t *hull, mplane_t planes[6], mclipnode_t clipnodes[6])
 {
-    int i;
-    int side;
+    int i, side;
 
-    box_hull.clipnodes = box_clipnodes;
-    box_hull.planes = box_planes;
-    box_hull.firstclipnode = 0;
-    box_hull.lastclipnode = 5;
+    hull->clipnodes = clipnodes;
+    hull->planes = planes;
+    hull->firstclipnode = 0;
+    hull->lastclipnode = 5;
 
     for (i = 0; i < 6; i++) {
-	box_clipnodes[i].planenum = i;
-
 	side = i & 1;
-
-	box_clipnodes[i].children[side] = CONTENTS_EMPTY;
-	if (i != 5)
-	    box_clipnodes[i].children[side ^ 1] = i + 1;
-	else
-	    box_clipnodes[i].children[side ^ 1] = CONTENTS_SOLID;
-
-	box_planes[i].type = i >> 1;
-	box_planes[i].normal[i >> 1] = 1;
+	clipnodes[i].planenum = i;
+	clipnodes[i].children[side] = CONTENTS_EMPTY;
+	clipnodes[i].children[side ^ 1] = (i < 5) ? i + 1 : CONTENTS_SOLID;
+	planes[i].normal[i >> 1] = 1;
+	planes[i].type = i >> 1;
     }
 }
 
@@ -122,6 +111,15 @@ BSP trees instead of being compared directly.
 static const hull_t *
 SV_HullForBox(vec3_t mins, vec3_t maxs)
 {
+    static qboolean initialised = false;
+    static hull_t box_hull;
+    static mplane_t box_planes[6];
+    static mclipnode_t box_clipnodes[6];
+
+    if (!initialised) {
+	SV_InitBoxHull(&box_hull, box_planes, box_clipnodes);
+	initialised = true;
+    }
     box_planes[0].dist = maxs[0];
     box_planes[1].dist = mins[0];
     box_planes[2].dist = maxs[1];
@@ -336,8 +334,6 @@ SV_ClearWorld
 void
 SV_ClearWorld(void)
 {
-    SV_InitBoxHull();
-
     memset(sv_areanodes, 0, sizeof(sv_areanodes));
     sv_numareanodes = 0;
     SV_CreateAreaNode(0, sv.worldmodel->mins, sv.worldmodel->maxs);
