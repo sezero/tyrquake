@@ -657,14 +657,11 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 {
     mclipnode_t *node;
     mplane_t *plane;
-    float t1, t2;
-    float frac;
-    int i, child;
     vec3_t mid;
-    int side;
-    float midf;
+    vec_t dist1, dist2, frac, midf;
+    int i, child, side, contents;
 
-// check for empty
+    /* check for empty */
     if (nodenum < 0) {
 	if (nodenum != CONTENTS_SOLID) {
 	    trace->allsolid = false;
@@ -672,53 +669,51 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 		trace->inopen = true;
 	    else
 		trace->inwater = true;
-	} else
+	} else {
 	    trace->startsolid = true;
-	return true;		// empty
+	}
+	return true;
     }
 
     if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
 	SV_Error("%s: bad node number", __func__);
 
-//
-// find the point distances
-//
+    /* Find the point distances */
     node = hull->clipnodes + nodenum;
     plane = hull->planes + node->planenum;
-
     if (plane->type < 3) {
-	t1 = p1[plane->type] - plane->dist;
-	t2 = p2[plane->type] - plane->dist;
+	dist1 = p1[plane->type] - plane->dist;
+	dist2 = p2[plane->type] - plane->dist;
     } else {
-	t1 = DotProduct(plane->normal, p1) - plane->dist;
-	t2 = DotProduct(plane->normal, p2) - plane->dist;
+	dist1 = DotProduct(plane->normal, p1) - plane->dist;
+	dist2 = DotProduct(plane->normal, p2) - plane->dist;
     }
 
 #if 1
-    if (t1 >= 0 && t2 >= 0) {
+    if (dist1 >= 0 && dist2 >= 0) {
 	child = node->children[0];
 	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
     }
-    if (t1 < 0 && t2 < 0) {
+    if (dist1 < 0 && dist2 < 0) {
 	child = node->children[1];
 	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
     }
 #else
-    if ((t1 >= DIST_EPSILON && t2 >= DIST_EPSILON) || (t2 > t1 && t1 >= 0)) {
+    if ((dist1 >= DIST_EPSILON && dist2 >= DIST_EPSILON) || (dist2 > dist1 && dist1 >= 0)) {
 	child = node->children[0];
 	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
     }
-    if ((t1 <= -DIST_EPSILON && t2 <= -DIST_EPSILON) || (t2 < t1 && t1 <= 0)) {
+    if ((dist1 <= -DIST_EPSILON && dist2 <= -DIST_EPSILON) || (dist2 < dist1 && dist1 <= 0)) {
 	child = node->children[1];
 	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
     }
 #endif
 
-// put the crosspoint DIST_EPSILON pixels on the near side
-    if (t1 < 0)
-	frac = (t1 + DIST_EPSILON) / (t1 - t2);
+    /* Put the crosspoint DIST_EPSILON pixels on the near side */
+    if (dist1 < 0)
+	frac = (dist1 + DIST_EPSILON) / (dist1 - dist2);
     else
-	frac = (t1 - DIST_EPSILON) / (t1 - t2);
+	frac = (dist1 - DIST_EPSILON) / (dist1 - dist2);
     if (frac < 0)
 	frac = 0;
     if (frac > 1)
@@ -728,9 +723,9 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
     for (i = 0; i < 3; i++)
 	mid[i] = p1[i] + frac * (p2[i] - p1[i]);
 
-    side = (t1 < 0);
+    side = (dist1 < 0);
 
-// move up to the node
+    /* move up to the node */
     child = node->children[side];
     if (!SV_RecursiveHullCheck(hull, child, p1f, midf, p1, mid, trace))
 	return false;
@@ -744,15 +739,14 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 
     child = node->children[side ^ 1];
     if (SV_HullPointContents(hull, child, mid) != CONTENTS_SOLID)
-	/* go past the node */
+	/* Go past the node */
 	return SV_RecursiveHullCheck(hull, child, midf, p2f, mid, p2, trace);
 
+    /* Never got out of the solid area */
     if (trace->allsolid)
-	return false;		// never got out of the solid area
+	return false;
 
-//==================
-// the other side of the node is solid, this is the impact point
-//==================
+    /* The other side of the node is solid, this is the impact point */
     if (!side) {
 	VectorCopy(plane->normal, trace->plane.normal);
 	trace->plane.dist = plane->dist;
@@ -762,7 +756,8 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
     }
 
     /* shouldn't really happen, but does occasionally */
-    while (SV_HullPointContents(hull, hull->firstclipnode, mid) == CONTENTS_SOLID) {
+    contents = SV_HullPointContents(hull, hull->firstclipnode, mid);
+    while (contents == CONTENTS_SOLID) {
 	frac -= 0.1;
 	if (frac < 0) {
 	    trace->fraction = midf;
@@ -773,6 +768,8 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 	midf = p1f + (p2f - p1f) * frac;
 	for (i = 0; i < 3; i++)
 	    mid[i] = p1[i] + frac * (p2[i] - p1[i]);
+
+	contents = SV_HullPointContents(hull, hull->firstclipnode, mid);
     }
 
     trace->fraction = midf;
