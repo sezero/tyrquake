@@ -7,8 +7,8 @@
 
 TYR_RELEASE := v0.63-pre
 TYR_GIT := $(shell git describe 2> /dev/null)
-TYR_AUTO_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
-TYR_VERSION ?= $(patsubst v%,%,$(TYR_AUTO_VERSION))
+TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
+TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
 # ============================================================================
 # User configurable options here:
@@ -623,7 +623,7 @@ QWSV_OBJS := \
 # ----------------------------------------------------------------------------
 
 # Defines
-COMMON_CPPFLAGS += -DTYR_VERSION=$(TYR_VERSION) -DQBASEDIR="$(QBASEDIR)"
+COMMON_CPPFLAGS += -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="$(QBASEDIR)"
 NQCL_CPPFLAGS   += -DNQ_HACK
 QW_CPPFLAGS     += -DQW_HACK
 QWSV_CPPFLAGS   += -DSERVERONLY
