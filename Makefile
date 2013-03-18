@@ -353,6 +353,20 @@ endef
 endif
 endif
 
+git_date = $(shell git log -1 --date=short --format="%ad" -- $< 2>/dev/null)
+doc_version = $(git_date) $(TYR_VERSION)
+
+quiet_cmd_man2man = '  MAN2MAN  $@'
+      cmd_man2man = \
+	sed -e 's/TYR_VERSION/$(doc_version)/' < $< > $(@D)/.$(@F).tmp && \
+	mv $(@D)/.$(@F).tmp $@
+
+define do_man2man
+	@$(do_mkdir)
+	@echo $(if $(quiet),$(quiet_cmd_man2man),"$(cmd_man2man)");
+	@$(cmd_man2man);
+endef
+
 # The sed magic is a little ugly, but I wanted something that would work
 # across Linux/BSD/Msys/Darwin
 quiet_cmd_man2txt = '  MAN2TXT  $@'
@@ -378,7 +392,6 @@ define do_man2html
 	@echo $(if $(quiet),$(quiet_cmd_man2html),"$(cmd_man2html)");
 	@$(cmd_man2html);
 endef
-
 
 DEPFILES = \
 	$(wildcard $(NQSWDIR)/.*.d) \
@@ -885,18 +898,20 @@ $(BIN_DIR)/tyr-qwsv$(EXT):	$(patsubst %,$(QWSVDIR)/%,$(ALL_QWSV_OBJS))
 	$(call do_cc_link,$(ALL_QWSV_LFLAGS))
 	$(call do_strip,$@)
 
-# Build text and/or html docs from man page source
-$(DOC_DIR)/%.txt:	man/%.6	; $(do_man2txt)
-$(DOC_DIR)/%.html:	man/%.6	; $(do_man2html)
+# Build man pages, text and html docs from source
+$(DOC_DIR)/%.6:		man/%.6		; $(do_man2man)
+$(DOC_DIR)/%.txt:	$(DOC_DIR)/%.6	; $(do_man2txt)
+$(DOC_DIR)/%.html:	$(DOC_DIR)/%.6	; $(do_man2html)
 
 # ----------------------------------------------------------------------------
 # Documentation
 # ----------------------------------------------------------------------------
-MAN_DOCS = tyrquake.6
-HTML_DOCS = $(patsubst %.6,$(DOC_DIR)/%.html,$(MAN_DOCS))
-TEXT_DOCS = $(patsubst %.6,$(DOC_DIR)/%.txt,$(MAN_DOCS))
+SRC_DOCS = tyrquake.6
+MAN_DOCS  = $(patsubst %.6,$(DOC_DIR)/%.6,$(SRC_DOCS))
+HTML_DOCS = $(patsubst %.6,$(DOC_DIR)/%.html,$(SRC_DOCS))
+TEXT_DOCS = $(patsubst %.6,$(DOC_DIR)/%.txt,$(SRC_DOCS))
 
-docs:	$(HTML_DOCS) $(TEXT_DOCS)
+docs:	$(MAN_DOCS) $(HTML_DOCS) $(TEXT_DOCS)
 
 # ----------------------------------------------------------------------------
 # Very basic clean target (can't use xargs on MSYS)
