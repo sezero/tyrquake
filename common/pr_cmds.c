@@ -746,14 +746,17 @@ PF_traceline(void)
     float *v1, *v2;
     trace_t trace;
     movetype_t nomonsters;
-    edict_t *ent;
+    const edict_t *entity;
 
     v1 = G_VECTOR(OFS_PARM0);
     v2 = G_VECTOR(OFS_PARM1);
     nomonsters = G_FLOAT(OFS_PARM2);
-    ent = G_EDICT(OFS_PARM3);
+    entity = G_EDICT(OFS_PARM3);
 
-    SV_TraceLine(v1, v2, nomonsters, ent, &trace);
+    /* Find the obstructing entity, if any. Default to world. */
+    entity = SV_TraceLine(v1, v2, nomonsters, entity, &trace);
+    if (!entity)
+	entity = sv.edicts;
 
     pr_global_struct->trace_allsolid = trace.allsolid;
     pr_global_struct->trace_startsolid = trace.startsolid;
@@ -763,10 +766,7 @@ PF_traceline(void)
     VectorCopy(trace.endpos, pr_global_struct->trace_endpos);
     VectorCopy(trace.plane.normal, pr_global_struct->trace_plane_normal);
     pr_global_struct->trace_plane_dist = trace.plane.dist;
-    if (trace.ent)
-	pr_global_struct->trace_ent = EDICT_TO_PROG(trace.ent);
-    else
-	pr_global_struct->trace_ent = EDICT_TO_PROG(sv.edicts);
+    pr_global_struct->trace_ent = EDICT_TO_PROG(entity);
 }
 
 //============================================================================
@@ -1275,25 +1275,28 @@ void() droptofloor
 static void
 PF_droptofloor(void)
 {
-    edict_t *ent;
+    edict_t *entity;
+    const edict_t *ground;
     vec3_t end;
     trace_t trace;
 
-    ent = PROG_TO_EDICT(pr_global_struct->self);
+    entity = PROG_TO_EDICT(pr_global_struct->self);
 
-    VectorCopy(ent->v.origin, end);
+    VectorCopy(entity->v.origin, end);
     end[2] -= 256;
 
-    SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NORMAL, &trace);
-    if (trace.fraction == 1 || trace.allsolid)
+    ground = SV_TraceMoveEntity(entity, entity->v.origin, end,
+				MOVE_NORMAL, &trace);
+    if (trace.fraction == 1 || trace.allsolid) {
 	G_FLOAT(OFS_RETURN) = 0;
-    else {
-	VectorCopy(trace.endpos, ent->v.origin);
-	SV_LinkEdict(ent, false);
-	ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
-	ent->v.groundentity = EDICT_TO_PROG(trace.ent);
-	G_FLOAT(OFS_RETURN) = 1;
+	return;
     }
+
+    VectorCopy(trace.endpos, entity->v.origin);
+    SV_LinkEdict(entity, false);
+    entity->v.flags = (int)entity->v.flags | FL_ONGROUND;
+    entity->v.groundentity = EDICT_TO_PROG(ground);
+    G_FLOAT(OFS_RETURN) = 1;
 }
 
 /*
@@ -1441,6 +1444,7 @@ cvar_t sv_aim = { "sv_aim", "2" };
 static void
 PF_aim(void)
 {
+    const edict_t *target;
     edict_t *ent, *check, *bestent;
     vec3_t start, dir, end, bestdir;
     int i, j;
@@ -1459,7 +1463,7 @@ PF_aim(void)
     start[2] += 20;
 
 #ifdef QW_HACK
-// noaim option
+    /* noaim option */
     i = NUM_FOR_EDICT(ent);
     if (i > 0 && i < MAX_CLIENTS) {
 	noaim = Info_ValueForKey(svs.clients[i - 1].userinfo, "noaim");
@@ -1470,17 +1474,18 @@ PF_aim(void)
     }
 #endif
 
-// try sending a trace straight
+    /* try sending a trace straight */
     VectorCopy(pr_global_struct->v_forward, dir);
     VectorMA(start, 2048, dir, end);
-    SV_TraceLine(start, end, MOVE_NORMAL, ent, &trace);
-    if (trace.ent && trace.ent->v.takedamage == DAMAGE_AIM
+    target = SV_TraceLine(start, end, MOVE_NORMAL, ent, &trace);
+    if (target && target->v.takedamage == DAMAGE_AIM
 	&& (!teamplay.value || ent->v.team <= 0
-	    || ent->v.team != trace.ent->v.team)) {
+	    || ent->v.team != target->v.team)) {
 	VectorCopy(pr_global_struct->v_forward, G_VECTOR(OFS_RETURN));
 	return;
     }
-// try all possible entities
+
+    /* try all possible entities */
     VectorCopy(dir, bestdir);
     bestdist = sv_aim.value;
     bestent = NULL;
@@ -1491,18 +1496,21 @@ PF_aim(void)
 	    continue;
 	if (check == ent)
 	    continue;
+	/* don't aim at teammate */
 	if (teamplay.value && ent->v.team > 0 && ent->v.team == check->v.team)
-	    continue;		// don't aim at teammate
+	    continue;
 	for (j = 0; j < 3; j++)
 	    end[j] = check->v.origin[j]
 		+ 0.5 * (check->v.mins[j] + check->v.maxs[j]);
 	VectorSubtract(end, start, dir);
 	VectorNormalize(dir);
 	dist = DotProduct(dir, pr_global_struct->v_forward);
+	/* Is it too far to turn? */
 	if (dist < bestdist)
-	    continue;		// to far to turn
-	SV_TraceLine(start, end, MOVE_NORMAL, ent, &trace);
-	if (trace.ent == check) {	// can shoot at this one
+	    continue;
+	target = SV_TraceLine(start, end, MOVE_NORMAL, ent, &trace);
+	if (target == check) {
+	    /* Can shoot at this one */
 	    bestdist = dist;
 	    bestent = check;
 	}
