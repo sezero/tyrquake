@@ -81,9 +81,11 @@ edict_t *SV_TestEntityPosition(const edict_t *ent);
  *   shouldn't be considered solid objects
  * - passedict is explicitly excluded from clipping checks (normally NULL)
  */
-void SV_TraceMove(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-		  const vec3_t end, movetype_t type, const edict_t *passedict,
-		  trace_t *trace);
+const edict_t *SV_TraceMove(const vec3_t start,
+			    const vec3_t mins, const vec3_t maxs,
+			    const vec3_t end,
+			    const movetype_t type, const edict_t *passedict,
+			    trace_t *trace);
 
 static inline void
 SV_TraceMoveEntity(const edict_t *entity, const vec3_t start, const vec3_t end,

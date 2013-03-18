@@ -827,11 +827,13 @@ SV_ClipToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
 ====================
 SV_ClipToLinks
 
-Mins and maxs enclose the entire area swept by the move
+Mins and maxs enclose the entire area swept by the move.
+Returns a pointer to the entity which clipped the move, NULL otherwise.
 ====================
 */
-static void
-SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
+static const edict_t *
+SV_ClipToLinks_r(const edict_t *clipent, const areanode_t *node,
+		 const moveclip_t *clip, trace_t *trace)
 {
     link_t *link, *next;
     const link_t *const solids = &node->solid_edicts;
@@ -867,7 +869,7 @@ SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
 
 	/* might intersect, so do an exact clip */
 	if (trace->allsolid)
-	    return;
+	    return clipent;
 	if (clip->passedict) {
 	    /* don't clip against own missiles */
 	    if (PROG_TO_EDICT(touch->v.owner) == clip->passedict)
@@ -886,6 +888,7 @@ SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
 
 	if (stacktrace.allsolid || stacktrace.startsolid
 	    || stacktrace.fraction < trace->fraction) {
+	    clipent = touch;
 	    stacktrace.ent = touch;
 	    if (trace->startsolid) {
 		*trace = stacktrace;
@@ -898,12 +901,20 @@ SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
 
     /* recurse down both sides */
     if (node->axis == -1)
-	return;
+	return clipent;
 
     if (clip->move.maxs[node->axis] > node->dist)
-	SV_ClipToLinks(node->children[0], clip, trace);
+	clipent = SV_ClipToLinks_r(clipent, node->children[0], clip, trace);
     if (clip->move.mins[node->axis] < node->dist)
-	SV_ClipToLinks(node->children[1], clip, trace);
+	clipent = SV_ClipToLinks_r(clipent, node->children[1], clip, trace);
+
+    return clipent;
+}
+
+static const edict_t *
+SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
+{
+    return SV_ClipToLinks_r(NULL, node, clip, trace);
 }
 
 
@@ -932,13 +943,18 @@ SV_MoveBounds(const bounds_t *object, const vec3_t start, const vec3_t end,
 /*
 ==================
 SV_TraceMove
+
+If the move was clipped, returns a pointer to the entity that clipped the
+move, otherwise NULL.
 ==================
 */
-void
+const edict_t *
 SV_TraceMove(const vec3_t start, const vec3_t mins, const vec3_t maxs,
-	     const vec3_t end, movetype_t type, const edict_t *passedict,
+	     const vec3_t end, const movetype_t type, const edict_t *passedict,
 	     trace_t *trace)
 {
+    const edict_t *clipent;
+    qboolean clipworld;
     moveclip_t clip;
     int i;
 
@@ -953,6 +969,7 @@ SV_TraceMove(const vec3_t start, const vec3_t mins, const vec3_t maxs,
 
     /* clip to world */
     SV_ClipToEntity(sv.edicts, start, mins, maxs, end, trace);
+    clipworld = (trace->fraction < 1 || trace->startsolid);
 
     if (type == MOVE_MISSILE) {
 	for (i = 0; i < 3; i++) {
@@ -968,5 +985,9 @@ SV_TraceMove(const vec3_t start, const vec3_t mins, const vec3_t maxs,
     SV_MoveBounds(&clip.monster, start, end, &clip.move);
 
     /* clip to entities */
-    SV_ClipToLinks(sv_areanodes, &clip, trace);
+    clipent = SV_ClipToLinks(sv_areanodes, &clip, trace);
+    if (!clipent && clipworld)
+	clipent = sv.edicts;
+
+    return clipent;
 }
