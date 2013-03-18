@@ -781,15 +781,16 @@ SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
 
 /*
 ==================
-SV_ClipMoveToEntity
+SV_ClipToEntity
 
 Handles selection or creation of a clipping hull, and offseting (and
-eventually rotation) of the end points
+eventually rotation) of the end points.  Returns true if the move was clipped
+by the entity, false otherwise.
 ==================
 */
 static void
-SV_ClipMoveToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
-		    const vec3_t maxs, const vec3_t end, trace_t *trace)
+SV_ClipToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
+		const vec3_t maxs, const vec3_t end, trace_t *trace)
 {
     const hull_t *hull;
     vec3_t offset;
@@ -836,6 +837,7 @@ SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
     const link_t *const solids = &node->solid_edicts;
     edict_t *touch;
     trace_t stacktrace;
+    const bounds_t *clipbounds;
 
     /* touch linked edicts */
     for (link = solids->next; link != solids; link = next) {
@@ -876,11 +878,12 @@ SV_ClipToLinks(const areanode_t *node, const moveclip_t *clip, trace_t *trace)
 	}
 
 	if ((int)touch->v.flags & FL_MONSTER)
-	    SV_ClipMoveToEntity(touch, clip->start, clip->monster.mins,
-				clip->monster.maxs, clip->end, &stacktrace);
+	    clipbounds = &clip->monster;
 	else
-	    SV_ClipMoveToEntity(touch, clip->start, clip->object.mins,
-				clip->object.maxs, clip->end, &stacktrace);
+	    clipbounds = &clip->object;
+	SV_ClipToEntity(touch, clip->start, clipbounds->mins, clipbounds->maxs,
+			clip->end, &stacktrace);
+
 	if (stacktrace.allsolid || stacktrace.startsolid
 	    || stacktrace.fraction < trace->fraction) {
 	    stacktrace.ent = touch;
@@ -949,7 +952,7 @@ SV_TraceMove(const vec3_t start, const vec3_t mins, const vec3_t maxs,
     clip.passedict = passedict;
 
     /* clip to world */
-    SV_ClipMoveToEntity(sv.edicts, start, mins, maxs, end, trace);
+    SV_ClipToEntity(sv.edicts, start, mins, maxs, end, trace);
 
     if (type == MOVE_MISSILE) {
 	for (i = 0; i < 3; i++) {
