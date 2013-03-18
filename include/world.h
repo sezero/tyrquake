@@ -87,19 +87,20 @@ const edict_t *SV_TraceMove(const vec3_t start,
 			    const movetype_t type, const edict_t *passedict,
 			    trace_t *trace);
 
-static inline void
+static inline const edict_t *
 SV_TraceMoveEntity(const edict_t *entity, const vec3_t start, const vec3_t end,
 		   movetype_t type, trace_t *trace)
 {
-    SV_TraceMove(start, entity->v.mins, entity->v.maxs, end, type, entity,
-		 trace);
+    return SV_TraceMove(start, entity->v.mins, entity->v.maxs, end, type,
+			entity, trace);
 }
 
-static inline void
+static inline const edict_t *
 SV_TraceLine(const vec3_t start, const vec3_t end, movetype_t type,
 	     const edict_t *passedict, trace_t *trace)
 {
-    SV_TraceMove(start, vec3_origin, vec3_origin, end, type, passedict, trace);
+    return SV_TraceMove(start, vec3_origin, vec3_origin, end, type, passedict,
+			trace);
 }
 
 #if defined(QW_HACK) && defined(SERVERONLY)
