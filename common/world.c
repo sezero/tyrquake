@@ -815,10 +815,6 @@ SV_ClipToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
     /* fix trace up by the offset */
     if (trace->fraction != 1)
 	VectorAdd(trace->endpos, offset, trace->endpos);
-
-    /* did we clip the move? */
-    if (trace->fraction < 1 || trace->startsolid)
-	trace->ent = ent;
 }
 
 //===========================================================================
@@ -889,7 +885,6 @@ SV_ClipToLinks_r(const edict_t *clipent, const areanode_t *node,
 	if (stacktrace.allsolid || stacktrace.startsolid
 	    || stacktrace.fraction < trace->fraction) {
 	    clipent = touch;
-	    stacktrace.ent = touch;
 	    if (trace->startsolid) {
 		*trace = stacktrace;
 		trace->startsolid = true;
