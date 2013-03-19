@@ -136,8 +136,8 @@ Cam_Lock(int playernum)
     Sbar_Changed();
 }
 
-static pmtrace_t
-Cam_DoTrace(vec3_t vec1, vec3_t vec2)
+static void
+Cam_DoTrace(const vec3_t vec1, const vec3_t vec2, trace_t *trace)
 {
 #if 0
     memset(&pmove, 0, sizeof(pmove));
@@ -146,9 +146,8 @@ Cam_DoTrace(vec3_t vec1, vec3_t vec2)
     VectorCopy(vec3_origin, pmove.physents[0].origin);
     pmove.physents[0].model = cl.worldmodel;
 #endif
-
     VectorCopy(vec1, pmove.origin);
-    return PM_PlayerMove(pmove.origin, vec2);
+    PM_PlayerMove(pmove.origin, vec2, trace);
 }
 
 // Returns distance or 9999 if invalid for some reason
@@ -157,7 +156,7 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
 	     qboolean checkvis)
 {
     vec3_t v;
-    pmtrace_t trace;
+    trace_t trace;
     float len;
 
     vectoangles(vec, v);
@@ -167,7 +166,7 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
     VectorMA(player->origin, 800, vec, v);
     // v is endpos
     // fake a player move
-    trace = Cam_DoTrace(player->origin, v);
+    Cam_DoTrace(player->origin, v, &trace);
     if ( /*trace.inopen || */ trace.inwater)
 	return 9999;
     VectorCopy(trace.endpos, vec);
@@ -179,7 +178,7 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
 	VectorSubtract(trace.endpos, self->origin, v);
 	len = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 
-	trace = Cam_DoTrace(self->origin, vec);
+	Cam_DoTrace(self->origin, vec, &trace);
 	if (trace.fraction != 1 || trace.inwater)
 	    return 9999;
     }
@@ -190,11 +189,11 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
 static qboolean
 Cam_IsVisible(player_state_t * player, vec3_t vec)
 {
-    pmtrace_t trace;
+    trace_t trace;
     vec3_t v;
     float d;
 
-    trace = Cam_DoTrace(player->origin, vec);
+    Cam_DoTrace(player->origin, vec, &trace);
     if (trace.fraction != 1 || /*trace.inopen || */ trace.inwater)
 	return false;
     // check distance, don't let the player get too far away or too close

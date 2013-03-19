@@ -110,10 +110,11 @@ PM_FlyMove(void)
     vec3_t planes[MAX_CLIP_PLANES];
     vec3_t primal_velocity, original_velocity;
     int i, j;
-    pmtrace_t trace;
+    trace_t trace;
     vec3_t end;
     float time_left;
     int blocked;
+    int touchentity;
 
     numbumps = 4;
 
@@ -128,23 +129,25 @@ PM_FlyMove(void)
 	for (i = 0; i < 3; i++)
 	    end[i] = pmove.origin[i] + time_left * pmove.velocity[i];
 
-	trace = PM_PlayerMove(pmove.origin, end);
-
-	if (trace.startsolid || trace.allsolid) {	// entity is trapped in another solid
+	touchentity = PM_PlayerMove(pmove.origin, end, &trace);
+	if (trace.startsolid || trace.allsolid) {
+	    /* entity is trapped in another solid */
 	    VectorCopy(vec3_origin, pmove.velocity);
 	    return 3;
 	}
 
-	if (trace.fraction > 0) {	// actually covered some distance
+	if (trace.fraction > 0) {
+	    /* actually covered some distance */
 	    VectorCopy(trace.endpos, pmove.origin);
 	    numplanes = 0;
 	}
 
+	/* moved the entire distance */
 	if (trace.fraction == 1)
-	    break;		// moved the entire distance
+	    break;
 
-	// save entity for contact
-	pmove.touchindex[pmove.numtouch] = trace.ent;
+	/* save entity for contact */
+	pmove.touchindex[pmove.numtouch] = touchentity;
 	pmove.numtouch++;
 
 	if (trace.plane.normal[2] > 0.7) {
@@ -157,7 +160,8 @@ PM_FlyMove(void)
 	time_left -= time_left * trace.fraction;
 
 	// cliped to another plane
-	if (numplanes >= MAX_CLIP_PLANES) {	// this shouldn't really happen
+	if (numplanes >= MAX_CLIP_PLANES) {
+	    /* this shouldn't really happen */
 	    VectorCopy(vec3_origin, pmove.velocity);
 	    break;
 	}
@@ -204,6 +208,7 @@ PM_FlyMove(void)
     if (pmove.waterjumptime) {
 	VectorCopy(primal_velocity, pmove.velocity);
     }
+
     return blocked;
 }
 
@@ -218,7 +223,7 @@ void
 PM_GroundMove(void)
 {
     vec3_t dest;
-    pmtrace_t trace;
+    trace_t trace;
     vec3_t original, originalvel, down, up, downvel;
     float downdist, updist;
 
@@ -232,7 +237,7 @@ PM_GroundMove(void)
     dest[2] = pmove.origin[2];
 
     // first try moving directly to the next spot
-    trace = PM_PlayerMove(pmove.origin, dest);
+    PM_PlayerMove(pmove.origin, dest, &trace);
     if (trace.fraction == 1) {
 	VectorCopy(trace.endpos, pmove.origin);
 	return;
@@ -254,7 +259,7 @@ PM_GroundMove(void)
 // move up a stair height
     VectorCopy(pmove.origin, dest);
     dest[2] += STEPSIZE;
-    trace = PM_PlayerMove(pmove.origin, dest);
+    PM_PlayerMove(pmove.origin, dest, &trace);
     if (!trace.startsolid && !trace.allsolid) {
 	VectorCopy(trace.endpos, pmove.origin);
     }
@@ -264,7 +269,7 @@ PM_GroundMove(void)
 // press down the stepheight
     VectorCopy(pmove.origin, dest);
     dest[2] -= STEPSIZE;
-    trace = PM_PlayerMove(pmove.origin, dest);
+    PM_PlayerMove(pmove.origin, dest, &trace);
     if (trace.plane.normal[2] < 0.7)
 	goto usedown;
     if (!trace.startsolid && !trace.allsolid) {
@@ -306,7 +311,7 @@ PM_Friction(void)
     float friction;
     float drop;
     vec3_t start, stop;
-    pmtrace_t trace;
+    trace_t trace;
 
     if (pmove.waterjumptime)
 	return;
@@ -329,7 +334,7 @@ PM_Friction(void)
 	start[2] = pmove.origin[2] + player_mins[2];
 	stop[2] = start[2] - 34;
 
-	trace = PM_PlayerMove(start, stop);
+	PM_PlayerMove(start, stop, &trace);
 
 	if (trace.fraction == 1) {
 	    friction *= 2;
@@ -426,7 +431,7 @@ PM_WaterMove(void)
     float wishspeed;
     vec3_t wishdir;
     vec3_t start, dest;
-    pmtrace_t trace;
+    trace_t trace;
 
 //
 // user intentions
@@ -461,7 +466,7 @@ PM_WaterMove(void)
     VectorMA(pmove.origin, frametime, pmove.velocity, dest);
     VectorCopy(dest, start);
     start[2] += STEPSIZE + 1;
-    trace = PM_PlayerMove(start, dest);
+    PM_PlayerMove(start, dest, &trace);
     if (!trace.startsolid && !trace.allsolid)	// FIXME: check steep slope?
     {				// walked up the step
 	VectorCopy(trace.endpos, pmove.origin);
@@ -553,7 +558,8 @@ PM_CatagorizePosition(void)
 {
     vec3_t point;
     int cont;
-    pmtrace_t tr;
+    trace_t trace;
+    int groundentity;
 
 // if the player hull point one unit down is solid, the player
 // is on ground
@@ -565,19 +571,19 @@ PM_CatagorizePosition(void)
     if (pmove.velocity[2] > 180) {
 	onground = -1;
     } else {
-	tr = PM_PlayerMove(pmove.origin, point);
-	if (tr.plane.normal[2] < 0.7)
+	groundentity = PM_PlayerMove(pmove.origin, point, &trace);
+	if (trace.plane.normal[2] < 0.7)
 	    onground = -1;	// too steep
 	else
-	    onground = tr.ent;
+	    onground = groundentity;
 	if (onground != -1) {
 	    pmove.waterjumptime = 0;
-	    if (!tr.startsolid && !tr.allsolid)
-		VectorCopy(tr.endpos, pmove.origin);
+	    if (!trace.startsolid && !trace.allsolid)
+		VectorCopy(trace.endpos, pmove.origin);
 	}
 	// standing on an entity other than the world
-	if (tr.ent > 0) {
-	    pmove.touchindex[pmove.numtouch] = tr.ent;
+	if (groundentity > 0) {
+	    pmove.touchindex[pmove.numtouch] = groundentity;
 	    pmove.numtouch++;
 	}
     }

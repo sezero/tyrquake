@@ -572,12 +572,6 @@ void Mod_CreateBoxhull(const vec3_t mins, const vec3_t maxs,
 
 int Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
 
-/*
- * Hull line tracing
- * Only used by NQ (chase.c) and QWSV.
- */
-#if defined(NQ_HACK) || defined(SERVERONLY)
-
 typedef struct {
     vec3_t normal;
     float dist;
@@ -595,6 +589,5 @@ typedef struct {
 qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
 		       const vec3_t p1, const vec3_t p2,
 		       trace_t *trace);
-#endif
 
 #endif /* MODEL_H */

@@ -1925,8 +1925,6 @@ Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point)
 }
 #endif
 
-#if defined(NQ_HACK) || defined(SERVERONLY)
-
 /* 1/32 epsilon to keep floating point happy */
 #define	DIST_EPSILON	(0.03125)
 
@@ -2070,4 +2068,3 @@ qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
     return Mod_TraceHull_r(hull, nodenum, 0, 1, p1, p2, trace);
 }
 
-#endif

@@ -33,17 +33,6 @@ typedef struct {
     float dist;
 } pmplane_t;
 
-typedef struct {
-    qboolean allsolid;		// if true, plane is not valid
-    qboolean startsolid;	// if true, the initial point was in a solid area
-    qboolean inopen, inwater;
-    float fraction;		// time completed, 1.0 = didn't hit anything
-    vec3_t endpos;		// final position
-    pmplane_t plane;		// surface normal at impact
-    int ent;			// entity the surface is on
-} pmtrace_t;
-
-
 #define	MAX_PHYSENTS	32
 typedef struct {
     vec3_t origin;
@@ -98,8 +87,10 @@ extern int watertype;
 
 void PlayerMove(void);
 
-int PM_PointContents(vec3_t point);
-qboolean PM_TestPlayerPosition(vec3_t point);
-pmtrace_t PM_PlayerMove(vec3_t start, vec3_t stop);
+int PM_PointContents(const vec3_t point);
+qboolean PM_TestPlayerPosition(const vec3_t point);
+
+/* Returns the entity number that the trace hit, -1 otherwise */
+int PM_PlayerMove(const vec3_t start, const vec3_t stop, trace_t *trace);
 
 #endif /* CLIENT_PMOVE_H */
