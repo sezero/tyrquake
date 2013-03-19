@@ -34,7 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // plane_t structure
 // !!! if this is changed, it must be changed in model.h too !!!
-// !!! if the size of this is changed, the array lookup in SV_HullPointContents
+// !!! if the size of this is changed, the array lookup in Mod_HullPointContents
 //     must be changed too !!!
 #define pl_normal	0
 #define pl_dist		12

@@ -558,4 +558,32 @@ mspriteframe_t *Mod_GetSpriteFrame(const struct entity_s *e,
 
 int Mod_FindInterval(const float *intervals, int numintervals, float time);
 
+/*
+ * Hull point/line testing
+ * Only used by NQ (chase.c) and QWSV.
+ */
+
+#if defined(NQ_HACK) || defined(SERVERONLY)
+
+typedef struct {
+    vec3_t normal;
+    float dist;
+} plane_t;
+
+typedef struct {
+    qboolean allsolid;		// if true, plane is not valid
+    qboolean startsolid;	// if true, the initial point was in a solid area
+    qboolean inopen, inwater;
+    float fraction;		// time completed, 1.0 = didn't hit anything
+    vec3_t endpos;		// final position
+    plane_t plane;		// surface normal at impact
+} trace_t;
+
+int Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
+qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
+		       const float p1f, const float p2f,
+		       const vec3_t p1, const vec3_t p2,
+		       trace_t *trace);
+#endif
+
 #endif /* MODEL_H */

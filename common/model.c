@@ -1827,3 +1827,191 @@ Mod_TouchModel(char *name)
 }
 
 #endif /* !SERVERONLY */
+
+/*
+ * ===========================================================================
+ * POINT / LINE TESTING IN HULLS
+ * ===========================================================================
+ */
+
+#if defined(NQ_HACK) || defined(SERVERONLY)
+
+/*
+==================
+Mod_HullPointContents
+==================
+*/
+#ifndef USE_X86_ASM
+int
+Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point)
+{
+    float dist;
+    const mclipnode_t *node;
+    const mplane_t *plane;
+
+    while (nodenum >= 0) {
+	if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
+	    SV_Error("%s: bad node number (%i)", __func__, nodenum);
+
+	node = hull->clipnodes + nodenum;
+	plane = hull->planes + node->planenum;
+
+	if (plane->type < 3)
+	    dist = point[plane->type] - plane->dist;
+	else
+	    dist = DotProduct(plane->normal, point) - plane->dist;
+	if (dist < 0)
+	    nodenum = node->children[1];
+	else
+	    nodenum = node->children[0];
+    }
+
+    return nodenum;
+}
+#endif
+
+/* 1/32 epsilon to keep floating point happy */
+#define	DIST_EPSILON	(0.03125)
+
+/*
+==================
+MOD_TraceHull
+==================
+*/
+static qboolean
+Mod_TraceHull_r(const hull_t *hull, int nodenum,
+		const float p1f, const float p2f,
+		const vec3_t p1, const vec3_t p2, trace_t *trace)
+{
+    mclipnode_t *node;
+    mplane_t *plane;
+    vec3_t mid;
+    vec_t dist1, dist2, frac, midf;
+    int i, child, side, contents;
+
+    /* check for empty */
+    if (nodenum < 0) {
+	if (nodenum != CONTENTS_SOLID) {
+	    trace->allsolid = false;
+	    if (nodenum == CONTENTS_EMPTY)
+		trace->inopen = true;
+	    else
+		trace->inwater = true;
+	} else {
+	    trace->startsolid = true;
+	}
+	return true;
+    }
+
+    if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
+	SV_Error("%s: bad node number", __func__);
+
+    /* Find the point distances */
+    node = hull->clipnodes + nodenum;
+    plane = hull->planes + node->planenum;
+    if (plane->type < 3) {
+	dist1 = p1[plane->type] - plane->dist;
+	dist2 = p2[plane->type] - plane->dist;
+    } else {
+	dist1 = DotProduct(plane->normal, p1) - plane->dist;
+	dist2 = DotProduct(plane->normal, p2) - plane->dist;
+    }
+
+#if 1
+    if (dist1 >= 0 && dist2 >= 0) {
+	child = node->children[0];
+	return Mod_TraceHull_r(hull, child, p1f, p2f, p1, p2, trace);
+    }
+    if (dist1 < 0 && dist2 < 0) {
+	child = node->children[1];
+	return Mod_TraceHull_r(hull, child, p1f, p2f, p1, p2, trace);
+    }
+#else
+    if ((dist1 >= DIST_EPSILON && dist2 >= DIST_EPSILON) || (dist2 > dist1 && dist1 >= 0)) {
+	child = node->children[0];
+	return Mod_TraceHull_r(hull, child, p1f, p2f, p1, p2, trace);
+    }
+    if ((dist1 <= -DIST_EPSILON && dist2 <= -DIST_EPSILON) || (dist2 < dist1 && dist1 <= 0)) {
+	child = node->children[1];
+	return Mod_TraceHull_r(hull, child, p1f, p2f, p1, p2, trace);
+    }
+#endif
+
+    /* Put the crosspoint DIST_EPSILON pixels on the near side */
+    if (dist1 < 0)
+	frac = (dist1 + DIST_EPSILON) / (dist1 - dist2);
+    else
+	frac = (dist1 - DIST_EPSILON) / (dist1 - dist2);
+    if (frac < 0)
+	frac = 0;
+    if (frac > 1)
+	frac = 1;
+
+    midf = p1f + (p2f - p1f) * frac;
+    for (i = 0; i < 3; i++)
+	mid[i] = p1[i] + frac * (p2[i] - p1[i]);
+
+    side = (dist1 < 0);
+
+    /* move up to the node */
+    child = node->children[side];
+    if (!Mod_TraceHull_r(hull, child, p1f, midf, p1, mid, trace))
+	return false;
+
+#ifdef PARANOID
+    if (Mod_HullPointContents(sv_hullmodel, mid, child) == CONTENTS_SOLID) {
+	Con_Printf("mid PointInHullSolid\n");
+	return false;
+    }
+#endif
+
+    child = node->children[side ^ 1];
+    if (Mod_HullPointContents(hull, child, mid) != CONTENTS_SOLID)
+	/* Go past the node */
+	return Mod_TraceHull_r(hull, child, midf, p2f, mid, p2, trace);
+
+    /* Never got out of the solid area */
+    if (trace->allsolid)
+	return false;
+
+    /* The other side of the node is solid, this is the impact point */
+    if (!side) {
+	VectorCopy(plane->normal, trace->plane.normal);
+	trace->plane.dist = plane->dist;
+    } else {
+	VectorSubtract(vec3_origin, plane->normal, trace->plane.normal);
+	trace->plane.dist = -plane->dist;
+    }
+
+    /* shouldn't really happen, but does occasionally */
+    contents = Mod_HullPointContents(hull, hull->firstclipnode, mid);
+    while (contents == CONTENTS_SOLID) {
+	frac -= 0.1;
+	if (frac < 0) {
+	    trace->fraction = midf;
+	    VectorCopy(mid, trace->endpos);
+	    Con_DPrintf("backup past 0\n");
+	    return false;
+	}
+	midf = p1f + (p2f - p1f) * frac;
+	for (i = 0; i < 3; i++)
+	    mid[i] = p1[i] + frac * (p2[i] - p1[i]);
+
+	contents = Mod_HullPointContents(hull, hull->firstclipnode, mid);
+    }
+
+    trace->fraction = midf;
+    VectorCopy(mid, trace->endpos);
+
+    return false;
+}
+
+qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
+		       const float p1f, const float p2f,
+		       const vec3_t p1, const vec3_t p2,
+		       trace_t *trace)
+{
+    return Mod_TraceHull_r(hull, nodenum, p1f, p2f, p1, p2, trace);
+}
+
+#endif

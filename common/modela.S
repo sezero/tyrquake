@@ -18,8 +18,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 //
-// worlda.s
-// x86 assembly-language server testing stuff
+// modela.s
+// x86 assembly-language hull testing stuff
 //
 
 #include "asm_i386.h"
@@ -40,8 +40,8 @@ Ltemp:	.long	0
 #define p	12+12	// because only partially pushed
 
 	.align 4
-.globl C(SV_HullPointContents)
-C(SV_HullPointContents):
+.globl C(Mod_HullPointContents)
+C(Mod_HullPointContents):
 	pushl	%edi			// preserve register variables
 	movl	num(%esp),%eax
 	testl	%eax,%eax

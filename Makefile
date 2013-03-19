@@ -674,7 +674,7 @@ ifeq ($(USE_X86_ASM),Y)
 COMMON_CPPFLAGS += -DUSE_X86_ASM
 COMMON_OBJS += sys_wina.o math.o
 CL_OBJS   += snd_mixa.o
-NQCL_OBJS += worlda.o
+NQCL_OBJS += modela.o
 SW_OBJS   += d_draw.o d_draw16.o d_parta.o d_polysa.o d_scana.o d_spr8.o \
 	     d_varsa.o r_aclipa.o r_aliasa.o r_drawa.o r_edgea.o r_varsa.o \
 	     surf8.o surf16.o
@@ -699,7 +699,7 @@ DUMMY := $(if $(DUPS),$(warning $(MSG_DUP): $(DUPS)),)
 #         more work to do there.
 # ----------------------------------------------------------------------------
 ifeq ($(USE_X86_ASM),Y)
-QWSV_OBJS += worlda.o
+QWSV_OBJS += modela.o
 endif
 
 # ----------------------------------------------------------------------------

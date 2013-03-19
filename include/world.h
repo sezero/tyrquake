@@ -25,20 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "progs.h"
 #include "qtypes.h"
 
-typedef struct {
-    vec3_t normal;
-    float dist;
-} plane_t;
-
-typedef struct {
-    qboolean allsolid;		// if true, plane is not valid
-    qboolean startsolid;	// if true, the initial point was in a solid area
-    qboolean inopen, inwater;
-    float fraction;		// time completed, 1.0 = didn't hit anything
-    vec3_t endpos;		// final position
-    plane_t plane;		// surface normal at impact
-} trace_t;
-
 typedef enum {
     MOVE_NORMAL = 0,
     MOVE_NOMONSTERS = 1,
@@ -104,14 +90,6 @@ SV_TraceLine(const vec3_t start, const vec3_t end, movetype_t type,
 
 #if defined(QW_HACK) && defined(SERVERONLY)
 void SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs);
-#endif
-#ifdef NQ_HACK
-// FIXME - needed in chase.c, but doesn't seem like the right interface
-#include "model.h"
-qboolean SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
-			       const float p1f, const float p2f,
-			       const vec3_t p1, const vec3_t p2,
-			       trace_t *trace);
 #endif
 
 #endif /* WORLD_H */

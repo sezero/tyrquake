@@ -60,8 +60,6 @@ typedef struct {
     const edict_t *passedict;
 } moveclip_t;
 
-int SV_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
-
 /*
 ===============================================================================
 
@@ -539,58 +537,9 @@ SV_LinkEdict(edict_t *ent, qboolean touch_triggers)
 	SV_TouchLinks(ent, sv_areanodes);
 }
 
-
-
-/*
-===============================================================================
-
-				POINT TESTING IN HULLS
-
-===============================================================================
-*/
-
-#ifndef USE_X86_ASM
-
-/*
-==================
-SV_HullPointContents
-
-==================
-*/
-int
-SV_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point)
-{
-    float dist;
-    const mclipnode_t *node;
-    const mplane_t *plane;
-
-    while (nodenum >= 0) {
-	if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
-	    SV_Error("%s: bad node number (%i)", __func__, nodenum);
-
-	node = hull->clipnodes + nodenum;
-	plane = hull->planes + node->planenum;
-
-	if (plane->type < 3)
-	    dist = point[plane->type] - plane->dist;
-	else
-	    dist = DotProduct(plane->normal, point) - plane->dist;
-	if (dist < 0)
-	    nodenum = node->children[1];
-	else
-	    nodenum = node->children[0];
-    }
-
-    return nodenum;
-}
-
-#endif /* USE_X86_ASM */
-
-
 /*
 ==================
 SV_PointContents
-
 ==================
 */
 int
@@ -599,14 +548,14 @@ SV_PointContents(const vec3_t point)
 #ifdef NQ_HACK
     int contents;
 
-    contents = SV_HullPointContents(&sv.worldmodel->hulls[0], 0, point);
+    contents = Mod_HullPointContents(&sv.worldmodel->hulls[0], 0, point);
     if (contents <= CONTENTS_CURRENT_0 && contents >= CONTENTS_CURRENT_DOWN)
 	contents = CONTENTS_WATER;
 
     return contents;
 #endif
 #if defined(QW_HACK) && defined(SERVERONLY)
-    return SV_HullPointContents(&sv.worldmodel->hulls[0], 0, point);
+    return Mod_HullPointContents(&sv.worldmodel->hulls[0], 0, point);
 #endif
 }
 
@@ -632,152 +581,6 @@ SV_TestEntityPosition(const edict_t *ent)
 
     return ret;
 }
-
-/*
-===============================================================================
-
-LINE TESTING IN HULLS
-
-===============================================================================
-*/
-
-// 1/32 epsilon to keep floating point happy
-#define	DIST_EPSILON	(0.03125)
-
-/*
-==================
-SV_RecursiveHullCheck
-
-==================
-*/
-qboolean
-SV_RecursiveHullCheck(const hull_t *hull, int nodenum,
-		      const float p1f, const float p2f,
-		      const vec3_t p1, const vec3_t p2, trace_t *trace)
-{
-    mclipnode_t *node;
-    mplane_t *plane;
-    vec3_t mid;
-    vec_t dist1, dist2, frac, midf;
-    int i, child, side, contents;
-
-    /* check for empty */
-    if (nodenum < 0) {
-	if (nodenum != CONTENTS_SOLID) {
-	    trace->allsolid = false;
-	    if (nodenum == CONTENTS_EMPTY)
-		trace->inopen = true;
-	    else
-		trace->inwater = true;
-	} else {
-	    trace->startsolid = true;
-	}
-	return true;
-    }
-
-    if (nodenum < hull->firstclipnode || nodenum > hull->lastclipnode)
-	SV_Error("%s: bad node number", __func__);
-
-    /* Find the point distances */
-    node = hull->clipnodes + nodenum;
-    plane = hull->planes + node->planenum;
-    if (plane->type < 3) {
-	dist1 = p1[plane->type] - plane->dist;
-	dist2 = p2[plane->type] - plane->dist;
-    } else {
-	dist1 = DotProduct(plane->normal, p1) - plane->dist;
-	dist2 = DotProduct(plane->normal, p2) - plane->dist;
-    }
-
-#if 1
-    if (dist1 >= 0 && dist2 >= 0) {
-	child = node->children[0];
-	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
-    }
-    if (dist1 < 0 && dist2 < 0) {
-	child = node->children[1];
-	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
-    }
-#else
-    if ((dist1 >= DIST_EPSILON && dist2 >= DIST_EPSILON) || (dist2 > dist1 && dist1 >= 0)) {
-	child = node->children[0];
-	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
-    }
-    if ((dist1 <= -DIST_EPSILON && dist2 <= -DIST_EPSILON) || (dist2 < dist1 && dist1 <= 0)) {
-	child = node->children[1];
-	return SV_RecursiveHullCheck(hull, child, p1f, p2f, p1, p2, trace);
-    }
-#endif
-
-    /* Put the crosspoint DIST_EPSILON pixels on the near side */
-    if (dist1 < 0)
-	frac = (dist1 + DIST_EPSILON) / (dist1 - dist2);
-    else
-	frac = (dist1 - DIST_EPSILON) / (dist1 - dist2);
-    if (frac < 0)
-	frac = 0;
-    if (frac > 1)
-	frac = 1;
-
-    midf = p1f + (p2f - p1f) * frac;
-    for (i = 0; i < 3; i++)
-	mid[i] = p1[i] + frac * (p2[i] - p1[i]);
-
-    side = (dist1 < 0);
-
-    /* move up to the node */
-    child = node->children[side];
-    if (!SV_RecursiveHullCheck(hull, child, p1f, midf, p1, mid, trace))
-	return false;
-
-#ifdef PARANOID
-    if (SV_HullPointContents(sv_hullmodel, mid, child) == CONTENTS_SOLID) {
-	Con_Printf("mid PointInHullSolid\n");
-	return false;
-    }
-#endif
-
-    child = node->children[side ^ 1];
-    if (SV_HullPointContents(hull, child, mid) != CONTENTS_SOLID)
-	/* Go past the node */
-	return SV_RecursiveHullCheck(hull, child, midf, p2f, mid, p2, trace);
-
-    /* Never got out of the solid area */
-    if (trace->allsolid)
-	return false;
-
-    /* The other side of the node is solid, this is the impact point */
-    if (!side) {
-	VectorCopy(plane->normal, trace->plane.normal);
-	trace->plane.dist = plane->dist;
-    } else {
-	VectorSubtract(vec3_origin, plane->normal, trace->plane.normal);
-	trace->plane.dist = -plane->dist;
-    }
-
-    /* shouldn't really happen, but does occasionally */
-    contents = SV_HullPointContents(hull, hull->firstclipnode, mid);
-    while (contents == CONTENTS_SOLID) {
-	frac -= 0.1;
-	if (frac < 0) {
-	    trace->fraction = midf;
-	    VectorCopy(mid, trace->endpos);
-	    Con_DPrintf("backup past 0\n");
-	    return false;
-	}
-	midf = p1f + (p2f - p1f) * frac;
-	for (i = 0; i < 3; i++)
-	    mid[i] = p1[i] + frac * (p2[i] - p1[i]);
-
-	contents = SV_HullPointContents(hull, hull->firstclipnode, mid);
-    }
-
-    trace->fraction = midf;
-    VectorCopy(mid, trace->endpos);
-
-    return false;
-}
-
 
 /*
 ==================
@@ -809,8 +612,7 @@ SV_ClipToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
     VectorSubtract(end, offset, end_l);
 
     /* trace a line through the apropriate clipping hull */
-    SV_RecursiveHullCheck(hull, hull->firstclipnode, 0, 1, start_l, end_l,
-			  trace);
+    Mod_TraceHull(hull, hull->firstclipnode, 0, 1, start_l, end_l, trace);
 
     /* fix trace up by the offset */
     if (trace->fraction != 1)
