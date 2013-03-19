@@ -277,7 +277,7 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
     vec3_t end;
     float time_left;
     int blocked;
-    const edict_t *blocker;
+    const edict_t *ground;
 
     numbumps = 4;
 
@@ -297,7 +297,7 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
 	for (i = 0; i < 3; i++)
 	    end[i] = ent->v.origin[i] + time_left * ent->v.velocity[i];
 
-	blocker = SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NORMAL,
+	ground = SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NORMAL,
 				     &trace);
 
 	if (trace.allsolid) {
@@ -317,14 +317,14 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
 	if (trace.fraction == 1)
 	    break;
 
-	if (!blocker)
-	    SV_Error("%s: !blocker", __func__);
+	if (!ground)
+	    SV_Error("%s: !ground", __func__);
 
 	if (trace.plane.normal[2] > 0.7) {
 	    blocked |= MOVE_CLIP_FLOOR;
-	    if (blocker->v.solid == SOLID_BSP) {
+	    if (ground->v.solid == SOLID_BSP) {
 		ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
-		ent->v.groundentity = EDICT_TO_PROG(blocker);
+		ent->v.groundentity = EDICT_TO_PROG(ground);
 	    }
 	}
 	if (!trace.plane.normal[2]) {
@@ -337,7 +337,7 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
 	/*
 	 * Run the impact function. Entity may be removed.
 	 */
-	SV_Impact(ent, blocker);
+	SV_Impact(ent, ground);
 	if (ent->free)
 	    break;
 
@@ -431,29 +431,31 @@ SV_PushEntity
 Does not change the entities velocity at all
 ============
 */
-static trace_t
-SV_PushEntity(edict_t *ent, const vec3_t push)
+static const edict_t *
+SV_PushEntity(edict_t *ent, const vec3_t push, trace_t *trace)
 {
-    trace_t trace;
     vec3_t end;
+    movetype_t movetype;
+    const edict_t *blocker;
 
     VectorAdd(ent->v.origin, push, end);
 
     if (ent->v.movetype == MOVETYPE_FLYMISSILE)
-	SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_MISSILE, &trace);
+	movetype = MOVE_MISSILE;
     else if (ent->v.solid == SOLID_TRIGGER || ent->v.solid == SOLID_NOT)
 	/* only clip against bmodels */
-	SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NOMONSTERS, &trace);
+	movetype = MOVE_NOMONSTERS;
     else
-	SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NORMAL, &trace);
+	movetype = MOVE_NORMAL;
 
-    VectorCopy(trace.endpos, ent->v.origin);
+    blocker = SV_TraceMoveEntity(ent, ent->v.origin, end, movetype, trace);
+    VectorCopy(trace->endpos, ent->v.origin);
     SV_LinkEdict(ent, true);
 
-    if (trace.ent)
-	SV_Impact(ent, trace.ent);
+    if (blocker)
+	SV_Impact(ent, blocker);
 
-    return trace;
+    return blocker;
 }
 
 
@@ -472,6 +474,9 @@ SV_Push(edict_t *pusher, const vec3_t move)
     int num_moved;
     edict_t *moved_edict[MAX_EDICTS];
     vec3_t moved_from[MAX_EDICTS];
+#ifdef NQ_HACK
+    trace_t trace;
+#endif
 
     for (i = 0; i < 3; i++) {
 	mins[i] = pusher->v.absmin[i] + move[i];
@@ -530,7 +535,7 @@ SV_Push(edict_t *pusher, const vec3_t move)
 	/* try moving the contacted entity */
 #ifdef NQ_HACK
 	pusher->v.solid = SOLID_NOT;
-	SV_PushEntity(check, move);
+	SV_PushEntity(check, move, &trace);
 	pusher->v.solid = SOLID_BSP;
 #endif
 #ifdef QW_HACK
@@ -804,7 +809,7 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
     vec3_t oldorg;
     vec3_t dir;
     int clip;
-    trace_t steptrace;
+    trace_t trace;
 
     VectorCopy(ent->v.origin, oldorg);
     VectorCopy(vec3_origin, dir);
@@ -846,13 +851,13 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
 	    break;
 	}
 
-	SV_PushEntity(ent, dir);
+	SV_PushEntity(ent, dir, &trace);
 
 	/* retry the original move */
 	ent->v.velocity[0] = oldvel[0];
 	ent->v.velocity[1] = oldvel[1];
 	ent->v.velocity[2] = 0;
-	clip = SV_FlyMove(ent, 0.1, &steptrace);
+	clip = SV_FlyMove(ent, 0.1, &trace);
 
 	if (fabs(oldorg[1] - ent->v.origin[1]) > 4
 	    || fabs(oldorg[0] - ent->v.origin[0]) > 4) {
@@ -884,7 +889,8 @@ SV_WalkMove(edict_t *ent)
     vec3_t nosteporg, nostepvel;
     int clip;
     int oldonground;
-    trace_t steptrace, downtrace;
+    trace_t trace;
+    const edict_t *ground;
 
 //
 // do a regular slide move unless it looks like you ran into a step
@@ -895,7 +901,7 @@ SV_WalkMove(edict_t *ent)
     VectorCopy(ent->v.origin, oldorg);
     VectorCopy(ent->v.velocity, oldvel);
 
-    clip = SV_FlyMove(ent, host_frametime, &steptrace);
+    clip = SV_FlyMove(ent, host_frametime, &trace);
     if (!(clip & MOVE_CLIP_WALL))
 	return;
 
@@ -928,14 +934,14 @@ SV_WalkMove(edict_t *ent)
     upmove[2] = STEPSIZE;
     downmove[2] = -STEPSIZE + oldvel[2] * host_frametime;
 
-    /* move up */
-    SV_PushEntity(ent, upmove);	// FIXME: don't link?
+    /* move up - FIXME: don't link? */
+    SV_PushEntity(ent, upmove, &trace);
 
     /* move forward */
     ent->v.velocity[0] = oldvel[0];
     ent->v.velocity[1] = oldvel[1];
     ent->v.velocity[2] = 0;
-    clip = SV_FlyMove(ent, host_frametime, &steptrace);
+    clip = SV_FlyMove(ent, host_frametime, &trace);
 
     /*
      * Check for stuckness, possibly due to the limited precision of
@@ -951,15 +957,15 @@ SV_WalkMove(edict_t *ent)
 
     /* extra friction based on view angle */
     if (clip & MOVE_CLIP_WALL)
-	SV_WallFriction(ent, &steptrace);
+	SV_WallFriction(ent, &trace);
 
-    /* move down */
-    downtrace = SV_PushEntity(ent, downmove);	// FIXME: don't link?
+    /* move down - FIXME: don't link? */
+    ground = SV_PushEntity(ent, downmove, &trace);
 
-    if (downtrace.plane.normal[2] > 0.7) {
+    if (trace.plane.normal[2] > 0.7) {
 	if (ent->v.solid == SOLID_BSP) {
 	    ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
-	    ent->v.groundentity = EDICT_TO_PROG(downtrace.ent);
+	    ent->v.groundentity = EDICT_TO_PROG(ground);
 	}
     } else {
 	/*
@@ -1140,6 +1146,7 @@ Toss, bounce, and fly movement.  When onground, do nothing.
 static void
 SV_Physics_Toss(edict_t *ent)
 {
+    const edict_t *ground;
     trace_t trace;
     vec3_t move;
     float backoff;
@@ -1169,7 +1176,7 @@ SV_Physics_Toss(edict_t *ent)
 
     /* move origin */
     VectorScale(ent->v.velocity, host_frametime, move);
-    trace = SV_PushEntity(ent, move);
+    ground = SV_PushEntity(ent, move, &trace);
     if (trace.fraction == 1)
 	return;
     if (ent->free)
@@ -1187,7 +1194,7 @@ SV_Physics_Toss(edict_t *ent)
     if (trace.plane.normal[2] > 0.7) {
 	if (ent->v.velocity[2] < 60 || ent->v.movetype != MOVETYPE_BOUNCE) {
 	    ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
-	    ent->v.groundentity = EDICT_TO_PROG(trace.ent);
+	    ent->v.groundentity = EDICT_TO_PROG(ground);
 	    VectorCopy(vec3_origin, ent->v.velocity);
 	    VectorCopy(vec3_origin, ent->v.avelocity);
 	}
