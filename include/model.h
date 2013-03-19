@@ -218,8 +218,8 @@ typedef struct mleaf_s {
 
 // !!! if this is changed, it must be changed in asm_i386.h too !!!
 typedef struct {
-    mclipnode_t *clipnodes;
-    mplane_t *planes;
+    const mclipnode_t *clipnodes;
+    const mplane_t *planes;
     int firstclipnode;
     int lastclipnode;
     vec3_t clip_mins;

@@ -110,8 +110,8 @@ int
 PM_HullPointContents(hull_t *hull, int num, vec3_t p)
 {
     float d;
-    mclipnode_t *node;
-    mplane_t *plane;
+    const mclipnode_t *node;
+    const mplane_t *plane;
 
     while (num >= 0) {
 	if (num < hull->firstclipnode || num > hull->lastclipnode)
@@ -172,8 +172,8 @@ qboolean
 PM_RecursiveHullCheck(hull_t *hull, int num, float p1f, float p2f,
 		      vec3_t p1, vec3_t p2, pmtrace_t * trace)
 {
-    mclipnode_t *node;
-    mplane_t *plane;
+    const mclipnode_t *node;
+    const mplane_t *plane;
     float t1, t2;
     float frac;
     int child, i;

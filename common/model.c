@@ -1883,8 +1883,8 @@ Mod_TraceHull_r(const hull_t *hull, int nodenum,
 		const float p1f, const float p2f,
 		const vec3_t p1, const vec3_t p2, trace_t *trace)
 {
-    mclipnode_t *node;
-    mplane_t *plane;
+    const mclipnode_t *node;
+    const mplane_t *plane;
     vec3_t mid;
     vec_t dist1, dist2, frac, midf;
     int i, child, side, contents;
