@@ -1830,6 +1830,63 @@ Mod_TouchModel(char *name)
 
 /*
  * ===========================================================================
+ * HULL BOXES
+ *
+ * To keep everything totally uniform, bounding boxes are turned into small
+ * BSP trees instead of being traced directly.
+ * ===========================================================================
+ */
+
+static const mclipnode_t box_clipnodes[6] = {
+    { .planenum = 0, .children = { CONTENTS_EMPTY, 1 } },
+    { .planenum = 1, .children = { 2, CONTENTS_EMPTY } },
+    { .planenum = 2, .children = { CONTENTS_EMPTY, 3 } },
+    { .planenum = 3, .children = { 4, CONTENTS_EMPTY } },
+    { .planenum = 4, .children = { CONTENTS_EMPTY, 5 } },
+    { .planenum = 5, .children = { CONTENTS_SOLID, CONTENTS_EMPTY } }
+};
+
+static const boxhull_t boxhull_template = {
+    .hull = {
+	.clipnodes = box_clipnodes,
+	.firstclipnode = 0,
+	.lastclipnode = 5
+    },
+    .planes = {
+	{ .normal = { 1, 0, 0 }, .dist = 0, .type = 0 },
+	{ .normal = { 1, 0, 0 }, .dist = 0, .type = 0 },
+	{ .normal = { 0, 1, 0 }, .dist = 0, .type = 1 },
+	{ .normal = { 0, 1, 0 }, .dist = 0, .type = 1 },
+	{ .normal = { 0, 0, 1 }, .dist = 0, .type = 2 },
+	{ .normal = { 0, 0, 1 }, .dist = 0, .type = 2 }
+    }
+};
+
+/*
+===================
+SV_CreateBoxHull
+
+Set up the planes and clipnodes using the template so that the six floats
+of a bounding box can just be stored out and get a proper hull_t structure.
+===================
+*/
+void
+Mod_CreateBoxhull(const vec3_t mins, const vec3_t maxs, boxhull_t *boxhull)
+{
+    memcpy(boxhull, &boxhull_template, sizeof(boxhull_template));
+
+    boxhull->hull.planes = boxhull->planes;
+    boxhull->planes[0].dist = maxs[0];
+    boxhull->planes[1].dist = mins[0];
+    boxhull->planes[2].dist = maxs[1];
+    boxhull->planes[3].dist = mins[1];
+    boxhull->planes[4].dist = maxs[2];
+    boxhull->planes[5].dist = mins[2];
+}
+
+
+/*
+ * ===========================================================================
  * POINT / LINE TESTING IN HULLS
  * ===========================================================================
  */

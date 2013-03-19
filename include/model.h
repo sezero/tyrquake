@@ -559,10 +559,20 @@ mspriteframe_t *Mod_GetSpriteFrame(const struct entity_s *e,
 int Mod_FindInterval(const float *intervals, int numintervals, float time);
 
 /*
+ * Create a tiny hull structure for a given bounding box
+ */
+typedef struct {
+    hull_t hull;
+    mplane_t planes[6];
+} boxhull_t;
+
+void Mod_CreateBoxhull(const vec3_t mins, const vec3_t maxs,
+		       boxhull_t *boxhull);
+
+/*
  * Hull point/line testing
  * Only used by NQ (chase.c) and QWSV.
  */
-
 #if defined(NQ_HACK) || defined(SERVERONLY)
 
 typedef struct {
