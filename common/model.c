@@ -1891,8 +1891,6 @@ Mod_CreateBoxhull(const vec3_t mins, const vec3_t maxs, boxhull_t *boxhull)
  * ===========================================================================
  */
 
-#if defined(NQ_HACK) || defined(SERVERONLY)
-
 /*
 ==================
 Mod_HullPointContents
@@ -1926,6 +1924,8 @@ Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point)
     return nodenum;
 }
 #endif
+
+#if defined(NQ_HACK) || defined(SERVERONLY)
 
 /* 1/32 epsilon to keep floating point happy */
 #define	DIST_EPSILON	(0.03125)

@@ -1052,7 +1052,6 @@ CL_Init(void)
     CL_InitTEnts();
     CL_InitPrediction();
     CL_InitCam();
-    Pmove_Init();
 
 //
 // register our commands

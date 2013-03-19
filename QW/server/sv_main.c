@@ -1642,7 +1642,6 @@ SV_Init(quakeparms_t *parms)
 
     SV_InitLocal();
     Sys_Init();
-    Pmove_Init();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();

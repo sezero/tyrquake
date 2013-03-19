@@ -37,102 +37,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern vec3_t player_mins;
 extern vec3_t player_maxs;
 
-static hull_t box_hull;
-static mclipnode_t box_clipnodes[6];
-static mplane_t box_planes[6];
-
-/*
-===================
-PM_InitBoxHull
-
-Set up the planes and clipnodes so that the six floats of a bounding box
-can just be stored out and get a proper hull_t structure.
-===================
-*/
-void
-PM_InitBoxHull(void)
-{
-    int i;
-    int side;
-
-    box_hull.clipnodes = box_clipnodes;
-    box_hull.planes = box_planes;
-    box_hull.firstclipnode = 0;
-    box_hull.lastclipnode = 5;
-
-    for (i = 0; i < 6; i++) {
-	box_clipnodes[i].planenum = i;
-
-	side = i & 1;
-
-	box_clipnodes[i].children[side] = CONTENTS_EMPTY;
-	if (i != 5)
-	    box_clipnodes[i].children[side ^ 1] = i + 1;
-	else
-	    box_clipnodes[i].children[side ^ 1] = CONTENTS_SOLID;
-
-	box_planes[i].type = i >> 1;
-	box_planes[i].normal[i >> 1] = 1;
-    }
-
-}
-
-
-/*
-===================
-PM_HullForBox
-
-To keep everything totally uniform, bounding boxes are turned into small
-BSP trees instead of being compared directly.
-===================
-*/
-hull_t *
-PM_HullForBox(vec3_t mins, vec3_t maxs)
-{
-    box_planes[0].dist = maxs[0];
-    box_planes[1].dist = mins[0];
-    box_planes[2].dist = maxs[1];
-    box_planes[3].dist = mins[1];
-    box_planes[4].dist = maxs[2];
-    box_planes[5].dist = mins[2];
-
-    return &box_hull;
-}
-
-
-/*
-==================
-PM_HullPointContents
-
-==================
-*/
-int
-PM_HullPointContents(hull_t *hull, int num, vec3_t p)
-{
-    float d;
-    const mclipnode_t *node;
-    const mplane_t *plane;
-
-    while (num >= 0) {
-	if (num < hull->firstclipnode || num > hull->lastclipnode)
-	    Sys_Error("PM_HullPointContents: bad node number");
-
-	node = hull->clipnodes + num;
-	plane = hull->planes + node->planenum;
-
-	if (plane->type < 3)
-	    d = p[plane->type] - plane->dist;
-	else
-	    d = DotProduct(plane->normal, p) - plane->dist;
-	if (d < 0)
-	    num = node->children[1];
-	else
-	    num = node->children[0];
-    }
-
-    return num;
-}
-
 /*
 ==================
 PM_PointContents
@@ -140,15 +44,15 @@ PM_PointContents
 ==================
 */
 int
-PM_PointContents(vec3_t p)
+PM_PointContents(vec3_t point)
 {
-    hull_t *hull;
+    const hull_t *hull;
     int num;
 
     hull = &pmove.physents[0].model->hulls[0];
     num = hull->firstclipnode;
 
-    return PM_HullPointContents(hull, num, p);
+    return Mod_HullPointContents(hull, num, point);
 }
 
 /*
@@ -169,7 +73,7 @@ PM_RecursiveHullCheck
 ==================
 */
 qboolean
-PM_RecursiveHullCheck(hull_t *hull, int num, float p1f, float p2f,
+PM_RecursiveHullCheck(const hull_t *hull, int num, float p1f, float p2f,
 		      vec3_t p1, vec3_t p2, pmtrace_t * trace)
 {
     const mclipnode_t *node;
@@ -253,14 +157,14 @@ PM_RecursiveHullCheck(hull_t *hull, int num, float p1f, float p2f,
 	return false;
 
 #ifdef PARANOID
-    if (PM_HullPointContents(pm_hullmodel, child, mid) == CONTENTS_SOLID) {
+    if (Mod_HullPointContents(pm_hullmodel, child, mid) == CONTENTS_SOLID) {
 	Con_Printf("mid PointInHullSolid\n");
 	return false;
     }
 #endif
 
     child = node->children[side ^ 1];
-    if (PM_HullPointContents(hull, child, mid) != CONTENTS_SOLID)
+    if (Mod_HullPointContents(hull, child, mid) != CONTENTS_SOLID)
 	/* go past the node */
 	return PM_RecursiveHullCheck(hull, child, midf, p2f, mid, p2, trace);
 
@@ -279,7 +183,7 @@ PM_RecursiveHullCheck(hull_t *hull, int num, float p1f, float p2f,
     }
 
     /* shouldn't really happen, but does occasionally */
-    while (PM_HullPointContents(hull, hull->firstclipnode, mid) == CONTENTS_SOLID) {
+    while (Mod_HullPointContents(hull, hull->firstclipnode, mid) == CONTENTS_SOLID) {
 	frac -= 0.1;
 	if (frac < 0) {
 	    trace->fraction = midf;
@@ -312,22 +216,24 @@ PM_TestPlayerPosition(vec3_t pos)
     int i;
     physent_t *pe;
     vec3_t mins, maxs, test;
-    hull_t *hull;
+    boxhull_t boxhull;
+    const hull_t *hull;
 
     for (i = 0; i < pmove.numphysent; i++) {
 	pe = &pmove.physents[i];
-	// get the clipping hull
+
+	/* get the clipping hull */
 	if (pe->model)
 	    hull = &pmove.physents[i].model->hulls[1];
 	else {
 	    VectorSubtract(pe->mins, player_maxs, mins);
 	    VectorSubtract(pe->maxs, player_mins, maxs);
-	    hull = PM_HullForBox(mins, maxs);
+	    Mod_CreateBoxhull(mins, maxs, &boxhull);
+	    hull = &boxhull.hull;
 	}
 
 	VectorSubtract(pos, pe->origin, test);
-
-	if (PM_HullPointContents(hull, hull->firstclipnode, test) ==
+	if (Mod_HullPointContents(hull, hull->firstclipnode, test) ==
 	    CONTENTS_SOLID)
 	    return false;
     }
@@ -346,7 +252,8 @@ PM_PlayerMove(vec3_t start, vec3_t end)
     pmtrace_t trace, total;
     vec3_t offset;
     vec3_t start_l, end_l;
-    hull_t *hull;
+    boxhull_t boxhull;
+    const hull_t *hull;
     int i;
     physent_t *pe;
     vec3_t mins, maxs;
@@ -365,7 +272,8 @@ PM_PlayerMove(vec3_t start, vec3_t end)
 	else {
 	    VectorSubtract(pe->mins, player_maxs, mins);
 	    VectorSubtract(pe->maxs, player_mins, maxs);
-	    hull = PM_HullForBox(mins, maxs);
+	    Mod_CreateBoxhull(mins, maxs, &boxhull);
+	    hull = &boxhull.hull;
 	}
 
 	// PM_HullForEntity (ent, mins, maxs, offset);

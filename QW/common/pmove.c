@@ -51,17 +51,7 @@ vec3_t player_maxs = { 16, 16, 32 };
 // #define      PM_FRICTION                     6
 // #define      PM_WATERFRICTION        1
 
-void PM_InitBoxHull(void);
-
-void
-Pmove_Init(void)
-{
-    PM_InitBoxHull();
-}
-
 #define	STEPSIZE	18
-
-
 #define	BUTTON_JUMP	2
 
 

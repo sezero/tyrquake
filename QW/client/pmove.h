@@ -90,7 +90,6 @@ typedef struct {
     float entgravity;
 } movevars_t;
 
-
 extern movevars_t movevars;
 extern playermove_t pmove;
 extern int onground;
@@ -98,9 +97,6 @@ extern int waterlevel;
 extern int watertype;
 
 void PlayerMove(void);
-void Pmove_Init(void);
-
-int PM_HullPointContents(hull_t *hull, int num, vec3_t p);
 
 int PM_PointContents(vec3_t point);
 qboolean PM_TestPlayerPosition(vec3_t point);

@@ -569,8 +569,11 @@ typedef struct {
 void Mod_CreateBoxhull(const vec3_t mins, const vec3_t maxs,
 		       boxhull_t *boxhull);
 
+
+int Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
+
 /*
- * Hull point/line testing
+ * Hull line tracing
  * Only used by NQ (chase.c) and QWSV.
  */
 #if defined(NQ_HACK) || defined(SERVERONLY)
@@ -589,7 +592,6 @@ typedef struct {
     plane_t plane;		// surface normal at impact
 } trace_t;
 
-int Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
 qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
 		       const vec3_t p1, const vec3_t p2,
 		       trace_t *trace);
