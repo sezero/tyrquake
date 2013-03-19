@@ -2061,10 +2061,9 @@ Mod_TraceHull_r(const hull_t *hull, int nodenum,
     return false;
 }
 
-qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
-		       const vec3_t p1, const vec3_t p2,
-		       trace_t *trace)
+qboolean
+Mod_TraceHull(const hull_t *hull, int nodenum,
+	      const vec3_t p1, const vec3_t p2, trace_t *trace)
 {
     return Mod_TraceHull_r(hull, nodenum, 0, 1, p1, p2, trace);
 }
-
