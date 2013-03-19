@@ -257,6 +257,11 @@ Returns the clipflags if the velocity was modified (hit something solid)
 If steptrace is not NULL, the trace of any vertical wall hit will be stored
 ============
 */
+#define MOVE_CLIP_NONE  0
+#define MOVE_CLIP_FLOOR (1 << 0)
+#define MOVE_CLIP_WALL  (1 << 1)
+#define MOVE_CLIP_STOP  (1 << 2)
+
 #define	MAX_CLIP_PLANES	5
 static int
 SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
@@ -272,10 +277,11 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
     vec3_t end;
     float time_left;
     int blocked;
+    const edict_t *blocker;
 
     numbumps = 4;
 
-    blocked = 0;
+    blocked = MOVE_CLIP_NONE;
     VectorCopy(ent->v.velocity, original_velocity);
     VectorCopy(ent->v.velocity, primal_velocity);
     numplanes = 0;
@@ -291,87 +297,93 @@ SV_FlyMove(edict_t *ent, float time, trace_t *steptrace)
 	for (i = 0; i < 3; i++)
 	    end[i] = ent->v.origin[i] + time_left * ent->v.velocity[i];
 
-	SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NORMAL, &trace);
+	blocker = SV_TraceMoveEntity(ent, ent->v.origin, end, MOVE_NORMAL,
+				     &trace);
 
-	if (trace.allsolid) {	// entity is trapped in another solid
+	if (trace.allsolid) {
+	    /* entity is trapped in another solid */
 	    VectorCopy(vec3_origin, ent->v.velocity);
-	    return 3;
+	    return MOVE_CLIP_FLOOR | MOVE_CLIP_WALL;
 	}
 
-	if (trace.fraction > 0) {	// actually covered some distance
+	if (trace.fraction > 0) {
+	    /* actually covered some distance */
 	    VectorCopy(trace.endpos, ent->v.origin);
 	    VectorCopy(ent->v.velocity, original_velocity);
 	    numplanes = 0;
 	}
 
+	/* moved the entire distance */
 	if (trace.fraction == 1)
-	    break;		// moved the entire distance
+	    break;
 
-	if (!trace.ent)
-	    SV_Error("%s: !trace.ent", __func__);
+	if (!blocker)
+	    SV_Error("%s: !blocker", __func__);
 
 	if (trace.plane.normal[2] > 0.7) {
-	    blocked |= 1;	// floor
-	    if (trace.ent->v.solid == SOLID_BSP) {
+	    blocked |= MOVE_CLIP_FLOOR;
+	    if (blocker->v.solid == SOLID_BSP) {
 		ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
-		ent->v.groundentity = EDICT_TO_PROG(trace.ent);
+		ent->v.groundentity = EDICT_TO_PROG(blocker);
 	    }
 	}
 	if (!trace.plane.normal[2]) {
-	    blocked |= 2;	// step
+	    blocked |= MOVE_CLIP_WALL;
 	    if (steptrace)
-		*steptrace = trace;	// save for player extrafriction
+		/* save for player extrafriction */
+		*steptrace = trace;
 	}
-//
-// run the impact function
-//
-	SV_Impact(ent, trace.ent);
-	if (ent->free)
-	    break;		// removed by the impact function
 
+	/*
+	 * Run the impact function. Entity may be removed.
+	 */
+	SV_Impact(ent, blocker);
+	if (ent->free)
+	    break;
 
 	time_left -= time_left * trace.fraction;
 
-	// cliped to another plane
-	if (numplanes >= MAX_CLIP_PLANES) {	// this shouldn't really happen
+	/* clipped to another plane */
+	if (numplanes >= MAX_CLIP_PLANES) {
+	    /* this shouldn't really happen... */
 	    VectorCopy(vec3_origin, ent->v.velocity);
-	    return 3;
+	    return MOVE_CLIP_FLOOR | MOVE_CLIP_WALL;
 	}
-
 	VectorCopy(trace.plane.normal, planes[numplanes]);
 	numplanes++;
 
-//
-// modify original_velocity so it parallels all of the clip planes
-//
+	/*
+	 * modify original_velocity so it parallels all of the clip planes
+	 */
 	for (i = 0; i < numplanes; i++) {
 	    ClipVelocity(original_velocity, planes[i], new_velocity, 1);
 	    for (j = 0; j < numplanes; j++)
 		if (j != i) {
 		    if (DotProduct(new_velocity, planes[j]) < 0)
-			break;	// not ok
+			break;	/* not ok */
 		}
 	    if (j == numplanes)
 		break;
 	}
 
-	if (i != numplanes) {	// go along this plane
+	if (i != numplanes) {
+	    /* go along this plane */
 	    VectorCopy(new_velocity, ent->v.velocity);
-	} else {		// go along the crease
+	} else {
+	    /* go along the crease */
 	    if (numplanes != 2) {
-//                              Con_Printf ("clip velocity, numplanes == %i\n",numplanes);
 		VectorCopy(vec3_origin, ent->v.velocity);
-		return 7;
+		return MOVE_CLIP_FLOOR | MOVE_CLIP_WALL | MOVE_CLIP_STOP;
 	    }
 	    CrossProduct(planes[0], planes[1], dir);
 	    d = DotProduct(dir, ent->v.velocity);
 	    VectorScale(dir, d, ent->v.velocity);
 	}
 
-//
-// if original velocity is against the original velocity, stop dead
-// to avoid tiny occilations in sloping corners
-//
+	/*
+	 * If velocity is against the original velocity, stop dead
+	 * to avoid tiny occilations in sloping corners.
+	 */
 	if (DotProduct(ent->v.velocity, primal_velocity) <= 0) {
 	    VectorCopy(vec3_origin, ent->v.velocity);
 	    return blocked;
@@ -797,8 +809,8 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
     VectorCopy(ent->v.origin, oldorg);
     VectorCopy(vec3_origin, dir);
 
+    /* try pushing a little in an axial direction */
     for (i = 0; i < 8; i++) {
-// try pushing a little in an axial direction
 	switch (i) {
 	case 0:
 	    dir[0] = 2;
@@ -836,7 +848,7 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
 
 	SV_PushEntity(ent, dir);
 
-// retry the original move
+	/* retry the original move */
 	ent->v.velocity[0] = oldvel[0];
 	ent->v.velocity[1] = oldvel[1];
 	ent->v.velocity[2] = 0;
@@ -844,15 +856,16 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
 
 	if (fabs(oldorg[1] - ent->v.origin[1]) > 4
 	    || fabs(oldorg[0] - ent->v.origin[0]) > 4) {
-//Con_DPrintf ("unstuck!\n");
 	    return clip;
 	}
-// go back to the original pos and try again
+
+	/* go back to the original pos and try again */
 	VectorCopy(oldorg, ent->v.origin);
     }
 
+    /* still can't move */
     VectorCopy(vec3_origin, ent->v.velocity);
-    return 7;			// still not moving
+    return MOVE_CLIP_FLOOR | MOVE_CLIP_WALL | MOVE_CLIP_STOP;
 }
 
 /*
@@ -883,15 +896,16 @@ SV_WalkMove(edict_t *ent)
     VectorCopy(ent->v.velocity, oldvel);
 
     clip = SV_FlyMove(ent, host_frametime, &steptrace);
+    if (!(clip & MOVE_CLIP_WALL))
+	return;
 
-    if (!(clip & 2))
-	return;			// move didn't block on a step
-
+    /* don't stair up while jumping */
     if (!oldonground && ent->v.waterlevel == 0)
-	return;			// don't stair up while jumping
+	return;
 
+    /* gibbed by a trigger */
     if (ent->v.movetype != MOVETYPE_WALK)
-	return;			// gibbed by a trigger
+	return;
 
     if (sv_nostep.value)
 	return;
@@ -902,37 +916,44 @@ SV_WalkMove(edict_t *ent)
     VectorCopy(ent->v.origin, nosteporg);
     VectorCopy(ent->v.velocity, nostepvel);
 
-//
-// try moving up and forward to go up a step
-//
-    VectorCopy(oldorg, ent->v.origin);	// back to start pos
+    /*
+     * try moving up and forward to go up a step
+     */
+
+    /* back to start pos */
+    VectorCopy(oldorg, ent->v.origin);
 
     VectorCopy(vec3_origin, upmove);
     VectorCopy(vec3_origin, downmove);
     upmove[2] = STEPSIZE;
     downmove[2] = -STEPSIZE + oldvel[2] * host_frametime;
 
-// move up
+    /* move up */
     SV_PushEntity(ent, upmove);	// FIXME: don't link?
 
-// move forward
+    /* move forward */
     ent->v.velocity[0] = oldvel[0];
     ent->v.velocity[1] = oldvel[1];
     ent->v.velocity[2] = 0;
     clip = SV_FlyMove(ent, host_frametime, &steptrace);
 
-// check for stuckness, possibly due to the limited precision of floats
-// in the clipping hulls
+    /*
+     * Check for stuckness, possibly due to the limited precision of
+     * floats in the clipping hulls.
+     */
     if (clip) {
-	if (fabs(oldorg[1] - ent->v.origin[1]) < 0.03125 && fabs(oldorg[0] - ent->v.origin[0]) < 0.03125) {	// stepping up didn't make any progress
+	if (fabs(oldorg[1] - ent->v.origin[1]) < 0.03125 &&
+	    fabs(oldorg[0] - ent->v.origin[0]) < 0.03125) {
+	    /* stepping up didn't make any progress */
 	    clip = SV_TryUnstick(ent, oldvel);
 	}
     }
-// extra friction based on view angle
-    if (clip & 2)
+
+    /* extra friction based on view angle */
+    if (clip & MOVE_CLIP_WALL)
 	SV_WallFriction(ent, &steptrace);
 
-// move down
+    /* move down */
     downtrace = SV_PushEntity(ent, downmove);	// FIXME: don't link?
 
     if (downtrace.plane.normal[2] > 0.7) {
@@ -941,9 +962,11 @@ SV_WalkMove(edict_t *ent)
 	    ent->v.groundentity = EDICT_TO_PROG(downtrace.ent);
 	}
     } else {
-// if the push down didn't end up on good ground, use the move without
-// the step up.  This happens near wall / slope combinations, and can
-// cause the player to hop up higher on a slope too steep to climb
+	/*
+	 * If the push down didn't end up on good ground, use the move without
+	 * the step up.  This happens near wall / slope combinations, and can
+	 * cause the player to hop up higher on a slope too steep to climb.
+	 */
 	VectorCopy(nosteporg, ent->v.origin);
 	VectorCopy(nostepvel, ent->v.velocity);
     }
