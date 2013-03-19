@@ -2007,11 +2007,10 @@ Mod_TraceHull_r(const hull_t *hull, int nodenum,
 }
 
 qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
-		       const float p1f, const float p2f,
 		       const vec3_t p1, const vec3_t p2,
 		       trace_t *trace)
 {
-    return Mod_TraceHull_r(hull, nodenum, p1f, p2f, p1, p2, trace);
+    return Mod_TraceHull_r(hull, nodenum, 0, 1, p1, p2, trace);
 }
 
 #endif

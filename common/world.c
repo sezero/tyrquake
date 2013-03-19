@@ -612,7 +612,7 @@ SV_ClipToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
     VectorSubtract(end, offset, end_l);
 
     /* trace a line through the apropriate clipping hull */
-    Mod_TraceHull(hull, hull->firstclipnode, 0, 1, start_l, end_l, trace);
+    Mod_TraceHull(hull, hull->firstclipnode, start_l, end_l, trace);
 
     /* fix trace up by the offset */
     if (trace->fraction != 1)

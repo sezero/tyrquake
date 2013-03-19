@@ -581,7 +581,6 @@ typedef struct {
 
 int Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
 qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
-		       const float p1f, const float p2f,
 		       const vec3_t p1, const vec3_t p2,
 		       trace_t *trace);
 #endif
