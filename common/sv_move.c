@@ -112,42 +112,45 @@ pr_global_struct->trace_normal is set to the normal of the blocking wall
 =============
 */
 qboolean
-SV_movestep(edict_t *ent, vec3_t move, qboolean relink)
+SV_movestep(edict_t *entity, vec3_t move, qboolean relink)
 {
     float dz;
     vec3_t oldorg, neworg, end;
     trace_t trace;
     int i;
     edict_t *enemy;
+    const edict_t *ground;
 
-// try the move
-    VectorCopy(ent->v.origin, oldorg);
-    VectorAdd(ent->v.origin, move, neworg);
+    /* try the move */
+    VectorCopy(entity->v.origin, oldorg);
+    VectorAdd(entity->v.origin, move, neworg);
 
-// flying monsters don't step up
-    if ((int)ent->v.flags & (FL_SWIM | FL_FLY)) {
-	// try one move with vertical motion, then one without
+    /* flying monsters don't step up */
+    if ((int)entity->v.flags & (FL_SWIM | FL_FLY)) {
+	/* try one move with vertical motion, then one without */
 	for (i = 0; i < 2; i++) {
-	    VectorAdd(ent->v.origin, move, neworg);
-	    enemy = PROG_TO_EDICT(ent->v.enemy);
+	    VectorAdd(entity->v.origin, move, neworg);
+	    enemy = PROG_TO_EDICT(entity->v.enemy);
 	    if (i == 0 && enemy != sv.edicts) {
-		dz = ent->v.origin[2] -
-		    PROG_TO_EDICT(ent->v.enemy)->v.origin[2];
+		dz = entity->v.origin[2] -
+		    PROG_TO_EDICT(entity->v.enemy)->v.origin[2];
 		if (dz > 40)
 		    neworg[2] -= 8;
 		if (dz < 30)
 		    neworg[2] += 8;
 	    }
-	    SV_TraceMoveEntity(ent, ent->v.origin, neworg, MOVE_NORMAL, &trace);
+	    SV_TraceMoveEntity(entity, entity->v.origin, neworg, MOVE_NORMAL,
+			       &trace);
 
 	    if (trace.fraction == 1) {
-		if (((int)ent->v.flags & FL_SWIM)
+		/* swimming monsters can't leave the water */
+		if (((int)entity->v.flags & FL_SWIM)
 		    && SV_PointContents(trace.endpos) == CONTENTS_EMPTY)
-		    return false;	// swim monster left water
+		    return false;
 
-		VectorCopy(trace.endpos, ent->v.origin);
+		VectorCopy(trace.endpos, entity->v.origin);
 		if (relink)
-		    SV_LinkEdict(ent, true);
+		    SV_LinkEdict(entity, true);
 		return true;
 	    }
 
@@ -157,57 +160,61 @@ SV_movestep(edict_t *ent, vec3_t move, qboolean relink)
 
 	return false;
     }
-// push down from a step height above the wished position
+
+    /* push down from a step height above the wished position */
     neworg[2] += STEPSIZE;
     VectorCopy(neworg, end);
     end[2] -= STEPSIZE * 2;
 
-    SV_TraceMoveEntity(ent, neworg, end, MOVE_NORMAL, &trace);
+    ground = SV_TraceMoveEntity(entity, neworg, end, MOVE_NORMAL, &trace);
     if (trace.allsolid)
 	return false;
 
     if (trace.startsolid) {
 	neworg[2] -= STEPSIZE;
-	SV_TraceMoveEntity(ent, neworg, end, MOVE_NORMAL, &trace);
+	ground = SV_TraceMoveEntity(entity, neworg, end, MOVE_NORMAL, &trace);
 	if (trace.allsolid || trace.startsolid)
 	    return false;
     }
     if (trace.fraction == 1) {
-	// if monster had the ground pulled out, go ahead and fall
-	if ((int)ent->v.flags & FL_PARTIALGROUND) {
-	    VectorAdd(ent->v.origin, move, ent->v.origin);
+	/* if monster had the ground pulled out, go ahead and fall */
+	if ((int)entity->v.flags & FL_PARTIALGROUND) {
+	    VectorAdd(entity->v.origin, move, entity->v.origin);
 	    if (relink)
-		SV_LinkEdict(ent, true);
-	    ent->v.flags = (int)ent->v.flags & ~FL_ONGROUND;
-//      Con_Printf ("fall down\n");
+		SV_LinkEdict(entity, true);
+	    entity->v.flags = (int)entity->v.flags & ~FL_ONGROUND;
+
 	    return true;
 	}
 
-	return false;		// walked off an edge
-    }
-// check point traces down for dangling corners
-    VectorCopy(trace.endpos, ent->v.origin);
-
-    if (!SV_CheckBottom(ent)) {
-	if ((int)ent->v.flags & FL_PARTIALGROUND) {	// entity had floor mostly pulled out from underneath it
-	    // and is trying to correct
-	    if (relink)
-		SV_LinkEdict(ent, true);
-	    return true;
-	}
-	VectorCopy(oldorg, ent->v.origin);
+	/* walked off an edge */
 	return false;
     }
 
-    if ((int)ent->v.flags & FL_PARTIALGROUND) {
-//              Con_Printf ("back on ground\n");
-	ent->v.flags = (int)ent->v.flags & ~FL_PARTIALGROUND;
+    /* check point traces down for dangling corners */
+    VectorCopy(trace.endpos, entity->v.origin);
+    if (!SV_CheckBottom(entity)) {
+	if ((int)entity->v.flags & FL_PARTIALGROUND) {
+	    /*
+	     * entity had floor mostly pulled out from underneath it
+	     * and is trying to correct
+	     */
+	    if (relink)
+		SV_LinkEdict(entity, true);
+	    return true;
+	}
+	VectorCopy(oldorg, entity->v.origin);
+	return false;
     }
-    ent->v.groundentity = EDICT_TO_PROG(trace.ent);
 
-// the move is ok
+    /* the move is ok, put the entity back on the ground */
+    if ((int)entity->v.flags & FL_PARTIALGROUND)
+	entity->v.flags = (int)entity->v.flags & ~FL_PARTIALGROUND;
+
+    entity->v.groundentity = EDICT_TO_PROG(ground);
     if (relink)
-	SV_LinkEdict(ent, true);
+	SV_LinkEdict(entity, true);
+
     return true;
 }
 
