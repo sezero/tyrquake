@@ -1382,7 +1382,7 @@ SV_RunCmd(usercmd_t *ucmd)
 	int before, after;
 
 	before = PM_TestPlayerPosition(pmove.origin);
-	PlayerMove();
+	PlayerMove(&pmove);
 	after = PM_TestPlayerPosition(pmove.origin);
 
 	if (sv_player->v.health > 0 && before && !after)
@@ -1390,7 +1390,7 @@ SV_RunCmd(usercmd_t *ucmd)
 		       host_client->name);
     }
 #else
-    PlayerMove();
+    PlayerMove(&pmove);
 #endif
 
     host_client->oldbuttons = pmove.oldbuttons;

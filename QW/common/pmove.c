@@ -811,42 +811,42 @@ were contacted during the move.
 =============
 */
 void
-PlayerMove(void)
+PlayerMove(playermove_t *pmove)
 {
-    frametime = pmove.cmd.msec * 0.001;
-    pmove.numtouch = 0;
+    frametime = pmove->cmd.msec * 0.001;
+    pmove->numtouch = 0;
 
-    if (pmove.spectator) {
-	SpectatorMove(&pmove);
+    if (pmove->spectator) {
+	SpectatorMove(pmove);
 	return;
     }
 
-    NudgePosition(pmove.origin);
+    NudgePosition(pmove->origin);
 
     /* take angles directly from command */
-    VectorCopy(pmove.cmd.angles, pmove.angles);
+    VectorCopy(pmove->cmd.angles, pmove->angles);
 
     /* set onground, watertype, and waterlevel */
-    PM_CatagorizePosition(&pmove);
+    PM_CatagorizePosition(pmove);
 
     if (waterlevel == 2)
-	CheckWaterJump(&pmove);
+	CheckWaterJump(pmove);
 
-    if (pmove.velocity[2] < 0)
-	pmove.waterjumptime = 0;
+    if (pmove->velocity[2] < 0)
+	pmove->waterjumptime = 0;
 
-    if (pmove.cmd.buttons & BUTTON_JUMP)
-	JumpButton(&pmove);
+    if (pmove->cmd.buttons & BUTTON_JUMP)
+	JumpButton(pmove);
     else
-	pmove.oldbuttons &= ~BUTTON_JUMP;
+	pmove->oldbuttons &= ~BUTTON_JUMP;
 
-    PM_Friction(&pmove);
+    PM_Friction(pmove);
 
     if (waterlevel >= 2)
-	PM_WaterMove(&pmove);
+	PM_WaterMove(pmove);
     else
-	PM_AirMove(&pmove);
+	PM_AirMove(pmove);
 
     /* set onground, watertype, and waterlevel for final spot */
-    PM_CatagorizePosition(&pmove);
+    PM_CatagorizePosition(pmove);
 }

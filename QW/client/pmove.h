@@ -85,7 +85,7 @@ extern int watertype;
 extern const vec3_t player_mins;
 extern const vec3_t player_maxs;
 
-void PlayerMove(void);
+void PlayerMove(playermove_t *pmove);
 
 int PM_PointContents(const vec3_t point);
 qboolean PM_TestPlayerPosition(const vec3_t point);

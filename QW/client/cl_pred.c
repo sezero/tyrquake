@@ -83,7 +83,7 @@ CL_PlayerMove(const player_state_t *from, player_state_t *to,
     pmove.spectator = spectator;
     pmove.cmd = *cmd;
 
-    PlayerMove();
+    PlayerMove(&pmove);
 
     /* Copy out the changes */
     to->waterjumptime = pmove.waterjumptime;
