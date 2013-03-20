@@ -900,11 +900,14 @@ CL_SetSolidEntities(void)
     frame_t *frame;
     packet_entities_t *pak;
     entity_state_t *state;
+    physent_t *physent;
 
-    pmove.physents[0].model = cl.worldmodel;
-    VectorCopy(vec3_origin, pmove.physents[0].origin);
-    pmove.physents[0].info = 0;
-    pmove.numphysent = 1;
+    physent = pmove.physents;
+
+    physent->model = cl.worldmodel;
+    VectorCopy(vec3_origin, physent->origin);
+    physent->info = 0;
+    physent++;
 
     frame = &cl.frames[parsecountmod];
     pak = &frame->packet_entities;
@@ -917,14 +920,12 @@ CL_SetSolidEntities(void)
 	if (!cl.model_precache[state->modelindex])
 	    continue;
 	if (cl.model_precache[state->modelindex]->hulls[1].firstclipnode) {
-	    pmove.physents[pmove.numphysent].model =
-		cl.model_precache[state->modelindex];
-	    VectorCopy(state->origin,
-		       pmove.physents[pmove.numphysent].origin);
-	    pmove.numphysent++;
+	    physent->model = cl.model_precache[state->modelindex];
+	    VectorCopy(state->origin, physent->origin);
+	    physent++;
 	}
     }
-
+    pmove.numphysent = physent - pmove.physents;
 }
 
 /*
