@@ -370,8 +370,6 @@ extern int sv_nailmodel;
 extern int sv_supernailmodel;
 extern int sv_playermodel;
 
-extern vec3_t player_mins;
-
 extern int fp_messages, fp_persecond, fp_secondsdead;
 extern char fp_msg[];
 

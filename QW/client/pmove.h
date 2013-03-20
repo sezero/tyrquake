@@ -84,6 +84,8 @@ extern playermove_t pmove;
 extern int onground;
 extern int waterlevel;
 extern int watertype;
+extern vec3_t player_mins;
+extern vec3_t player_maxs;
 
 void PlayerMove(void);
 

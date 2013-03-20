@@ -328,9 +328,6 @@ extern int cl_spikeindex, cl_playerindex, cl_flagindex;
 extern int parsecountmod;
 extern double parsecounttime;
 
-extern vec3_t player_mins;
-extern vec3_t player_maxs;
-
 entity_t *CL_NewTempEntity(void);
 
 #define	MAX_STATIC_ENTITIES	128	// torches, etc
