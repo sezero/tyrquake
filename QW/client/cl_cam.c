@@ -146,8 +146,8 @@ Cam_DoTrace(playermove_t *pmove, const vec3_t vec1, const vec3_t vec2,
 
 // Returns distance or 9999 if invalid for some reason
 static float
-Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
-	     qboolean checkvis)
+Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
+	     vec3_t vec, qboolean checkvis)
 {
     vec3_t v;
     trace_t trace;
@@ -181,7 +181,7 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
 
 // Is player visible?
 static qboolean
-Cam_IsVisible(player_state_t * player, vec3_t vec)
+Cam_IsVisible(const player_state_t *player, vec3_t vec)
 {
     trace_t trace;
     vec3_t v;
@@ -199,7 +199,8 @@ Cam_IsVisible(player_state_t * player, vec3_t vec)
 }
 
 static qboolean
-InitFlyby(player_state_t * self, player_state_t * player, int checkvis)
+InitFlyby(const player_state_t *self, const player_state_t *player,
+	  int checkvis)
 {
     float f, max;
     vec3_t vec, vec2;
