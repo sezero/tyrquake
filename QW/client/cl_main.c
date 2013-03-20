@@ -1325,6 +1325,9 @@ Host_Frame(float time)
     // fetch results from server
     CL_ReadPackets();
 
+    /* Set the pmove physents based on current state... */
+    CL_SetSolidEntities(&pmove);
+
     // send intentions now
     // resend a connection request if necessary
     if (cls.state == ca_disconnected) {

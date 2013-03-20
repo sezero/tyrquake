@@ -1392,6 +1392,4 @@ CL_ParseServerMessage(void)
 	    Host_EndGame("%s: Illegible server message", __func__);
 	}
     }
-
-    CL_SetSolidEntities(&pmove);
 }
