@@ -327,7 +327,7 @@ PM_Friction(void)
 
     friction = movevars.friction;
 
-// if the leading edge is over a dropoff, increase friction
+    /* if the leading edge is over a dropoff, increase friction */
     if (onground != -1) {
 	start[0] = stop[0] = pmove.origin[0] + vel[0] / speed * 16;
 	start[1] = stop[1] = pmove.origin[1] + vel[1] / speed * 16;
@@ -343,14 +343,16 @@ PM_Friction(void)
 
     drop = 0;
 
-    if (waterlevel >= 2)	// apply water friction
+    if (waterlevel >= 2) {
+	/* apply water friction */
 	drop += speed * movevars.waterfriction * waterlevel * frametime;
-    else if (onground != -1)	// apply ground friction
-    {
+    } else if (onground != -1) {
+	/* apply ground friction */
 	control = speed < movevars.stopspeed ? movevars.stopspeed : speed;
 	drop += control * friction * frametime;
     }
-// scale the velocity
+
+    /* scale the velocity */
     newspeed = speed - drop;
     if (newspeed < 0)
 	newspeed = 0;
@@ -367,7 +369,7 @@ PM_Friction(void)
 PM_Accelerate
 ==============
 */
-void
+static void
 PM_Accelerate(vec3_t wishdir, float wishspeed, float accel)
 {
     int i;
@@ -453,27 +455,26 @@ PM_WaterMove(void)
     }
     wishspeed *= 0.7;
 
-//
-// water acceleration
-//
-//      if (pmove.waterjumptime)
-//              Con_Printf ("wm->%f, %f, %f\n", pmove.velocity[0], pmove.velocity[1], pmove.velocity[2]);
+    /*
+     * water acceleration
+     */
     PM_Accelerate(wishdir, wishspeed, movevars.wateraccelerate);
 
-// assume it is a stair or a slope, so press down from stepheight above
+    /*
+     * assume it is a stair or a slope, so press down from stepheight above
+     */
     VectorMA(pmove.origin, frametime, pmove.velocity, dest);
     VectorCopy(dest, start);
     start[2] += STEPSIZE + 1;
     PM_PlayerMove(start, dest, &trace);
-    if (!trace.startsolid && !trace.allsolid)	// FIXME: check steep slope?
-    {				// walked up the step
+    if (!trace.startsolid && !trace.allsolid) {
+	/* walked up the step */
+	/* FIXME: check steep slope? */
 	VectorCopy(trace.endpos, pmove.origin);
 	return;
     }
 
     PM_FlyMove();
-//      if (pmove.waterjumptime)
-//              Con_Printf ("<-wm%f, %f, %f\n", pmove.velocity[0], pmove.velocity[1], pmove.velocity[2]);
 }
 
 
@@ -507,15 +508,13 @@ PM_AirMove(void)
     VectorCopy(wishvel, wishdir);
     wishspeed = VectorNormalize(wishdir);
 
-//
-// clamp to server defined max speed
-//
+    /*
+     * clamp to server defined max speed
+     */
     if (wishspeed > movevars.maxspeed) {
 	VectorScale(wishvel, movevars.maxspeed / wishspeed, wishvel);
 	wishspeed = movevars.maxspeed;
     }
-//      if (pmove.waterjumptime)
-//              Con_Printf ("am->%f, %f, %f\n", pmove.velocity[0], pmove.velocity[1], pmove.velocity[2]);
 
     if (onground != -1) {
 	pmove.velocity[2] = 0;
@@ -523,25 +522,16 @@ PM_AirMove(void)
 	pmove.velocity[2] -=
 	    movevars.entgravity * movevars.gravity * frametime;
 	PM_GroundMove();
-    } else {			// not on ground, so little effect on velocity
+    } else {
+	/* not on ground, so little effect on velocity */
 	PM_AirAccelerate(wishdir, wishspeed, movevars.accelerate);
 
-	// add gravity
+	/* add gravity */
 	pmove.velocity[2] -=
 	    movevars.entgravity * movevars.gravity * frametime;
 
 	PM_FlyMove();
-
     }
-
-//Con_Printf("airmove:vec: %4.2f %4.2f %4.2f\n",
-//                      pmove.velocity[0],
-//                      pmove.velocity[1],
-//                      pmove.velocity[2]);
-//
-
-//      if (pmove.waterjumptime)
-//              Con_Printf ("<-am%f, %f, %f\n", pmove.velocity[0], pmove.velocity[1], pmove.velocity[2]);
 }
 
 
@@ -620,7 +610,8 @@ static void
 JumpButton(void)
 {
     if (pmove.dead) {
-	pmove.oldbuttons |= BUTTON_JUMP;	// don't jump again until released
+	/* don't jump again until released */
+	pmove.oldbuttons |= BUTTON_JUMP;
 	return;
     }
 
@@ -631,9 +622,9 @@ JumpButton(void)
 	return;
     }
 
-    if (waterlevel >= 2) {	// swimming, not jumping
+    if (waterlevel >= 2) {
+	/* swimming, not jumping */
 	onground = -1;
-
 	if (watertype == CONTENTS_WATER)
 	    pmove.velocity[2] = 100;
 	else if (watertype == CONTENTS_SLIME)
@@ -643,16 +634,19 @@ JumpButton(void)
 	return;
     }
 
+    /* no effect if in air */
     if (onground == -1)
-	return;			// in air, so no effect
+	return;
 
+    /* don't pogo stick */
     if (pmove.oldbuttons & BUTTON_JUMP)
-	return;			// don't pogo stick
+	return;
 
     onground = -1;
     pmove.velocity[2] += 270;
 
-    pmove.oldbuttons |= BUTTON_JUMP;	// don't jump again until released
+    /* don't jump again until released */
+    pmove.oldbuttons |= BUTTON_JUMP;
 }
 
 /*
@@ -787,9 +781,9 @@ SpectatorMove(void)
     VectorCopy(wishvel, wishdir);
     wishspeed = VectorNormalize(wishdir);
 
-    //
-    // clamp to server defined max speed
-    //
+    /*
+     * clamp to server defined max speed
+     */
     if (wishspeed > movevars.spectatormaxspeed) {
 	VectorScale(wishvel, movevars.spectatormaxspeed / wishspeed, wishvel);
 	wishspeed = movevars.spectatormaxspeed;
@@ -803,11 +797,9 @@ SpectatorMove(void)
     if (accelspeed > addspeed)
 	accelspeed = addspeed;
 
-    for (i = 0; i < 3; i++)
-	pmove.velocity[i] += accelspeed * wishdir[i];
+    VectorMA(pmove.velocity, accelspeed, wishdir, pmove.velocity);
 
-
-    // move
+    /* Move */
     VectorMA(pmove.origin, frametime, pmove.velocity, pmove.origin);
 }
 
@@ -834,10 +826,10 @@ PlayerMove(void)
 
     NudgePosition();
 
-    // take angles directly from command
+    /* take angles directly from command */
     VectorCopy(pmove.cmd.angles, pmove.angles);
 
-    // set onground, watertype, and waterlevel
+    /* set onground, watertype, and waterlevel */
     PM_CatagorizePosition();
 
     if (waterlevel == 2)
@@ -858,6 +850,6 @@ PlayerMove(void)
     else
 	PM_AirMove();
 
-    // set onground, watertype, and waterlevel for final spot
+    /* set onground, watertype, and waterlevel for final spot */
     PM_CatagorizePosition();
 }
