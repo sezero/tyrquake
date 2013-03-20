@@ -98,6 +98,11 @@ PM_FlyMove
 The basic solid body movement clip that slides along multiple planes
 ============
 */
+#define MOVE_CLIP_NONE  0
+#define MOVE_CLIP_FLOOR (1 << 0)
+#define MOVE_CLIP_WALL  (1 << 1)
+#define MOVE_CLIP_STOP  (1 << 2)
+
 #define	MAX_CLIP_PLANES	5
 
 int
@@ -118,7 +123,7 @@ PM_FlyMove(void)
 
     numbumps = 4;
 
-    blocked = 0;
+    blocked = MOVE_CLIP_NONE;
     VectorCopy(pmove.velocity, original_velocity);
     VectorCopy(pmove.velocity, primal_velocity);
     numplanes = 0;
@@ -133,7 +138,7 @@ PM_FlyMove(void)
 	if (trace.startsolid || trace.allsolid) {
 	    /* entity is trapped in another solid */
 	    VectorCopy(vec3_origin, pmove.velocity);
-	    return 3;
+	    return MOVE_CLIP_FLOOR | MOVE_CLIP_WALL;
 	}
 
 	if (trace.fraction > 0) {
@@ -150,43 +155,42 @@ PM_FlyMove(void)
 	pmove.touchindex[pmove.numtouch] = touchentity;
 	pmove.numtouch++;
 
-	if (trace.plane.normal[2] > 0.7) {
-	    blocked |= 1;	// floor
-	}
-	if (!trace.plane.normal[2]) {
-	    blocked |= 2;	// step
-	}
+	if (trace.plane.normal[2] > 0.7)
+	    blocked |= MOVE_CLIP_FLOOR;
+	if (!trace.plane.normal[2])
+	    blocked |= MOVE_CLIP_WALL;
 
 	time_left -= time_left * trace.fraction;
 
-	// cliped to another plane
+	/* cliped to another plane */
 	if (numplanes >= MAX_CLIP_PLANES) {
 	    /* this shouldn't really happen */
 	    VectorCopy(vec3_origin, pmove.velocity);
 	    break;
 	}
-
 	VectorCopy(trace.plane.normal, planes[numplanes]);
 	numplanes++;
 
-//
-// modify original_velocity so it parallels all of the clip planes
-//
+	/*
+	 * modify original_velocity so it parallels all of the clip planes
+	 */
 	for (i = 0; i < numplanes; i++) {
 	    PM_ClipVelocity(original_velocity, planes[i], pmove.velocity, 1);
 	    for (j = 0; j < numplanes; j++)
 		if (j != i) {
 		    if (DotProduct(pmove.velocity, planes[j]) < 0)
-			break;	// not ok
+			break;	/* not ok */
 		}
 	    if (j == numplanes)
 		break;
 	}
 
-	if (i != numplanes) {	// go along this plane
-	} else {		// go along the crease
+	if (i != numplanes) {
+	    /* go along this plane */
+	    /* ??? */
+	} else {
+	    /* go along the crease */
 	    if (numplanes != 2) {
-//                              Con_Printf ("clip velocity, numplanes == %i\n",numplanes);
 		VectorCopy(vec3_origin, pmove.velocity);
 		break;
 	    }
@@ -195,19 +199,18 @@ PM_FlyMove(void)
 	    VectorScale(dir, d, pmove.velocity);
 	}
 
-//
-// if original velocity is against the original velocity, stop dead
-// to avoid tiny occilations in sloping corners
-//
+	/*
+	 * If velocity is against the original velocity, stop dead
+	 * to avoid tiny occilations in sloping corners
+	 */
 	if (DotProduct(pmove.velocity, primal_velocity) <= 0) {
 	    VectorCopy(vec3_origin, pmove.velocity);
 	    break;
 	}
     }
 
-    if (pmove.waterjumptime) {
+    if (pmove.waterjumptime)
 	VectorCopy(primal_velocity, pmove.velocity);
-    }
 
     return blocked;
 }
