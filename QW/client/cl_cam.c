@@ -292,7 +292,7 @@ Cam_CheckHighTarget(void)
 // Take over the user controls and track a player.
 // We find a nice position to watch the player and move there
 void
-Cam_Track(usercmd_t *cmd)
+Cam_Track(playermove_t *pmove, usercmd_t *cmd)
 {
     player_state_t *player, *self;
     frame_t *frame;
@@ -322,10 +322,10 @@ Cam_Track(usercmd_t *cmd)
     player = frame->playerstate + spec_track;
     self = frame->playerstate + cl.playernum;
 
-    if (!locked || !Cam_IsVisible(&pmove, player, desired_position)) {
+    if (!locked || !Cam_IsVisible(pmove, player, desired_position)) {
 	if (!locked || realtime - cam_lastviewtime > 0.1) {
-	    if (!InitFlyby(&pmove, self, player, true))
-		InitFlyby(&pmove, self, player, false);
+	    if (!InitFlyby(pmove, self, player, true))
+		InitFlyby(pmove, self, player, false);
 	    cam_lastviewtime = realtime;
 	}
     } else

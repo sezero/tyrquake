@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define CLIENT_H
 
 #include "net.h"
+#include "pmove.h"
 #include "protocol.h"
 #include "render.h"
 #include "sound.h"
@@ -486,7 +487,7 @@ extern int spec_track;		// player# of who we are tracking
 
 qboolean Cam_DrawViewModel(void);
 qboolean Cam_DrawPlayer(int playernum);
-void Cam_Track(usercmd_t *cmd);
+void Cam_Track(playermove_t *pmove, usercmd_t *cmd);
 void Cam_FinishMove(usercmd_t *cmd);
 void Cam_Reset(void);
 void CL_InitCam(void);

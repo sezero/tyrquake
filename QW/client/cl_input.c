@@ -594,7 +594,7 @@ CL_SendCmd(void)
 
     // if we are spectator, try autocam
     if (cl.spectator)
-	Cam_Track(cmd);
+	Cam_Track(&pmove, cmd);
 
     CL_FinishMove(cmd);
 
