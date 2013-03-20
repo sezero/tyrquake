@@ -699,31 +699,34 @@ allow for the cut precision of the net coordinates
 =================
 */
 static void
-NudgePosition(playermove_t *pmove)
+NudgePosition(vec3_t origin)
 {
-    vec3_t base;
-    int x, y, z;
-    int i;
-    static int sign[3] = { 0, -1, 1 };
+    static const vec3_t signs = { 0, -1, 1 };
+    vec3_t nudged;
+    int i, x, y, z;
 
-    VectorCopy(pmove->origin, base);
-
+    /*
+     * Round to the nearest 1/8th world coordinate
+     * (Note: the original QW always rounded towards zero)
+     */
     for (i = 0; i < 3; i++)
-	pmove->origin[i] = ((int)(pmove->origin[i] * 8)) * 0.125;
+	origin[i] = floor(origin[i] * 8 + 0.5) * 0.125;
 
+    if (PM_TestPlayerPosition(origin))
+	return;
+
+    /* Nudge slightly along each axis and re-test */
     for (z = 0; z <= 2; z++) {
 	for (x = 0; x <= 2; x++) {
 	    for (y = 0; y <= 2; y++) {
-		pmove->origin[0] = base[0] + (sign[x] * 1.0 / 8);
-		pmove->origin[1] = base[1] + (sign[y] * 1.0 / 8);
-		pmove->origin[2] = base[2] + (sign[z] * 1.0 / 8);
-		if (PM_TestPlayerPosition(pmove->origin))
+		VectorMA(origin, 0.125, signs, nudged);
+		if (PM_TestPlayerPosition(nudged)) {
+		    VectorCopy(nudged, origin);
 		    return;
+		}
 	    }
 	}
     }
-    VectorCopy(base, pmove->origin);
-//      Con_DPrintf ("NudgePosition: stuck\n");
 }
 
 /*
@@ -818,7 +821,7 @@ PlayerMove(void)
 	return;
     }
 
-    NudgePosition(&pmove);
+    NudgePosition(pmove.origin);
 
     /* take angles directly from command */
     VectorCopy(pmove.cmd.angles, pmove.angles);
