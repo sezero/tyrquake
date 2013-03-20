@@ -69,54 +69,55 @@ CL_NudgePosition(void)
     Con_DPrintf("CL_NudgePosition: stuck\n");
 }
 
-/*
-==============
-CL_PredictUsercmd
-==============
-*/
-void
-CL_PredictUsercmd(player_state_t *from, player_state_t *to, usercmd_t *u,
-		  qboolean spectator)
+static void
+CL_PlayerMove(const player_state_t *from, player_state_t *to,
+	      const usercmd_t *cmd, qboolean spectator)
 {
-    // split up very long moves
-    if (u->msec > 50) {
-	player_state_t temp;
-	usercmd_t split;
-
-	split = *u;
-	split.msec /= 2;
-
-	CL_PredictUsercmd(from, &temp, &split, spectator);
-	CL_PredictUsercmd(&temp, to, &split, spectator);
-	return;
-    }
-
+    /* Setup the player move info */
     VectorCopy(from->origin, pmove.origin);
-//      VectorCopy (from->viewangles, pmove.angles);
-    VectorCopy(u->angles, pmove.angles);
+    VectorCopy(cmd->angles, pmove.angles);
     VectorCopy(from->velocity, pmove.velocity);
-
     pmove.oldbuttons = from->oldbuttons;
     pmove.waterjumptime = from->waterjumptime;
     pmove.dead = cl.stats[STAT_HEALTH] <= 0;
     pmove.spectator = spectator;
-
-    pmove.cmd = *u;
+    pmove.cmd = *cmd;
 
     PlayerMove();
-//for (i=0 ; i<3 ; i++)
-//pmove.origin[i] = ((int)(pmove.origin[i]*8))*0.125;
+
+    /* Copy out the changes */
     to->waterjumptime = pmove.waterjumptime;
     to->oldbuttons = pmove.cmd.buttons;
     VectorCopy(pmove.origin, to->origin);
     VectorCopy(pmove.angles, to->viewangles);
     VectorCopy(pmove.velocity, to->velocity);
     to->onground = onground;
-
     to->weaponframe = from->weaponframe;
 }
 
+/*
+==============
+CL_PredictUsercmd
+==============
+*/
+void
+CL_PredictUsercmd(const player_state_t *from, player_state_t *to,
+		  const usercmd_t *cmd, qboolean spectator)
+{
+    /* split up very long moves */
+    if (cmd->msec > 50) {
+	player_state_t temp;
+	usercmd_t split;
 
+	split = *cmd;
+	split.msec /= 2;
+
+	CL_PredictUsercmd(from, &temp, &split, spectator);
+	CL_PredictUsercmd(&temp, to, &split, spectator);
+	return;
+    }
+    CL_PlayerMove(from, to, cmd, spectator);
+}
 
 /*
 ==============
