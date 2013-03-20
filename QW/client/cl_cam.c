@@ -146,7 +146,8 @@ Cam_DoTrace(playermove_t *pmove, const vec3_t vec1, const vec3_t vec2,
 
 // Returns distance or 9999 if invalid for some reason
 static float
-Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
+Cam_TryFlyby(playermove_t *pmove,
+	     const player_state_t *self, const player_state_t *player,
 	     vec3_t vec, qboolean checkvis)
 {
     vec3_t v;
@@ -154,13 +155,15 @@ Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
     float len;
 
     vectoangles(vec, v);
-//      v[0] = -v[0];
-    VectorCopy(v, pmove.angles);
+    VectorCopy(v, pmove->angles);
     VectorNormalize(vec);
     VectorMA(player->origin, 800, vec, v);
-    // v is endpos
-    // fake a player move
-    Cam_DoTrace(&pmove, player->origin, v, &trace);
+
+    /*
+     * v is endpos
+     * fake a player move
+     */
+    Cam_DoTrace(pmove, player->origin, v, &trace);
     if ( /*trace.inopen || */ trace.inwater)
 	return 9999;
     VectorCopy(trace.endpos, vec);
@@ -172,7 +175,7 @@ Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
 	VectorSubtract(trace.endpos, self->origin, v);
 	len = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 
-	Cam_DoTrace(&pmove, self->origin, vec, &trace);
+	Cam_DoTrace(pmove, self->origin, vec, &trace);
 	if (trace.fraction != 1 || trace.inwater)
 	    return 9999;
     }
@@ -199,11 +202,12 @@ Cam_IsVisible(const player_state_t *player, vec3_t vec)
 }
 
 static qboolean
-InitFlyby(const player_state_t *self, const player_state_t *player,
+InitFlyby(playermove_t *pmove,
+	  const player_state_t *self, const player_state_t *player,
 	  int checkvis)
 {
     int i;
-    float f, max;
+    float flydist, max;
     vec3_t vec, vec2;
     vec3_t forward, right, up;
 
@@ -217,33 +221,38 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
     for (i = 0; i < 8; i++) {
 	VectorAdd(forward, up, vec2);
 	VectorAdd(vec2, right, vec2);
-	if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	    max = f;
+	flydist = Cam_TryFlyby(pmove, self, player, vec2, checkvis);
+	if (flydist < max) {
+	    max = flydist;
 	    VectorCopy(vec2, vec);
 	}
     }
 
     /* invert */
     VectorSubtract(vec3_origin, forward, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
+    flydist = Cam_TryFlyby(pmove, self, player, vec2, checkvis);
+    if (flydist < max) {
+	max = flydist;
 	VectorCopy(vec2, vec);
     }
     VectorCopy(forward, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
+    flydist = Cam_TryFlyby(pmove, self, player, vec2, checkvis);
+    if (flydist < max) {
+	max = flydist;
 	VectorCopy(vec2, vec);
     }
 
     /* invert */
     VectorSubtract(vec3_origin, right, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
+    flydist = Cam_TryFlyby(pmove, self, player, vec2, checkvis);
+    if (flydist < max) {
+	max = flydist;
 	VectorCopy(vec2, vec);
     }
     VectorCopy(right, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
+    flydist = Cam_TryFlyby(pmove, self, player, vec2, checkvis);
+    if (flydist < max) {
+	max = flydist;
 	VectorCopy(vec2, vec);
     }
 
@@ -315,8 +324,8 @@ Cam_Track(usercmd_t *cmd)
 
     if (!locked || !Cam_IsVisible(player, desired_position)) {
 	if (!locked || realtime - cam_lastviewtime > 0.1) {
-	    if (!InitFlyby(self, player, true))
-		InitFlyby(self, player, false);
+	    if (!InitFlyby(&pmove, self, player, true))
+		InitFlyby(&pmove, self, player, false);
 	    cam_lastviewtime = realtime;
 	}
     } else
