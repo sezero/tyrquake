@@ -1118,7 +1118,6 @@ CL_MuzzleFlash(void)
 CL_ParseServerMessage
 =====================
 */
-int received_framecount;
 void
 CL_ParseServerMessage(void)
 {
@@ -1126,7 +1125,6 @@ CL_ParseServerMessage(void)
     char *s;
     int i, j;
 
-    received_framecount = host_framecount;
     cl.last_servermessage = realtime;
     CL_ClearProjectiles();
 
