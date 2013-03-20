@@ -27,16 +27,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 movevars_t movevars;
-
 playermove_t pmove;
 
 int onground;
 int waterlevel;
 int watertype;
 
-float frametime;
-
-vec3_t forward, right, up;
+static float frametime;
+static vec3_t forward, right, up;
 
 vec3_t player_mins = { -16, -16, -24 };
 vec3_t player_maxs = { 16, 16, 32 };
@@ -65,7 +63,7 @@ returns the blocked flags (1 = floor, 2 = step / wall)
 */
 #define	STOP_EPSILON	0.1
 
-int
+static int
 PM_ClipVelocity(vec3_t in, vec3_t normal, vec3_t out, float overbounce)
 {
     float backoff;
@@ -105,7 +103,7 @@ The basic solid body movement clip that slides along multiple planes
 
 #define	MAX_CLIP_PLANES	5
 
-int
+static int
 PM_FlyMove(void)
 {
     int bumpcount, numbumps;
@@ -222,7 +220,7 @@ PM_GroundMove
 Player is on ground, with no upwards velocity
 =============
 */
-void
+static void
 PM_GroundMove(void)
 {
     vec3_t dest;
@@ -306,7 +304,7 @@ PM_Friction
 Handles both ground friction and water friction
 ==================
 */
-void
+static void
 PM_Friction(void)
 {
     float *vel;
@@ -393,7 +391,7 @@ PM_Accelerate(vec3_t wishdir, float wishspeed, float accel)
 	pmove.velocity[i] += accelspeed * wishdir[i];
 }
 
-void
+static void
 PM_AirAccelerate(vec3_t wishdir, float wishspeed, float accel)
 {
     int i;
@@ -426,7 +424,7 @@ PM_WaterMove
 
 ===================
 */
-void
+static void
 PM_WaterMove(void)
 {
     int i;
@@ -488,7 +486,7 @@ PM_AirMove
 
 ===================
 */
-void
+static void
 PM_AirMove(void)
 {
     int i;
@@ -556,7 +554,7 @@ PM_AirMove(void)
 PM_CatagorizePosition
 =============
 */
-void
+static void
 PM_CatagorizePosition(void)
 {
     vec3_t point;
@@ -621,7 +619,7 @@ PM_CatagorizePosition(void)
 JumpButton
 =============
 */
-void
+static void
 JumpButton(void)
 {
     if (pmove.dead) {
@@ -665,7 +663,7 @@ JumpButton(void)
 CheckWaterJump
 =============
 */
-void
+static void
 CheckWaterJump(void)
 {
     vec3_t spot;
@@ -710,7 +708,7 @@ try nudging slightly on all axis to
 allow for the cut precision of the net coordinates
 =================
 */
-void
+static void
 NudgePosition(void)
 {
     vec3_t base;
@@ -749,7 +747,7 @@ NudgePosition(void)
 SpectatorMove
 ===============
 */
-void
+static void
 SpectatorMove(void)
 {
     float speed, drop, friction, control, newspeed;
