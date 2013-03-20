@@ -716,10 +716,12 @@ NudgePosition(vec3_t origin)
 	return;
 
     /* Nudge slightly along each axis and re-test */
-    for (z = 0; z <= 2; z++) {
-	for (x = 0; x <= 2; x++) {
-	    for (y = 0; y <= 2; y++) {
-		VectorMA(origin, 0.125, signs, nudged);
+    for (z = 0; z < 3; z++) {
+	for (x = 0; x < 3; x++) {
+	    for (y = 0; y < 3; y++) {
+		nudged[0] = origin[0] + signs[x] * 0.125;
+		nudged[1] = origin[1] + signs[y] * 0.125;
+		nudged[2] = origin[2] + signs[z] * 0.125;
 		if (PM_TestPlayerPosition(nudged)) {
 		    VectorCopy(nudged, origin);
 		    return;
