@@ -909,14 +909,12 @@ CL_ConnectionlessPacket(void)
 CL_ReadPackets
 =================
 */
-void
+static void
 CL_ReadPackets(void)
 {
     while (CL_GetMessage()) {
-	//
-	// remote command packet
-	//
 	if (*(int *)net_message.data == -1) {
+	    /* remote command packet */
 	    CL_ConnectionlessPacket();
 	    continue;
 	}
@@ -925,9 +923,8 @@ CL_ReadPackets(void)
 	    Con_Printf("%s: Runt packet\n", NET_AdrToString(net_from));
 	    continue;
 	}
-	//
-	// packet from server
-	//
+
+	/* packet from server */
 	if (!cls.demoplayback &&
 	    !NET_CompareAdr(net_from, cls.netchan.remote_address)) {
 	    Con_DPrintf("%s:sequenced packet without connection\n",
@@ -935,23 +932,17 @@ CL_ReadPackets(void)
 	    continue;
 	}
 	if (!Netchan_Process(&cls.netchan))
-	    continue;		// wasn't accepted for some reason
-	CL_ParseServerMessage();
+	    continue;		/* wasn't accepted for some reason */
 
-//              if (cls.demoplayback && cls.state >= ca_active && !CL_DemoBehind())
-//                      return;
+	CL_ParseServerMessage();
     }
 
-    //
-    // check timeout
-    //
+    /* check timeout */
     if (cls.state >= ca_connected
 	&& realtime - cls.netchan.last_received > cl_timeout.value) {
 	Con_Printf("\nServer connection timed out.\n");
 	CL_Disconnect();
-	return;
     }
-
 }
 
 //=============================================================================
