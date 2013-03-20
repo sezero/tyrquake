@@ -175,7 +175,7 @@ CL_PredictMove(void)
     }
     // predict forward until cl.time <= to->senttime
     oldphysent = pmove.numphysent;
-    CL_SetSolidPlayers(cl.playernum);
+    CL_SetSolidPlayers(&pmove, cl.playernum);
 
 //      to = &cl.frames[cls.netchan.incoming_sequence & UPDATE_MASK];
 

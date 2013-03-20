@@ -870,7 +870,7 @@ CL_LinkPlayers(void)
 //Con_DPrintf ("predict: %i\n", msec);
 
 	    oldphysent = pmove.numphysent;
-	    CL_SetSolidPlayers(playernum);
+	    CL_SetSolidPlayers(&pmove, playernum);
 	    CL_PredictUsercmd(state, &exact, &state->command, false);
 	    pmove.numphysent = oldphysent;
 	    VectorCopy(exact.origin, ent->origin);
@@ -894,7 +894,7 @@ Builds all the pmove physents for the current frame
 ===============
 */
 void
-CL_SetSolidEntities(void)
+CL_SetSolidEntities(playermove_t *pmove)
 {
     int i;
     frame_t *frame;
@@ -902,7 +902,7 @@ CL_SetSolidEntities(void)
     entity_state_t *state;
     physent_t *physent;
 
-    physent = pmove.physents;
+    physent = pmove->physents;
 
     physent->model = cl.worldmodel;
     VectorCopy(vec3_origin, physent->origin);
@@ -925,7 +925,7 @@ CL_SetSolidEntities(void)
 	    physent++;
 	}
     }
-    pmove.numphysent = physent - pmove.physents;
+    pmove->numphysent = physent - pmove->physents;
 }
 
 /*
@@ -1008,36 +1008,36 @@ pmove must be setup with world and solid entity hulls before calling
 ===============
 */
 void
-CL_SetSolidPlayers(int playernum)
+CL_SetSolidPlayers(playermove_t *pmove, int playernum)
 {
-    int j;
     struct predicted_player *pplayer;
-    physent_t *pent;
+    physent_t *physent;
+    int i;
 
     if (!cl_solid_players.value)
 	return;
 
-    pent = pmove.physents + pmove.numphysent;
-
-    for (j = 0, pplayer = predicted_players; j < MAX_CLIENTS; j++, pplayer++) {
-
+    physent = pmove->physents + pmove->numphysent;
+    for (i = 0, pplayer = predicted_players; i < MAX_CLIENTS; i++, pplayer++) {
+	/* check if active this frame */
 	if (!pplayer->active)
-	    continue;		// not present this frame
-
-	// the player object never gets added
-	if (j == playernum)
 	    continue;
 
-	if (pplayer->flags & PF_DEAD)
-	    continue;		// dead players aren't solid
+	/* the player object never gets added */
+	if (i == playernum)
+	    continue;
 
-	pent->model = 0;
-	VectorCopy(pplayer->origin, pent->origin);
-	VectorCopy(player_mins, pent->mins);
-	VectorCopy(player_maxs, pent->maxs);
-	pmove.numphysent++;
-	pent++;
+	/* dead players aren't solid */
+	if (pplayer->flags & PF_DEAD)
+	    continue;
+
+	physent->model = 0;
+	VectorCopy(pplayer->origin, physent->origin);
+	VectorCopy(player_mins, physent->mins);
+	VectorCopy(player_maxs, physent->maxs);
+	physent++;
     }
+    pmove->numphysent = physent - pmove->physents;
 }
 
 

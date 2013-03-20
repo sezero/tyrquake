@@ -1393,5 +1393,5 @@ CL_ParseServerMessage(void)
 	}
     }
 
-    CL_SetSolidEntities();
+    CL_SetSolidEntities(&pmove);
 }
