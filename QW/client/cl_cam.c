@@ -202,6 +202,7 @@ static qboolean
 InitFlyby(const player_state_t *self, const player_state_t *player,
 	  int checkvis)
 {
+    int i;
     float f, max;
     vec3_t vec, vec2;
     vec3_t forward, right, up;
@@ -213,51 +214,16 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
 //              forward[i] *= 3;
 
     max = 1000;
-    VectorAdd(forward, up, vec2);
-    VectorAdd(vec2, right, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
+    for (i = 0; i < 8; i++) {
+	VectorAdd(forward, up, vec2);
+	VectorAdd(vec2, right, vec2);
+	if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
+	    max = f;
+	    VectorCopy(vec2, vec);
+	}
     }
-    VectorAdd(forward, up, vec2);
-    VectorSubtract(vec2, right, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    VectorAdd(forward, right, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    VectorSubtract(forward, right, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    VectorAdd(forward, up, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    VectorSubtract(forward, up, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    VectorAdd(up, right, vec2);
-    VectorSubtract(vec2, forward, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    VectorSubtract(up, right, vec2);
-    VectorSubtract(vec2, forward, vec2);
-    if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
-	max = f;
-	VectorCopy(vec2, vec);
-    }
-    // invert
+
+    /* invert */
     VectorSubtract(vec3_origin, forward, vec2);
     if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
 	max = f;
@@ -268,7 +234,8 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
 	max = f;
 	VectorCopy(vec2, vec);
     }
-    // invert
+
+    /* invert */
     VectorSubtract(vec3_origin, right, vec2);
     if ((f = Cam_TryFlyby(self, player, vec2, checkvis)) < max) {
 	max = f;
@@ -279,13 +246,14 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
 	max = f;
 	VectorCopy(vec2, vec);
     }
-    // ack, can't find him
+
     if (max >= 1000) {
-//              Cam_Unlock();
+	/* ack, can't find him! */
 	return false;
     }
     locked = true;
     VectorCopy(vec, desired_position);
+
     return true;
 }
 
