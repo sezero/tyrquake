@@ -35,8 +35,8 @@ int watertype;
 
 static float frametime;
 
-vec3_t player_mins = { -16, -16, -24 };
-vec3_t player_maxs = { 16, 16, 32 };
+const vec3_t player_mins = { -16, -16, -24 };
+const vec3_t player_maxs = { 16, 16, 32 };
 
 // #define      PM_GRAVITY                      800
 // #define      PM_STOPSPEED            100
