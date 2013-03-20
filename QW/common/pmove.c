@@ -34,7 +34,6 @@ int waterlevel;
 int watertype;
 
 static float frametime;
-static vec3_t forward, right, up;
 
 vec3_t player_mins = { -16, -16, -24 };
 vec3_t player_maxs = { 16, 16, 32 };
@@ -427,23 +426,21 @@ PM_WaterMove
 static void
 PM_WaterMove(void)
 {
-    int i;
-    vec3_t wishvel;
-    float wishspeed;
-    vec3_t wishdir;
-    vec3_t start, dest;
+    vec3_t wishvel, wishdir, start, dest;
+    vec3_t forward, right, up;
+    vec_t wishspeed;
     trace_t trace;
 
-//
-// user intentions
-//
-    for (i = 0; i < 3; i++)
-	wishvel[i] =
-	    forward[i] * pmove.cmd.forwardmove +
-	    right[i] * pmove.cmd.sidemove;
+    /*
+     * user intentions
+     */
+    AngleVectors(pmove.angles, forward, right, up);
+    VectorScale(forward, pmove.cmd.forwardmove, forward);
+    VectorScale(right, pmove.cmd.sidemove, right);
+    VectorAdd(forward, right, wishvel);
 
     if (!pmove.cmd.forwardmove && !pmove.cmd.sidemove && !pmove.cmd.upmove)
-	wishvel[2] -= 60;	// drift towards bottom
+	wishvel[2] -= 60;	/* drift towards bottom */
     else
 	wishvel[2] += pmove.cmd.upmove;
 
@@ -490,13 +487,13 @@ static void
 PM_AirMove(void)
 {
     int i;
-    vec3_t wishvel;
-    float fmove, smove;
-    vec3_t wishdir;
-    float wishspeed;
+    vec3_t wishvel, wishdir;
+    vec3_t forward, right, up;
+    vec_t wishspeed;
+    const vec_t fmove = pmove.cmd.forwardmove;
+    const vec_t smove = pmove.cmd.sidemove;
 
-    fmove = pmove.cmd.forwardmove;
-    smove = pmove.cmd.sidemove;
+    AngleVectors(pmove.angles, forward, right, up);
 
     forward[2] = 0;
     right[2] = 0;
@@ -668,7 +665,7 @@ CheckWaterJump(void)
 {
     vec3_t spot;
     int cont;
-    vec3_t flatforward;
+    vec3_t forward, right, up;
 
     if (pmove.waterjumptime)
 	return;
@@ -678,12 +675,11 @@ CheckWaterJump(void)
 	return;			// only hop out if we are moving up
 
     // see if near an edge
-    flatforward[0] = forward[0];
-    flatforward[1] = forward[1];
-    flatforward[2] = 0;
-    VectorNormalize(flatforward);
+    AngleVectors(pmove.angles, forward, right, up);
+    forward[2] = 0;
+    VectorNormalize(forward);
 
-    VectorMA(pmove.origin, 24, flatforward, spot);
+    VectorMA(pmove.origin, 24, forward, spot);
     spot[2] += 8;
     cont = PM_PointContents(spot);
     if (cont != CONTENTS_SOLID)
@@ -693,7 +689,7 @@ CheckWaterJump(void)
     if (cont != CONTENTS_EMPTY)
 	return;
     // jump out of water
-    VectorScale(flatforward, 50, pmove.velocity);
+    VectorScale(forward, 50, pmove.velocity);
     pmove.velocity[2] = 310;
     pmove.waterjumptime = 2;	// safety net
     pmove.oldbuttons |= BUTTON_JUMP;	// don't jump again until released
@@ -750,26 +746,27 @@ SpectatorMove
 static void
 SpectatorMove(void)
 {
-    float speed, drop, friction, control, newspeed;
-    float currentspeed, addspeed, accelspeed;
     int i;
-    vec3_t wishvel;
-    float fmove, smove;
-    vec3_t wishdir;
-    float wishspeed;
+    vec_t speed, drop, friction, control, newspeed;
+    vec_t currentspeed, addspeed, accelspeed, wishspeed;
+    vec3_t wishvel, wishdir;
+    vec3_t forward, right, up;
 
-    // friction
+    const vec_t fmove = pmove.cmd.forwardmove;
+    const vec_t smove = pmove.cmd.sidemove;
+
+    /* Friction */
     speed = Length(pmove.velocity);
     if (speed < 1) {
 	VectorCopy(vec3_origin, pmove.velocity);
     } else {
 	drop = 0;
 
-	friction = movevars.friction * 1.5;	// extra friction
+	friction = movevars.friction * 1.5;	/* extra friction */
 	control = speed < movevars.stopspeed ? movevars.stopspeed : speed;
 	drop += control * friction * frametime;
 
-	// scale the velocity
+	/* scale the velocity */
 	newspeed = speed - drop;
 	if (newspeed < 0)
 	    newspeed = 0;
@@ -778,10 +775,8 @@ SpectatorMove(void)
 	VectorScale(pmove.velocity, newspeed, pmove.velocity);
     }
 
-    // accelerate
-    fmove = pmove.cmd.forwardmove;
-    smove = pmove.cmd.sidemove;
-
+    /* Acceleration */
+    AngleVectors(pmove.angles, forward, right, up);
     VectorNormalize(forward);
     VectorNormalize(right);
 
@@ -831,8 +826,6 @@ PlayerMove(void)
 {
     frametime = pmove.cmd.msec * 0.001;
     pmove.numtouch = 0;
-
-    AngleVectors(pmove.angles, forward, right, up);
 
     if (pmove.spectator) {
 	SpectatorMove();
