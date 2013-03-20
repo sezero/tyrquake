@@ -43,8 +43,6 @@ typedef struct {
 
 
 typedef struct {
-    int sequence;		// just for debugging prints
-
     // player state
     vec3_t origin;
     vec3_t angles;
