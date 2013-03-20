@@ -777,7 +777,7 @@ for all current players
 static void
 CL_LinkPlayers(void)
 {
-    int j;
+    int playernum;
     player_info_t *info;
     player_state_t *state;
     player_state_t exact;
@@ -793,43 +793,44 @@ CL_LinkPlayers(void)
 
     frame = &cl.frames[cl.parsecount & UPDATE_MASK];
 
-    for (j = 0, info = cl.players, state = frame->playerstate;
-	 j < MAX_CLIENTS; j++, info++, state++) {
+    info = cl.players;
+    state = frame->playerstate;
+    for (playernum = 0; playernum < MAX_CLIENTS; playernum++, info++, state++) {
 	if (state->messagenum != cl.parsecount)
 	    continue;		// not present this frame
 
 	// spawn light flashes, even ones coming from invisible objects
 #ifdef GLQUAKE
-	if (!gl_flashblend.value || j != cl.playernum) {
+	if (!gl_flashblend.value || playernum != cl.playernum) {
 #endif
 	    if ((state->effects & (EF_BLUE | EF_RED)) == (EF_BLUE | EF_RED))
-		CL_NewDlight(j, state->origin[0], state->origin[1],
+		CL_NewDlight(playernum, state->origin[0], state->origin[1],
 			     state->origin[2], 200 + (rand() & 31), 0.1, DLIGHT_PURPLE);
 	    else if (state->effects & EF_BLUE)
-		CL_NewDlight(j, state->origin[0], state->origin[1],
+		CL_NewDlight(playernum, state->origin[0], state->origin[1],
 			     state->origin[2], 200 + (rand() & 31), 0.1, DLIGHT_BLUE);
 	    else if (state->effects & EF_RED)
-		CL_NewDlight(j, state->origin[0], state->origin[1],
+		CL_NewDlight(playernum, state->origin[0], state->origin[1],
 			     state->origin[2], 200 + (rand() & 31), 0.1, DLIGHT_RED);
 	    else if (state->effects & EF_BRIGHTLIGHT)
-		CL_NewDlight(j, state->origin[0], state->origin[1],
+		CL_NewDlight(playernum, state->origin[0], state->origin[1],
 			     state->origin[2] + 16, 400 + (rand() & 31),
 			     0.1, DLIGHT_FLASH);
 	    else if (state->effects & EF_DIMLIGHT)
-		CL_NewDlight(j, state->origin[0], state->origin[1],
+		CL_NewDlight(playernum, state->origin[0], state->origin[1],
 			     state->origin[2], 200 + (rand() & 31), 0.1, DLIGHT_FLASH);
 #ifdef GLQUAKE
 	}
 #endif
 
 	// the player object never gets added
-	if (j == cl.playernum)
+	if (playernum == cl.playernum)
 	    continue;
 
 	if (!state->modelindex)
 	    continue;
 
-	if (!Cam_DrawPlayer(j))
+	if (!Cam_DrawPlayer(playernum))
 	    continue;
 
 	// grab an entity to fill in
@@ -858,8 +859,7 @@ CL_LinkPlayers(void)
 
 	// only predict half the move to minimize overruns
 	msec = 500 * (playertime - state->state_time);
-	if (msec <= 0
-	    || (!cl_predict_players.value && !cl_predict_players2.value)) {
+	if (msec <= 0 || (!cl_predict_players.value && !cl_predict_players2.value)) {
 	    VectorCopy(state->origin, ent->origin);
 //Con_DPrintf ("nopredict\n");
 	} else {
@@ -870,7 +870,7 @@ CL_LinkPlayers(void)
 //Con_DPrintf ("predict: %i\n", msec);
 
 	    oldphysent = pmove.numphysent;
-	    CL_SetSolidPlayers(j);
+	    CL_SetSolidPlayers(playernum);
 	    CL_PredictUsercmd(state, &exact, &state->command, false);
 	    pmove.numphysent = oldphysent;
 	    VectorCopy(exact.origin, ent->origin);
