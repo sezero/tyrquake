@@ -572,10 +572,6 @@ void Mod_CreateBoxhull(const vec3_t mins, const vec3_t maxs,
 
 int Mod_HullPointContents(const hull_t *hull, int nodenum, const vec3_t point);
 
-typedef struct {
-    vec3_t normal;
-    float dist;
-} plane_t;
 
 typedef struct {
     qboolean allsolid;		// if true, plane is not valid
@@ -583,7 +579,7 @@ typedef struct {
     qboolean inopen, inwater;
     float fraction;		// time completed, 1.0 = didn't hit anything
     vec3_t endpos;		// final position
-    plane_t plane;		// surface normal at impact
+    mplane_t plane;		// surface normal at impact
 } trace_t;
 
 qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
