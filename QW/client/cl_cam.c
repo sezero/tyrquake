@@ -184,13 +184,13 @@ Cam_TryFlyby(playermove_t *pmove,
 
 // Is player visible?
 static qboolean
-Cam_IsVisible(const player_state_t *player, vec3_t vec)
+Cam_IsVisible(playermove_t *pmove, const player_state_t *player, vec3_t vec)
 {
     trace_t trace;
     vec3_t v;
     float d;
 
-    Cam_DoTrace(&pmove, player->origin, vec, &trace);
+    Cam_DoTrace(pmove, player->origin, vec, &trace);
     if (trace.fraction != 1 || /*trace.inopen || */ trace.inwater)
 	return false;
     // check distance, don't let the player get too far away or too close
@@ -322,7 +322,7 @@ Cam_Track(usercmd_t *cmd)
     player = frame->playerstate + spec_track;
     self = frame->playerstate + cl.playernum;
 
-    if (!locked || !Cam_IsVisible(player, desired_position)) {
+    if (!locked || !Cam_IsVisible(&pmove, player, desired_position)) {
 	if (!locked || realtime - cam_lastviewtime > 0.1) {
 	    if (!InitFlyby(&pmove, self, player, true))
 		InitFlyby(&pmove, self, player, false);
