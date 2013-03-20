@@ -137,17 +137,11 @@ Cam_Lock(int playernum)
 }
 
 static void
-Cam_DoTrace(const vec3_t vec1, const vec3_t vec2, trace_t *trace)
+Cam_DoTrace(playermove_t *pmove, const vec3_t vec1, const vec3_t vec2,
+	    trace_t *trace)
 {
-#if 0
-    memset(&pmove, 0, sizeof(pmove));
-
-    pmove.numphysent = 1;
-    VectorCopy(vec3_origin, pmove.physents[0].origin);
-    pmove.physents[0].model = cl.worldmodel;
-#endif
-    VectorCopy(vec1, pmove.origin);
-    PM_PlayerMove(pmove.origin, vec2, trace);
+    VectorCopy(vec1, pmove->origin);
+    PM_PlayerMove(pmove->origin, vec2, trace);
 }
 
 // Returns distance or 9999 if invalid for some reason
@@ -166,7 +160,7 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
     VectorMA(player->origin, 800, vec, v);
     // v is endpos
     // fake a player move
-    Cam_DoTrace(player->origin, v, &trace);
+    Cam_DoTrace(&pmove, player->origin, v, &trace);
     if ( /*trace.inopen || */ trace.inwater)
 	return 9999;
     VectorCopy(trace.endpos, vec);
@@ -178,7 +172,7 @@ Cam_TryFlyby(player_state_t * self, player_state_t * player, vec3_t vec,
 	VectorSubtract(trace.endpos, self->origin, v);
 	len = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
 
-	Cam_DoTrace(self->origin, vec, &trace);
+	Cam_DoTrace(&pmove, self->origin, vec, &trace);
 	if (trace.fraction != 1 || trace.inwater)
 	    return 9999;
     }
@@ -193,7 +187,7 @@ Cam_IsVisible(player_state_t * player, vec3_t vec)
     vec3_t v;
     float d;
 
-    Cam_DoTrace(player->origin, vec, &trace);
+    Cam_DoTrace(&pmove, player->origin, vec, &trace);
     if (trace.fraction != 1 || /*trace.inopen || */ trace.inwater)
 	return false;
     // check distance, don't let the player get too far away or too close
