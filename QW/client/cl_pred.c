@@ -92,8 +92,11 @@ void
 CL_PredictMove(void)
 {
     int i;
-    float f;
-    frame_t *from, *to = NULL;
+    float fraction;
+    const frame_t *from;
+    const player_state_t *fromstate;
+    frame_t *to;
+    player_state_t *tostate;
     int oldphysent;
 
     if (cl_pushlatency.value > 0)
@@ -118,74 +121,73 @@ CL_PredictMove(void)
 
     VectorCopy(cl.viewangles, cl.simangles);
 
-    // this is the last frame received from the server
+    /* this is the last frame received from the server */
     from = &cl.frames[cls.netchan.incoming_sequence & UPDATE_MASK];
+    fromstate = &from->playerstate[cl.playernum];
 
-    // we can now render a frame
-    if (cls.state == ca_onserver) {	// first update is the final signon stage
+    /* we can now render a frame */
+    if (cls.state == ca_onserver) {
+	/* first update is the final signon stage */
 	char text[1024];
 
 	cls.state = ca_active;
-	sprintf(text, "QuakeWorld: %s", cls.servername);
+	snprintf(text, sizeof(text), "QuakeWorld: %s", cls.servername);
 #ifdef _WIN32
 	SetWindowText(mainwindow, text);
 #endif
     }
 
     if (cl_nopred.value) {
-	VectorCopy(from->playerstate[cl.playernum].velocity, cl.simvel);
-	VectorCopy(from->playerstate[cl.playernum].origin, cl.simorg);
+	VectorCopy(fromstate->velocity, cl.simvel);
+	VectorCopy(fromstate->origin, cl.simorg);
 	return;
     }
-    // predict forward until cl.time <= to->senttime
+
+    /* predict forward until cl.time <= to->senttime */
+    to = NULL;
     oldphysent = pestack.numphysent;
     CL_SetSolidPlayers(&pestack, cl.playernum);
-
-//      to = &cl.frames[cls.netchan.incoming_sequence & UPDATE_MASK];
 
     for (i = 1; i < UPDATE_BACKUP - 1 && cls.netchan.incoming_sequence + i <
 	 cls.netchan.outgoing_sequence; i++) {
 	to = &cl.frames[(cls.netchan.incoming_sequence + i) & UPDATE_MASK];
-	CL_PredictUsercmd(&from->playerstate[cl.playernum]
-			  , &to->playerstate[cl.playernum], &to->cmd,
-			  cl.spectator);
+	tostate = &to->playerstate[cl.playernum];
+	CL_PredictUsercmd(fromstate, tostate, &to->cmd, cl.spectator);
 	if (to->senttime >= cl.time)
 	    break;
 	from = to;
+	fromstate = tostate;
     }
 
     pestack.numphysent = oldphysent;
 
+    /* bail if net hasn't delivered packets in a long time... */
     if (i == UPDATE_BACKUP - 1 || !to)
-	return;			// net hasn't deliver packets in a long time...
-
-    // now interpolate some fraction of the final frame
-    if (to->senttime == from->senttime)
-	f = 0;
-    else {
-	f = (cl.time - from->senttime) / (to->senttime - from->senttime);
-
-	if (f < 0)
-	    f = 0;
-	if (f > 1)
-	    f = 1;
-    }
-
-    for (i = 0; i < 3; i++)
-	if (fabs(from->playerstate[cl.playernum].origin[i] - to->playerstate[cl.playernum].origin[i]) > 128) {	// teleported, so don't lerp
-	    VectorCopy(to->playerstate[cl.playernum].velocity, cl.simvel);
-	    VectorCopy(to->playerstate[cl.playernum].origin, cl.simorg);
-	    return;
-	}
+	return;
 
     for (i = 0; i < 3; i++) {
-	cl.simorg[i] = from->playerstate[cl.playernum].origin[i]
-	    + f * (to->playerstate[cl.playernum].origin[i] -
-		   from->playerstate[cl.playernum].origin[i]);
-	cl.simvel[i] = from->playerstate[cl.playernum].velocity[i]
-	    + f * (to->playerstate[cl.playernum].velocity[i] -
-		   from->playerstate[cl.playernum].velocity[i]);
+	if (fabs(fromstate->origin[i] - tostate->origin[i]) > 128) {
+	    /* teleported, so don't lerp */
+	    VectorCopy(tostate->velocity, cl.simvel);
+	    VectorCopy(tostate->origin, cl.simorg);
+	    return;
+	}
     }
+
+    /* interpolate some fraction of the final frame */
+    if (to->senttime == from->senttime) {
+	fraction = 0;
+    } else {
+	fraction = (cl.time - from->senttime) / (to->senttime - from->senttime);
+	if (fraction < 0)
+	    fraction = 0;
+	else if (fraction > 1)
+	    fraction = 1;
+    }
+    VectorSubtract(tostate->origin, fromstate->origin, cl.simorg);
+    VectorMA(fromstate->origin, fraction, cl.simorg, cl.simorg);
+    VectorSubtract(tostate->velocity, fromstate->velocity, cl.simvel);
+    VectorMA(fromstate->velocity, fraction, cl.simvel, cl.simvel);
 }
 
 
