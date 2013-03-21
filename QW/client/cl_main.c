@@ -1333,7 +1333,7 @@ Host_Frame(float time)
     if (cls.state == ca_disconnected) {
 	CL_CheckForResend();
     } else
-	CL_SendCmd();
+	CL_SendCmd(&pestack);
 
     // Set up prediction for other players
     CL_SetUpPlayerPrediction(false);

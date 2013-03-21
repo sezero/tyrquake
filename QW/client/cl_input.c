@@ -564,7 +564,7 @@ CL_SendCmd
 =================
 */
 void
-CL_SendCmd(void)
+CL_SendCmd(const physent_stack_t *pestack)
 {
     sizebuf_t buf;
     byte data[128];
@@ -594,7 +594,7 @@ CL_SendCmd(void)
 
     // if we are spectator, try autocam
     if (cl.spectator)
-	Cam_Track(cmd, &pestack);
+	Cam_Track(cmd, pestack);
 
     CL_FinishMove(cmd);
 
