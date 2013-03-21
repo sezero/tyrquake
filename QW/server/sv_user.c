@@ -1223,15 +1223,15 @@ V_CalcRoll(vec3_t angles, vec3_t velocity)
 
 /*
 ================
-AddAllEntsToPmove
+AddAllEntsToPhysents
 
 For debugging
 ================
 */
 #if 0
 static void
-AddAllEntsToPmove(const vec3_t mins, const vec3_t maxs,
-		  physent_stack_t *pestack)
+AddAllEntsToPhysents(const vec3_t mins, const vec3_t maxs,
+		     physent_stack_t *pestack)
 {
     int i, entity;
     edict_t *check;
