@@ -147,9 +147,11 @@ PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
 	if (trace.fraction == 1)
 	    break;
 
+#ifdef SERVERONLY
 	/* save entity for contact */
 	pmove->touchindex[pmove->numtouch] = touchentity;
 	pmove->numtouch++;
+#endif
 
 	if (trace.plane.normal[2] > 0.7)
 	    blocked |= MOVE_CLIP_FLOOR;
@@ -568,11 +570,13 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
 	    if (!trace.startsolid && !trace.allsolid)
 		VectorCopy(trace.endpos, pmove->origin);
 	}
-	// standing on an entity other than the world
+#ifdef SERVERONLY
+	/* standing on an entity other than the world */
 	if (groundentity > 0) {
 	    pmove->touchindex[pmove->numtouch] = groundentity;
 	    pmove->numtouch++;
 	}
+#endif
     }
 
 //
@@ -816,7 +820,9 @@ void
 PlayerMove(playermove_t *pmove, const physent_stack_t *pestack)
 {
     frametime = pmove->cmd.msec * 0.001;
+#ifdef SERVERONLY
     pmove->numtouch = 0;
+#endif
 
     if (pmove->spectator) {
 	SpectatorMove(pmove);

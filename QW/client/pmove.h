@@ -43,7 +43,6 @@ typedef struct {
 #endif
 } physent_t;
 
-
 typedef struct {
     // player state
     vec3_t origin;
@@ -58,8 +57,10 @@ typedef struct {
     usercmd_t cmd;
 
     // results
+#ifdef SERVERONLY
     int numtouch;
     int touchindex[MAX_PHYSENTS];
+#endif
 } playermove_t;
 
 typedef struct {
