@@ -54,7 +54,7 @@ CL_PlayerMove(const player_state_t *from, player_state_t *to,
 
     /* Copy out the changes */
     to->waterjumptime = pmove.waterjumptime;
-    to->oldbuttons = pmove.cmd.buttons;
+    to->oldbuttons = pmove.oldbuttons;
     VectorCopy(pmove.origin, to->origin);
     VectorCopy(pmove.angles, to->viewangles);
     VectorCopy(pmove.velocity, to->velocity);
