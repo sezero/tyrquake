@@ -37,6 +37,8 @@ static void
 CL_PlayerMove(const player_state_t *from, player_state_t *to,
 	      const usercmd_t *cmd, qboolean spectator)
 {
+    playermove_t pmove;
+
     /* Setup the player move info */
     VectorCopy(from->origin, pmove.origin);
     VectorCopy(cmd->angles, pmove.angles);
@@ -47,7 +49,7 @@ CL_PlayerMove(const player_state_t *from, player_state_t *to,
     pmove.spectator = spectator;
     pmove.cmd = *cmd;
 
-    PlayerMove(&pmove);
+    PlayerMove(&pmove, &pestack);
 
     /* Copy out the changes */
     to->waterjumptime = pmove.waterjumptime;

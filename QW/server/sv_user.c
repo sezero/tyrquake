@@ -1299,10 +1299,10 @@ SV_RunCmd
 static void
 SV_RunCmd(usercmd_t *ucmd)
 {
-    edict_t *ent;
-    int i, n;
-    int oldmsec;
+    playermove_t pmove;
     vec3_t mins, maxs;
+    int i, n, oldmsec;
+    edict_t *ent;
 
     cmd = *ucmd;
 

@@ -79,7 +79,6 @@ typedef struct {
 } movevars_t;
 
 extern movevars_t movevars;
-extern playermove_t pmove;
 extern physent_stack_t pestack;
 extern int onground;
 extern int waterlevel;

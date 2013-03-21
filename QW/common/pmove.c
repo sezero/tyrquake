@@ -27,7 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 movevars_t movevars;
-playermove_t pmove;
 physent_stack_t pestack;
 
 int onground;
