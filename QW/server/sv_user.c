@@ -1300,6 +1300,7 @@ static void
 SV_RunCmd(usercmd_t *ucmd)
 {
     playermove_t pmove;
+    physent_stack_t pestack;
     vec3_t mins, maxs;
     int i, n, oldmsec;
     edict_t *ent;
@@ -1359,14 +1360,17 @@ SV_RunCmd(usercmd_t *ucmd)
 
     pmove.spectator = host_client->spectator;
     pmove.waterjumptime = sv_player->v.teleport_time;
-    pestack.numphysent = 1;
-    pestack.physents[0].model = sv.worldmodel;
     pmove.cmd = *ucmd;
     pmove.dead = sv_player->v.health <= 0;
     pmove.oldbuttons = host_client->oldbuttons;
 
     movevars.entgravity = host_client->entgravity;
     movevars.maxspeed = host_client->maxspeed;
+
+    /* Init the world's physent */
+    memset(&pestack.physents[0], 0, sizeof(pestack.physents[0]));
+    pestack.physents[0].model = sv.worldmodel;
+    pestack.numphysent = 1;
 
     for (i = 0; i < 3; i++) {
 	mins[i] = pmove.origin[i] - 256;
