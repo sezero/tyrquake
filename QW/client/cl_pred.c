@@ -35,7 +35,8 @@ cvar_t cl_pushlatency = { "pushlatency", "-999" };
 
 static void
 CL_PlayerMove(const player_state_t *from, player_state_t *to,
-	      const usercmd_t *cmd, qboolean spectator)
+	      const usercmd_t *cmd, const physent_stack_t *pestack,
+	      qboolean spectator)
 {
     playermove_t pmove;
 
@@ -49,7 +50,7 @@ CL_PlayerMove(const player_state_t *from, player_state_t *to,
     pmove.spectator = spectator;
     pmove.cmd = *cmd;
 
-    PlayerMove(&pmove, &pestack);
+    PlayerMove(&pmove, pestack);
 
     /* Copy out the changes */
     to->waterjumptime = pmove.waterjumptime;
@@ -68,7 +69,8 @@ CL_PredictUsercmd
 */
 void
 CL_PredictUsercmd(const player_state_t *from, player_state_t *to,
-		  const usercmd_t *cmd, qboolean spectator)
+		  const usercmd_t *cmd, const physent_stack_t *pestack,
+		  qboolean spectator)
 {
     /* split up very long moves */
     if (cmd->msec > 50) {
@@ -78,11 +80,11 @@ CL_PredictUsercmd(const player_state_t *from, player_state_t *to,
 	split = *cmd;
 	split.msec /= 2;
 
-	CL_PredictUsercmd(from, &temp, &split, spectator);
-	CL_PredictUsercmd(&temp, to, &split, spectator);
+	CL_PredictUsercmd(from, &temp, &split, pestack, spectator);
+	CL_PredictUsercmd(&temp, to, &split, pestack, spectator);
 	return;
     }
-    CL_PlayerMove(from, to, cmd, spectator);
+    CL_PlayerMove(from, to, cmd, pestack, spectator);
 }
 
 /*
@@ -91,7 +93,7 @@ CL_PredictMove
 ==============
 */
 void
-CL_PredictMove(void)
+CL_PredictMove(physent_stack_t *pestack)
 {
     int i;
     float fraction;
@@ -147,21 +149,20 @@ CL_PredictMove(void)
 
     /* predict forward until cl.time <= to->senttime */
     to = NULL;
-    oldphysent = pestack.numphysent;
-    CL_SetSolidPlayers(&pestack, cl.playernum);
+    oldphysent = pestack->numphysent;
+    CL_SetSolidPlayers(pestack, cl.playernum);
 
     for (i = 1; i < UPDATE_BACKUP - 1 && cls.netchan.incoming_sequence + i <
 	 cls.netchan.outgoing_sequence; i++) {
 	to = &cl.frames[(cls.netchan.incoming_sequence + i) & UPDATE_MASK];
 	tostate = &to->playerstate[cl.playernum];
-	CL_PredictUsercmd(fromstate, tostate, &to->cmd, cl.spectator);
+	CL_PredictUsercmd(fromstate, tostate, &to->cmd, pestack, cl.spectator);
 	if (to->senttime >= cl.time)
 	    break;
 	from = to;
 	fromstate = tostate;
     }
-
-    pestack.numphysent = oldphysent;
+    pestack->numphysent = oldphysent;
 
     /* bail if net hasn't delivered packets in a long time... */
     if (i == UPDATE_BACKUP - 1 || !to)

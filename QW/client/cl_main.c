@@ -1339,7 +1339,7 @@ Host_Frame(float time)
     CL_SetUpPlayerPrediction(false);
 
     // do client side motion prediction
-    CL_PredictMove();
+    CL_PredictMove(&pestack);
 
     // Set up prediction for other players
     CL_SetUpPlayerPrediction(true);

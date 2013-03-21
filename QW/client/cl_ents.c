@@ -871,7 +871,7 @@ CL_LinkPlayers(void)
 
 	    oldphysent = pestack.numphysent;
 	    CL_SetSolidPlayers(&pestack, playernum);
-	    CL_PredictUsercmd(state, &exact, &state->command, false);
+	    CL_PredictUsercmd(state, &exact, &state->command, &pestack, false);
 	    pestack.numphysent = oldphysent;
 	    VectorCopy(exact.origin, ent->origin);
 	}
@@ -990,7 +990,7 @@ CL_SetUpPlayerPrediction(qboolean dopred)
 		state->command.msec = msec;
 		//Con_DPrintf ("predict: %i\n", msec);
 
-		CL_PredictUsercmd(state, &exact, &state->command, false);
+		CL_PredictUsercmd(state, &exact, &state->command, &pestack, false);
 		VectorCopy(exact.origin, pplayer->origin);
 	    }
 	}
