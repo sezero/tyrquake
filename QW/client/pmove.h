@@ -53,7 +53,7 @@ typedef struct {
     int waterlevel;
 
     // input
-    usercmd_t cmd;
+    const usercmd_t *cmd;
 
     // results
 #ifdef SERVERONLY

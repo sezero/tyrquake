@@ -434,14 +434,14 @@ PM_WaterMove(playermove_t *pmove, const physent_stack_t *pestack)
      * user intentions
      */
     AngleVectors(pmove->angles, forward, right, up);
-    VectorScale(forward, pmove->cmd.forwardmove, forward);
-    VectorScale(right, pmove->cmd.sidemove, right);
+    VectorScale(forward, pmove->cmd->forwardmove, forward);
+    VectorScale(right, pmove->cmd->sidemove, right);
     VectorAdd(forward, right, wishvel);
 
-    if (!pmove->cmd.forwardmove && !pmove->cmd.sidemove && !pmove->cmd.upmove)
+    if (!pmove->cmd->forwardmove && !pmove->cmd->sidemove && !pmove->cmd->upmove)
 	wishvel[2] -= 60;	/* drift towards bottom */
     else
-	wishvel[2] += pmove->cmd.upmove;
+	wishvel[2] += pmove->cmd->upmove;
 
     VectorCopy(wishvel, wishdir);
     wishspeed = VectorNormalize(wishdir);
@@ -488,8 +488,8 @@ PM_AirMove(playermove_t *pmove, const physent_stack_t *pestack)
     vec3_t wishvel, wishdir;
     vec3_t forward, right, up;
     vec_t wishspeed;
-    const vec_t fmove = pmove->cmd.forwardmove;
-    const vec_t smove = pmove->cmd.sidemove;
+    const vec_t fmove = pmove->cmd->forwardmove;
+    const vec_t smove = pmove->cmd->sidemove;
 
     AngleVectors(pmove->angles, forward, right, up);
 
@@ -743,8 +743,8 @@ SpectatorMove(playermove_t *pmove)
     vec3_t wishvel, wishdir;
     vec3_t forward, right, up;
 
-    const vec_t fmove = pmove->cmd.forwardmove;
-    const vec_t smove = pmove->cmd.sidemove;
+    const vec_t fmove = pmove->cmd->forwardmove;
+    const vec_t smove = pmove->cmd->sidemove;
 
     /* Friction */
     speed = Length(pmove->velocity);
@@ -773,7 +773,7 @@ SpectatorMove(playermove_t *pmove)
 
     for (i = 0; i < 3; i++)
 	wishvel[i] = forward[i] * fmove + right[i] * smove;
-    wishvel[2] += pmove->cmd.upmove;
+    wishvel[2] += pmove->cmd->upmove;
 
     VectorCopy(wishvel, wishdir);
     wishspeed = VectorNormalize(wishdir);
@@ -813,7 +813,7 @@ were contacted during the move.
 void
 PlayerMove(playermove_t *pmove, const physent_stack_t *pestack)
 {
-    frametime = pmove->cmd.msec * 0.001;
+    frametime = pmove->cmd->msec * 0.001;
 #ifdef SERVERONLY
     pmove->numtouch = 0;
 #endif
@@ -826,7 +826,7 @@ PlayerMove(playermove_t *pmove, const physent_stack_t *pestack)
     NudgePosition(pmove->origin, pestack);
 
     /* take angles directly from command */
-    VectorCopy(pmove->cmd.angles, pmove->angles);
+    VectorCopy(pmove->cmd->angles, pmove->angles);
 
     /* sets onground, watertype, and waterlevel */
     PM_CategorizePosition(pmove, pestack);
@@ -837,7 +837,7 @@ PlayerMove(playermove_t *pmove, const physent_stack_t *pestack)
     if (pmove->velocity[2] < 0)
 	pmove->waterjumptime = 0;
 
-    if (pmove->cmd.buttons & BUTTON_JUMP)
+    if (pmove->cmd->buttons & BUTTON_JUMP)
 	JumpButton(pmove);
     else
 	pmove->oldbuttons &= ~BUTTON_JUMP;

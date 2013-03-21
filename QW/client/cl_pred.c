@@ -48,7 +48,7 @@ CL_PlayerMove(const player_state_t *from, player_state_t *to,
     pmove.waterjumptime = from->waterjumptime;
     pmove.dead = cl.stats[STAT_HEALTH] <= 0;
     pmove.spectator = spectator;
-    pmove.cmd = *cmd;
+    pmove.cmd = cmd;
 
     PlayerMove(&pmove, pestack);
 
