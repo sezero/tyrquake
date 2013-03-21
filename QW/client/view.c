@@ -122,7 +122,7 @@ V_CalcBob(void)
     if (cl.spectator)
 	return 0;
 
-    if (onground == -1)
+    if (view_message->onground == -1)
 	return bob;		// just use old value
 
     bobtime += host_frametime;

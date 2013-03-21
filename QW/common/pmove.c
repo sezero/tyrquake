@@ -28,10 +28,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 movevars_t movevars;
 
-int onground;
-int waterlevel;
-int watertype;
-
 static float frametime;
 
 const vec3_t player_mins = { -16, -16, -24 };
@@ -328,7 +324,7 @@ PM_Friction(playermove_t *pmove, const physent_stack_t *pestack)
     friction = movevars.friction;
 
     /* if the leading edge is over a dropoff, increase friction */
-    if (onground != -1) {
+    if (pmove->onground != -1) {
 	start[0] = stop[0] = pmove->origin[0] + vel[0] / speed * 16;
 	start[1] = stop[1] = pmove->origin[1] + vel[1] / speed * 16;
 	start[2] = pmove->origin[2] + player_mins[2];
@@ -343,10 +339,10 @@ PM_Friction(playermove_t *pmove, const physent_stack_t *pestack)
 
     drop = 0;
 
-    if (waterlevel >= 2) {
+    if (pmove->waterlevel >= 2) {
 	/* apply water friction */
-	drop += speed * movevars.waterfriction * waterlevel * frametime;
-    } else if (onground != -1) {
+	drop += speed * movevars.waterfriction * pmove->waterlevel * frametime;
+    } else if (pmove->onground != -1) {
 	/* apply ground friction */
 	control = speed < movevars.stopspeed ? movevars.stopspeed : speed;
 	drop += control * friction * frametime;
@@ -517,7 +513,7 @@ PM_AirMove(playermove_t *pmove, const physent_stack_t *pestack)
 	wishspeed = movevars.maxspeed;
     }
 
-    if (onground != -1) {
+    if (pmove->onground != -1) {
 	pmove->velocity[2] = 0;
 	PM_Accelerate(pmove, wishdir, wishspeed, movevars.accelerate);
 	pmove->velocity[2] -=
@@ -558,14 +554,14 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
     point[1] = pmove->origin[1];
     point[2] = pmove->origin[2] - 1;
     if (pmove->velocity[2] > 180) {
-	onground = -1;
+	pmove->onground = -1;
     } else {
 	groundentity = PM_PlayerMove(pmove->origin, point, pestack, &trace);
 	if (trace.plane.normal[2] < 0.7)
-	    onground = -1;	// too steep
+	    pmove->onground = -1;	// too steep
 	else
-	    onground = groundentity;
-	if (onground != -1) {
+	    pmove->onground = groundentity;
+	if (pmove->onground != -1) {
 	    pmove->waterjumptime = 0;
 	    if (!trace.startsolid && !trace.allsolid)
 		VectorCopy(trace.endpos, pmove->origin);
@@ -579,26 +575,24 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
 #endif
     }
 
-//
-// get waterlevel
-//
-    waterlevel = 0;
-    watertype = CONTENTS_EMPTY;
+    /* get waterlevel / watertype */
+    pmove->waterlevel = 0;
+    pmove->watertype = CONTENTS_EMPTY;
 
     point[2] = pmove->origin[2] + player_mins[2] + 1;
     cont = PM_PointContents(point, pestack);
 
     if (cont <= CONTENTS_WATER) {
-	watertype = cont;
-	waterlevel = 1;
+	pmove->watertype = cont;
+	pmove->waterlevel = 1;
 	point[2] = pmove->origin[2] + (player_mins[2] + player_maxs[2]) * 0.5;
 	cont = PM_PointContents(point, pestack);
 	if (cont <= CONTENTS_WATER) {
-	    waterlevel = 2;
+	    pmove->waterlevel = 2;
 	    point[2] = pmove->origin[2] + 22;
 	    cont = PM_PointContents(point, pestack);
 	    if (cont <= CONTENTS_WATER)
-		waterlevel = 3;
+		pmove->waterlevel = 3;
 	}
     }
 }
@@ -625,12 +619,12 @@ JumpButton(playermove_t *pmove)
 	return;
     }
 
-    if (waterlevel >= 2) {
+    if (pmove->waterlevel >= 2) {
 	/* swimming, not jumping */
-	onground = -1;
-	if (watertype == CONTENTS_WATER)
+	pmove->onground = -1;
+	if (pmove->watertype == CONTENTS_WATER)
 	    pmove->velocity[2] = 100;
-	else if (watertype == CONTENTS_SLIME)
+	else if (pmove->watertype == CONTENTS_SLIME)
 	    pmove->velocity[2] = 80;
 	else
 	    pmove->velocity[2] = 50;
@@ -638,14 +632,14 @@ JumpButton(playermove_t *pmove)
     }
 
     /* no effect if in air */
-    if (onground == -1)
+    if (pmove->onground == -1)
 	return;
 
     /* don't pogo stick */
     if (pmove->oldbuttons & BUTTON_JUMP)
 	return;
 
-    onground = -1;
+    pmove->onground = -1;
     pmove->velocity[2] += 270;
 
     /* don't jump again until released */
@@ -834,10 +828,10 @@ PlayerMove(playermove_t *pmove, const physent_stack_t *pestack)
     /* take angles directly from command */
     VectorCopy(pmove->cmd.angles, pmove->angles);
 
-    /* set onground, watertype, and waterlevel */
+    /* sets onground, watertype, and waterlevel */
     PM_CategorizePosition(pmove, pestack);
 
-    if (waterlevel == 2)
+    if (pmove->waterlevel == 2)
 	CheckWaterJump(pmove, pestack);
 
     if (pmove->velocity[2] < 0)
@@ -850,7 +844,7 @@ PlayerMove(playermove_t *pmove, const physent_stack_t *pestack)
 
     PM_Friction(pmove, pestack);
 
-    if (waterlevel >= 2)
+    if (pmove->waterlevel >= 2)
 	PM_WaterMove(pmove, pestack);
     else
 	PM_AirMove(pmove, pestack);

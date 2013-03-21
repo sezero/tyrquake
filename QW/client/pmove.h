@@ -48,6 +48,10 @@ typedef struct {
     qboolean dead;
     int spectator;
 
+    int onground;
+    int watertype;
+    int waterlevel;
+
     // input
     usercmd_t cmd;
 
@@ -77,9 +81,6 @@ typedef struct {
 } movevars_t;
 
 extern movevars_t movevars;
-extern int onground;
-extern int waterlevel;
-extern int watertype;
 extern const vec3_t player_mins;
 extern const vec3_t player_maxs;
 
