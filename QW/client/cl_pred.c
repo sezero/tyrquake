@@ -36,39 +36,6 @@ extern frame_t *view_frame;
 cvar_t cl_nopred = { "cl_nopred", "0" };
 cvar_t cl_pushlatency = { "pushlatency", "-999" };
 
-
-/*
-=================
-CL_NudgePosition
-
-If pmove.origin is in a solid position,
-try nudging slightly on all axis to
-allow for the cut precision of the net coordinates
-=================
-*/
-void
-CL_NudgePosition(void)
-{
-    vec3_t base;
-    int x, y;
-
-    if (Mod_HullPointContents(&cl.model_precache[1]->hulls[1], 0,
-			      pmove.origin) == CONTENTS_EMPTY)
-	return;
-
-    VectorCopy(pmove.origin, base);
-    for (x = -1; x <= 1; x++) {
-	for (y = -1; y <= 1; y++) {
-	    pmove.origin[0] = base[0] + x * 1.0 / 8;
-	    pmove.origin[1] = base[1] + y * 1.0 / 8;
-	    if (Mod_HullPointContents(&cl.model_precache[1]->hulls[1], 0,
-				      pmove.origin) == CONTENTS_EMPTY)
-		return;
-	}
-    }
-    Con_DPrintf("CL_NudgePosition: stuck\n");
-}
-
 static void
 CL_PlayerMove(const player_state_t *from, player_state_t *to,
 	      const usercmd_t *cmd, qboolean spectator)
