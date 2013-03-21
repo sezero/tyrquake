@@ -663,11 +663,14 @@ CheckWaterJump(playermove_t *pmove, const physent_stack_t *pestack)
     if (pmove->waterjumptime)
 	return;
 
-    // ZOID, don't hop out if we just jumped in
+    /*
+     * Don't jump out if we just jumped in.
+     * Only jump out if we are moving up.
+     */
     if (pmove->velocity[2] < -180)
-	return;			// only hop out if we are moving up
+	return;
 
-    // see if near an edge
+    /* see if near an edge */
     AngleVectors(pmove->angles, forward, right, up);
     forward[2] = 0;
     VectorNormalize(forward);
@@ -681,11 +684,12 @@ CheckWaterJump(playermove_t *pmove, const physent_stack_t *pestack)
     cont = PM_PointContents(spot, pestack);
     if (cont != CONTENTS_EMPTY)
 	return;
-    // jump out of water
+
+    /* jump out of water */
     VectorScale(forward, 50, pmove->velocity);
     pmove->velocity[2] = 310;
-    pmove->waterjumptime = 2;	// safety net
-    pmove->oldbuttons |= BUTTON_JUMP;	// don't jump again until released
+    pmove->waterjumptime = 2;	/* safety net */
+    pmove->oldbuttons |= BUTTON_JUMP;	/* don't jump again until released */
 }
 
 /*
