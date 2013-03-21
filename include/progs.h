@@ -87,8 +87,17 @@ void ED_LoadFromFile(const char *data);
 edict_t *EDICT_NUM(int n);
 int NUM_FOR_EDICT(const edict_t *e);
 
-#define	NEXT_EDICT(e) ((edict_t *)((byte *)e + pr_edict_size))
-#define	EDICT_TO_PROG(e) ((byte *)e - (byte *)sv.edicts)
+#define CHECK_EDICT_PTR(e) \
+    do { (void)((typeof(e))NULL == (const edict_t *)NULL); } while (0)
+
+#define	NEXT_EDICT(e) ({			\
+	CHECK_EDICT_PTR(e);			\
+	(typeof(e))((const byte *)e + pr_edict_size); })
+
+#define EDICT_TO_PROG(e) ({			\
+	CHECK_EDICT_PTR(e);			\
+	((byte *)e - (byte *)sv.edicts); })
+
 #define PROG_TO_EDICT(e) ((edict_t *)((byte *)sv.edicts + e))
 
 //============================================================================
