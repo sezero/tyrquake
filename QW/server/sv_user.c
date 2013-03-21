@@ -1230,20 +1230,21 @@ For debugging
 */
 #if 0
 static void
-AddAllEntsToPmove(const vec3_t mins, const vec3_t maxs)
+AddAllEntsToPmove(const vec3_t mins, const vec3_t maxs,
+		  physent_stack_t *pestack)
 {
-    int e;
+    int i, entity;
     edict_t *check;
-    int i;
-    physent_t *pe;
-    int pl;
+    physent_t *physent;
+    int player;
 
-    pl = EDICT_TO_PROG(sv_player);
+    player = EDICT_TO_PROG(sv_player);
     check = NEXT_EDICT(sv.edicts);
-    for (e = 1; e < sv.num_edicts; e++, check = NEXT_EDICT(check)) {
+    physent = pestack->physents + pestack->numphysents;
+    for (entity = 1; entity < sv.num_edicts; entity++, check = NEXT_EDICT(check)) {
 	if (check->free)
 	    continue;
-	if (check->v.owner == pl)
+	if (check->v.owner == player)
 	    continue;
 	if (check->v.solid == SOLID_BSP
 	    || check->v.solid == SOLID_BBOX
@@ -1257,22 +1258,22 @@ AddAllEntsToPmove(const vec3_t mins, const vec3_t maxs)
 		    break;
 	    if (i != 3)
 		continue;
-	    pe = &pmove.physents[pmove.numphysent];
 
-	    VectorCopy(check->v.origin, pe->origin);
-	    pmove.physents[pmove.numphysent].info = e;
-	    if (check->v.solid == SOLID_BSP)
-		pe->model = sv.models[(int)(check->v.modelindex)];
-	    else {
-		pe->model = NULL;
-		VectorCopy(check->v.mins, pe->mins);
-		VectorCopy(check->v.maxs, pe->maxs);
-	    }
-
-	    if (++pmove.numphysent == MAX_PHYSENTS)
+	    if (physent - pestack->physents == MAX_PHYSENTS)
 		break;
+	    VectorCopy(check->v.origin, physent->origin);
+	    physent->info = entity;
+	    if (check->v.solid == SOLID_BSP)
+		physent->model = sv.models[(int)(check->v.modelindex)];
+	    else {
+		physent->model = NULL;
+		VectorCopy(check->v.mins, physent->mins);
+		VectorCopy(check->v.maxs, physent->maxs);
+	    }
+	    physent++;
 	}
     }
+    pestack->numphysents = physent - pestack->physents;
 }
 #endif
 
@@ -1358,8 +1359,8 @@ SV_RunCmd(usercmd_t *ucmd)
 
     pmove.spectator = host_client->spectator;
     pmove.waterjumptime = sv_player->v.teleport_time;
-    pmove.numphysent = 1;
-    pmove.physents[0].model = sv.worldmodel;
+    pestack.numphysent = 1;
+    pestack.physents[0].model = sv.worldmodel;
     pmove.cmd = *ucmd;
     pmove.dead = sv_player->v.health <= 0;
     pmove.oldbuttons = host_client->oldbuttons;
@@ -1372,9 +1373,9 @@ SV_RunCmd(usercmd_t *ucmd)
 	maxs[i] = pmove.origin[i] + 256;
     }
 #if 1
-    SV_AddLinksToPmove(mins, maxs);
+    SV_AddLinksToPhysents(mins, maxs, &pestack);
 #else
-    AddAllEntsToPmove(mins, maxs);
+    AddAllEntsToPmove(mins, maxs, &pestack);
 #endif
 
 #if 0
@@ -1400,7 +1401,7 @@ SV_RunCmd(usercmd_t *ucmd)
     if (onground != -1) {
 	sv_player->v.flags = (int)sv_player->v.flags | FL_ONGROUND;
 	sv_player->v.groundentity =
-	    EDICT_TO_PROG(EDICT_NUM(pmove.physents[onground].info));
+	    EDICT_TO_PROG(EDICT_NUM(pestack.physents[onground].info));
     } else
 	sv_player->v.flags = (int)sv_player->v.flags & ~FL_ONGROUND;
     for (i = 0; i < 3; i++)
@@ -1423,7 +1424,7 @@ SV_RunCmd(usercmd_t *ucmd)
 
 	// touch other objects
 	for (i = 0; i < pmove.numtouch; i++) {
-	    n = pmove.physents[pmove.touchindex[i]].info;
+	    n = pestack.physents[pmove.touchindex[i]].info;
 	    ent = EDICT_NUM(n);
 	    if (!ent->v.touch || (playertouch[n / 8] & (1 << (n % 8))))
 		continue;

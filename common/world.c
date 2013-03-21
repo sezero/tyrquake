@@ -137,13 +137,13 @@ static int sv_numareanodes;
 #if defined(QW_HACK) && defined(SERVERONLY)
 /*
 ====================
-AddLinksToPmove
+AddLinksToPhysents
 
 ====================
 */
 static void
-SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
-		     const vec3_t maxs)
+SV_AddLinksToPhysents_r(const areanode_t *node, const vec3_t mins,
+			const vec3_t maxs, physent_stack_t *pestack)
 {
     const link_t *link, *next;
     const link_t *const solids = &node->solid_edicts;
@@ -152,6 +152,7 @@ SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
     physent_t *physent;
 
     playernum = EDICT_TO_PROG(sv_player);
+    physent = &pestack->physents[pestack->numphysent];
 
     /* touch linked edicts */
     for (link = solids->next; link != solids; link = next) {
@@ -166,17 +167,14 @@ SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
 	    || check->v.solid == SOLID_SLIDEBOX) {
 	    if (check == sv_player)
 		continue;
-
 	    for (i = 0; i < 3; i++)
 		if (check->v.absmin[i] > maxs[i]
 		    || check->v.absmax[i] < mins[i])
 		    break;
 	    if (i != 3)
 		continue;
-	    if (pmove.numphysent == MAX_PHYSENTS)
+	    if (pestack->numphysent == MAX_PHYSENTS)
 		return;
-	    physent = &pmove.physents[pmove.numphysent];
-	    pmove.numphysent++;
 
 	    VectorCopy(check->v.origin, physent->origin);
 	    physent->info = NUM_FOR_EDICT(check);
@@ -187,6 +185,8 @@ SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
 		VectorCopy(check->v.mins, physent->mins);
 		VectorCopy(check->v.maxs, physent->maxs);
 	    }
+	    physent++;
+	    pestack->numphysent++;
 	}
     }
 
@@ -195,15 +195,16 @@ SV_AddLinksToPmove_r(const areanode_t *node, const vec3_t mins,
 	return;
 
     if (maxs[node->axis] > node->dist)
-	SV_AddLinksToPmove_r(node->children[0], mins, maxs);
+	SV_AddLinksToPhysents_r(node->children[0], mins, maxs, pestack);
     if (mins[node->axis] < node->dist)
-	SV_AddLinksToPmove_r(node->children[1], mins, maxs);
+	SV_AddLinksToPhysents_r(node->children[1], mins, maxs, pestack);
 }
 
 void
-SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs)
+SV_AddLinksToPhysents(const vec3_t mins, const vec3_t maxs,
+		      physent_stack_t *pestack)
 {
-    SV_AddLinksToPmove_r(sv_areanodes, mins, maxs);
+    SV_AddLinksToPhysents_r(sv_areanodes, mins, maxs, pestack);
 }
 #endif
 

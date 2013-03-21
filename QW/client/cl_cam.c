@@ -141,7 +141,7 @@ Cam_DoTrace(playermove_t *pmove, const vec3_t vec1, const vec3_t vec2,
 	    trace_t *trace)
 {
     VectorCopy(vec1, pmove->origin);
-    PM_PlayerMove(pmove->origin, vec2, trace);
+    PM_PlayerMove(pmove->origin, vec2, &pestack, trace);
 }
 
 // Returns distance or 9999 if invalid for some reason

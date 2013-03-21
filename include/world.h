@@ -89,7 +89,9 @@ SV_TraceLine(const vec3_t start, const vec3_t end, movetype_t type,
 }
 
 #if defined(QW_HACK) && defined(SERVERONLY)
-void SV_AddLinksToPmove(const vec3_t mins, const vec3_t maxs);
+#include "pmove.h"
+void SV_AddLinksToPhysents(const vec3_t mins, const vec3_t maxs,
+			   physent_stack_t *pestack);
 #endif
 
 #endif /* WORLD_H */

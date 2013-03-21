@@ -174,8 +174,8 @@ CL_PredictMove(void)
 	return;
     }
     // predict forward until cl.time <= to->senttime
-    oldphysent = pmove.numphysent;
-    CL_SetSolidPlayers(&pmove, cl.playernum);
+    oldphysent = pestack.numphysent;
+    CL_SetSolidPlayers(&pestack, cl.playernum);
 
 //      to = &cl.frames[cls.netchan.incoming_sequence & UPDATE_MASK];
 
@@ -190,7 +190,7 @@ CL_PredictMove(void)
 	from = to;
     }
 
-    pmove.numphysent = oldphysent;
+    pestack.numphysent = oldphysent;
 
     if (i == UPDATE_BACKUP - 1 || !to)
 	return;			// net hasn't deliver packets in a long time...

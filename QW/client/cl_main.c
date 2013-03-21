@@ -1326,7 +1326,7 @@ Host_Frame(float time)
     CL_ReadPackets();
 
     /* Set the pmove physents based on current state... */
-    CL_SetSolidEntities(&pmove);
+    CL_SetSolidEntities(&pestack);
 
     // send intentions now
     // resend a connection request if necessary

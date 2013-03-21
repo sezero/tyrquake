@@ -457,13 +457,13 @@ void CL_ClearTEnts(void);
 //
 // cl_ents.c
 //
-void CL_SetSolidPlayers(playermove_t *pmove, int playernum);
+void CL_SetSolidPlayers(physent_stack_t *pestack, int playernum);
 void CL_SetUpPlayerPrediction(qboolean dopred);
 void CL_EmitEntities(void);
 void CL_ClearProjectiles(void);
 void CL_ParseProjectiles(void);
 void CL_ParsePacketEntities(qboolean delta);
-void CL_SetSolidEntities(playermove_t *pmove);
+void CL_SetSolidEntities(physent_stack_t *pestack);
 void CL_ParsePlayerinfo(void);
 
 //

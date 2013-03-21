@@ -869,10 +869,10 @@ CL_LinkPlayers(void)
 	    state->command.msec = msec;
 //Con_DPrintf ("predict: %i\n", msec);
 
-	    oldphysent = pmove.numphysent;
-	    CL_SetSolidPlayers(&pmove, playernum);
+	    oldphysent = pestack.numphysent;
+	    CL_SetSolidPlayers(&pestack, playernum);
 	    CL_PredictUsercmd(state, &exact, &state->command, false);
-	    pmove.numphysent = oldphysent;
+	    pestack.numphysent = oldphysent;
 	    VectorCopy(exact.origin, ent->origin);
 	}
 
@@ -894,7 +894,7 @@ Builds all the pmove physents for the current frame
 ===============
 */
 void
-CL_SetSolidEntities(playermove_t *pmove)
+CL_SetSolidEntities(physent_stack_t *pestack)
 {
     int i;
     frame_t *frame;
@@ -902,7 +902,7 @@ CL_SetSolidEntities(playermove_t *pmove)
     entity_state_t *state;
     physent_t *physent;
 
-    physent = pmove->physents;
+    physent = pestack->physents;
 
     physent->model = cl.worldmodel;
     VectorCopy(vec3_origin, physent->origin);
@@ -925,7 +925,7 @@ CL_SetSolidEntities(playermove_t *pmove)
 	    physent++;
 	}
     }
-    pmove->numphysent = physent - pmove->physents;
+    pestack->numphysent = physent - pestack->physents;
 }
 
 /*
@@ -1008,7 +1008,7 @@ pmove must be setup with world and solid entity hulls before calling
 ===============
 */
 void
-CL_SetSolidPlayers(playermove_t *pmove, int playernum)
+CL_SetSolidPlayers(physent_stack_t *pestack, int playernum)
 {
     struct predicted_player *pplayer;
     physent_t *physent;
@@ -1017,7 +1017,7 @@ CL_SetSolidPlayers(playermove_t *pmove, int playernum)
     if (!cl_solid_players.value)
 	return;
 
-    physent = pmove->physents + pmove->numphysent;
+    physent = pestack->physents + pestack->numphysent;
     for (i = 0, pplayer = predicted_players; i < MAX_CLIENTS; i++, pplayer++) {
 	/* check if active this frame */
 	if (!pplayer->active)
@@ -1037,7 +1037,7 @@ CL_SetSolidPlayers(playermove_t *pmove, int playernum)
 	VectorCopy(player_maxs, physent->maxs);
 	physent++;
     }
-    pmove->numphysent = physent - pmove->physents;
+    pestack->numphysent = physent - pestack->physents;
 }
 
 

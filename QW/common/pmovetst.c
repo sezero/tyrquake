@@ -40,15 +40,13 @@ PM_PointContents
 ==================
 */
 int
-PM_PointContents(const vec3_t point)
+PM_PointContents(const vec3_t point, const physent_stack_t *pestack)
 {
     const hull_t *hull;
-    int num;
 
-    hull = &pmove.physents[0].model->hulls[0];
-    num = hull->firstclipnode;
+    hull = &pestack->physents[0].model->hulls[0];
 
-    return Mod_HullPointContents(hull, num, point);
+    return Mod_HullPointContents(hull, hull->firstclipnode, point);
 }
 
 /*
@@ -59,28 +57,27 @@ Returns false if the given player position is not valid (in solid)
 ================
 */
 qboolean
-PM_TestPlayerPosition(const vec3_t pos)
+PM_TestPlayerPosition(const vec3_t pos, const physent_stack_t *pestack)
 {
-    int i;
-    physent_t *pe;
     vec3_t mins, maxs, test;
-    boxhull_t boxhull;
+    const physent_t *physent;
     const hull_t *hull;
+    boxhull_t boxhull;
+    int i;
 
-    for (i = 0; i < pmove.numphysent; i++) {
-	pe = &pmove.physents[i];
-
+    physent = pestack->physents;
+    for (i = 0; i < pestack->numphysent; i++, physent++) {
 	/* get the clipping hull */
-	if (pe->model)
-	    hull = &pmove.physents[i].model->hulls[1];
+	if (physent->model)
+	    hull = &physent->model->hulls[1];
 	else {
-	    VectorSubtract(pe->mins, player_maxs, mins);
-	    VectorSubtract(pe->maxs, player_mins, maxs);
+	    VectorSubtract(physent->mins, player_maxs, mins);
+	    VectorSubtract(physent->maxs, player_mins, maxs);
 	    Mod_CreateBoxhull(mins, maxs, &boxhull);
 	    hull = &boxhull.hull;
 	}
 
-	VectorSubtract(pos, pe->origin, test);
+	VectorSubtract(pos, physent->origin, test);
 	if (Mod_HullPointContents(hull, hull->firstclipnode, test) ==
 	    CONTENTS_SOLID)
 	    return false;
@@ -95,7 +92,8 @@ PM_PlayerMove
 ================
 */
 int
-PM_PlayerMove(const vec3_t start, const vec3_t end, trace_t *trace)
+PM_PlayerMove(const vec3_t start, const vec3_t end,
+	      const physent_stack_t *pestack, trace_t *trace)
 {
     trace_t stacktrace;
     boxhull_t boxhull;
@@ -110,11 +108,11 @@ PM_PlayerMove(const vec3_t start, const vec3_t end, trace_t *trace)
     VectorCopy(end, trace->endpos);
     clipentity = -1;
 
-    for (i = 0; i < pmove.numphysent; i++) {
+    physent = pestack->physents;
+    for (i = 0; i < pestack->numphysent; i++, physent++) {
 	/* get the clipping hull */
-	physent = &pmove.physents[i];
 	if (physent->model)
-	    hull = &pmove.physents[i].model->hulls[1];
+	    hull = &physent->model->hulls[1];
 	else {
 	    VectorSubtract(physent->mins, player_maxs, mins);
 	    VectorSubtract(physent->maxs, player_mins, maxs);

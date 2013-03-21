@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 movevars_t movevars;
 playermove_t pmove;
+physent_stack_t pestack;
 
 int onground;
 int waterlevel;
@@ -131,7 +132,7 @@ PM_FlyMove(playermove_t *pmove)
 	for (i = 0; i < 3; i++)
 	    end[i] = pmove->origin[i] + time_left * pmove->velocity[i];
 
-	touchentity = PM_PlayerMove(pmove->origin, end, &trace);
+	touchentity = PM_PlayerMove(pmove->origin, end, &pestack, &trace);
 	if (trace.startsolid || trace.allsolid) {
 	    /* entity is trapped in another solid */
 	    VectorCopy(vec3_origin, pmove->velocity);
@@ -237,7 +238,7 @@ PM_GroundMove(playermove_t *pmove)
     dest[2] = pmove->origin[2];
 
     // first try moving directly to the next spot
-    PM_PlayerMove(pmove->origin, dest, &trace);
+    PM_PlayerMove(pmove->origin, dest, &pestack, &trace);
     if (trace.fraction == 1) {
 	VectorCopy(trace.endpos, pmove->origin);
 	return;
@@ -259,7 +260,7 @@ PM_GroundMove(playermove_t *pmove)
 // move up a stair height
     VectorCopy(pmove->origin, dest);
     dest[2] += STEPSIZE;
-    PM_PlayerMove(pmove->origin, dest, &trace);
+    PM_PlayerMove(pmove->origin, dest, &pestack, &trace);
     if (!trace.startsolid && !trace.allsolid) {
 	VectorCopy(trace.endpos, pmove->origin);
     }
@@ -269,7 +270,7 @@ PM_GroundMove(playermove_t *pmove)
 // press down the stepheight
     VectorCopy(pmove->origin, dest);
     dest[2] -= STEPSIZE;
-    PM_PlayerMove(pmove->origin, dest, &trace);
+    PM_PlayerMove(pmove->origin, dest, &pestack, &trace);
     if (trace.plane.normal[2] < 0.7)
 	goto usedown;
     if (!trace.startsolid && !trace.allsolid) {
@@ -333,7 +334,7 @@ PM_Friction(playermove_t *pmove)
 	start[2] = pmove->origin[2] + player_mins[2];
 	stop[2] = start[2] - 34;
 
-	PM_PlayerMove(start, stop, &trace);
+	PM_PlayerMove(start, stop, &pestack, &trace);
 
 	if (trace.fraction == 1) {
 	    friction *= 2;
@@ -466,7 +467,7 @@ PM_WaterMove(playermove_t *pmove)
     VectorMA(pmove->origin, frametime, pmove->velocity, dest);
     VectorCopy(dest, start);
     start[2] += STEPSIZE + 1;
-    PM_PlayerMove(start, dest, &trace);
+    PM_PlayerMove(start, dest, &pestack, &trace);
     if (!trace.startsolid && !trace.allsolid) {
 	/* walked up the step */
 	/* FIXME: check steep slope? */
@@ -559,7 +560,7 @@ PM_CatagorizePosition(playermove_t *pmove)
     if (pmove->velocity[2] > 180) {
 	onground = -1;
     } else {
-	groundentity = PM_PlayerMove(pmove->origin, point, &trace);
+	groundentity = PM_PlayerMove(pmove->origin, point, &pestack, &trace);
 	if (trace.plane.normal[2] < 0.7)
 	    onground = -1;	// too steep
 	else
@@ -583,17 +584,17 @@ PM_CatagorizePosition(playermove_t *pmove)
     watertype = CONTENTS_EMPTY;
 
     point[2] = pmove->origin[2] + player_mins[2] + 1;
-    cont = PM_PointContents(point);
+    cont = PM_PointContents(point, &pestack);
 
     if (cont <= CONTENTS_WATER) {
 	watertype = cont;
 	waterlevel = 1;
 	point[2] = pmove->origin[2] + (player_mins[2] + player_maxs[2]) * 0.5;
-	cont = PM_PointContents(point);
+	cont = PM_PointContents(point, &pestack);
 	if (cont <= CONTENTS_WATER) {
 	    waterlevel = 2;
 	    point[2] = pmove->origin[2] + 22;
-	    cont = PM_PointContents(point);
+	    cont = PM_PointContents(point, &pestack);
 	    if (cont <= CONTENTS_WATER)
 		waterlevel = 3;
 	}
@@ -675,11 +676,11 @@ CheckWaterJump(playermove_t *pmove)
 
     VectorMA(pmove->origin, 24, forward, spot);
     spot[2] += 8;
-    cont = PM_PointContents(spot);
+    cont = PM_PointContents(spot, &pestack);
     if (cont != CONTENTS_SOLID)
 	return;
     spot[2] += 24;
-    cont = PM_PointContents(spot);
+    cont = PM_PointContents(spot, &pestack);
     if (cont != CONTENTS_EMPTY)
 	return;
     // jump out of water
@@ -712,7 +713,7 @@ NudgePosition(vec3_t origin)
     for (i = 0; i < 3; i++)
 	origin[i] = floor(origin[i] * 8 + 0.5) * 0.125;
 
-    if (PM_TestPlayerPosition(origin))
+    if (PM_TestPlayerPosition(origin, &pestack))
 	return;
 
     /* Nudge slightly along each axis and re-test */
@@ -722,7 +723,7 @@ NudgePosition(vec3_t origin)
 		nudged[0] = origin[0] + signs[x] * 0.125;
 		nudged[1] = origin[1] + signs[y] * 0.125;
 		nudged[2] = origin[2] + signs[z] * 0.125;
-		if (PM_TestPlayerPosition(nudged)) {
+		if (PM_TestPlayerPosition(nudged, &pestack)) {
 		    VectorCopy(nudged, origin);
 		    return;
 		}

@@ -52,10 +52,6 @@ typedef struct {
     qboolean dead;
     int spectator;
 
-    // world state
-    int numphysent;
-    physent_t physents[MAX_PHYSENTS];	// 0 should be the world
-
     // input
     usercmd_t cmd;
 
@@ -63,6 +59,11 @@ typedef struct {
     int numtouch;
     int touchindex[MAX_PHYSENTS];
 } playermove_t;
+
+typedef struct {
+    int numphysent;
+    physent_t physents[MAX_PHYSENTS];
+} physent_stack_t;
 
 typedef struct {
     float gravity;
@@ -79,6 +80,7 @@ typedef struct {
 
 extern movevars_t movevars;
 extern playermove_t pmove;
+extern physent_stack_t pestack;
 extern int onground;
 extern int waterlevel;
 extern int watertype;
@@ -87,10 +89,11 @@ extern const vec3_t player_maxs;
 
 void PlayerMove(playermove_t *pmove);
 
-int PM_PointContents(const vec3_t point);
-qboolean PM_TestPlayerPosition(const vec3_t point);
+int PM_PointContents(const vec3_t point, const physent_stack_t *pestack);
+qboolean PM_TestPlayerPosition(const vec3_t point, const physent_stack_t *pestack);
 
 /* Returns the entity number that the trace hit, -1 otherwise */
-int PM_PlayerMove(const vec3_t start, const vec3_t stop, trace_t *trace);
+int PM_PlayerMove(const vec3_t start, const vec3_t stop,
+		  const physent_stack_t *pestack, trace_t *trace);
 
 #endif /* CLIENT_PMOVE_H */
