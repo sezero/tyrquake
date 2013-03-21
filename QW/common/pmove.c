@@ -704,12 +704,9 @@ NudgePosition(vec3_t origin, const physent_stack_t *pestack)
     vec3_t nudged;
     int i, x, y, z;
 
-    /*
-     * Round to the nearest 1/8th world coordinate
-     * (Note: the original QW always rounded towards zero)
-     */
+    /* Round to the nearest 1/8th world coordinate (towards zero) */
     for (i = 0; i < 3; i++)
-	origin[i] = floor(origin[i] * 8 + 0.5) * 0.125;
+	origin[i] = ((int)(origin[i] * 8)) * 0.125;
 
     if (PM_TestPlayerPosition(origin, pestack))
 	return;
