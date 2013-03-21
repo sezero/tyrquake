@@ -1292,6 +1292,7 @@ Host_Frame(float time)
     static double time3 = 0;
     int pass1, pass2, pass3;
     float fps;
+    physent_stack_t pestack;
 
     /* something bad happened, or the server disconnected */
     if (setjmp(host_abort))
