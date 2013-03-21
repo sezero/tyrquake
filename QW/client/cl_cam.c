@@ -130,16 +130,19 @@ Cam_Lock(int playernum)
     Sbar_Changed();
 }
 
-static void
-Cam_DoTrace(const vec3_t start, const vec3_t end, trace_t *trace)
+static inline void
+Cam_DoTrace(const vec3_t start, const vec3_t end,
+	    const physent_stack_t *pestack, trace_t *trace)
 {
-    PM_PlayerMove(start, end, &pestack, trace);
+    /* Fake a player move */
+    PM_PlayerMove(start, end, pestack, trace);
 }
 
 // Returns distance or 9999 if invalid for some reason
 static float
 Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
-	     const vec3_t viewvec, qboolean checkvis)
+	     const vec3_t viewvec, const physent_stack_t *pestack,
+	     qboolean checkvis)
 {
     vec3_t viewnormal, endpos, camvec;
     vec_t dist;
@@ -150,8 +153,7 @@ Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
     VectorNormalize(viewnormal);
     VectorMA(player->origin, 800, viewnormal, endpos);
 
-    /* fake a player move */
-    Cam_DoTrace(player->origin, endpos, &trace);
+    Cam_DoTrace(player->origin, endpos, pestack, &trace);
     if ( /*trace.inopen || */ trace.inwater)
 	return 9999;
 
@@ -162,7 +164,7 @@ Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
 
     if (checkvis) {
 	VectorSubtract(trace.endpos, self->origin, endpos);
-	Cam_DoTrace(self->origin, endpos, &trace);
+	Cam_DoTrace(self->origin, endpos, pestack, &trace);
 	if (trace.fraction != 1 || trace.inwater)
 	    return 9999;
     }
@@ -172,13 +174,14 @@ Cam_TryFlyby(const player_state_t *self, const player_state_t *player,
 
 // Is player visible?
 static qboolean
-Cam_IsVisible(const player_state_t *player, const vec3_t viewpoint)
+Cam_IsVisible(const player_state_t *player, const vec3_t viewpoint,
+	      const physent_stack_t *pestack)
 {
     trace_t trace;
     vec3_t viewvec;
     float dist;
 
-    Cam_DoTrace(player->origin, viewpoint, &trace);
+    Cam_DoTrace(player->origin, viewpoint, pestack, &trace);
     if (trace.fraction != 1 || /*trace.inopen || */ trace.inwater)
 	return false;
 
@@ -193,7 +196,7 @@ Cam_IsVisible(const player_state_t *player, const vec3_t viewpoint)
 
 static qboolean
 InitFlyby(const player_state_t *self, const player_state_t *player,
-	  int checkvis)
+	  const physent_stack_t *pestack, int checkvis)
 {
     int i;
     float flydist, max;
@@ -210,7 +213,7 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
     for (i = 0; i < 8; i++) {
 	VectorAdd(forward, up, vec2);
 	VectorAdd(vec2, right, vec2);
-	flydist = Cam_TryFlyby(self, player, vec2, checkvis);
+	flydist = Cam_TryFlyby(self, player, vec2, pestack, checkvis);
 	if (flydist < max) {
 	    max = flydist;
 	    VectorCopy(vec2, vec);
@@ -219,13 +222,13 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
 
     /* invert */
     VectorSubtract(vec3_origin, forward, vec2);
-    flydist = Cam_TryFlyby(self, player, vec2, checkvis);
+    flydist = Cam_TryFlyby(self, player, vec2, pestack, checkvis);
     if (flydist < max) {
 	max = flydist;
 	VectorCopy(vec2, vec);
     }
     VectorCopy(forward, vec2);
-    flydist = Cam_TryFlyby(self, player, vec2, checkvis);
+    flydist = Cam_TryFlyby(self, player, vec2, pestack, checkvis);
     if (flydist < max) {
 	max = flydist;
 	VectorCopy(vec2, vec);
@@ -233,13 +236,13 @@ InitFlyby(const player_state_t *self, const player_state_t *player,
 
     /* invert */
     VectorSubtract(vec3_origin, right, vec2);
-    flydist = Cam_TryFlyby(self, player, vec2, checkvis);
+    flydist = Cam_TryFlyby(self, player, vec2, pestack, checkvis);
     if (flydist < max) {
 	max = flydist;
 	VectorCopy(vec2, vec);
     }
     VectorCopy(right, vec2);
-    flydist = Cam_TryFlyby(self, player, vec2, checkvis);
+    flydist = Cam_TryFlyby(self, player, vec2, pestack, checkvis);
     if (flydist < max) {
 	max = flydist;
 	VectorCopy(vec2, vec);
@@ -281,7 +284,7 @@ Cam_CheckHighTarget(void)
  * We find a nice position to watch the player and move there
  */
 void
-Cam_Track(usercmd_t *cmd)
+Cam_Track(usercmd_t *cmd, const physent_stack_t *pestack)
 {
     player_state_t *player, *self;
     frame_t *frame;
@@ -311,10 +314,10 @@ Cam_Track(usercmd_t *cmd)
     player = frame->playerstate + spec_track;
     self = frame->playerstate + cl.playernum;
 
-    if (!locked || !Cam_IsVisible(player, desired_position)) {
+    if (!locked || !Cam_IsVisible(player, desired_position, pestack)) {
 	if (!locked || realtime - cam_lastviewtime > 0.1) {
-	    if (!InitFlyby(self, player, true))
-		InitFlyby(self, player, false);
+	    if (!InitFlyby(self, player, pestack, true))
+		InitFlyby(self, player, pestack, false);
 	    cam_lastviewtime = realtime;
 	}
     } else
