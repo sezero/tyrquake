@@ -906,7 +906,6 @@ CL_SetSolidEntities(physent_stack_t *pestack)
 
     physent->model = cl.worldmodel;
     VectorCopy(vec3_origin, physent->origin);
-    physent->info = 0;
     physent++;
 
     frame = &cl.frames[parsecountmod];

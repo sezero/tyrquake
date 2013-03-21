@@ -1302,14 +1302,14 @@ SV_RunCmd(usercmd_t *ucmd)
     playermove_t pmove;
     physent_stack_t pestack;
     vec3_t mins, maxs;
-    int i, n, oldmsec;
-    edict_t *ent;
+    int i;
+    edict_t *entity;
 
     cmd = *ucmd;
 
     // chop up very long commands
     if (cmd.msec > 50) {
-	oldmsec = ucmd->msec;
+	const int oldmsec = ucmd->msec;
 	cmd.msec = oldmsec / 2;
 	SV_RunCmd(&cmd);
 	cmd.msec = oldmsec / 2;
@@ -1403,9 +1403,9 @@ SV_RunCmd(usercmd_t *ucmd)
     sv_player->v.waterlevel = waterlevel;
     sv_player->v.watertype = watertype;
     if (onground != -1) {
+	const int entitynum = pestack.physents[onground].entitynum;
+	sv_player->v.groundentity = EDICT_TO_PROG(EDICT_NUM(entitynum));
 	sv_player->v.flags = (int)sv_player->v.flags | FL_ONGROUND;
-	sv_player->v.groundentity =
-	    EDICT_TO_PROG(EDICT_NUM(pestack.physents[onground].info));
     } else
 	sv_player->v.flags = (int)sv_player->v.flags & ~FL_ONGROUND;
     for (i = 0; i < 3; i++)
@@ -1428,14 +1428,16 @@ SV_RunCmd(usercmd_t *ucmd)
 
 	// touch other objects
 	for (i = 0; i < pmove.numtouch; i++) {
-	    n = pestack.physents[pmove.touchindex[i]].info;
-	    ent = EDICT_NUM(n);
-	    if (!ent->v.touch || (playertouch[n / 8] & (1 << (n % 8))))
+	    const int entitynum = pestack.physents[pmove.touchindex[i]].entitynum;
+	    entity = EDICT_NUM(entitynum);
+	    if (!entity->v.touch)
 		continue;
-	    pr_global_struct->self = EDICT_TO_PROG(ent);
+	    if (playertouch[entitynum / 8] & (1 << (entitynum % 8)))
+		continue;
+	    pr_global_struct->self = EDICT_TO_PROG(entity);
 	    pr_global_struct->other = EDICT_TO_PROG(sv_player);
-	    PR_ExecuteProgram(ent->v.touch);
-	    playertouch[n / 8] |= 1 << (n % 8);
+	    PR_ExecuteProgram(entity->v.touch);
+	    playertouch[entitynum / 8] |= 1 << (entitynum % 8);
 	}
     }
 }

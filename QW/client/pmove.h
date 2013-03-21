@@ -38,7 +38,9 @@ typedef struct {
     vec3_t origin;
     model_t *model;		// only for bsp models
     vec3_t mins, maxs;		// only for non-bsp models
-    int info;			// for client or server to identify
+#ifdef SERVERONLY
+    int entitynum;		// for server to identify
+#endif
 } physent_t;
 
 

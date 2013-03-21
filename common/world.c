@@ -177,7 +177,7 @@ SV_AddLinksToPhysents_r(const areanode_t *node, const vec3_t mins,
 		return;
 
 	    VectorCopy(check->v.origin, physent->origin);
-	    physent->info = NUM_FOR_EDICT(check);
+	    physent->entitynum = NUM_FOR_EDICT(check);
 	    if (check->v.solid == SOLID_BSP)
 		physent->model = sv.models[(int)(check->v.modelindex)];
 	    else {
