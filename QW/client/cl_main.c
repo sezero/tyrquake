@@ -1336,16 +1336,16 @@ Host_Frame(float time)
 	CL_SendCmd(&pestack);
 
     // Set up prediction for other players
-    CL_SetUpPlayerPrediction(false);
+    CL_SetUpPlayerPrediction(&pestack, false);
 
     // do client side motion prediction
     CL_PredictMove(&pestack);
 
     // Set up prediction for other players
-    CL_SetUpPlayerPrediction(true);
+    CL_SetUpPlayerPrediction(&pestack, true);
 
     // build a refresh entity list
-    CL_EmitEntities();
+    CL_EmitEntities(&pestack);
 
     // update video
     if (host_speeds.value)

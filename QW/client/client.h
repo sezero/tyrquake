@@ -458,8 +458,8 @@ void CL_ClearTEnts(void);
 // cl_ents.c
 //
 void CL_SetSolidPlayers(physent_stack_t *pestack, int playernum);
-void CL_SetUpPlayerPrediction(qboolean dopred);
-void CL_EmitEntities(void);
+void CL_SetUpPlayerPrediction(const physent_stack_t *pestack, qboolean dopred);
+void CL_EmitEntities(physent_stack_t *pestack);
 void CL_ClearProjectiles(void);
 void CL_ParseProjectiles(void);
 void CL_ParsePacketEntities(qboolean delta);

@@ -775,7 +775,7 @@ for all current players
 =============
 */
 static void
-CL_LinkPlayers(void)
+CL_LinkPlayers(physent_stack_t *pestack)
 {
     int playernum;
     player_info_t *info;
@@ -869,10 +869,10 @@ CL_LinkPlayers(void)
 	    state->command.msec = msec;
 //Con_DPrintf ("predict: %i\n", msec);
 
-	    oldphysent = pestack.numphysent;
-	    CL_SetSolidPlayers(&pestack, playernum);
-	    CL_PredictUsercmd(state, &exact, &state->command, &pestack, false);
-	    pestack.numphysent = oldphysent;
+	    oldphysent = pestack->numphysent;
+	    CL_SetSolidPlayers(pestack, playernum);
+	    CL_PredictUsercmd(state, &exact, &state->command, pestack, false);
+	    pestack->numphysent = oldphysent;
 	    VectorCopy(exact.origin, ent->origin);
 	}
 
@@ -939,7 +939,7 @@ This sets up the first phase.
 ===
 */
 void
-CL_SetUpPlayerPrediction(qboolean dopred)
+CL_SetUpPlayerPrediction(const physent_stack_t *pestack, qboolean dopred)
 {
     int j;
     player_state_t *state;
@@ -990,7 +990,7 @@ CL_SetUpPlayerPrediction(qboolean dopred)
 		state->command.msec = msec;
 		//Con_DPrintf ("predict: %i\n", msec);
 
-		CL_PredictUsercmd(state, &exact, &state->command, &pestack, false);
+		CL_PredictUsercmd(state, &exact, &state->command, pestack, false);
 		VectorCopy(exact.origin, pplayer->origin);
 	    }
 	}
@@ -1051,7 +1051,7 @@ Made up of: clients, packet_entities, nails, and tents
 ===============
 */
 void
-CL_EmitEntities(void)
+CL_EmitEntities(physent_stack_t *pestack)
 {
     int i;
 
@@ -1067,7 +1067,7 @@ CL_EmitEntities(void)
     num_saved_visedicts = cl_numvisedicts;
     cl_numvisedicts = 0;
 
-    CL_LinkPlayers();
+    CL_LinkPlayers(pestack);
     CL_LinkPacketEntities();
     CL_LinkProjectiles();
     CL_UpdateTEnts();
