@@ -26,6 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "zone.h"
 
 static qboolean sv_allow_cheats;
+static const char sv_cheatmsg[] =
+    "You must run the server with -cheats to enable this command.\n";
 
 int fp_messages = 4, fp_persecond = 4, fp_secondsdead = 10;
 char fp_msg[255] = { 0 };
@@ -157,33 +159,25 @@ SV_Fraglogfile_f(void)
 
 /*
 ==================
-SV_SetPlayer
-
-Sets host_client and sv_player to the player with idnum Cmd_Argv(1)
+SV_GetClient
 ==================
 */
-static qboolean
-SV_SetPlayer(void)
+static client_t *
+SV_GetClient(int clientid)
 {
-    client_t *cl;
+    client_t *client;
     int i;
-    int idnum;
 
-    idnum = atoi(Cmd_Argv(1));
-
-    for (i = 0, cl = svs.clients; i < MAX_CLIENTS; i++, cl++) {
-	if (!cl->state)
+    for (i = 0, client = svs.clients; i < MAX_CLIENTS; i++, client++) {
+	if (!client->state)
 	    continue;
-	if (cl->userid == idnum) {
-	    host_client = cl;
-	    sv_player = host_client->edict;
-	    return true;
-	}
+	if (client->userid == clientid)
+	    return client;
     }
-    Con_Printf("Userid %i is not on the server\n", idnum);
-    return false;
-}
+    Con_Printf("Userid %i is not on the server\n", clientid);
 
+    return NULL;
+}
 
 /*
 ==================
@@ -195,41 +189,57 @@ Sets client to godmode
 static void
 SV_God_f(void)
 {
+    client_t *client;
+    edict_t *player;
+
     if (!sv_allow_cheats) {
-	Con_Printf
-	    ("You must run the server with -cheats to enable this command.\n");
+	Con_Printf(sv_cheatmsg);
 	return;
     }
 
-    if (!SV_SetPlayer())
+    client = SV_GetClient(atoi(Cmd_Argv(1)));
+    if (!client)
 	return;
 
-    sv_player->v.flags = (int)sv_player->v.flags ^ FL_GODMODE;
-    if (!((int)sv_player->v.flags & FL_GODMODE))
-	SV_ClientPrintf(host_client, PRINT_HIGH, "godmode OFF\n");
+    /* FIXME - to be removed after confirming no side effects */
+    host_client = client;
+    sv_player = host_client->edict;
+
+    player = client->edict;
+    player->v.flags = (int)player->v.flags ^ FL_GODMODE;
+    if (!((int)player->v.flags & FL_GODMODE))
+	SV_ClientPrintf(client, PRINT_HIGH, "godmode OFF\n");
     else
-	SV_ClientPrintf(host_client, PRINT_HIGH, "godmode ON\n");
+	SV_ClientPrintf(client, PRINT_HIGH, "godmode ON\n");
 }
 
 
 static void
 SV_Noclip_f(void)
 {
+    client_t *client;
+    edict_t *player;
+
     if (!sv_allow_cheats) {
-	Con_Printf
-	    ("You must run the server with -cheats to enable this command.\n");
+	Con_Printf(sv_cheatmsg);
 	return;
     }
 
-    if (!SV_SetPlayer())
+    client = SV_GetClient(atoi(Cmd_Argv(1)));
+    if (!client)
 	return;
 
-    if (sv_player->v.movetype != MOVETYPE_NOCLIP) {
-	sv_player->v.movetype = MOVETYPE_NOCLIP;
-	SV_ClientPrintf(host_client, PRINT_HIGH, "noclip ON\n");
+    /* FIXME - to be removed after confirming no side effects */
+    host_client = client;
+    sv_player = host_client->edict;
+
+    player = client->edict;
+    if (player->v.movetype != MOVETYPE_NOCLIP) {
+	player->v.movetype = MOVETYPE_NOCLIP;
+	SV_ClientPrintf(client, PRINT_HIGH, "noclip ON\n");
     } else {
-	sv_player->v.movetype = MOVETYPE_WALK;
-	SV_ClientPrintf(host_client, PRINT_HIGH, "noclip OFF\n");
+	player->v.movetype = MOVETYPE_WALK;
+	SV_ClientPrintf(client, PRINT_HIGH, "noclip OFF\n");
     }
 }
 
@@ -242,22 +252,29 @@ SV_Give_f
 static void
 SV_Give_f(void)
 {
-    const char *t;
-    int v;
+    client_t *client;
+    edict_t *player;
+    char item;
+    int amount;
 
     if (!sv_allow_cheats) {
-	Con_Printf
-	    ("You must run the server with -cheats to enable this command.\n");
+	Con_Printf(sv_cheatmsg);
 	return;
     }
 
-    if (!SV_SetPlayer())
+    client = SV_GetClient(atoi(Cmd_Argv(1)));
+    if (!client)
 	return;
 
-    t = Cmd_Argv(2);
-    v = atoi(Cmd_Argv(3));
+    /* FIXME - to be removed after confirming no side effects */
+    host_client = client;
+    sv_player = host_client->edict;
 
-    switch (t[0]) {
+    player = client->edict;
+    item = Cmd_Argv(2)[0];
+    amount = atoi(Cmd_Argv(3));
+
+    switch (item) {
     case '2':
     case '3':
     case '4':
@@ -266,24 +283,22 @@ SV_Give_f(void)
     case '7':
     case '8':
     case '9':
-	sv_player->v.items =
-	    (int)sv_player->v.items | IT_SHOTGUN << (t[0] - '2');
+	player->v.items = (int)player->v.items | IT_SHOTGUN << (item - '2');
 	break;
-
     case 's':
-	sv_player->v.ammo_shells = v;
+	player->v.ammo_shells = amount;
 	break;
     case 'n':
-	sv_player->v.ammo_nails = v;
+	player->v.ammo_nails = amount;
 	break;
     case 'r':
-	sv_player->v.ammo_rockets = v;
+	player->v.ammo_rockets = amount;
 	break;
     case 'h':
-	sv_player->v.health = v;
+	player->v.health = amount;
 	break;
     case 'c':
-	sv_player->v.ammo_cells = v;
+	player->v.ammo_cells = amount;
 	break;
     }
 }
@@ -612,15 +627,22 @@ Examine a users info strings
 static void
 SV_User_f(void)
 {
+    client_t *client;
+
     if (Cmd_Argc() != 2) {
 	Con_Printf("Usage: info <userid>\n");
 	return;
     }
 
-    if (!SV_SetPlayer())
+    client = SV_GetClient(atoi(Cmd_Argv(1)));
+    if (!client)
 	return;
 
-    Info_Print(host_client->userinfo);
+    /* FIXME - to be removed after confirming no side effects */
+    host_client = client;
+    sv_player = host_client->edict;
+
+    Info_Print(client->userinfo);
 }
 
 /*
