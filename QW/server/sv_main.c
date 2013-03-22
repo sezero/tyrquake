@@ -39,8 +39,6 @@ int host_hunklevel;
 
 netadr_t master_adr[MAX_MASTERS];	// address of group servers
 
-client_t *host_client;		// current client
-
 cvar_t sv_mintic = { "sv_mintic", "0.03" };	// bound the size of the
 cvar_t sv_maxtic = { "sv_maxtic", "0.1" };	// physics time tic
 

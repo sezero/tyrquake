@@ -168,15 +168,11 @@ SV_SaveSpawnparms(void)
 	if (client->state != cs_spawned)
 	    continue;
 
-	/* needs to reconnect */
+	/* client needs to reconnect */
 	client->state = cs_connected;
 
 	/* call the progs to get default spawn parms for the new client */
 	pr_global_struct->self = EDICT_TO_PROG(client->edict);
-
-	/* FIXME - remove host_client after checking for side effects */
-	host_client = client;
-
 	PR_ExecuteProgram(pr_global_struct->SetChangeParms);
 	for (j = 0; j < NUM_SPAWN_PARMS; j++)
 	    client->spawn_parms[j] = (&pr_global_struct->parm1)[j];

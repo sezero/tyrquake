@@ -27,8 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "world.h"
 
-edict_t *sv_player;
-
 static cvar_t cl_rollspeed = { "cl_rollspeed", "200" };
 static cvar_t cl_rollangle = { "cl_rollangle", "2.0" };
 static cvar_t sv_spectalk = { "sv_spectalk", "1" };
@@ -39,7 +37,6 @@ static cvar_t sv_mapcheck = { "sv_mapcheck", "1" };
 
 USER STRINGCMD EXECUTION
 
-host_client and sv_player will be valid.
 ============================================================
 */
 
@@ -1160,9 +1157,6 @@ SV_ExecuteUserCommand(const char *cmdstring, client_t *client)
 
     Cmd_TokenizeString(cmdstring);
 
-    /* FIXME - remove sv_player when sure no side effects */
-    sv_player = client->edict;
-
     SV_BeginRedirect(RD_CLIENT, client);
 
     for (command = ucmds; command->name; command++)
@@ -1508,10 +1502,6 @@ SV_ExecuteClientMessage(client_t *client)
     frame = &client->frames[netchan->outgoing_sequence & UPDATE_MASK];
     frame->senttime = realtime;
     frame->ping_time = -1;
-
-    /* FIXME - remove host_client and sv_player when sure no side effects */
-    host_client = client;
-    sv_player = host_client->edict;
 
     seq_hash = netchan->incoming_sequence;
 

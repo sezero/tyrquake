@@ -201,10 +201,6 @@ SV_God_f(void)
     if (!client)
 	return;
 
-    /* FIXME - to be removed after confirming no side effects */
-    host_client = client;
-    sv_player = host_client->edict;
-
     player = client->edict;
     player->v.flags = (int)player->v.flags ^ FL_GODMODE;
     if (!((int)player->v.flags & FL_GODMODE))
@@ -228,10 +224,6 @@ SV_Noclip_f(void)
     client = SV_GetClient(atoi(Cmd_Argv(1)));
     if (!client)
 	return;
-
-    /* FIXME - to be removed after confirming no side effects */
-    host_client = client;
-    sv_player = host_client->edict;
 
     player = client->edict;
     if (player->v.movetype != MOVETYPE_NOCLIP) {
@@ -265,10 +257,6 @@ SV_Give_f(void)
     client = SV_GetClient(atoi(Cmd_Argv(1)));
     if (!client)
 	return;
-
-    /* FIXME - to be removed after confirming no side effects */
-    host_client = client;
-    sv_player = host_client->edict;
 
     player = client->edict;
     item = Cmd_Argv(2)[0];
@@ -637,10 +625,6 @@ SV_User_f(void)
     client = SV_GetClient(atoi(Cmd_Argv(1)));
     if (!client)
 	return;
-
-    /* FIXME - to be removed after confirming no side effects */
-    host_client = client;
-    sv_player = host_client->edict;
 
     Info_Print(client->userinfo);
 }
