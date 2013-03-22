@@ -452,11 +452,6 @@ void SV_UserInit(void);
 void SV_TogglePause(const char *msg);
 
 //
-// sv_ccmds.c
-//
-void SV_Status_f(void);
-
-//
 // sv_ents.c
 //
 void SV_WriteEntitiesToClient(client_t *client, sizebuf_t *msg);
