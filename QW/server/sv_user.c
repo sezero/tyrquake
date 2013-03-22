@@ -34,8 +34,6 @@ static cvar_t cl_rollangle = { "cl_rollangle", "2.0" };
 static cvar_t sv_spectalk = { "sv_spectalk", "1" };
 static cvar_t sv_mapcheck = { "sv_mapcheck", "1" };
 
-static usercmd_t cmd;
-
 /*
 ============================================================
 
@@ -1291,40 +1289,22 @@ SV_PreRunCmd(void)
     memset(playertouch, 0, sizeof(playertouch));
 }
 
-/*
-===========
-SV_RunCmd
-===========
-*/
 static void
-SV_RunCmd(usercmd_t *ucmd)
+SV_PlayerMove(const usercmd_t *cmd)
 {
     playermove_t pmove;
     physent_stack_t pestack;
     vec3_t mins, maxs;
-    int i;
     edict_t *entity;
-
-    cmd = *ucmd;
-
-    // chop up very long commands
-    if (cmd.msec > 50) {
-	const int oldmsec = ucmd->msec;
-	cmd.msec = oldmsec / 2;
-	SV_RunCmd(&cmd);
-	cmd.msec = oldmsec / 2;
-	cmd.impulse = 0;
-	SV_RunCmd(&cmd);
-	return;
-    }
+    int i;
 
     if (!sv_player->v.fixangle)
-	VectorCopy(ucmd->angles, sv_player->v.v_angle);
+	VectorCopy(cmd->angles, sv_player->v.v_angle);
 
-    sv_player->v.button0 = ucmd->buttons & 1;
-    sv_player->v.button2 = (ucmd->buttons & 2) >> 1;
-    if (ucmd->impulse)
-	sv_player->v.impulse = ucmd->impulse;
+    sv_player->v.button0 = cmd->buttons & 1;
+    sv_player->v.button2 = (cmd->buttons & 2) >> 1;
+    if (cmd->impulse)
+	sv_player->v.impulse = cmd->impulse;
 
 //
 // angles
@@ -1338,7 +1318,7 @@ SV_RunCmd(usercmd_t *ucmd)
 	    V_CalcRoll(sv_player->v.angles, sv_player->v.velocity) * 4;
     }
 
-    host_frametime = ucmd->msec * 0.001;
+    host_frametime = cmd->msec * 0.001;
     if (host_frametime > 0.1)
 	host_frametime = 0.1;
 
@@ -1360,7 +1340,7 @@ SV_RunCmd(usercmd_t *ucmd)
 
     pmove.spectator = host_client->spectator;
     pmove.waterjumptime = sv_player->v.teleport_time;
-    pmove.cmd = ucmd;
+    pmove.cmd = cmd;
     pmove.dead = sv_player->v.health <= 0;
     pmove.oldbuttons = host_client->oldbuttons;
 
@@ -1440,6 +1420,27 @@ SV_RunCmd(usercmd_t *ucmd)
 	    playertouch[entitynum / 8] |= 1 << (entitynum % 8);
 	}
     }
+}
+
+/*
+===========
+SV_RunCmd
+===========
+*/
+static void
+SV_RunCmd(const usercmd_t *cmd)
+{
+    /* split up very long moves */
+    if (cmd->msec > 50) {
+	usercmd_t split = *cmd;
+
+	split.msec /= 2;
+	SV_RunCmd(&split);
+	split.impulse = 0;
+	SV_RunCmd(&split);
+	return;
+    }
+    SV_PlayerMove(cmd);
 }
 
 /*
