@@ -48,7 +48,7 @@ typedef struct {
     qboolean dead;
     int spectator;
 
-    int onground;
+    const physent_t *onground;
     int watertype;
     int waterlevel;
 

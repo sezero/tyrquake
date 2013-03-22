@@ -324,7 +324,7 @@ PM_Friction(playermove_t *pmove, const physent_stack_t *pestack)
     friction = movevars.friction;
 
     /* if the leading edge is over a dropoff, increase friction */
-    if (pmove->onground != -1) {
+    if (pmove->onground) {
 	start[0] = stop[0] = pmove->origin[0] + vel[0] / speed * 16;
 	start[1] = stop[1] = pmove->origin[1] + vel[1] / speed * 16;
 	start[2] = pmove->origin[2] + player_mins[2];
@@ -342,7 +342,7 @@ PM_Friction(playermove_t *pmove, const physent_stack_t *pestack)
     if (pmove->waterlevel >= 2) {
 	/* apply water friction */
 	drop += speed * movevars.waterfriction * pmove->waterlevel * frametime;
-    } else if (pmove->onground != -1) {
+    } else if (pmove->onground) {
 	/* apply ground friction */
 	control = speed < movevars.stopspeed ? movevars.stopspeed : speed;
 	drop += control * friction * frametime;
@@ -513,7 +513,7 @@ PM_AirMove(playermove_t *pmove, const physent_stack_t *pestack)
 	wishspeed = movevars.maxspeed;
     }
 
-    if (pmove->onground != -1) {
+    if (pmove->onground) {
 	pmove->velocity[2] = 0;
 	PM_Accelerate(pmove, wishdir, wishspeed, movevars.accelerate);
 	pmove->velocity[2] -=
@@ -554,14 +554,14 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
     point[1] = pmove->origin[1];
     point[2] = pmove->origin[2] - 1;
     if (pmove->velocity[2] > 180) {
-	pmove->onground = -1;
+	pmove->onground = NULL;
     } else {
 	ground = PM_PlayerMove(pmove->origin, point, pestack, &trace);
 	if (trace.plane.normal[2] < 0.7)
-	    pmove->onground = -1;	// too steep
+	    pmove->onground = NULL; /* too steep */
 	else
-	    pmove->onground = ground ? ground - pestack->physents : -1;
-	if (pmove->onground != -1) {
+	    pmove->onground = ground;
+	if (pmove->onground) {
 	    pmove->waterjumptime = 0;
 	    if (!trace.startsolid && !trace.allsolid)
 		VectorCopy(trace.endpos, pmove->origin);
@@ -621,7 +621,7 @@ JumpButton(playermove_t *pmove)
 
     if (pmove->waterlevel >= 2) {
 	/* swimming, not jumping */
-	pmove->onground = -1;
+	pmove->onground = NULL;
 	if (pmove->watertype == CONTENTS_WATER)
 	    pmove->velocity[2] = 100;
 	else if (pmove->watertype == CONTENTS_SLIME)
@@ -632,14 +632,14 @@ JumpButton(playermove_t *pmove)
     }
 
     /* no effect if in air */
-    if (pmove->onground == -1)
+    if (!pmove->onground)
 	return;
 
     /* don't pogo stick */
     if (pmove->oldbuttons & BUTTON_JUMP)
 	return;
 
-    pmove->onground = -1;
+    pmove->onground = NULL;
     pmove->velocity[2] += 270;
 
     /* don't jump again until released */

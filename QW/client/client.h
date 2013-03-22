@@ -76,8 +76,8 @@ typedef struct {
 
     int flags;			// dead, gib, etc
 
+    qboolean onground;
     float waterjumptime;
-    int onground;		// -1 = in air, else pmove entity number
     int oldbuttons;
 } player_state_t;
 

@@ -1402,8 +1402,8 @@ SV_RunCmd(usercmd_t *ucmd)
     sv_player->v.teleport_time = pmove.waterjumptime;
     sv_player->v.waterlevel = pmove.waterlevel;
     sv_player->v.watertype = pmove.watertype;
-    if (pmove.onground != -1) {
-	const int entitynum = pestack.physents[pmove.onground].entitynum;
+    if (pmove.onground) {
+	const int entitynum = pmove.onground->entitynum;
 	sv_player->v.groundentity = EDICT_TO_PROG(EDICT_NUM(entitynum));
 	sv_player->v.flags = (int)sv_player->v.flags | FL_ONGROUND;
     } else

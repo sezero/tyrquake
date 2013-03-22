@@ -122,7 +122,7 @@ V_CalcBob(void)
     if (cl.spectator)
 	return 0;
 
-    if (view_message->onground == -1)
+    if (!view_message->onground)
 	return bob;		// just use old value
 
     bobtime += host_frametime;
@@ -198,7 +198,7 @@ V_DriftPitch(void)
 {
     float delta, move;
 
-    if (view_message->onground == -1 || cls.demoplayback) {
+    if (!view_message->onground || cls.demoplayback) {
 	cl.driftmove = 0;
 	cl.pitchvel = 0;
 	return;
@@ -878,7 +878,7 @@ V_CalcRefdef(void)
     r_refdef.viewangles[PITCH] += cl.punchangle;
 
 // smooth out stair step ups
-    if ((view_message->onground != -1) && (cl.simorg[2] - oldz > 0)) {
+    if (!view_message->onground && cl.simorg[2] - oldz > 0) {
 	float steptime;
 
 	steptime = host_frametime;
