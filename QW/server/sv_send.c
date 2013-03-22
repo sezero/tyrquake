@@ -614,64 +614,68 @@ static void
 SV_UpdateToReliableMessages(void)
 {
     int i, j;
-    client_t *client;
+    client_t *client, *recipient;
     eval_t *val;
-    edict_t *ent;
+    edict_t *player;
+    sizebuf_t *buf;
 
-// check for changes to be sent over the reliable streams to all clients
-    for (i = 0, host_client = svs.clients; i < MAX_CLIENTS;
-	 i++, host_client++) {
-	if (host_client->state != cs_spawned)
+    /*
+     * Check for changes to be sent over the reliable streams to all clients
+     */
+    client = svs.clients;
+    for (i = 0; i < MAX_CLIENTS; i++, client++) {
+	if (client->state != cs_spawned)
 	    continue;
-	if (host_client->sendinfo) {
-	    host_client->sendinfo = false;
-	    SV_FullClientUpdate(host_client, &sv.reliable_datagram);
+	if (client->sendinfo) {
+	    client->sendinfo = false;
+	    SV_FullClientUpdate(client, &sv.reliable_datagram);
 	}
-	if (host_client->old_frags != host_client->edict->v.frags) {
-	    for (j = 0, client = svs.clients; j < MAX_CLIENTS; j++, client++) {
-		if (client->state < cs_connected)
+	player = client->edict;
+	if (client->old_frags != player->v.frags) {
+	    recipient = svs.clients;
+	    for (j = 0; j < MAX_CLIENTS; j++, recipient++) {
+		if (recipient->state < cs_connected)
 		    continue;
-		ClientReliableWrite_Begin(client, svc_updatefrags, 4);
-		ClientReliableWrite_Byte(client, i);
-		ClientReliableWrite_Short(client,
-					  host_client->edict->v.frags);
+		ClientReliableWrite_Begin(recipient, svc_updatefrags, 4);
+		ClientReliableWrite_Byte(recipient, i);
+		ClientReliableWrite_Short(recipient, player->v.frags);
 	    }
-
-	    host_client->old_frags = host_client->edict->v.frags;
-	}
-	// maxspeed/entgravity changes
-	ent = host_client->edict;
-
-	val = GetEdictFieldValue(ent, "gravity");
-	if (val && host_client->entgravity != val->_float) {
-	    host_client->entgravity = val->_float;
-	    ClientReliableWrite_Begin(host_client, svc_entgravity, 5);
-	    ClientReliableWrite_Float(host_client, host_client->entgravity);
-	}
-	val = GetEdictFieldValue(ent, "maxspeed");
-	if (val && host_client->maxspeed != val->_float) {
-	    host_client->maxspeed = val->_float;
-	    ClientReliableWrite_Begin(host_client, svc_maxspeed, 5);
-	    ClientReliableWrite_Float(host_client, host_client->maxspeed);
+	    client->old_frags = player->v.frags;
 	}
 
+	/* maxspeed/entgravity changes */
+	val = GetEdictFieldValue(player, "gravity");
+	if (val && client->entgravity != val->_float) {
+	    client->entgravity = val->_float;
+	    ClientReliableWrite_Begin(client, svc_entgravity, 5);
+	    ClientReliableWrite_Float(client, client->entgravity);
+	}
+	val = GetEdictFieldValue(player, "maxspeed");
+	if (val && client->maxspeed != val->_float) {
+	    client->maxspeed = val->_float;
+	    ClientReliableWrite_Begin(client, svc_maxspeed, 5);
+	    ClientReliableWrite_Float(client, client->maxspeed);
+	}
     }
 
     if (sv.datagram.overflowed)
 	SZ_Clear(&sv.datagram);
 
-    // append the broadcast messages to each client messages
-    for (j = 0, client = svs.clients; j < MAX_CLIENTS; j++, client++) {
-	if (client->state < cs_connected)
-	    continue;		// reliables go to all connected or spawned
+    /* append the broadcast messages to each client messages */
+    recipient = svs.clients;
+    for (j = 0; j < MAX_CLIENTS; j++, recipient++) {
+	/* reliables go to all connected or spawned */
+	if (recipient->state < cs_connected)
+	    continue;
 
-	ClientReliableCheckBlock(client, sv.reliable_datagram.cursize);
-	ClientReliableWrite_SZ(client, sv.reliable_datagram.data,
-			       sv.reliable_datagram.cursize);
+	buf = &sv.reliable_datagram;
+	ClientReliableCheckBlock(recipient, buf->cursize);
+	ClientReliableWrite_SZ(recipient, buf->data, buf->cursize);
 
-	if (client->state != cs_spawned)
-	    continue;		// datagrams only go to spawned
-	SZ_Write(&client->datagram, sv.datagram.data, sv.datagram.cursize);
+	/* datagrams only go to spawned */
+	if (recipient->state != cs_spawned)
+	    continue;
+	SZ_Write(&recipient->datagram, sv.datagram.data, sv.datagram.cursize);
     }
 
     SZ_Clear(&sv.reliable_datagram);
