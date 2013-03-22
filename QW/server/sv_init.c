@@ -150,30 +150,36 @@ and each client for saving across the
 transition to another level
 ================
 */
-void
+static void
 SV_SaveSpawnparms(void)
 {
+    client_t *client;
     int i, j;
 
+    /* only run if progs loaded */
     if (!sv.state)
-	return;			// no progs loaded yet
+	return;
 
-    // serverflags is the only game related thing maintained
+    /* serverflags is the only game related thing maintained */
     svs.serverflags = pr_global_struct->serverflags;
 
-    for (i = 0, host_client = svs.clients; i < MAX_CLIENTS;
-	 i++, host_client++) {
-	if (host_client->state != cs_spawned)
+    client = svs.clients;
+    for (i = 0; i < MAX_CLIENTS; i++, client++) {
+	if (client->state != cs_spawned)
 	    continue;
 
-	// needs to reconnect
-	host_client->state = cs_connected;
+	/* needs to reconnect */
+	client->state = cs_connected;
 
-	// call the progs to get default spawn parms for the new client
-	pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+	/* call the progs to get default spawn parms for the new client */
+	pr_global_struct->self = EDICT_TO_PROG(client->edict);
+
+	/* FIXME - remove host_client after checking for side effects */
+	host_client = client;
+
 	PR_ExecuteProgram(pr_global_struct->SetChangeParms);
 	for (j = 0; j < NUM_SPAWN_PARMS; j++)
-	    host_client->spawn_parms[j] = (&pr_global_struct->parm1)[j];
+	    client->spawn_parms[j] = (&pr_global_struct->parm1)[j];
     }
 }
 
