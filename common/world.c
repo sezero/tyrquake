@@ -142,8 +142,9 @@ AddLinksToPhysents
 ====================
 */
 static void
-SV_AddLinksToPhysents_r(const areanode_t *node, const vec3_t mins,
-			const vec3_t maxs, physent_stack_t *pestack)
+SV_AddLinksToPhysents_r(const areanode_t *node, const edict_t *player,
+			const vec3_t mins, const vec3_t maxs,
+			physent_stack_t *pestack)
 {
     const link_t *link, *next;
     const link_t *const solids = &node->solid_edicts;
@@ -151,7 +152,7 @@ SV_AddLinksToPhysents_r(const areanode_t *node, const vec3_t mins,
     int i, playernum;
     physent_t *physent;
 
-    playernum = EDICT_TO_PROG(sv_player);
+    playernum = EDICT_TO_PROG(player);
     physent = &pestack->physents[pestack->numphysent];
 
     /* touch linked edicts */
@@ -165,7 +166,7 @@ SV_AddLinksToPhysents_r(const areanode_t *node, const vec3_t mins,
 	if (check->v.solid == SOLID_BSP
 	    || check->v.solid == SOLID_BBOX
 	    || check->v.solid == SOLID_SLIDEBOX) {
-	    if (check == sv_player)
+	    if (check == player)
 		continue;
 	    for (i = 0; i < 3; i++)
 		if (check->v.absmin[i] > maxs[i]
@@ -195,16 +196,16 @@ SV_AddLinksToPhysents_r(const areanode_t *node, const vec3_t mins,
 	return;
 
     if (maxs[node->axis] > node->dist)
-	SV_AddLinksToPhysents_r(node->children[0], mins, maxs, pestack);
+	SV_AddLinksToPhysents_r(node->children[0], player, mins, maxs, pestack);
     if (mins[node->axis] < node->dist)
-	SV_AddLinksToPhysents_r(node->children[1], mins, maxs, pestack);
+	SV_AddLinksToPhysents_r(node->children[1], player, mins, maxs, pestack);
 }
 
 void
-SV_AddLinksToPhysents(const vec3_t mins, const vec3_t maxs,
-		      physent_stack_t *pestack)
+SV_AddLinksToPhysents(const edict_t *player, const vec3_t mins,
+		      const vec3_t maxs, physent_stack_t *pestack)
 {
-    SV_AddLinksToPhysents_r(sv_areanodes, mins, maxs, pestack);
+    SV_AddLinksToPhysents_r(sv_areanodes, player, mins, maxs, pestack);
 }
 #endif
 

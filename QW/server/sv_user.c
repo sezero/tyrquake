@@ -1357,7 +1357,7 @@ SV_PlayerMove(const usercmd_t *cmd)
 	maxs[i] = pmove.origin[i] + 256;
     }
 #if 1
-    SV_AddLinksToPhysents(mins, maxs, &pestack);
+    SV_AddLinksToPhysents(sv_player, mins, maxs, &pestack);
 #else
     AddAllEntsToPmove(mins, maxs, &pestack);
 #endif
