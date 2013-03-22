@@ -419,6 +419,7 @@ SV_Begin_f
 static void
 SV_Begin_f(client_t *client)
 {
+    edict_t *player = client->edict;
     unsigned pmodel = 0, emodel = 0;
     int i;
 
@@ -435,7 +436,7 @@ SV_Begin_f(client_t *client)
     }
 
     if (client->spectator) {
-	SV_SpawnSpectator(sv_player);
+	SV_SpawnSpectator(player);
 
 	if (SpectatorConnect) {
 	    // copy spawn parms out of the client_t
@@ -444,7 +445,7 @@ SV_Begin_f(client_t *client)
 
 	    // call the spawn function
 	    pr_global_struct->time = sv.time;
-	    pr_global_struct->self = EDICT_TO_PROG(sv_player);
+	    pr_global_struct->self = EDICT_TO_PROG(player);
 	    PR_ExecuteProgram(SpectatorConnect);
 	}
     } else {
@@ -454,12 +455,12 @@ SV_Begin_f(client_t *client)
 
 	// call the spawn function
 	pr_global_struct->time = sv.time;
-	pr_global_struct->self = EDICT_TO_PROG(sv_player);
+	pr_global_struct->self = EDICT_TO_PROG(player);
 	PR_ExecuteProgram(pr_global_struct->ClientConnect);
 
 	// actually spawn the player
 	pr_global_struct->time = sv.time;
-	pr_global_struct->self = EDICT_TO_PROG(sv_player);
+	pr_global_struct->self = EDICT_TO_PROG(player);
 	PR_ExecuteProgram(pr_global_struct->PutClientInServer);
     }
 
@@ -855,14 +856,16 @@ SV_Kill_f
 static void
 SV_Kill_f(client_t *client)
 {
-    if (sv_player->v.health <= 0) {
+    edict_t *player = client->edict;
+
+    if (player->v.health <= 0) {
 	SV_ClientPrintf(client, PRINT_HIGH,
 			"Can't suicide -- allready dead!\n");
 	return;
     }
 
     pr_global_struct->time = sv.time;
-    pr_global_struct->self = EDICT_TO_PROG(sv_player);
+    pr_global_struct->self = EDICT_TO_PROG(player);
     PR_ExecuteProgram(pr_global_struct->ClientKill);
 }
 
