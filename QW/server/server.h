@@ -354,8 +354,6 @@ extern cvar_t sv_phs;
 extern server_static_t svs;	// persistant server info
 extern server_t sv;		// local server
 
-extern char localmodels[MAX_MODELS][5];	// inline model names for precache
-
 extern char localinfo[MAX_LOCALINFO_STRING + 1];
 
 extern int host_hunklevel;
@@ -400,6 +398,7 @@ void SV_ExtractFromUserinfo(client_t *cl);
 //
 // sv_init.c
 //
+void SV_ModelInit(void);
 void SV_SpawnServer(const char *server);
 void SV_FlushSignon(void);
 

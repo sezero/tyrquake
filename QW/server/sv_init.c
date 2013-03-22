@@ -28,9 +28,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 server_static_t svs;		// persistant server info
 server_t sv;			// local server
 
-char localmodels[MAX_MODELS][5];	// inline model names for precache
+/* inline model names for precache */
+#define MODSTRLEN (sizeof("*" stringify(MAX_MODELS)) / sizeof(char))
+static char localmodels[MAX_MODELS][MODSTRLEN];
 
 char localinfo[MAX_LOCALINFO_STRING + 1];	// local game info
+
+void
+SV_ModelInit(void)
+{
+    int i;
+
+    for (i = 0; i < MAX_MODELS; i++)
+	snprintf(localmodels[i], sizeof(localmodels[i]), "*%d", i);
+}
 
 /*
 ================

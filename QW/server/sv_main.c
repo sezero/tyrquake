@@ -1299,9 +1299,8 @@ SV_InitLocal
 static void
 SV_InitLocal(void)
 {
-    int i;
-
     SV_InitOperatorCommands();
+    SV_ModelInit();
     SV_UserInit();
 
     Cvar_RegisterVariable(&rcon_password);
@@ -1360,9 +1359,6 @@ SV_InitLocal(void)
     Cmd_AddCommand("removeip", SV_RemoveIP_f);
     Cmd_AddCommand("listip", SV_ListIP_f);
     Cmd_AddCommand("writeip", SV_WriteIP_f);
-
-    for (i = 0; i < MAX_MODELS; i++)
-	sprintf(localmodels[i], "*%i", i);
 
     Info_SetValueForStarKey(svs.info, "*version",
 			    va("TyrQuake-%s", stringify(TYR_VERSION)),
