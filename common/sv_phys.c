@@ -689,39 +689,39 @@ clipping hull.
 =============
 */
 static void
-SV_CheckStuck(edict_t *ent)
+SV_CheckStuck(edict_t *player)
 {
     int i, j;
     int z;
     vec3_t org;
 
-    if (!SV_TestEntityPosition(ent)) {
-	VectorCopy(ent->v.origin, ent->v.oldorigin);
+    if (!SV_TestEntityPosition(player)) {
+	VectorCopy(player->v.origin, player->v.oldorigin);
 	return;
     }
 
-    VectorCopy(ent->v.origin, org);
-    VectorCopy(ent->v.oldorigin, ent->v.origin);
-    if (!SV_TestEntityPosition(ent)) {
+    VectorCopy(player->v.origin, org);
+    VectorCopy(player->v.oldorigin, player->v.origin);
+    if (!SV_TestEntityPosition(player)) {
 	Con_DPrintf("Unstuck.\n");
-	SV_LinkEdict(ent, true);
+	SV_LinkEdict(player, true);
 	return;
     }
 
     for (z = 0; z < 18; z++)
 	for (i = -1; i <= 1; i++)
 	    for (j = -1; j <= 1; j++) {
-		ent->v.origin[0] = org[0] + i;
-		ent->v.origin[1] = org[1] + j;
-		ent->v.origin[2] = org[2] + z;
-		if (!SV_TestEntityPosition(ent)) {
+		player->v.origin[0] = org[0] + i;
+		player->v.origin[1] = org[1] + j;
+		player->v.origin[2] = org[2] + z;
+		if (!SV_TestEntityPosition(player)) {
 		    Con_DPrintf("Unstuck.\n");
-		    SV_LinkEdict(ent, true);
+		    SV_LinkEdict(player, true);
 		    return;
 		}
 	    }
 
-    VectorCopy(org, ent->v.origin);
+    VectorCopy(org, player->v.origin);
     Con_DPrintf("player is stuck.\n");
 }
 
@@ -732,33 +732,33 @@ SV_CheckWater
 =============
 */
 static qboolean
-SV_CheckWater(edict_t *ent)
+SV_CheckWater(edict_t *player)
 {
     vec3_t point;
     int contents;
 
-    point[0] = ent->v.origin[0];
-    point[1] = ent->v.origin[1];
-    point[2] = ent->v.origin[2] + ent->v.mins[2] + 1;
+    point[0] = player->v.origin[0];
+    point[1] = player->v.origin[1];
+    point[2] = player->v.origin[2] + player->v.mins[2] + 1;
 
-    ent->v.waterlevel = 0;
-    ent->v.watertype = CONTENTS_EMPTY;
+    player->v.waterlevel = 0;
+    player->v.watertype = CONTENTS_EMPTY;
     contents = SV_PointContents(point);
     if (contents <= CONTENTS_WATER) {
-	ent->v.watertype = contents;
-	ent->v.waterlevel = 1;
-	point[2] = ent->v.origin[2] + (ent->v.mins[2] + ent->v.maxs[2]) * 0.5;
+	player->v.watertype = contents;
+	player->v.waterlevel = 1;
+	point[2] = player->v.origin[2] + (player->v.mins[2] + player->v.maxs[2]) * 0.5;
 	contents = SV_PointContents(point);
 	if (contents <= CONTENTS_WATER) {
-	    ent->v.waterlevel = 2;
-	    point[2] = ent->v.origin[2] + ent->v.view_ofs[2];
+	    player->v.waterlevel = 2;
+	    point[2] = player->v.origin[2] + player->v.view_ofs[2];
 	    contents = SV_PointContents(point);
 	    if (contents <= CONTENTS_WATER)
-		ent->v.waterlevel = 3;
+		player->v.waterlevel = 3;
 	}
     }
 
-    return ent->v.waterlevel > 1;
+    return player->v.waterlevel > 1;
 }
 
 /*
@@ -768,13 +768,13 @@ SV_WallFriction
 ============
 */
 static void
-SV_WallFriction(edict_t *ent, trace_t *trace)
+SV_WallFriction(edict_t *player, trace_t *trace)
 {
     vec3_t forward, right, up;
     float d, i;
     vec3_t into, side;
 
-    AngleVectors(ent->v.v_angle, forward, right, up);
+    AngleVectors(player->v.v_angle, forward, right, up);
     d = DotProduct(trace->plane.normal, forward);
 
     d += 0.5;
@@ -782,12 +782,12 @@ SV_WallFriction(edict_t *ent, trace_t *trace)
 	return;
 
 // cut the tangential velocity
-    i = DotProduct(trace->plane.normal, ent->v.velocity);
+    i = DotProduct(trace->plane.normal, player->v.velocity);
     VectorScale(trace->plane.normal, i, into);
-    VectorSubtract(ent->v.velocity, into, side);
+    VectorSubtract(player->v.velocity, into, side);
 
-    ent->v.velocity[0] = side[0] * (1 + d);
-    ent->v.velocity[1] = side[1] * (1 + d);
+    player->v.velocity[0] = side[0] * (1 + d);
+    player->v.velocity[1] = side[1] * (1 + d);
 }
 
 /*
@@ -803,7 +803,7 @@ This is a hack, but in the interest of good gameplay...
 ======================
 */
 static int
-SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
+SV_TryUnstick(edict_t *player, const vec3_t oldvel)
 {
     int i;
     vec3_t oldorg;
@@ -811,7 +811,7 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
     int clip;
     trace_t trace;
 
-    VectorCopy(ent->v.origin, oldorg);
+    VectorCopy(player->v.origin, oldorg);
     VectorCopy(vec3_origin, dir);
 
     /* try pushing a little in an axial direction */
@@ -851,25 +851,25 @@ SV_TryUnstick(edict_t *ent, const vec3_t oldvel)
 	    break;
 	}
 
-	SV_PushEntity(ent, dir, &trace);
+	SV_PushEntity(player, dir, &trace);
 
 	/* retry the original move */
-	ent->v.velocity[0] = oldvel[0];
-	ent->v.velocity[1] = oldvel[1];
-	ent->v.velocity[2] = 0;
-	clip = SV_FlyMove(ent, 0.1, &trace);
+	player->v.velocity[0] = oldvel[0];
+	player->v.velocity[1] = oldvel[1];
+	player->v.velocity[2] = 0;
+	clip = SV_FlyMove(player, 0.1, &trace);
 
-	if (fabs(oldorg[1] - ent->v.origin[1]) > 4
-	    || fabs(oldorg[0] - ent->v.origin[0]) > 4) {
+	if (fabs(oldorg[1] - player->v.origin[1]) > 4
+	    || fabs(oldorg[0] - player->v.origin[0]) > 4) {
 	    return clip;
 	}
 
 	/* go back to the original pos and try again */
-	VectorCopy(oldorg, ent->v.origin);
+	VectorCopy(oldorg, player->v.origin);
     }
 
     /* still can't move */
-    VectorCopy(vec3_origin, ent->v.velocity);
+    VectorCopy(vec3_origin, player->v.velocity);
     return MOVE_CLIP_FLOOR | MOVE_CLIP_WALL | MOVE_CLIP_STOP;
 }
 
@@ -882,7 +882,7 @@ Only used by players
 */
 #define	STEPSIZE	18
 static void
-SV_WalkMove(edict_t *ent)
+SV_WalkMove(edict_t *player)
 {
     vec3_t upmove, downmove;
     vec3_t oldorg, oldvel;
@@ -895,39 +895,39 @@ SV_WalkMove(edict_t *ent)
 //
 // do a regular slide move unless it looks like you ran into a step
 //
-    oldonground = (int)ent->v.flags & FL_ONGROUND;
-    ent->v.flags = (int)ent->v.flags & ~FL_ONGROUND;
+    oldonground = (int)player->v.flags & FL_ONGROUND;
+    player->v.flags = (int)player->v.flags & ~FL_ONGROUND;
 
-    VectorCopy(ent->v.origin, oldorg);
-    VectorCopy(ent->v.velocity, oldvel);
+    VectorCopy(player->v.origin, oldorg);
+    VectorCopy(player->v.velocity, oldvel);
 
-    clip = SV_FlyMove(ent, host_frametime, &trace);
+    clip = SV_FlyMove(player, host_frametime, &trace);
     if (!(clip & MOVE_CLIP_WALL))
 	return;
 
     /* don't stair up while jumping */
-    if (!oldonground && ent->v.waterlevel == 0)
+    if (!oldonground && player->v.waterlevel == 0)
 	return;
 
     /* gibbed by a trigger */
-    if (ent->v.movetype != MOVETYPE_WALK)
+    if (player->v.movetype != MOVETYPE_WALK)
 	return;
 
     if (sv_nostep.value)
 	return;
 
-    if ((int)sv_player->v.flags & FL_WATERJUMP)
+    if ((int)player->v.flags & FL_WATERJUMP)
 	return;
 
-    VectorCopy(ent->v.origin, nosteporg);
-    VectorCopy(ent->v.velocity, nostepvel);
+    VectorCopy(player->v.origin, nosteporg);
+    VectorCopy(player->v.velocity, nostepvel);
 
     /*
      * try moving up and forward to go up a step
      */
 
     /* back to start pos */
-    VectorCopy(oldorg, ent->v.origin);
+    VectorCopy(oldorg, player->v.origin);
 
     VectorCopy(vec3_origin, upmove);
     VectorCopy(vec3_origin, downmove);
@@ -935,37 +935,37 @@ SV_WalkMove(edict_t *ent)
     downmove[2] = -STEPSIZE + oldvel[2] * host_frametime;
 
     /* move up - FIXME: don't link? */
-    SV_PushEntity(ent, upmove, &trace);
+    SV_PushEntity(player, upmove, &trace);
 
     /* move forward */
-    ent->v.velocity[0] = oldvel[0];
-    ent->v.velocity[1] = oldvel[1];
-    ent->v.velocity[2] = 0;
-    clip = SV_FlyMove(ent, host_frametime, &trace);
+    player->v.velocity[0] = oldvel[0];
+    player->v.velocity[1] = oldvel[1];
+    player->v.velocity[2] = 0;
+    clip = SV_FlyMove(player, host_frametime, &trace);
 
     /*
      * Check for stuckness, possibly due to the limited precision of
      * floats in the clipping hulls.
      */
     if (clip) {
-	if (fabs(oldorg[1] - ent->v.origin[1]) < 0.03125 &&
-	    fabs(oldorg[0] - ent->v.origin[0]) < 0.03125) {
+	if (fabs(oldorg[1] - player->v.origin[1]) < 0.03125 &&
+	    fabs(oldorg[0] - player->v.origin[0]) < 0.03125) {
 	    /* stepping up didn't make any progress */
-	    clip = SV_TryUnstick(ent, oldvel);
+	    clip = SV_TryUnstick(player, oldvel);
 	}
     }
 
     /* extra friction based on view angle */
     if (clip & MOVE_CLIP_WALL)
-	SV_WallFriction(ent, &trace);
+	SV_WallFriction(player, &trace);
 
     /* move down - FIXME: don't link? */
-    ground = SV_PushEntity(ent, downmove, &trace);
+    ground = SV_PushEntity(player, downmove, &trace);
 
     if (trace.plane.normal[2] > 0.7) {
-	if (ent->v.solid == SOLID_BSP) {
-	    ent->v.flags = (int)ent->v.flags | FL_ONGROUND;
-	    ent->v.groundentity = EDICT_TO_PROG(ground);
+	if (player->v.solid == SOLID_BSP) {
+	    player->v.flags = (int)player->v.flags | FL_ONGROUND;
+	    player->v.groundentity = EDICT_TO_PROG(ground);
 	}
     } else {
 	/*
@@ -973,8 +973,8 @@ SV_WalkMove(edict_t *ent)
 	 * the step up.  This happens near wall / slope combinations, and can
 	 * cause the player to hop up higher on a slope too steep to climb.
 	 */
-	VectorCopy(nosteporg, ent->v.origin);
-	VectorCopy(nostepvel, ent->v.velocity);
+	VectorCopy(nosteporg, player->v.origin);
+	VectorCopy(nostepvel, player->v.velocity);
     }
 }
 
@@ -987,70 +987,70 @@ Player character actions
 ================
 */
 static void
-SV_Physics_Client(edict_t *ent, int num)
+SV_Physics_Client(edict_t *player, int playernum)
 {
-    if (!svs.clients[num - 1].active)
-	return;			// unconnected slot
+    if (!svs.clients[playernum - 1].active)
+	return;
 
 //
 // call standard client pre-think
 //
     pr_global_struct->time = sv.time;
-    pr_global_struct->self = EDICT_TO_PROG(ent);
+    pr_global_struct->self = EDICT_TO_PROG(player);
     PR_ExecuteProgram(pr_global_struct->PlayerPreThink);
 
 //
 // do a move
 //
-    SV_CheckVelocity(ent);
+    SV_CheckVelocity(player);
 
 //
 // decide which move function to call
 //
-    switch ((int)ent->v.movetype) {
+    switch ((int)player->v.movetype) {
     case MOVETYPE_NONE:
-	if (!SV_RunThink(ent))
+	if (!SV_RunThink(player))
 	    return;
 	break;
 
     case MOVETYPE_WALK:
-	if (!SV_RunThink(ent))
+	if (!SV_RunThink(player))
 	    return;
-	if (!SV_CheckWater(ent) && !((int)ent->v.flags & FL_WATERJUMP))
-	    SV_AddGravity(ent);
-	SV_CheckStuck(ent);
-	SV_WalkMove(ent);
+	if (!SV_CheckWater(player) && !((int)player->v.flags & FL_WATERJUMP))
+	    SV_AddGravity(player);
+	SV_CheckStuck(player);
+	SV_WalkMove(player);
 	break;
 
     case MOVETYPE_TOSS:
     case MOVETYPE_BOUNCE:
-	SV_Physics_Toss(ent);
+	SV_Physics_Toss(player);
 	break;
 
     case MOVETYPE_FLY:
-	if (!SV_RunThink(ent))
+	if (!SV_RunThink(player))
 	    return;
-	SV_FlyMove(ent, host_frametime, NULL);
+	SV_FlyMove(player, host_frametime, NULL);
 	break;
 
     case MOVETYPE_NOCLIP:
-	if (!SV_RunThink(ent))
+	if (!SV_RunThink(player))
 	    return;
-	VectorMA(ent->v.origin, host_frametime, ent->v.velocity,
-		 ent->v.origin);
+	VectorMA(player->v.origin, host_frametime, player->v.velocity,
+		 player->v.origin);
 	break;
 
     default:
-	Sys_Error("%s: bad movetype %i", __func__, (int)ent->v.movetype);
+	Sys_Error("%s: bad movetype %i", __func__, (int)player->v.movetype);
     }
 
 //
 // call standard player post-think
 //
-    SV_LinkEdict(ent, true);
+    SV_LinkEdict(player, true);
 
     pr_global_struct->time = sv.time;
-    pr_global_struct->self = EDICT_TO_PROG(ent);
+    pr_global_struct->self = EDICT_TO_PROG(player);
     PR_ExecuteProgram(pr_global_struct->PlayerPostThink);
 }
 
