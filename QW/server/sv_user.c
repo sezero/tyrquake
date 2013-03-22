@@ -1479,97 +1479,99 @@ The current net_message is parsed for the given client
 ===================
 */
 void
-SV_ExecuteClientMessage(client_t *cl)
+SV_ExecuteClientMessage(client_t *client)
 {
-    int c;
-    usercmd_t oldest, oldcmd, newcmd;
+    edict_t *player = client->edict;
+    qboolean move_issued = false;
     client_frame_t *frame;
-    vec3_t o;
-    qboolean move_issued = false;	//only allow one move command
-    int checksumIndex;
-    byte checksum, calculatedChecksum;
-    int seq_hash;
+    netchan_t *netchan;
+    usercmd_t oldest, oldcmd, newcmd;
+    int command, seq_hash, crc_offset, length;
+    byte checksum, crc, *crc_buf;
+    vec3_t origin;
 
-    // calc ping time
-    frame = &cl->frames[cl->netchan.incoming_acknowledged & UPDATE_MASK];
+    /* Calculate ping time */
+    netchan = &client->netchan;
+    frame = &client->frames[netchan->incoming_acknowledged & UPDATE_MASK];
     frame->ping_time = realtime - frame->senttime;
 
-    // make sure the reply sequence number matches the incoming
-    // sequence number
-    if (cl->netchan.incoming_sequence >= cl->netchan.outgoing_sequence)
-	cl->netchan.outgoing_sequence = cl->netchan.incoming_sequence;
+    /*
+     * Make sure the reply sequence number matches the incoming
+     * sequence number. If not, don't reply!
+     */
+    if (netchan->incoming_sequence >= netchan->outgoing_sequence)
+	netchan->outgoing_sequence = netchan->incoming_sequence;
     else
-	cl->send_message = false;	// don't reply, sequences have slipped
+	client->send_message = false;
 
-    // save time for ping calculations
-    cl->frames[cl->netchan.outgoing_sequence & UPDATE_MASK].senttime =
-	realtime;
-    cl->frames[cl->netchan.outgoing_sequence & UPDATE_MASK].ping_time = -1;
+    /* save time for ping calculations */
+    frame = &client->frames[netchan->outgoing_sequence & UPDATE_MASK];
+    frame->senttime = realtime;
+    frame->ping_time = -1;
 
-    host_client = cl;
+    /* FIXME - remove host_client and sv_player when sure no side effects */
+    host_client = client;
     sv_player = host_client->edict;
 
-    seq_hash = cl->netchan.incoming_sequence;
+    seq_hash = netchan->incoming_sequence;
 
-    // mark time so clients will know how much to predict
-    // other players
-    cl->localtime = sv.time;
-    cl->delta_sequence = -1;	// no delta unless requested
+    /*
+     * Mark time so clients will know how much to predict other players.
+     * No delta unless requested.
+     */
+    client->localtime = sv.time;
+    client->delta_sequence = -1;
     while (1) {
 	if (msg_badread) {
 	    Con_Printf("SV_ReadClientMessage: badread\n");
-	    SV_DropClient(cl);
+	    SV_DropClient(client);
 	    return;
 	}
 
-	c = MSG_ReadByte();
-	if (c == -1)
+	command = MSG_ReadByte();
+	if (command == -1)
 	    break;
 
-	switch (c) {
+	switch (command) {
 	default:
 	    Con_Printf("SV_ReadClientMessage: unknown command char\n");
-	    SV_DropClient(cl);
+	    SV_DropClient(client);
 	    return;
 
 	case clc_nop:
 	    break;
 
 	case clc_delta:
-	    cl->delta_sequence = MSG_ReadByte();
+	    client->delta_sequence = MSG_ReadByte();
 	    break;
 
 	case clc_move:
+	    /* Only one move allowed - no cheating! */
 	    if (move_issued)
-		return;		// someone is trying to cheat...
-
+		return;
 	    move_issued = true;
 
-	    checksumIndex = MSG_GetReadCount();
-	    checksum = (byte)MSG_ReadByte();
+	    crc_offset = MSG_GetReadCount();
+	    checksum = MSG_ReadByte();
 
-	    // read loss percentage
-	    cl->lossage = MSG_ReadByte();
+	    /* read loss percentage */
+	    client->lossage = MSG_ReadByte();
 
 	    MSG_ReadDeltaUsercmd(&nullcmd, &oldest);
 	    MSG_ReadDeltaUsercmd(&oldest, &oldcmd);
 	    MSG_ReadDeltaUsercmd(&oldcmd, &newcmd);
 
-	    if (cl->state != cs_spawned)
+	    if (client->state != cs_spawned)
 		break;
 
-	    // if the checksum fails, ignore the rest of the packet
-	    calculatedChecksum =
-		COM_BlockSequenceCRCByte(net_message.data + checksumIndex +
-					 1,
-					 MSG_GetReadCount() -
-					 checksumIndex - 1, seq_hash);
-
-	    if (calculatedChecksum != checksum) {
-		Con_DPrintf
-		    ("Failed command checksum for %s(%d) (%d != %d)\n",
-		     cl->name, cl->netchan.incoming_sequence, checksum,
-		     calculatedChecksum);
+	    /* if the checksum fails, ignore the rest of the packet */
+	    crc_buf = net_message.data + crc_offset + 1;
+	    length = MSG_GetReadCount() - crc_offset - 1;
+	    crc = COM_BlockSequenceCRCByte(crc_buf, length, seq_hash);
+	    if (crc != checksum) {
+		Con_DPrintf("Failed command checksum for %s(%d) (%d != %d)\n",
+			    client->name, netchan->incoming_sequence,
+			    checksum, crc);
 		return;
 	    }
 
@@ -1578,40 +1580,40 @@ SV_ExecuteClientMessage(client_t *cl)
 
 		if (net_drop < 20) {
 		    while (net_drop > 2) {
-			SV_RunCmd(host_client, &cl->lastcmd);
+			SV_RunCmd(client, &client->lastcmd);
 			net_drop--;
 		    }
 		    if (net_drop > 1)
-			SV_RunCmd(host_client, &oldest);
+			SV_RunCmd(client, &oldest);
 		    if (net_drop > 0)
-			SV_RunCmd(host_client, &oldcmd);
+			SV_RunCmd(client, &oldcmd);
 		}
-		SV_RunCmd(host_client, &newcmd);
+		SV_RunCmd(client, &newcmd);
 
-		SV_PostRunCmd(host_client);
+		SV_PostRunCmd(client);
 	    }
 
-	    cl->lastcmd = newcmd;
-	    cl->lastcmd.buttons = 0;	// avoid multiple fires on lag
+	    client->lastcmd = newcmd;
+	    client->lastcmd.buttons = 0;	// avoid multiple fires on lag
 	    break;
 
 	case clc_stringcmd:
-	    SV_ExecuteUserCommand(MSG_ReadString(), host_client);
+	    SV_ExecuteUserCommand(MSG_ReadString(), client);
 	    break;
 
 	case clc_tmove:
-	    o[0] = MSG_ReadCoord();
-	    o[1] = MSG_ReadCoord();
-	    o[2] = MSG_ReadCoord();
-	    // only allowed by spectators
-	    if (host_client->spectator) {
-		VectorCopy(o, sv_player->v.origin);
-		SV_LinkEdict(sv_player, false);
+	    origin[0] = MSG_ReadCoord();
+	    origin[1] = MSG_ReadCoord();
+	    origin[2] = MSG_ReadCoord();
+	    /* only allowed by spectators */
+	    if (client->spectator) {
+		VectorCopy(origin, player->v.origin);
+		SV_LinkEdict(player, false);
 	    }
 	    break;
 
 	case clc_upload:
-	    SV_NextUpload(host_client);
+	    SV_NextUpload(client);
 	    break;
 	}
     }
