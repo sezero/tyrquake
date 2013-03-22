@@ -35,6 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "zone.h"
 
 int current_skill;
+qboolean noclip_anglehack;
 
 /*
 ==================
@@ -61,7 +62,7 @@ Host_Quit_f(void)
 Host_Status_f
 ==================
 */
-void
+static void
 Host_Status_f(void)
 {
     client_t *client;
@@ -113,7 +114,7 @@ Host_God_f
 Sets client to godmode
 ==================
 */
-void
+static void
 Host_God_f(void)
 {
     if (cmd_source == src_command) {
@@ -131,7 +132,7 @@ Host_God_f(void)
 	SV_ClientPrintf("godmode ON\n");
 }
 
-void
+static void
 Host_Notarget_f(void)
 {
     if (cmd_source == src_command) {
@@ -149,9 +150,7 @@ Host_Notarget_f(void)
 	SV_ClientPrintf("notarget ON\n");
 }
 
-qboolean noclip_anglehack;
-
-void
+static void
 Host_Noclip_f(void)
 {
     if (cmd_source == src_command) {
@@ -180,7 +179,7 @@ Host_Fly_f
 Sets client to flymode
 ==================
 */
-void
+static void
 Host_Fly_f(void)
 {
     if (cmd_source == src_command) {
@@ -207,7 +206,7 @@ Host_Ping_f
 
 ==================
 */
-void
+static void
 Host_Ping_f(void)
 {
     int i, j;
@@ -249,7 +248,7 @@ map <servername>
 command from the console.  Active clients are kicked off.
 ======================
 */
-void
+static void
 Host_Map_f(void)
 {
     int i;
@@ -320,7 +319,7 @@ Host_Changelevel_f
 Goes to a new map, taking all clients along
 ==================
 */
-void
+static void
 Host_Changelevel_f(void)
 {
     char level[MAX_QPATH];
@@ -346,7 +345,7 @@ Host_Restart_f
 Restarts the current server for a dead player
 ==================
 */
-void
+static void
 Host_Restart_f(void)
 {
     char mapname[MAX_QPATH];
@@ -369,7 +368,7 @@ This command causes the client to wait for the signon messages again.
 This is sent just before a server changes levels
 ==================
 */
-void
+static void
 Host_Reconnect_f(void)
 {
     SCR_BeginLoadingPlaque();
@@ -389,7 +388,7 @@ Host_Connect_f
 User command to connect to server
 =====================
 */
-void
+static void
 Host_Connect_f(void)
 {
     char name[MAX_QPATH];
@@ -422,7 +421,7 @@ Host_SavegameComment
 Writes a SAVEGAME_COMMENT_LENGTH character comment describing the current
 ===============
 */
-void
+static void
 Host_SavegameComment(char *text)
 {
     int i;
@@ -447,7 +446,7 @@ Host_SavegameComment(char *text)
 Host_Savegame_f
 ===============
 */
-void
+static void
 Host_Savegame_f(void)
 {
     char name[256];
@@ -534,7 +533,7 @@ Host_Savegame_f(void)
 Host_Loadgame_f
 ===============
 */
-void
+static void
 Host_Loadgame_f(void)
 {
     char name[MAX_OSPATH];
@@ -676,7 +675,7 @@ Host_Loadgame_f(void)
 Host_Name_f
 ======================
 */
-void
+static void
 Host_Name_f(void)
 {
     char new_name[16];
@@ -714,7 +713,7 @@ Host_Name_f(void)
 }
 
 
-void
+static void
 Host_Version_f(void)
 {
     Con_Printf("Version TyrQuake-%s\n", stringify(TYR_VERSION));
@@ -722,7 +721,7 @@ Host_Version_f(void)
 }
 
 
-void
+static void
 Host_Say(qboolean teamonly)
 {
     client_t *client;
@@ -782,21 +781,21 @@ Host_Say(qboolean teamonly)
 }
 
 
-void
+static void
 Host_Say_f(void)
 {
     Host_Say(false);
 }
 
 
-void
+static void
 Host_Say_Team_f(void)
 {
     Host_Say(true);
 }
 
 
-void
+static void
 Host_Tell_f(void)
 {
     client_t *client;
@@ -848,7 +847,7 @@ Host_Tell_f(void)
 Host_Color_f
 ==================
 */
-void
+static void
 Host_Color_f(void)
 {
     int top, bottom;
@@ -898,7 +897,7 @@ Host_Color_f(void)
 Host_Kill_f
 ==================
 */
-void
+static void
 Host_Kill_f(void)
 {
     if (cmd_source == src_command) {
@@ -922,7 +921,7 @@ Host_Kill_f(void)
 Host_Pause_f
 ==================
 */
-void
+static void
 Host_Pause_f(void)
 {
 
@@ -957,7 +956,7 @@ Host_Pause_f(void)
 Host_PreSpawn_f
 ==================
 */
-void
+static void
 Host_PreSpawn_f(void)
 {
     if (cmd_source == src_command) {
@@ -981,7 +980,7 @@ Host_PreSpawn_f(void)
 Host_Spawn_f
 ==================
 */
-void
+static void
 Host_Spawn_f(void)
 {
     int i;
@@ -1099,7 +1098,7 @@ Host_Spawn_f(void)
 Host_Begin_f
 ==================
 */
-void
+static void
 Host_Begin_f(void)
 {
     if (cmd_source == src_command) {
@@ -1120,7 +1119,7 @@ Host_Kick_f
 Kicks a user off of the server
 ==================
 */
-void
+static void
 Host_Kick_f(void)
 {
     const char *who;
@@ -1204,7 +1203,7 @@ DEBUGGING TOOLS
 Host_Give_f
 ==================
 */
-void
+static void
 Host_Give_f(void)
 {
     const char *t;
@@ -1338,7 +1337,7 @@ Host_Give_f(void)
     }
 }
 
-edict_t *
+static edict_t *
 FindViewthing(void)
 {
     int i;
@@ -1358,7 +1357,7 @@ FindViewthing(void)
 Host_Viewmodel_f
 ==================
 */
-void
+static void
 Host_Viewmodel_f(void)
 {
     edict_t *e;
@@ -1383,7 +1382,7 @@ Host_Viewmodel_f(void)
 Host_Viewframe_f
 ==================
 */
-void
+static void
 Host_Viewframe_f(void)
 {
     edict_t *e;
@@ -1403,7 +1402,7 @@ Host_Viewframe_f(void)
 }
 
 
-void
+static void
 PrintFrameName(model_t *m, int frame)
 {
     aliashdr_t *hdr;
@@ -1422,7 +1421,7 @@ PrintFrameName(model_t *m, int frame)
 Host_Viewnext_f
 ==================
 */
-void
+static void
 Host_Viewnext_f(void)
 {
     edict_t *e;
@@ -1445,7 +1444,7 @@ Host_Viewnext_f(void)
 Host_Viewprev_f
 ==================
 */
-void
+static void
 Host_Viewprev_f(void)
 {
     edict_t *e;
@@ -1478,7 +1477,7 @@ DEMO LOOP CONTROL
 Host_Startdemos_f
 ==================
 */
-void
+static void
 Host_Startdemos_f(void)
 {
     int i, c;
@@ -1514,7 +1513,7 @@ Host_Demos_f
 Return to looping demos
 ==================
 */
-void
+static void
 Host_Demos_f(void)
 {
     if (cls.state == ca_dedicated)
@@ -1532,7 +1531,7 @@ Host_Stopdemo_f
 Return to looping demos
 ==================
 */
-void
+static void
 Host_Stopdemo_f(void)
 {
     if (cls.state == ca_dedicated)
