@@ -58,7 +58,7 @@ typedef struct {
     // results
 #ifdef SERVERONLY
     int numtouch;
-    int touchindex[MAX_PHYSENTS];
+    const physent_t *touch[MAX_PHYSENTS];
 #endif
 } playermove_t;
 
@@ -89,8 +89,8 @@ void PlayerMove(playermove_t *pmove, const physent_stack_t *pestack);
 int PM_PointContents(const vec3_t point, const physent_stack_t *pestack);
 qboolean PM_TestPlayerPosition(const vec3_t point, const physent_stack_t *pestack);
 
-/* Returns the entity number that the trace hit, -1 otherwise */
-int PM_PlayerMove(const vec3_t start, const vec3_t stop,
-		  const physent_stack_t *pestack, trace_t *trace);
+/* Returns the physent that the trace hit, NULL otherwise */
+const physent_t *PM_PlayerMove(const vec3_t start, const vec3_t stop,
+			       const physent_stack_t *pestack, trace_t *trace);
 
 #endif /* CLIENT_PMOVE_H */

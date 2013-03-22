@@ -1428,7 +1428,7 @@ SV_RunCmd(usercmd_t *ucmd)
 
 	// touch other objects
 	for (i = 0; i < pmove.numtouch; i++) {
-	    const int entitynum = pestack.physents[pmove.touchindex[i]].entitynum;
+	    const int entitynum = pmove.touch[i]->entitynum;
 	    entity = EDICT_NUM(entitynum);
 	    if (!entity->v.touch)
 		continue;

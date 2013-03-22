@@ -111,7 +111,7 @@ PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
     vec3_t end;
     float time_left;
     int blocked;
-    int touchentity;
+    const physent_t *touch;
 
     numbumps = 4;
 
@@ -126,7 +126,7 @@ PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
 	for (i = 0; i < 3; i++)
 	    end[i] = pmove->origin[i] + time_left * pmove->velocity[i];
 
-	touchentity = PM_PlayerMove(pmove->origin, end, pestack, &trace);
+	touch = PM_PlayerMove(pmove->origin, end, pestack, &trace);
 	if (trace.startsolid || trace.allsolid) {
 	    /* entity is trapped in another solid */
 	    VectorCopy(vec3_origin, pmove->velocity);
@@ -145,7 +145,7 @@ PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
 
 #ifdef SERVERONLY
 	/* save entity for contact */
-	pmove->touchindex[pmove->numtouch] = touchentity;
+	pmove->touch[pmove->numtouch] = touch;
 	pmove->numtouch++;
 #endif
 
@@ -544,7 +544,7 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
     vec3_t point;
     int cont;
     trace_t trace;
-    int groundentity;
+    const physent_t *ground;
 
 // if the player hull point one unit down is solid, the player
 // is on ground
@@ -556,11 +556,11 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
     if (pmove->velocity[2] > 180) {
 	pmove->onground = -1;
     } else {
-	groundentity = PM_PlayerMove(pmove->origin, point, pestack, &trace);
+	ground = PM_PlayerMove(pmove->origin, point, pestack, &trace);
 	if (trace.plane.normal[2] < 0.7)
 	    pmove->onground = -1;	// too steep
 	else
-	    pmove->onground = groundentity;
+	    pmove->onground = ground ? ground - pestack->physents : -1;
 	if (pmove->onground != -1) {
 	    pmove->waterjumptime = 0;
 	    if (!trace.startsolid && !trace.allsolid)
@@ -568,8 +568,8 @@ PM_CategorizePosition(playermove_t *pmove, const physent_stack_t *pestack)
 	}
 #ifdef SERVERONLY
 	/* standing on an entity other than the world */
-	if (groundentity > 0) {
-	    pmove->touchindex[pmove->numtouch] = groundentity;
+	if (ground && ground > pestack->physents) {
+	    pmove->touch[pmove->numtouch] = ground;
 	    pmove->numtouch++;
 	}
 #endif

@@ -91,22 +91,22 @@ PM_TestPlayerPosition(const vec3_t pos, const physent_stack_t *pestack)
 PM_PlayerMove
 ================
 */
-int
+const physent_t *
 PM_PlayerMove(const vec3_t start, const vec3_t end,
 	      const physent_stack_t *pestack, trace_t *trace)
 {
     trace_t stacktrace;
     boxhull_t boxhull;
     vec3_t mins, maxs, start_l, end_l, offset;
-    const physent_t *physent;
+    const physent_t *physent, *clipentity;
     const hull_t *hull;
-    int i, clipentity;
+    int i;
 
     /* fill in a default trace */
     memset(trace, 0, sizeof(*trace));
     trace->fraction = 1;
     VectorCopy(end, trace->endpos);
-    clipentity = -1;
+    clipentity = NULL;
 
     physent = pestack->physents;
     for (i = 0; i < pestack->numphysent; i++, physent++) {
@@ -143,7 +143,7 @@ PM_PlayerMove(const vec3_t start, const vec3_t end,
 	    /* fix trace up by the offset */
 	    VectorAdd(stacktrace.endpos, offset, stacktrace.endpos);
 	    *trace = stacktrace;
-	    clipentity = i;
+	    clipentity = physent;
 	}
     }
 
