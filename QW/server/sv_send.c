@@ -41,6 +41,7 @@ Con_Printf redirection
 static char outputbuf[8000];
 
 redirect_t sv_redirected;
+static client_t *sv_redirected_client;
 
 /*
 ==================
@@ -48,7 +49,7 @@ SV_FlushRedirect
 ==================
 */
 static void
-SV_FlushRedirect(void)
+SV_FlushRedirect(client_t *client)
 {
     char send[8000 + 6];
 
@@ -62,10 +63,10 @@ SV_FlushRedirect(void)
 
 	NET_SendPacket(strlen(send) + 1, send, net_from);
     } else if (sv_redirected == RD_CLIENT) {
-	ClientReliableWrite_Begin(host_client, svc_print,
+	ClientReliableWrite_Begin(client, svc_print,
 				  strlen(outputbuf) + 3);
-	ClientReliableWrite_Byte(host_client, PRINT_HIGH);
-	ClientReliableWrite_String(host_client, outputbuf);
+	ClientReliableWrite_Byte(client, PRINT_HIGH);
+	ClientReliableWrite_String(client, outputbuf);
     }
     // clear it
     outputbuf[0] = 0;
@@ -81,16 +82,17 @@ SV_BeginRedirect
 ==================
 */
 void
-SV_BeginRedirect(redirect_t rd)
+SV_BeginRedirect(redirect_t rd, client_t *client)
 {
     sv_redirected = rd;
+    sv_redirected_client = (rd == RD_CLIENT) ? client : NULL;
     outputbuf[0] = 0;
 }
 
 void
 SV_EndRedirect(void)
 {
-    SV_FlushRedirect();
+    SV_FlushRedirect(sv_redirected_client);
     sv_redirected = RD_NONE;
 }
 
@@ -115,7 +117,7 @@ Con_Printf(const char *fmt, ...)
     // add to redirected message
     if (sv_redirected) {
 	if (strlen(msg) + strlen(outputbuf) > sizeof(outputbuf) - 1)
-	    SV_FlushRedirect();
+	    SV_FlushRedirect(sv_redirected_client);
 	strcat(outputbuf, msg);
 	return;
     }

@@ -422,7 +422,7 @@ void SV_SetMoveVars(void);
 // svonly.c
 //
 typedef enum { RD_NONE, RD_CLIENT, RD_PACKET } redirect_t;
-void SV_BeginRedirect(redirect_t rd);
+void SV_BeginRedirect(redirect_t rd, client_t *client);
 void SV_EndRedirect(void);
 
 //

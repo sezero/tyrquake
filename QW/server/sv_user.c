@@ -1163,7 +1163,7 @@ SV_ExecuteUserCommand(const char *cmdstring, client_t *client)
     /* FIXME - remove sv_player when sure no side effects */
     sv_player = client->edict;
 
-    SV_BeginRedirect(RD_CLIENT);
+    SV_BeginRedirect(RD_CLIENT, client);
 
     for (command = ucmds; command->name; command++)
 	if (!strcmp(Cmd_Argv(0), command->name)) {
