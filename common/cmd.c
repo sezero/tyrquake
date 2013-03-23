@@ -36,7 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "protocol.h"
 #endif
 
-#if defined(QW_HACK) && !defined(SERVERONLY)
+#ifndef SERVERONLY
 static void Cmd_ForwardToServer_f(void);
 #endif
 
@@ -469,17 +469,12 @@ Cmd_Init
 void
 Cmd_Init(void)
 {
-//
-// register our commands
-//
     Cmd_AddCommand("stuffcmds", Cmd_StuffCmds_f);
     Cmd_AddCommand("exec", Cmd_Exec_f);
     Cmd_AddCommand("echo", Cmd_Echo_f);
     Cmd_AddCommand("alias", Cmd_Alias_f);
     Cmd_AddCommand("wait", Cmd_Wait_f);
-#ifdef NQ_HACK
-    Cmd_AddCommand("cmd", Cmd_ForwardToServer);
-#elif defined(QW_HACK) && !defined(SERVERONLY)
+#ifndef SERVERONLY
     Cmd_AddCommand("cmd", Cmd_ForwardToServer_f);
 #endif
 }
@@ -650,38 +645,6 @@ Cmd_Alias_Exists(const char *cmd_name)
     return Cmd_Alias_Find(cmd_name) != NULL;
 }
 
-
-#ifdef NQ_HACK
-/*
-===================
-Cmd_ForwardToServer
-
-Sends the entire command line over to the server
-===================
-*/
-void
-Cmd_ForwardToServer(void)
-{
-    if (cls.state < ca_connected) {
-	Con_Printf("Can't \"%s\", not connected\n", Cmd_Argv(0));
-	return;
-    }
-
-    if (cls.demoplayback)
-	return;			// not really connected
-
-    MSG_WriteByte(&cls.message, clc_stringcmd);
-    if (strcasecmp(Cmd_Argv(0), "cmd") != 0) {
-	SZ_Print(&cls.message, Cmd_Argv(0));
-	SZ_Print(&cls.message, " ");
-    }
-    if (Cmd_Argc() > 1)
-	SZ_Print(&cls.message, Cmd_Args());
-    else
-	SZ_Print(&cls.message, "\n");
-}
-#endif
-#ifdef QW_HACK
 #ifndef SERVERONLY
 /*
 ===================
@@ -692,55 +655,78 @@ things like godmode, noclip, etc, are commands directed to the server,
 so when they are typed in at the console, they will need to be forwarded.
 ===================
 */
+static qboolean
+Cmd_ForwardCheckConnected(void)
+{
+    if (cls.state < ca_connected) {
+	Con_Printf("Can't \"%s\", not connected\n", Cmd_Argv(0));
+	return false;
+    }
+    if (cls.demoplayback)
+	return false;
+
+    return true;
+}
+
 void
 Cmd_ForwardToServer(void)
 {
-    if (cls.state == ca_disconnected) {
-	Con_Printf("Can't \"%s\", not connected\n", Cmd_Argv(0));
+    sizebuf_t *message;
+
+    if (!Cmd_ForwardCheckConnected())
 	return;
-    }
 
-    if (cls.demoplayback)
-	return;			// not really connected
-
-    MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
-    SZ_Print(&cls.netchan.message, Cmd_Argv(0));
+#ifdef QW_HACK
+    message = &cls.netchan.message;
+#endif
+#ifdef NQ_HACK
+    message = &cls.message;
+#endif
+    MSG_WriteByte(message, clc_stringcmd);
+    SZ_Print(message, Cmd_Argv(0));
     if (Cmd_Argc() > 1) {
-	SZ_Print(&cls.netchan.message, " ");
-	SZ_Print(&cls.netchan.message, Cmd_Args());
+	SZ_Print(message, " ");
+	SZ_Print(message, Cmd_Args());
     }
 }
 
-// don't forward the first argument
+/*
+===================
+Cmd_ForwardToServer_f
+
+Sends the arguments as a command line to the server
+===================
+*/
 static void
 Cmd_ForwardToServer_f(void)
 {
-    if (cls.state == ca_disconnected) {
-	Con_Printf("Can't \"%s\", not connected\n", Cmd_Argv(0));
-	return;
-    }
+    sizebuf_t *message;
 
-    if (strcasecmp(Cmd_Argv(1), "snap") == 0) {
+    if (!Cmd_ForwardCheckConnected())
+	return;
+
+#ifdef QW_HACK
+    message = &cls.netchan.message;
+#endif
+#ifdef NQ_HACK
+    message = &cls.message;
+#endif
+
+    /*
+     * FIXME - hack for QW's snap command.
+     * Used to work during demo playback?
+     */
+    if (!strcasecmp(Cmd_Argv(1), "snap")) {
 	Cbuf_InsertText("snap\n");
 	return;
     }
 
-    if (cls.demoplayback)
-	return;			// not really connected
-
     if (Cmd_Argc() > 1) {
-	MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
-	SZ_Print(&cls.netchan.message, Cmd_Args());
+	MSG_WriteByte(message, clc_stringcmd);
+	SZ_Print(message, Cmd_Args());
     }
 }
-#else
-void
-Cmd_ForwardToServer(void)
-{
-}
-#endif /* SERVERONLY */
-#endif /* QW_HACK */
-
+#endif /* !SERVERONLY */
 /*
 ============
 Cmd_ExecuteString
@@ -774,7 +760,7 @@ Cmd_ExecuteString(const char *text)
     if (cmd) {
 	if (cmd->function)
 	    cmd->function();
-#ifdef QW_HACK
+#if defined(QW_HACK) && !defined(SERVERONLY)
 	else
 	    Cmd_ForwardToServer();
 #endif
