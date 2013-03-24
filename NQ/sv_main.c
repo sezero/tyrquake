@@ -928,31 +928,31 @@ void
 SV_UpdateToReliableMessages(void)
 {
     int i, j;
-    client_t *client;
+    client_t *client, *recipient;
 
-// check for changes to be sent over the reliable streams
-    for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	 i++, host_client++) {
-	if (host_client->old_frags != host_client->edict->v.frags) {
-	    for (j = 0, client = svs.clients; j < svs.maxclients;
-		 j++, client++) {
-		if (!client->active)
+    /* check for changes to be sent over the reliable streams */
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++) {
+	if (client->old_frags != client->edict->v.frags) {
+	    recipient = svs.clients;
+	    for (j = 0; j < svs.maxclients; j++, recipient++) {
+		if (!recipient->active)
 		    continue;
-		MSG_WriteByte(&client->message, svc_updatefrags);
-		MSG_WriteByte(&client->message, i);
-		MSG_WriteShort(&client->message, host_client->edict->v.frags);
+		MSG_WriteByte(&recipient->message, svc_updatefrags);
+		MSG_WriteByte(&recipient->message, i);
+		MSG_WriteShort(&recipient->message, client->edict->v.frags);
 	    }
-	    host_client->old_frags = host_client->edict->v.frags;
+	    client->old_frags = client->edict->v.frags;
 	}
     }
 
-    for (j = 0, client = svs.clients; j < svs.maxclients; j++, client++) {
-	if (!client->active)
+    recipient = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, recipient++) {
+	if (!recipient->active)
 	    continue;
-	SZ_Write(&client->message, sv.reliable_datagram.data,
+	SZ_Write(&recipient->message, sv.reliable_datagram.data,
 		 sv.reliable_datagram.cursize);
     }
-
     SZ_Clear(&sv.reliable_datagram);
 }
 
