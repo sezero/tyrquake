@@ -413,6 +413,72 @@ SV_ReadClientMove(client_t *client, usercmd_t *move)
 }
 
 /*
+ * ------------------------------------------------------------------------
+ * CLIENT COMMANDS
+ * ------------------------------------------------------------------------
+ */
+
+/*
+======================
+SV_Name_f
+======================
+*/
+static void
+SV_Name_f(client_t *client)
+{
+    char new_name[16];
+    const char *arg;
+
+    if (Cmd_Argc() == 1)
+	return;
+
+    /* See if the name has changed */
+    arg = (Cmd_Argc() == 2) ? Cmd_Argv(1) : Cmd_Args();
+    snprintf(new_name, sizeof(new_name), "%s", arg);
+    if (!strcmp(client->name, new_name))
+	return;
+
+    if (client->name[0] && strcmp(client->name, "unconnected"))
+	Con_Printf("%s renamed to %s\n", client->name, new_name);
+    strcpy(client->name, new_name);
+    client->edict->v.netname = PR_SetString(client->name);
+
+    /* send notification to all clients */
+    MSG_WriteByte(&sv.reliable_datagram, svc_updatename);
+    MSG_WriteByte(&sv.reliable_datagram, client - svs.clients);
+    MSG_WriteString(&sv.reliable_datagram, client->name);
+}
+
+typedef struct {
+    const char *name;
+    void (*func)(client_t *client);
+} client_command_t;
+
+static client_command_t client_commands[] = {
+    { "name", SV_Name_f },
+    { NULL, NULL },
+};
+
+/* FIXME - Won't need to return result after all commands have been
+   properly converted. Can enable error message then too. */
+static qboolean
+SV_ExecuteClientCommand(const char *command_string, client_t *client)
+{
+    client_command_t *command;
+
+    // TODO: begin/end redirect like QW?
+    Cmd_TokenizeString(command_string);
+    for (command = client_commands; command->name; command++) {
+	if (!strcmp(Cmd_Argv(0), command->name)) {
+	    command->func(client);
+	    return true;
+	}
+    }
+    //Con_Printf("Bad client command: %s\n", Cmd_Argv(0));
+    return false;
+}
+
+/*
 ===================
 SV_ReadClientMessage
 
@@ -422,9 +488,9 @@ Returns false if the client should be killed
 static qboolean
 SV_ReadClientMessage(client_t *client)
 {
-    int ret;
-    int cmd;
-    char *message;
+    const char *message;
+    int ret, cmd;
+    qboolean found;
 
     do {
       nextmsg:
@@ -463,6 +529,10 @@ SV_ReadClientMessage(client_t *client)
 
 	    case clc_stringcmd:
 		message = MSG_ReadString();
+		found = SV_ExecuteClientCommand(message, client);
+		if (found)
+		    break;
+
 		ret = 0;
 		if (strncasecmp(message, "status", 6) == 0)
 		    ret = 1;

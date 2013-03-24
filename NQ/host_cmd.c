@@ -670,49 +670,6 @@ Host_Loadgame_f(void)
 
 //============================================================================
 
-/*
-======================
-Host_Name_f
-======================
-*/
-static void
-Host_Name_f(void)
-{
-    char new_name[16];
-
-    if (Cmd_Argc() == 1) {
-	Con_Printf("\"name\" is \"%s\"\n", cl_name.string);
-	return;
-    }
-    if (Cmd_Argc() == 2)
-	strncpy(new_name, Cmd_Argv(1), sizeof(new_name));
-    else
-	strncpy(new_name, Cmd_Args(), sizeof(new_name));
-    new_name[sizeof(new_name) - 1] = 0;
-
-    if (cmd_source == src_command) {
-	if (strcmp(cl_name.string, new_name) == 0)
-	    return;
-	Cvar_Set("_cl_name", new_name);
-	if (cls.state >= ca_connected)
-	    Cmd_ForwardToServer();
-	return;
-    }
-
-    if (host_client->name[0] && strcmp(host_client->name, "unconnected"))
-	if (strcmp(host_client->name, new_name) != 0)
-	    Con_Printf("%s renamed to %s\n", host_client->name, new_name);
-    strcpy(host_client->name, new_name);
-    host_client->edict->v.netname = PR_SetString(host_client->name);
-
-// send notification to all clients
-
-    MSG_WriteByte(&sv.reliable_datagram, svc_updatename);
-    MSG_WriteByte(&sv.reliable_datagram, host_client - svs.clients);
-    MSG_WriteString(&sv.reliable_datagram, host_client->name);
-}
-
-
 static void
 Host_Version_f(void)
 {
@@ -1566,7 +1523,6 @@ Host_InitCommands(void)
 
     Cmd_AddCommand("connect", Host_Connect_f);
     Cmd_AddCommand("reconnect", Host_Reconnect_f);
-    Cmd_AddCommand("name", Host_Name_f);
     Cmd_AddCommand("noclip", Host_Noclip_f);
     Cmd_AddCommand("version", Host_Version_f);
 

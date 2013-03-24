@@ -317,6 +317,24 @@ CL_PrintEntities_f(void)
     }
 }
 
+void
+CL_Name_f(void)
+{
+    char new_name[16];
+    const char *arg;
+
+    if (Cmd_Argc() == 1) {
+	Con_Printf("\"name\" is \"%s\"\n", cl_name.string);
+	return;
+    }
+    arg = (Cmd_Argc() == 2) ? Cmd_Argv(1) : Cmd_Args();
+    snprintf(new_name, sizeof(new_name), "%s", arg);
+    if (!strcmp(cl_name.string, new_name))
+	return;
+
+    Cvar_Set("_cl_name", new_name);
+    Cmd_ForwardToServer();
+}
 
 /*
 ===============
@@ -790,6 +808,7 @@ CL_Init(void)
     Cmd_AddCommand("disconnect", CL_Disconnect_f);
     Cmd_AddCommand("record", CL_Record_f);
     Cmd_AddCommand("stop", CL_Stop_f);
+    Cmd_AddCommand("name", CL_Name_f);
     Cmd_AddCommand("playdemo", CL_PlayDemo_f);
     Cmd_SetCompletion("playdemo", CL_Demo_Arg_f);
     Cmd_AddCommand("timedemo", CL_TimeDemo_f);
