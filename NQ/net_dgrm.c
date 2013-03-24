@@ -76,18 +76,15 @@ NET_Ban_f(void)
 {
     char addrStr[32];
     char maskStr[32];
-    void (*print)(const char *fmt, ...) __attribute__((format(printf,1,2)));
 
     if (cmd_source == src_command) {
 	if (!sv.active) {
 	    Cmd_ForwardToServer();
 	    return;
 	}
-	print = Con_Printf;
     } else {
 	if (pr_global_struct->deathmatch)
 	    return;
-	print = SV_ClientPrintf;
     }
 
     switch (Cmd_Argc()) {
@@ -95,9 +92,16 @@ NET_Ban_f(void)
 	if (banAddr.ip.l != INADDR_ANY) {
 	    strcpy(addrStr, NET_AdrToString(&banAddr));
 	    strcpy(maskStr, NET_AdrToString(&banMask));
-	    print("Banning %s [%s]\n", addrStr, maskStr);
-	} else
-	    print("Banning not active\n");
+	    if (cmd_source == src_command)
+		Con_Printf("Banning %s [%s]\n", addrStr, maskStr);
+	    else
+		SV_ClientPrintf(host_client, "Banning %s [%s]\n", addrStr, maskStr);
+	} else {
+	    if (cmd_source == src_command)
+		Con_Printf("Banning not active\n");
+	    else
+		SV_ClientPrintf(host_client, "Banning not active\n");
+	}
 	break;
 
     case 2:
@@ -114,7 +118,10 @@ NET_Ban_f(void)
 	break;
 
     default:
-	print("BAN ip_address [mask]\n");
+	if (cmd_source == src_command)
+	    Con_Printf("BAN ip_address [mask]\n");
+	else
+	    SV_ClientPrintf(host_client, "BAN ip_address [mask]\n");
 	break;
     }
 }

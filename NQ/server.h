@@ -223,7 +223,8 @@ void SV_AddUpdates(void);
 
 void SV_AddClientToServer(struct qsocket_s *ret);
 
-void SV_ClientPrintf(const char *fmt, ...) __attribute__((format(printf,1,2)));
+void SV_ClientPrintf(client_t *client, const char *fmt, ...)
+    __attribute__((format(printf,2,3)));
 void SV_BroadcastPrintf(const char *fmt, ...)
     __attribute__((format(printf,1,2)));
 

@@ -462,7 +462,8 @@ SV_Color_f(client_t *client)
     if (Cmd_Argc() == 1) {
 	top = client->colors >> 4;
 	bottom = client->colors & 15;
-	SV_ClientPrintf("\"color\" is \"%d %d\"\n"
+	SV_ClientPrintf(client,
+			"\"color\" is \"%d %d\"\n"
 			"color <0-13> [0-13]\n", top, bottom);
 	return;
     }
@@ -503,16 +504,13 @@ SV_Status_f(client_t *client)
     int hours = 0;
     int i;
 
-    /* FIXME - pass into client printf */
-    host_client = client;
-
-    SV_ClientPrintf("host:    %s\n", Cvar_VariableString("hostname"));
-    SV_ClientPrintf("version: TyrQuake-%s\n", stringify(TYR_VERSION));
+    SV_ClientPrintf(client, "host:    %s\n", Cvar_VariableString("hostname"));
+    SV_ClientPrintf(client, "version: TyrQuake-%s\n", stringify(TYR_VERSION));
     if (tcpipAvailable)
-	SV_ClientPrintf("tcp/ip:  %s\n", my_tcpip_address);
-    SV_ClientPrintf("map:     %s\n", sv.name);
-    SV_ClientPrintf("players: %i active (%i max)\n\n", net_activeconnections,
-		    svs.maxclients);
+	SV_ClientPrintf(client, "tcp/ip:  %s\n", my_tcpip_address);
+    SV_ClientPrintf(client, "map:     %s\n", sv.name);
+    SV_ClientPrintf(client, "players: %i active (%i max)\n\n",
+		    net_activeconnections, svs.maxclients);
 
     other = svs.clients;
     for (i = 0; i < svs.maxclients; i++, other++) {
@@ -524,10 +522,10 @@ SV_Status_f(client_t *client)
 	seconds -= (minutes * 60);
 	hours = minutes / 60;
 	minutes -= (hours * 60);
-	SV_ClientPrintf("#%-2u %-16.16s  %3i  %2i:%02i:%02i\n",
+	SV_ClientPrintf(client, "#%-2u %-16.16s  %3i  %2i:%02i:%02i\n",
 			i + 1, client->name, (int)client->edict->v.frags,
 			hours, minutes, seconds);
-	SV_ClientPrintf("   %s\n", client->netconnection->address);
+	SV_ClientPrintf(client, "   %s\n", client->netconnection->address);
     }
 }
 
@@ -549,9 +547,9 @@ SV_God_f(client_t *client)
     player = client->edict;
     player->v.flags = (int)player->v.flags ^ FL_GODMODE;
     if (!((int)player->v.flags & FL_GODMODE))
-	SV_ClientPrintf("godmode OFF\n");
+	SV_ClientPrintf(client, "godmode OFF\n");
     else
-	SV_ClientPrintf("godmode ON\n");
+	SV_ClientPrintf(client, "godmode ON\n");
 }
 
 /*
@@ -572,10 +570,10 @@ SV_Fly_f(client_t *client)
     player = client->edict;
     if (player->v.movetype != MOVETYPE_FLY) {
 	player->v.movetype = MOVETYPE_FLY;
-	SV_ClientPrintf("flymode ON\n");
+	SV_ClientPrintf(client, "flymode ON\n");
     } else {
 	player->v.movetype = MOVETYPE_WALK;
-	SV_ClientPrintf("flymode OFF\n");
+	SV_ClientPrintf(client, "flymode OFF\n");
     }
 }
 
@@ -598,11 +596,11 @@ SV_Noclip_f(client_t *client)
     if (player->v.movetype != MOVETYPE_NOCLIP) {
 	noclip_anglehack = true;
 	player->v.movetype = MOVETYPE_NOCLIP;
-	SV_ClientPrintf("noclip ON\n");
+	SV_ClientPrintf(client, "noclip ON\n");
     } else {
 	noclip_anglehack = false;
 	player->v.movetype = MOVETYPE_WALK;
-	SV_ClientPrintf("noclip OFF\n");
+	SV_ClientPrintf(client, "noclip OFF\n");
     }
 }
 
@@ -624,9 +622,9 @@ SV_Notarget_f(client_t *client)
     player = client->edict;
     player->v.flags = (int)player->v.flags ^ FL_NOTARGET;
     if (!((int)player->v.flags & FL_NOTARGET))
-	SV_ClientPrintf("notarget OFF\n");
+	SV_ClientPrintf(client, "notarget OFF\n");
     else
-	SV_ClientPrintf("notarget ON\n");
+	SV_ClientPrintf(client, "notarget ON\n");
 }
 
 /*
@@ -642,7 +640,7 @@ SV_Ping_f(client_t *client)
     float total;
     client_t *other;
 
-    SV_ClientPrintf("Client ping times:\n");
+    SV_ClientPrintf(client, "Client ping times:\n");
     other = svs.clients;
     for (i = 0; i < svs.maxclients; i++, other++) {
 	if (!other->active)
@@ -651,7 +649,7 @@ SV_Ping_f(client_t *client)
 	for (j = 0; j < NUM_PING_TIMES; j++)
 	    total += other->ping_times[j];
 	total /= NUM_PING_TIMES;
-	SV_ClientPrintf("%4i %s\n", (int)(total * 1000), other->name);
+	SV_ClientPrintf(client, "%4i %s\n", (int)(total * 1000), other->name);
     }
 }
 
@@ -793,7 +791,7 @@ SV_Kill_f(client_t *client)
     edict_t *player = client->edict;
 
     if (player->v.health <= 0) {
-	SV_ClientPrintf("Can't suicide -- allready dead!\n");
+	SV_ClientPrintf(client, "Can't suicide -- allready dead!\n");
 	return;
     }
 
@@ -813,7 +811,7 @@ SV_Pause_f(client_t *client)
     edict_t *player;
 
     if (!pausable.value) {
-	SV_ClientPrintf("Pause not allowed.\n");
+	SV_ClientPrintf(client, "Pause not allowed.\n");
 	return;
     }
 
@@ -842,7 +840,7 @@ static void
 SV_PreSpawn_f(client_t *client)
 {
     if (client->spawned) {
-	SV_ClientPrintf("prespawn not valid -- already spawned\n");
+	SV_ClientPrintf(client, "prespawn not valid -- already spawned\n");
 	return;
     }
     SZ_Write(&client->message, sv.signon.data, sv.signon.cursize);
@@ -864,7 +862,7 @@ SV_Spawn_f(client_t *client)
     int i;
 
     if (client->spawned) {
-	SV_ClientPrintf("spawn not valid -- already spawned\n");
+	SV_ClientPrintf(client, "spawn not valid -- already spawned\n");
 	return;
     }
 
@@ -1030,12 +1028,10 @@ SV_Kick_f(client_t *client)
 
     who = (cls.state == ca_dedicated) ? "Console" : client->name;
 
-    /* FIXME - host_client abuse */
-    host_client = victim;
     if (message)
-	SV_ClientPrintf("Kicked by %s: %s\n", who, message);
+	SV_ClientPrintf(victim, "Kicked by %s: %s\n", who, message);
     else
-	SV_ClientPrintf("Kicked by %s\n", who);
+	SV_ClientPrintf(victim, "Kicked by %s\n", who);
     SV_DropClient(false);
 }
 
@@ -1084,12 +1080,8 @@ SV_Say(client_t *client, qboolean teamonly)
 	    && client->edict->v.team != recipient->edict->v.team)
 	    continue;
 
-	/* FIXME - host_client abuse */
-	host_client = recipient;
-	SV_ClientPrintf("%s", text);
+	SV_ClientPrintf(recipient, "%s", text);
     }
-    host_client = client;
-
     Sys_Printf("%s", &text[1]);
 }
 
@@ -1138,13 +1130,9 @@ SV_Tell_f(client_t *client)
 	    continue;
 	if (strcasecmp(recipient->name, Cmd_Argv(1)))
 	    continue;
-
-	/* FIXME - host_client abuse */
-	host_client = client;
-	SV_ClientPrintf("%s", text);
+	SV_ClientPrintf(recipient, "%s", text);
 	break;
     }
-    host_client = client;
 }
 
 /* ------------------------------------------------------------------------ */

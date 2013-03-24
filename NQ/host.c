@@ -302,13 +302,13 @@ FIXME: make this just a stuffed echo?
 =================
 */
 void
-SV_ClientPrintf(const char *fmt, ...)
+SV_ClientPrintf(client_t *client, const char *fmt, ...)
 {
     va_list argptr;
 
-    MSG_WriteByte(&host_client->message, svc_print);
+    MSG_WriteByte(&client->message, svc_print);
     va_start(argptr, fmt);
-    MSG_WriteStringvf(&host_client->message, fmt, argptr);
+    MSG_WriteStringvf(&client->message, fmt, argptr);
     va_end(argptr);
 }
 
