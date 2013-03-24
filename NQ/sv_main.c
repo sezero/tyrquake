@@ -698,7 +698,7 @@ SV_WriteClientdataToMessage
 ==================
 */
 void
-SV_WriteClientdataToMessage(edict_t *ent, sizebuf_t *msg)
+SV_WriteClientdataToMessage(edict_t *player, sizebuf_t *msg)
 {
     int bits;
     int i;
@@ -710,18 +710,18 @@ SV_WriteClientdataToMessage(edict_t *ent, sizebuf_t *msg)
 //
 // send a damage message
 //
-    if (ent->v.dmg_take || ent->v.dmg_save) {
-	other = PROG_TO_EDICT(ent->v.dmg_inflictor);
+    if (player->v.dmg_take || player->v.dmg_save) {
+	other = PROG_TO_EDICT(player->v.dmg_inflictor);
 	MSG_WriteByte(msg, svc_damage);
-	MSG_WriteByte(msg, ent->v.dmg_save);
-	MSG_WriteByte(msg, ent->v.dmg_take);
+	MSG_WriteByte(msg, player->v.dmg_save);
+	MSG_WriteByte(msg, player->v.dmg_take);
 	for (i = 0; i < 3; i++) {
 	    coord = other->v.origin[i];
 	    coord += 0.5 * (other->v.mins[i] + other->v.maxs[i]);
 	    MSG_WriteCoord(msg, coord);
 	}
-	ent->v.dmg_take = 0;
-	ent->v.dmg_save = 0;
+	player->v.dmg_take = 0;
+	player->v.dmg_save = 0;
     }
 //
 // send the current viewpos offset from the view entity
@@ -729,25 +729,25 @@ SV_WriteClientdataToMessage(edict_t *ent, sizebuf_t *msg)
     SV_SetIdealPitch();		// how much to look up / down ideally
 
 // a fixangle might get lost in a dropped packet.  Oh well.
-    if (ent->v.fixangle) {
+    if (player->v.fixangle) {
 	MSG_WriteByte(msg, svc_setangle);
 	for (i = 0; i < 3; i++)
-	    MSG_WriteAngle(msg, ent->v.angles[i]);
-	ent->v.fixangle = 0;
+	    MSG_WriteAngle(msg, player->v.angles[i]);
+	player->v.fixangle = 0;
     }
 
     bits = 0;
 
-    if (ent->v.view_ofs[2] != DEFAULT_VIEWHEIGHT)
+    if (player->v.view_ofs[2] != DEFAULT_VIEWHEIGHT)
 	bits |= SU_VIEWHEIGHT;
 
-    if (ent->v.idealpitch)
+    if (player->v.idealpitch)
 	bits |= SU_IDEALPITCH;
 
 // stuff the sigil bits into the high bits of items for sbar, or else
 // mix in items2
-    items = ent->v.items;
-    items2 = GetEdictFieldValue(ent, "items2");
+    items = player->v.items;
+    items2 = GetEdictFieldValue(player, "items2");
     if (items2)
 	items |= (int)items2->_float << 23;
     else
@@ -755,49 +755,49 @@ SV_WriteClientdataToMessage(edict_t *ent, sizebuf_t *msg)
 
     bits |= SU_ITEMS;
 
-    if ((int)ent->v.flags & FL_ONGROUND)
+    if ((int)player->v.flags & FL_ONGROUND)
 	bits |= SU_ONGROUND;
 
-    if (ent->v.waterlevel >= 2)
+    if (player->v.waterlevel >= 2)
 	bits |= SU_INWATER;
 
     for (i = 0; i < 3; i++) {
-	if (ent->v.punchangle[i])
+	if (player->v.punchangle[i])
 	    bits |= (SU_PUNCH1 << i);
-	if (ent->v.velocity[i])
+	if (player->v.velocity[i])
 	    bits |= (SU_VELOCITY1 << i);
     }
 
-    if (ent->v.weaponframe)
+    if (player->v.weaponframe)
 	bits |= SU_WEAPONFRAME;
 
-    if (ent->v.armorvalue)
+    if (player->v.armorvalue)
 	bits |= SU_ARMOR;
 
-//if (ent->v.weapon)
+//if (player->v.weapon)
     bits |= SU_WEAPON;
 
     if (sv.protocol == PROTOCOL_VERSION_FITZ) {
 	if ((bits & SU_WEAPON) &&
-	    (SV_ModelIndex(pr_strings + ent->v.weaponmodel) & 0xff00))
+	    (SV_ModelIndex(pr_strings + player->v.weaponmodel) & 0xff00))
 	    bits |= SU_FITZ_WEAPON2;
-	if ((int)ent->v.armorvalue & 0xff00)
+	if ((int)player->v.armorvalue & 0xff00)
 	    bits |= SU_FITZ_ARMOR2;
-	if ((int)ent->v.currentammo & 0xff00)
+	if ((int)player->v.currentammo & 0xff00)
 	    bits |= SU_FITZ_AMMO2;
-	if ((int)ent->v.ammo_shells & 0xff00)
+	if ((int)player->v.ammo_shells & 0xff00)
 	    bits |= SU_FITZ_SHELLS2;
-	if ((int)ent->v.ammo_nails & 0xff00)
+	if ((int)player->v.ammo_nails & 0xff00)
 	    bits |= SU_FITZ_NAILS2;
-	if ((int)ent->v.ammo_rockets & 0xff00)
+	if ((int)player->v.ammo_rockets & 0xff00)
 	    bits |= SU_FITZ_ROCKETS2;
-	if ((int)ent->v.ammo_cells & 0xff00)
+	if ((int)player->v.ammo_cells & 0xff00)
 	    bits |= SU_FITZ_CELLS2;
 	if ((bits & SU_WEAPONFRAME) &&
-	    ((int)ent->v.weaponframe & 0xff00))
+	    ((int)player->v.weaponframe & 0xff00))
 	    bits |= SU_FITZ_WEAPONFRAME2;
 #if 0 /* FIXME - TODO */
-	if ((bits & SU_WEAPON) && ent->alpha != ENTALPHA_DEFAULT)
+	if ((bits & SU_WEAPON) && player->alpha != ENTALPHA_DEFAULT)
 	    // for now, weaponalpha = client entity alpha
 	    bits |= SU_FITZ_WEAPONALPHA;
 #endif
@@ -817,40 +817,40 @@ SV_WriteClientdataToMessage(edict_t *ent, sizebuf_t *msg)
 	MSG_WriteByte(msg, bits >> 24);
 
     if (bits & SU_VIEWHEIGHT)
-	MSG_WriteChar(msg, ent->v.view_ofs[2]);
+	MSG_WriteChar(msg, player->v.view_ofs[2]);
 
     if (bits & SU_IDEALPITCH)
-	MSG_WriteChar(msg, ent->v.idealpitch);
+	MSG_WriteChar(msg, player->v.idealpitch);
 
     for (i = 0; i < 3; i++) {
 	if (bits & (SU_PUNCH1 << i))
-	    MSG_WriteChar(msg, ent->v.punchangle[i]);
+	    MSG_WriteChar(msg, player->v.punchangle[i]);
 	if (bits & (SU_VELOCITY1 << i))
-	    MSG_WriteChar(msg, ent->v.velocity[i] / 16);
+	    MSG_WriteChar(msg, player->v.velocity[i] / 16);
     }
 
 // [always sent]        if (bits & SU_ITEMS)
     MSG_WriteLong(msg, items);
 
     if (bits & SU_WEAPONFRAME)
-	MSG_WriteByte(msg, ent->v.weaponframe);
+	MSG_WriteByte(msg, player->v.weaponframe);
     if (bits & SU_ARMOR)
-	MSG_WriteByte(msg, ent->v.armorvalue);
+	MSG_WriteByte(msg, player->v.armorvalue);
     if (bits & SU_WEAPON)
-	SV_WriteModelIndex(msg, SV_ModelIndex(PR_GetString(ent->v.weaponmodel)), 0);
+	SV_WriteModelIndex(msg, SV_ModelIndex(PR_GetString(player->v.weaponmodel)), 0);
 
-    MSG_WriteShort(msg, ent->v.health);
-    MSG_WriteByte(msg, ent->v.currentammo);
-    MSG_WriteByte(msg, ent->v.ammo_shells);
-    MSG_WriteByte(msg, ent->v.ammo_nails);
-    MSG_WriteByte(msg, ent->v.ammo_rockets);
-    MSG_WriteByte(msg, ent->v.ammo_cells);
+    MSG_WriteShort(msg, player->v.health);
+    MSG_WriteByte(msg, player->v.currentammo);
+    MSG_WriteByte(msg, player->v.ammo_shells);
+    MSG_WriteByte(msg, player->v.ammo_nails);
+    MSG_WriteByte(msg, player->v.ammo_rockets);
+    MSG_WriteByte(msg, player->v.ammo_cells);
 
     if (standard_quake) {
-	MSG_WriteByte(msg, ent->v.weapon);
+	MSG_WriteByte(msg, player->v.weapon);
     } else {
 	for (i = 0; i < 32; i++) {
-	    if (((int)ent->v.weapon) & (1 << i)) {
+	    if (((int)player->v.weapon) & (1 << i)) {
 		MSG_WriteByte(msg, i);
 		break;
 	    }
@@ -859,25 +859,25 @@ SV_WriteClientdataToMessage(edict_t *ent, sizebuf_t *msg)
 
     /* FITZ protocol stuff */
     if (bits & SU_FITZ_WEAPON2)
-	MSG_WriteByte(msg, SV_ModelIndex(pr_strings + ent->v.weaponmodel) >> 8);
+	MSG_WriteByte(msg, SV_ModelIndex(pr_strings + player->v.weaponmodel) >> 8);
     if (bits & SU_FITZ_ARMOR2)
-	MSG_WriteByte(msg, (int)ent->v.armorvalue >> 8);
+	MSG_WriteByte(msg, (int)player->v.armorvalue >> 8);
     if (bits & SU_FITZ_AMMO2)
-	MSG_WriteByte(msg, (int)ent->v.currentammo >> 8);
+	MSG_WriteByte(msg, (int)player->v.currentammo >> 8);
     if (bits & SU_FITZ_SHELLS2)
-	MSG_WriteByte(msg, (int)ent->v.ammo_shells >> 8);
+	MSG_WriteByte(msg, (int)player->v.ammo_shells >> 8);
     if (bits & SU_FITZ_NAILS2)
-	MSG_WriteByte(msg, (int)ent->v.ammo_nails >> 8);
+	MSG_WriteByte(msg, (int)player->v.ammo_nails >> 8);
     if (bits & SU_FITZ_ROCKETS2)
-	MSG_WriteByte(msg, (int)ent->v.ammo_rockets >> 8);
+	MSG_WriteByte(msg, (int)player->v.ammo_rockets >> 8);
     if (bits & SU_FITZ_CELLS2)
-	MSG_WriteByte(msg, (int)ent->v.ammo_cells >> 8);
+	MSG_WriteByte(msg, (int)player->v.ammo_cells >> 8);
     if (bits & SU_FITZ_WEAPONFRAME2)
-	MSG_WriteByte(msg, (int)ent->v.weaponframe >> 8);
+	MSG_WriteByte(msg, (int)player->v.weaponframe >> 8);
 #if 0 /* FIXME - TODO */
     if (bits & SU_FITZ_WEAPONALPHA)
 	// for now, weaponalpha = client entity alpha
-	MSG_WriteByte(msg, ent->alpha);
+	MSG_WriteByte(msg, player->alpha);
 #endif
 }
 
