@@ -632,54 +632,53 @@ NET_CanSendMessage(qsocket_t *sock)
 int
 NET_SendToAll(sizebuf_t *data, double blocktime)
 {
+    client_t *client;
     double start;
-    int i;
-    int count = 0;
+    int i, count;
     qboolean msg_init[MAX_SCOREBOARD]; /* data written */
     qboolean msg_sent[MAX_SCOREBOARD]; /* send completed */
 
-    for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	 i++, host_client++) {
-	if (host_client->netconnection && host_client->active) {
-	    /*
-	     * Loopback driver guarantees delivery, skip checks
-	     */
-	    if (IS_LOOP_DRIVER(host_client->netconnection->driver)) {
-		NET_SendMessage(host_client->netconnection, data);
-		msg_init[i] = true;
-		msg_sent[i] = true;
-		continue;
-	    }
-	    count++;
-	    msg_init[i] = false;
-	    msg_sent[i] = false;
-	} else {
+    count = 0;
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++) {
+	if (!client->netconnection || !client->active) {
 	    msg_init[i] = true;
 	    msg_sent[i] = true;
+	    continue;
 	}
+	/* Loopback driver guarantees delivery, skip checks */
+	if (IS_LOOP_DRIVER(client->netconnection->driver)) {
+	    NET_SendMessage(client->netconnection, data);
+	    msg_init[i] = true;
+	    msg_sent[i] = true;
+	    continue;
+	}
+	count++;
+	msg_init[i] = false;
+	msg_sent[i] = false;
     }
 
     start = Sys_DoubleTime();
     while (count) {
 	count = 0;
-	for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	     i++, host_client++) {
+	client = svs.clients;
+	for (i = 0; i < svs.maxclients; i++, client++) {
 	    if (!msg_init[i]) {
-		if (NET_CanSendMessage(host_client->netconnection)) {
+		if (NET_CanSendMessage(client->netconnection)) {
+		    NET_SendMessage(client->netconnection, data);
 		    msg_init[i] = true;
-		    NET_SendMessage(host_client->netconnection, data);
 		} else {
-		    NET_GetMessage(host_client->netconnection);
+		    NET_GetMessage(client->netconnection);
 		}
 		count++;
 		continue;
 	    }
 
 	    if (!msg_sent[i]) {
-		if (NET_CanSendMessage(host_client->netconnection)) {
+		if (NET_CanSendMessage(client->netconnection)) {
 		    msg_sent[i] = true;
 		} else {
-		    NET_GetMessage(host_client->netconnection);
+		    NET_GetMessage(client->netconnection);
 		}
 		count++;
 		continue;
@@ -688,6 +687,7 @@ NET_SendToAll(sizebuf_t *data, double blocktime)
 	if ((Sys_DoubleTime() - start) > blocktime)
 	    break;
     }
+
     return count;
 }
 
