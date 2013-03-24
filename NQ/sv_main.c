@@ -994,62 +994,66 @@ void
 SV_SendClientMessages(void)
 {
     int i, err;
+    client_t *client;
 
-// update frags, names, etc
+    /* update frags, names, etc */
     SV_UpdateToReliableMessages();
 
-// build individual updates
-    for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	 i++, host_client++) {
-	if (!host_client->active)
+    /* build individual updates */
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++) {
+	if (!client->active)
 	    continue;
 
-	if (host_client->spawned) {
-	    if (!SV_SendClientDatagram(host_client))
+	if (client->spawned) {
+	    if (!SV_SendClientDatagram(client))
 		continue;
 	} else {
-	    // the player isn't totally in the game yet
-	    // send small keepalive messages if too much time has passed
-	    // send a full message when the next signon stage has been requested
-	    // some other message data (name changes, etc) may accumulate
-	    // between signon stages
-	    if (!host_client->sendsignon) {
-		if (realtime - host_client->last_message > 5)
-		    SV_SendNop(host_client);
-		continue;	// don't send out non-signon messages
+	    /*
+	     * The player isn't totally in the game yet.  Send small keepalive
+	     * messages if too much time has passed.  Send a full message when
+	     * the next signon stage has been requested.  Some other message
+	     * data (name changes, etc) may accumulate between signon stages.
+	     */
+	    if (!client->sendsignon) {
+		if (realtime - client->last_message > 5)
+		    SV_SendNop(client);
+		/* don't send out non-signon messages */
+		continue;
 	    }
 	}
 
-	// check for an overflowed message.  Should only happen
-	// on a very fucked up connection that backs up a lot, then
-	// changes level
-	if (host_client->message.overflowed) {
-	    SV_DropClient(host_client, true);
-	    host_client->message.overflowed = false;
+	/*
+	 * Check for an overflowed message.  Should only happen on a very
+	 * fucked up connection that backs up a lot, then changes level.
+	 */
+	if (client->message.overflowed) {
+	    SV_DropClient(client, true);
+	    client->message.overflowed = false;
 	    continue;
 	}
 
-	if (host_client->message.cursize || host_client->dropasap) {
-	    if (!NET_CanSendMessage(host_client->netconnection))
-		continue;
+	if (!client->message.cursize && !client->dropasap)
+	    continue;
+	if (!NET_CanSendMessage(client->netconnection))
+	    continue;
 
-	    if (host_client->dropasap) {
-		SV_DropClient(host_client, false);	// went to another level
-	    } else {
-		err = NET_SendMessage(host_client->netconnection,
-				      &host_client->message);
-		/* if the message couldn't send, kick the client off */
-		if (err == -1)
-		    SV_DropClient(host_client, true);
-
-		SZ_Clear(&host_client->message);
-		host_client->last_message = realtime;
-		host_client->sendsignon = false;
-	    }
+	if (client->dropasap) {
+	    /* went to another level */
+	    SV_DropClient(client, false);
+	    continue;
 	}
+
+	err = NET_SendMessage(client->netconnection, &client->message);
+	if (err == -1)
+	    SV_DropClient(client, true);
+
+	SZ_Clear(&client->message);
+	client->last_message = realtime;
+	client->sendsignon = false;
     }
 
-// clear muzzle flashes
+    /* clear muzzle flashes */
     SV_CleanupEnts();
 }
 
