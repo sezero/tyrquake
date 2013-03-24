@@ -1096,6 +1096,9 @@ CL_ParseServerMessage(void)
 	    player = cl.players + playernum;
 	    player->topcolor = (colors & 0xf0) >> 4;
 	    player->bottomcolor = colors & 0x0f;
+	    /* FIXME - is this the right check for current player? */
+	    if (playernum == cl.viewentity)
+		cl_color.value = colors;
 	    CL_NewTranslation(playernum);
 	    break;
 
