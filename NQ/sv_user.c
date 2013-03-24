@@ -655,6 +655,133 @@ SV_Ping_f(client_t *client)
     }
 }
 
+static qboolean
+SV_Give_Hipnotic(edict_t *player, char item, char extra)
+{
+    switch (item) {
+    case '0':
+	player->v.items = (int)player->v.items | HIT_MJOLNIR;
+	return true;
+    case '9':
+	player->v.items = (int)player->v.items | HIT_LASER_CANNON;
+	return true;
+    case '6':
+	if (extra == 'a') {
+	    player->v.items = (int)player->v.items | HIT_PROXIMITY_GUN;
+	    return true;
+	}
+    }
+    return false;
+}
+
+static qboolean
+SV_Give_Rogue(edict_t *player, char item, int amount)
+{
+    eval_t *ammofield;
+    const char *ammo;
+
+    switch (item) {
+    case 's': ammo = "ammo_shells1";       break;
+    case 'n': ammo = "ammo_nails1";        break;
+    case 'l': ammo = "ammo_lava_nails";    break;
+    case 'r': ammo = "ammo_rockets1";      break;
+    case 'm': ammo = "ammo_multi_rockets"; break;
+    case 'c': ammo = "ammo_cells1";        break;
+    case 'p': ammo = "ammo_plasma";        break;
+    default:
+	return false;
+    }
+
+    ammofield = GetEdictFieldValue(player, ammo);
+    if (ammofield) {
+	ammofield->_float = amount;
+	switch (item) {
+	case 'n':
+	    if (player->v.weapon <= IT_LIGHTNING)
+		player->v.ammo_nails = amount;
+	    break;
+	case 'l':
+	    if (player->v.weapon > IT_LIGHTNING)
+		player->v.ammo_nails = amount;
+	    break;
+	case 'r':
+	    if (player->v.weapon <= IT_LIGHTNING)
+		player->v.ammo_rockets = amount;
+	    break;
+	case 'm':
+	    if (player->v.weapon > IT_LIGHTNING)
+		player->v.ammo_rockets = amount;
+	    break;
+	case 'c':
+	    if (player->v.weapon <= IT_LIGHTNING)
+		player->v.ammo_cells = amount;
+	    break;
+	case 'p':
+	    if (player->v.weapon > IT_LIGHTNING)
+		player->v.ammo_cells = amount;
+	    break;
+	}
+	return true;
+    }
+    return false;
+}
+
+/*
+==================
+SV_Give_f
+==================
+*/
+static void
+SV_Give_f(client_t *client)
+{
+    edict_t *player;
+    char item, extra;
+    int amount;
+
+    if (pr_global_struct->deathmatch)
+	return;
+
+    item = Cmd_Argv(1)[0];
+    extra = item ? Cmd_Argv(1)[1] : 0;
+    amount = atoi(Cmd_Argv(2));
+    player = client->edict;
+
+    /* handle Hipnotic/Rogue specific extensions */
+    if (hipnotic && SV_Give_Hipnotic(player, item, extra))
+	return;
+    if (rogue && SV_Give_Rogue(player, item, amount))
+	return;
+
+    /* Standard id items */
+    switch (item) {
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+	player->v.items = (int)player->v.items | IT_SHOTGUN << (item - '2');
+	break;
+    case 's':
+	player->v.ammo_shells = amount;
+	break;
+    case 'n':
+	player->v.ammo_nails = amount;
+	break;
+    case 'r':
+	player->v.ammo_rockets = amount;
+	break;
+    case 'h':
+	player->v.health = amount;
+	break;
+    case 'c':
+	player->v.ammo_cells = amount;
+	break;
+    }
+}
+
 /* ------------------------------------------------------------------------ */
 
 typedef struct {
@@ -670,6 +797,7 @@ static client_command_t client_commands[] = {
     { "fly", SV_Fly_f },
     { "noclip", SV_Noclip_f },
     { "notarget", SV_Notarget_f },
+    { "give", SV_Give_f },
     { "ping", SV_Ping_f },
     { NULL, NULL },
 };
@@ -766,8 +894,6 @@ SV_ReadClientMessage(client_t *client)
 		else if (strncasecmp(message, "prespawn", 8) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "kick", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "give", 4) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "ban", 3) == 0)
 		    ret = 1;
