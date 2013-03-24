@@ -853,4 +853,5 @@ CL_Init(void)
     Cmd_AddCommand("fly", NULL);
     Cmd_AddCommand("noclip", NULL);
     Cmd_AddCommand("notarget", NULL);
+    Cmd_AddCommand("ping", NULL);
 }

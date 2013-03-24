@@ -629,6 +629,34 @@ SV_Notarget_f(client_t *client)
 	SV_ClientPrintf("notarget ON\n");
 }
 
+/*
+==================
+SV_Ping_f
+
+==================
+*/
+static void
+SV_Ping_f(client_t *client)
+{
+    int i, j;
+    float total;
+    client_t *other;
+
+    SV_ClientPrintf("Client ping times:\n");
+    other = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, other++) {
+	if (!other->active)
+	    continue;
+	total = 0;
+	for (j = 0; j < NUM_PING_TIMES; j++)
+	    total += other->ping_times[j];
+	total /= NUM_PING_TIMES;
+	SV_ClientPrintf("%4i %s\n", (int)(total * 1000), other->name);
+    }
+}
+
+/* ------------------------------------------------------------------------ */
+
 typedef struct {
     const char *name;
     void (*func)(client_t *client);
@@ -642,6 +670,7 @@ static client_command_t client_commands[] = {
     { "fly", SV_Fly_f },
     { "noclip", SV_Noclip_f },
     { "notarget", SV_Notarget_f },
+    { "ping", SV_Ping_f },
     { NULL, NULL },
 };
 
@@ -737,8 +766,6 @@ SV_ReadClientMessage(client_t *client)
 		else if (strncasecmp(message, "prespawn", 8) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "kick", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "ping", 4) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "give", 4) == 0)
 		    ret = 1;

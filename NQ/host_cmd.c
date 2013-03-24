@@ -56,35 +56,6 @@ Host_Quit_f(void)
     Sys_Quit();
 }
 
-/*
-==================
-Host_Ping_f
-
-==================
-*/
-static void
-Host_Ping_f(void)
-{
-    int i, j;
-    float total;
-    client_t *client;
-
-    if (cmd_source == src_command) {
-	Cmd_ForwardToServer();
-	return;
-    }
-
-    SV_ClientPrintf("Client ping times:\n");
-    for (i = 0, client = svs.clients; i < svs.maxclients; i++, client++) {
-	if (!client->active)
-	    continue;
-	total = 0;
-	for (j = 0; j < NUM_PING_TIMES; j++)
-	    total += client->ping_times[j];
-	total /= NUM_PING_TIMES;
-	SV_ClientPrintf("%4i %s\n", (int)(total * 1000), client->name);
-    }
-}
 
 /*
 ===============================================================================
@@ -1335,7 +1306,6 @@ Host_InitCommands(void)
     Cmd_AddCommand("begin", Host_Begin_f);
     Cmd_AddCommand("prespawn", Host_PreSpawn_f);
     Cmd_AddCommand("kick", Host_Kick_f);
-    Cmd_AddCommand("ping", Host_Ping_f);
     Cmd_AddCommand("load", Host_Loadgame_f);
     Cmd_AddCommand("save", Host_Savegame_f);
     Cmd_AddCommand("give", Host_Give_f);
