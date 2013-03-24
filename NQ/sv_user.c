@@ -1158,15 +1158,14 @@ static client_command_t client_commands[] = {
     { "kill", SV_Kill_f },
     { "pause", SV_Pause_f },
     { "kick", SV_Kick_f },
+    { "ban", NET_Ban_f },
     { "prespawn", SV_PreSpawn_f },
     { "spawn", SV_Spawn_f },
     { "begin", SV_Begin_f },
     { NULL, NULL },
 };
 
-/* FIXME - Won't need to return result after all commands have been
-   properly converted. Can enable error message then too. */
-static qboolean
+static void
 SV_ExecuteClientCommand(const char *command_string, client_t *client)
 {
     client_command_t *command;
@@ -1176,11 +1175,9 @@ SV_ExecuteClientCommand(const char *command_string, client_t *client)
     for (command = client_commands; command->name; command++) {
 	if (!strcmp(Cmd_Argv(0), command->name)) {
 	    command->func(client);
-	    return true;
+	    return;
 	}
     }
-    //Con_Printf("Bad client command: %s\n", Cmd_Argv(0));
-    return false;
 }
 
 /*
@@ -1195,7 +1192,6 @@ SV_ReadClientMessage(client_t *client)
 {
     const char *message;
     int ret, cmd;
-    qboolean found;
 
     do {
       nextmsg:
@@ -1234,16 +1230,7 @@ SV_ReadClientMessage(client_t *client)
 
 	    case clc_stringcmd:
 		message = MSG_ReadString();
-		found = SV_ExecuteClientCommand(message, client);
-		if (found)
-		    break;
-
-		if (!strncasecmp(message, "ban", 3)) {
-		    Cmd_ExecuteString(message, src_client);
-		} else {
-		    Con_DPrintf("%s tried to %s\n", client->name, message);
-		    ret = 0;
-		}
+		SV_ExecuteClientCommand(message, client);
 		break;
 
 	    case clc_disconnect:

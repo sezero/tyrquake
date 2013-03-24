@@ -71,36 +71,23 @@ StrAddr(netadr_t *addr)
 static netadr_t banAddr = { .ip.l = INADDR_ANY };
 static netadr_t banMask = { .ip.l = INADDR_NONE };
 
-static void
-NET_Ban_f(void)
+void
+NET_Ban_f(client_t *client)
 {
     char addrStr[32];
     char maskStr[32];
 
-    if (cmd_source == src_command) {
-	if (!sv.active) {
-	    Cmd_ForwardToServer();
-	    return;
-	}
-    } else {
-	if (pr_global_struct->deathmatch)
-	    return;
-    }
+    if (pr_global_struct->deathmatch)
+	return;
 
     switch (Cmd_Argc()) {
     case 1:
 	if (banAddr.ip.l != INADDR_ANY) {
 	    strcpy(addrStr, NET_AdrToString(&banAddr));
 	    strcpy(maskStr, NET_AdrToString(&banMask));
-	    if (cmd_source == src_command)
-		Con_Printf("Banning %s [%s]\n", addrStr, maskStr);
-	    else
-		SV_ClientPrintf(host_client, "Banning %s [%s]\n", addrStr, maskStr);
+	    SV_ClientPrintf(client, "Banning %s [%s]\n", addrStr, maskStr);
 	} else {
-	    if (cmd_source == src_command)
-		Con_Printf("Banning not active\n");
-	    else
-		SV_ClientPrintf(host_client, "Banning not active\n");
+	    SV_ClientPrintf(client, "Banning not active\n");
 	}
 	break;
 
@@ -118,10 +105,7 @@ NET_Ban_f(void)
 	break;
 
     default:
-	if (cmd_source == src_command)
-	    Con_Printf("BAN ip_address [mask]\n");
-	else
-	    SV_ClientPrintf(host_client, "BAN ip_address [mask]\n");
+	SV_ClientPrintf(client, "BAN ip_address [mask]\n");
 	break;
     }
 }
@@ -722,7 +706,7 @@ Datagram_Init(void)
     if (num_inited == 0)
 	return -1;
 
-    Cmd_AddCommand("ban", NET_Ban_f);
+    Cmd_AddCommand("ban", NULL);
     Cmd_AddCommand("test", Test_f);
     Cmd_AddCommand("test2", Test2_f);
 

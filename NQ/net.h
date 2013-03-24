@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define NET_H
 
 #include "common.h"
+#include "server.h"
 
 /* net.h -- quake's interface to the networking layer */
 
@@ -329,5 +330,6 @@ extern qboolean slistSilent;
 extern qboolean slistLocal;
 
 void NET_Slist_f(void);
+void NET_Ban_f(client_t *client);
 
 #endif /* NET_H */
