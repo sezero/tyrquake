@@ -726,7 +726,9 @@ SV_WriteClientdataToMessage(edict_t *player, sizebuf_t *msg)
 //
 // send the current viewpos offset from the view entity
 //
-    SV_SetIdealPitch();		// how much to look up / down ideally
+
+    /* how much to look up / down ideally */
+    SV_SetIdealPitch(player);
 
 // a fixangle might get lost in a dropped packet.  Oh well.
     if (player->v.fixangle) {

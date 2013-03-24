@@ -33,8 +33,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "view.h"
 #include "world.h"
 
-edict_t *sv_player;
-
 cvar_t sv_idealpitchscale = { "sv_idealpitchscale", "0.8" };
 cvar_t sv_edgefriction = { "edgefriction", "2" };
 
@@ -45,7 +43,7 @@ SV_SetIdealPitch
 */
 #define	MAX_FORWARD	6
 void
-SV_SetIdealPitch(void)
+SV_SetIdealPitch(edict_t *player)
 {
     float angleval, sinval, cosval;
     trace_t trace;
@@ -54,23 +52,23 @@ SV_SetIdealPitch(void)
     int i, j;
     int step, dir, steps;
 
-    if (!((int)sv_player->v.flags & FL_ONGROUND))
+    if (!((int)player->v.flags & FL_ONGROUND))
 	return;
 
-    angleval = sv_player->v.angles[YAW] * M_PI * 2 / 360;
+    angleval = player->v.angles[YAW] * M_PI * 2 / 360;
     sinval = sin(angleval);
     cosval = cos(angleval);
 
     for (i = 0; i < MAX_FORWARD; i++) {
-	top[0] = sv_player->v.origin[0] + cosval * (i + 3) * 12;
-	top[1] = sv_player->v.origin[1] + sinval * (i + 3) * 12;
-	top[2] = sv_player->v.origin[2] + sv_player->v.view_ofs[2];
+	top[0] = player->v.origin[0] + cosval * (i + 3) * 12;
+	top[1] = player->v.origin[1] + sinval * (i + 3) * 12;
+	top[2] = player->v.origin[2] + player->v.view_ofs[2];
 
 	bottom[0] = top[0];
 	bottom[1] = top[1];
 	bottom[2] = top[2] - 160;
 
-	SV_TraceLine(top, bottom, MOVE_NOMONSTERS, sv_player, &trace);
+	SV_TraceLine(top, bottom, MOVE_NOMONSTERS, player, &trace);
 	if (trace.allsolid)
 	    return;		// looking at a wall, leave ideal the way is was
 
@@ -95,13 +93,13 @@ SV_SetIdealPitch(void)
     }
 
     if (!dir) {
-	sv_player->v.idealpitch = 0;
+	player->v.idealpitch = 0;
 	return;
     }
 
     if (steps < 2)
 	return;
-    sv_player->v.idealpitch = -dir * sv_idealpitchscale.value;
+    player->v.idealpitch = -dir * sv_idealpitchscale.value;
 }
 
 
@@ -1263,9 +1261,6 @@ SV_RunClients(void)
     for (i = 0; i < svs.maxclients; i++, client++) {
 	if (!client->active)
 	    continue;
-
-	/* FIXME - remove sv_player later... */
-	sv_player = client->edict;
 
 	if (!SV_ReadClientMessage(client)) {
 	    /* client misbehaved... */

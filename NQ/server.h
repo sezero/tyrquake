@@ -198,8 +198,6 @@ extern server_t sv;		// local server
 
 extern double host_time;
 
-extern edict_t *sv_player;
-
 //===========================================================
 
 void SV_Init(void);
@@ -215,7 +213,7 @@ void SV_ClearDatagram(void);
 
 int SV_ModelIndex(const char *name);
 
-void SV_SetIdealPitch(void);
+void SV_SetIdealPitch(edict_t *player);
 
 void SV_AddUpdates(void);
 
