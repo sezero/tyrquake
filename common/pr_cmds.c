@@ -904,14 +904,11 @@ PF_stuffcmd(void)
 #endif
     str = G_STRING(OFS_PARM1);
 
+    client = &svs.clients[entnum - 1];
 #ifdef NQ_HACK
-    client = host_client;
-    host_client = &svs.clients[entnum - 1];
-    Host_ClientCommands("%s", str);
-    host_client = client;
+    Host_ClientCommands(client, "%s", str);
 #endif
 #ifdef QW_HACK
-    client = &svs.clients[entnum - 1];
     if (strcmp(str, "disconnect\n") == 0) {
 	// so long and thanks for all the fish
 	client->drop = true;

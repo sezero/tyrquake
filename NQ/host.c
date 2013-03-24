@@ -342,13 +342,13 @@ Send text over to the client to be executed
 =================
 */
 void
-Host_ClientCommands(const char *fmt, ...)
+Host_ClientCommands(client_t *client, const char *fmt, ...)
 {
     va_list argptr;
 
-    MSG_WriteByte(&host_client->message, svc_stufftext);
+    MSG_WriteByte(&client->message, svc_stufftext);
     va_start(argptr, fmt);
-    MSG_WriteStringvf(&host_client->message, fmt, argptr);
+    MSG_WriteStringvf(&client->message, fmt, argptr);
     va_end(argptr);
 }
 
