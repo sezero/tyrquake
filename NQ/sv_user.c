@@ -833,6 +833,149 @@ SV_Pause_f(client_t *client)
 
 /* ------------------------------------------------------------------------ */
 
+/*
+==================
+SV_PreSpawn_f
+==================
+*/
+static void
+SV_PreSpawn_f(client_t *client)
+{
+    if (client->spawned) {
+	SV_ClientPrintf("prespawn not valid -- already spawned\n");
+	return;
+    }
+    SZ_Write(&client->message, sv.signon.data, sv.signon.cursize);
+    MSG_WriteByte(&client->message, svc_signonnum);
+    MSG_WriteByte(&client->message, 2);
+    client->sendsignon = true;
+}
+
+/*
+==================
+SV_Spawn_f
+==================
+*/
+static void
+SV_Spawn_f(client_t *client)
+{
+    client_t *other;
+    edict_t *player;
+    int i;
+
+    if (client->spawned) {
+	SV_ClientPrintf("spawn not valid -- already spawned\n");
+	return;
+    }
+
+    if (sv.loadgame) {
+	/* Loaded games are fully inited, make sure to unpause */
+	sv.paused = false;
+    } else {
+	/* run the entrance script */
+	player = client->edict;
+
+	memset(&player->v, 0, progs->entityfields * 4);
+	player->v.colormap = NUM_FOR_EDICT(player);
+	player->v.team = (client->colors & 15) + 1;
+	player->v.netname = PR_SetString(client->name);
+
+	/* copy spawn parms out of the client */
+	for (i = 0; i < NUM_SPAWN_PARMS; i++)
+	    (&pr_global_struct->parm1)[i] = client->spawn_parms[i];
+
+	/* call the spawn function */
+	pr_global_struct->time = sv.time;
+	pr_global_struct->self = EDICT_TO_PROG(player);
+	PR_ExecuteProgram(pr_global_struct->ClientConnect);
+
+	if ((Sys_DoubleTime() - client->netconnection->connecttime) <= sv.time)
+	    Sys_Printf("%s entered the game\n", client->name);
+
+	PR_ExecuteProgram(pr_global_struct->PutClientInServer);
+    }
+
+    /* send all current names, colors, and frag counts */
+    SZ_Clear(&client->message);
+
+    /* send time of update */
+    MSG_WriteByte(&client->message, svc_time);
+    MSG_WriteFloat(&client->message, sv.time);
+
+    other = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, other++) {
+	MSG_WriteByte(&client->message, svc_updatename);
+	MSG_WriteByte(&client->message, i);
+	MSG_WriteString(&client->message, other->name);
+	MSG_WriteByte(&client->message, svc_updatefrags);
+	MSG_WriteByte(&client->message, i);
+	MSG_WriteShort(&client->message, other->old_frags);
+	MSG_WriteByte(&client->message, svc_updatecolors);
+	MSG_WriteByte(&client->message, i);
+	MSG_WriteByte(&client->message, other->colors);
+    }
+
+    /* send all current light styles */
+    for (i = 0; i < MAX_LIGHTSTYLES; i++) {
+	MSG_WriteByte(&client->message, svc_lightstyle);
+	MSG_WriteByte(&client->message, (char)i);
+	MSG_WriteString(&client->message, sv.lightstyles[i]);
+    }
+
+    /* send some stats */
+    MSG_WriteByte(&client->message, svc_updatestat);
+    MSG_WriteByte(&client->message, STAT_TOTALSECRETS);
+    MSG_WriteLong(&client->message, pr_global_struct->total_secrets);
+
+    MSG_WriteByte(&client->message, svc_updatestat);
+    MSG_WriteByte(&client->message, STAT_TOTALMONSTERS);
+    MSG_WriteLong(&client->message, pr_global_struct->total_monsters);
+
+    MSG_WriteByte(&client->message, svc_updatestat);
+    MSG_WriteByte(&client->message, STAT_SECRETS);
+    MSG_WriteLong(&client->message, pr_global_struct->found_secrets);
+
+    MSG_WriteByte(&client->message, svc_updatestat);
+    MSG_WriteByte(&client->message, STAT_MONSTERS);
+    MSG_WriteLong(&client->message, pr_global_struct->killed_monsters);
+
+    /*
+     * Send a fixangle - never send a roll angle, because savegames
+     * can catch the server in a state where it is expecting the
+     * client to correct the angle and it won't happen if the game was
+     * just loaded, so you wind up with a permanent head tilt
+     */
+    player = EDICT_NUM(1 + (client - svs.clients));
+    MSG_WriteByte(&client->message, svc_setangle);
+    for (i = 0; i < 2; i++)
+	MSG_WriteAngle(&client->message, player->v.angles[i]);
+    MSG_WriteAngle(&client->message, 0);
+
+    SV_WriteClientdataToMessage(sv_player, &client->message);
+
+    MSG_WriteByte(&client->message, svc_signonnum);
+    MSG_WriteByte(&client->message, 3);
+    client->sendsignon = true;
+}
+
+/*
+==================
+SV_Begin_f
+==================
+*/
+static void
+SV_Begin_f(client_t *client)
+{
+    client->spawned = true;
+}
+
+//===========================================================================
+
+
+
+
+/* ------------------------------------------------------------------------ */
+
 typedef struct {
     const char *name;
     void (*func)(client_t *client);
@@ -850,6 +993,9 @@ static client_command_t client_commands[] = {
     { "ping", SV_Ping_f },
     { "kill", SV_Kill_f },
     { "pause", SV_Pause_f },
+    { "prespawn", SV_PreSpawn_f },
+    { "spawn", SV_Spawn_f },
+    { "begin", SV_Begin_f },
     { NULL, NULL },
 };
 
@@ -933,12 +1079,6 @@ SV_ReadClientMessage(client_t *client)
 		else if (strncasecmp(message, "say_team", 8) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "tell", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "spawn", 5) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "begin", 5) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "prespawn", 8) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "kick", 4) == 0)
 		    ret = 1;
