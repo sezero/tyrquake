@@ -949,7 +949,7 @@ SV_Spawn_f(client_t *client)
 	MSG_WriteAngle(&client->message, player->v.angles[i]);
     MSG_WriteAngle(&client->message, 0);
 
-    SV_WriteClientdataToMessage(sv_player, &client->message);
+    SV_WriteClientdataToMessage(player, &client->message);
 
     MSG_WriteByte(&client->message, svc_signonnum);
     MSG_WriteByte(&client->message, 3);
