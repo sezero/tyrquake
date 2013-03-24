@@ -855,4 +855,6 @@ CL_Init(void)
     Cmd_AddCommand("notarget", NULL);
     Cmd_AddCommand("ping", NULL);
     Cmd_AddCommand("give", NULL);
+    Cmd_AddCommand("kill", NULL);
+    Cmd_AddCommand("pause", NULL);
 }

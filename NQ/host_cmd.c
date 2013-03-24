@@ -625,63 +625,6 @@ Host_Tell_f(void)
     host_client = save;
 }
 
-
-/*
-==================
-Host_Kill_f
-==================
-*/
-static void
-Host_Kill_f(void)
-{
-    if (cmd_source == src_command) {
-	Cmd_ForwardToServer();
-	return;
-    }
-
-    if (sv_player->v.health <= 0) {
-	SV_ClientPrintf("Can't suicide -- allready dead!\n");
-	return;
-    }
-
-    pr_global_struct->time = sv.time;
-    pr_global_struct->self = EDICT_TO_PROG(sv_player);
-    PR_ExecuteProgram(pr_global_struct->ClientKill);
-}
-
-
-/*
-==================
-Host_Pause_f
-==================
-*/
-static void
-Host_Pause_f(void)
-{
-
-    if (cmd_source == src_command) {
-	Cmd_ForwardToServer();
-	return;
-    }
-    if (!pausable.value)
-	SV_ClientPrintf("Pause not allowed.\n");
-    else {
-	sv.paused ^= 1;
-
-	if (sv.paused) {
-	    SV_BroadcastPrintf("%s paused the game\n",
-			       PR_GetString(sv_player->v.netname));
-	} else {
-	    SV_BroadcastPrintf("%s unpaused the game\n",
-			       PR_GetString(sv_player->v.netname));
-	}
-
-	// send notification to all clients
-	MSG_WriteByte(&sv.reliable_datagram, svc_setpause);
-	MSG_WriteByte(&sv.reliable_datagram, sv.paused);
-    }
-}
-
 //===========================================================================
 
 
@@ -1161,8 +1104,6 @@ Host_InitCommands(void)
     Cmd_AddCommand("say", Host_Say_f);
     Cmd_AddCommand("say_team", Host_Say_Team_f);
     Cmd_AddCommand("tell", Host_Tell_f);
-    Cmd_AddCommand("kill", Host_Kill_f);
-    Cmd_AddCommand("pause", Host_Pause_f);
     Cmd_AddCommand("spawn", Host_Spawn_f);
     Cmd_AddCommand("begin", Host_Begin_f);
     Cmd_AddCommand("prespawn", Host_PreSpawn_f);

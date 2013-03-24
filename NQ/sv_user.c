@@ -782,6 +782,55 @@ SV_Give_f(client_t *client)
     }
 }
 
+/*
+==================
+SV_Kill_f
+==================
+*/
+static void
+SV_Kill_f(client_t *client)
+{
+    edict_t *player = client->edict;
+
+    if (player->v.health <= 0) {
+	SV_ClientPrintf("Can't suicide -- allready dead!\n");
+	return;
+    }
+
+    pr_global_struct->time = sv.time;
+    pr_global_struct->self = EDICT_TO_PROG(player);
+    PR_ExecuteProgram(pr_global_struct->ClientKill);
+}
+
+/*
+==================
+Host_Pause_f
+==================
+*/
+static void
+SV_Pause_f(client_t *client)
+{
+    edict_t *player;
+
+    if (!pausable.value) {
+	SV_ClientPrintf("Pause not allowed.\n");
+	return;
+    }
+
+    player = client->edict;
+    sv.paused ^= 1;
+    if (sv.paused)
+	SV_BroadcastPrintf("%s paused the game\n",
+			   PR_GetString(player->v.netname));
+    else
+	SV_BroadcastPrintf("%s unpaused the game\n",
+			   PR_GetString(player->v.netname));
+
+    // send notification to all clients
+    MSG_WriteByte(&sv.reliable_datagram, svc_setpause);
+    MSG_WriteByte(&sv.reliable_datagram, sv.paused);
+}
+
 /* ------------------------------------------------------------------------ */
 
 typedef struct {
@@ -799,6 +848,8 @@ static client_command_t client_commands[] = {
     { "notarget", SV_Notarget_f },
     { "give", SV_Give_f },
     { "ping", SV_Ping_f },
+    { "kill", SV_Kill_f },
+    { "pause", SV_Pause_f },
     { NULL, NULL },
 };
 
@@ -882,10 +933,6 @@ SV_ReadClientMessage(client_t *client)
 		else if (strncasecmp(message, "say_team", 8) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "tell", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "kill", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "pause", 5) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "spawn", 5) == 0)
 		    ret = 1;
