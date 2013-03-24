@@ -949,11 +949,14 @@ CL_ParseServerMessage
 void
 CL_ParseServerMessage(void)
 {
-    int cmd, prevcmd;
-    char *s;
-    int i;
     unsigned int bits;
+    int i, cmd, prevcmd;
+    int playernum, version, stylenum, signon, statnum;
+    int stopsound, entitynum, channel;
     byte colors;
+    player_info_t *player;
+    lightstyle_t *style;
+    const char *stylemap, *name;
 
 //
 // if recording demos, copy the message out
@@ -1004,11 +1007,11 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_version:
-	    i = MSG_ReadLong();
-	    if (!Protocol_Known(i))
+	    version = MSG_ReadLong();
+	    if (!Protocol_Known(version))
 		Host_Error("%s: Server returned unknown protocol version %i",
-			   __func__, i);
-	    cl.protocol = i;
+			   __func__, version);
+	    cl.protocol = version;
 	    break;
 
 	case svc_disconnect:
@@ -1045,12 +1048,13 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_lightstyle:
-	    i = MSG_ReadByte();
-	    if (i >= MAX_LIGHTSTYLES)
+	    stylenum = MSG_ReadByte();
+	    if (stylenum >= MAX_LIGHTSTYLES)
 		Sys_Error("svc_lightstyle > MAX_LIGHTSTYLES");
-	    s = MSG_ReadString();
-	    snprintf(cl_lightstyle[i].map, MAX_STYLESTRING, "%s", s);
-	    cl_lightstyle[i].length = strlen(cl_lightstyle[i].map);
+	    stylemap = MSG_ReadString();
+	    style = cl_lightstyle + stylenum;
+	    snprintf(style->map, MAX_STYLESTRING, "%s", stylemap);
+	    style->length = strlen(style->map);
 	    break;
 
 	case svc_sound:
@@ -1058,36 +1062,41 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_stopsound:
-	    i = MSG_ReadShort();
-	    S_StopSound(i >> 3, i & 7);
+	    stopsound = MSG_ReadShort(); /* 3-bit channel encoded in lsb */
+	    entitynum = stopsound >> 3;
+	    channel = stopsound & 7;
+	    S_StopSound(entitynum, channel);
 	    break;
 
 	case svc_updatename:
 	    Sbar_Changed();
-	    i = MSG_ReadByte();
-	    if (i >= cl.maxclients)
+	    playernum = MSG_ReadByte();
+	    if (playernum >= cl.maxclients)
 		Host_Error("%s: svc_updatename > MAX_SCOREBOARD", __func__);
-	    s = MSG_ReadString();
-	    snprintf(cl.players[i].name, MAX_SCOREBOARDNAME, "%s", s);
+	    name = MSG_ReadString();
+	    player = cl.players + playernum;
+	    snprintf(player->name, MAX_SCOREBOARDNAME, "%s", name);
 	    break;
 
 	case svc_updatefrags:
 	    Sbar_Changed();
-	    i = MSG_ReadByte();
-	    if (i >= cl.maxclients)
+	    playernum = MSG_ReadByte();
+	    if (playernum >= cl.maxclients)
 		Host_Error("%s: svc_updatefrags > MAX_SCOREBOARD", __func__);
-	    cl.players[i].frags = MSG_ReadShort();
+	    player = cl.players + playernum;
+	    player->frags = MSG_ReadShort();
 	    break;
 
 	case svc_updatecolors:
 	    Sbar_Changed();
-	    i = MSG_ReadByte();
-	    if (i >= cl.maxclients)
+	    playernum = MSG_ReadByte();
+	    if (playernum >= cl.maxclients)
 		Host_Error("%s: svc_updatecolors > MAX_SCOREBOARD", __func__);
 	    colors = MSG_ReadByte();
-	    cl.players[i].topcolor = (colors & 0xf0) >> 4;
-	    cl.players[i].bottomcolor = colors & 0x0f;
-	    CL_NewTranslation(i);
+	    player = cl.players + playernum;
+	    player->topcolor = (colors & 0xf0) >> 4;
+	    player->bottomcolor = colors & 0x0f;
+	    CL_NewTranslation(playernum);
 	    break;
 
 	case svc_particle:
@@ -1095,17 +1104,17 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_spawnbaseline:
-	    i = MSG_ReadShort();
+	    entitynum = MSG_ReadShort();
 	    // must use CL_EntityNum() to force cl.num_entities up
-	    CL_ParseBaseline(CL_EntityNum(i), 0);
+	    CL_ParseBaseline(CL_EntityNum(entitynum), 0);
 	    break;
 
 	case svc_fitz_spawnbaseline2:
 	    /* FIXME - check here that protocol is FITZ? => Host_Error() */
-	    i = MSG_ReadShort();
+	    entitynum = MSG_ReadShort();
 	    bits = MSG_ReadByte();
 	    // must use CL_EntityNum() to force cl.num_entities up
-	    CL_ParseBaseline(CL_EntityNum(i), bits);
+	    CL_ParseBaseline(CL_EntityNum(entitynum), bits);
 	    break;
 
 	case svc_spawnstatic:
@@ -1131,10 +1140,10 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_signonnum:
-	    i = MSG_ReadByte();
-	    if (i <= cls.signon)
-		Host_Error("Received signon %i when at %i", i, cls.signon);
-	    cls.signon = i;
+	    signon = MSG_ReadByte();
+	    if (signon <= cls.signon)
+		Host_Error("Received signon %d when at %d", signon, cls.signon);
+	    cls.signon = signon;
 	    CL_SignonReply();
 	    break;
 
@@ -1147,10 +1156,10 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_updatestat:
-	    i = MSG_ReadByte();
-	    if (i < 0 || i >= MAX_CL_STATS)
-		Sys_Error("svc_updatestat: %i is invalid", i);
-	    cl.stats[i] = MSG_ReadLong();
+	    statnum = MSG_ReadByte();
+	    if (statnum < 0 || statnum >= MAX_CL_STATS)
+		Sys_Error("svc_updatestat: %d is invalid", statnum);
+	    cl.stats[statnum] = MSG_ReadLong();
 	    break;
 
 	case svc_spawnstaticsound:
