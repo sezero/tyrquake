@@ -451,6 +451,46 @@ SV_Name_f(client_t *client)
 
 /*
 ==================
+SV_Color_f
+==================
+*/
+static void
+SV_Color_f(client_t *client)
+{
+    int top, bottom;
+
+    if (Cmd_Argc() == 1) {
+	top = client->colors >> 4;
+	bottom = client->colors & 15;
+	SV_ClientPrintf("\"color\" is \"%d %d\"\n"
+			"color <0-13> [0-13]\n", top, bottom);
+	return;
+    }
+
+    if (Cmd_Argc() == 2)
+	top = bottom = atoi(Cmd_Argv(1));
+    else {
+	top = atoi(Cmd_Argv(1));
+	bottom = atoi(Cmd_Argv(2));
+    }
+    top &= 15;
+    if (top > 13)
+	top = 13;
+    bottom &= 15;
+    if (bottom > 13)
+	bottom = 13;
+
+    client->colors = top * 16 + bottom;
+    client->edict->v.team = bottom + 1;
+
+    /* send notification to all clients */
+    MSG_WriteByte(&sv.reliable_datagram, svc_updatecolors);
+    MSG_WriteByte(&sv.reliable_datagram, client - svs.clients);
+    MSG_WriteByte(&sv.reliable_datagram, client->colors);
+}
+
+/*
+==================
 SV_Status_f
 ==================
 */
@@ -596,6 +636,7 @@ typedef struct {
 
 static client_command_t client_commands[] = {
     { "name", SV_Name_f },
+    { "color", SV_Color_f },
     { "status", SV_Status_f },
     { "god", SV_God_f },
     { "fly", SV_Fly_f },
@@ -684,8 +725,6 @@ SV_ReadClientMessage(client_t *client)
 		else if (strncasecmp(message, "say_team", 8) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "tell", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "color", 5) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "kill", 4) == 0)
 		    ret = 1;

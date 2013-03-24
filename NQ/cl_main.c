@@ -337,6 +337,40 @@ CL_Name_f(void)
 }
 
 /*
+==================
+CL_Color_f
+==================
+*/
+static void
+CL_Color_f(void)
+{
+    int top, bottom;
+
+    if (Cmd_Argc() == 1) {
+	top = (int)cl_color.value >> 4;
+	bottom = (int)cl_color.value & 15;
+	Con_Printf("\"color\" is \"%i %i\"\n"
+		   "color <0-13> [0-13]\n", top, bottom);
+	return;
+    }
+
+    if (Cmd_Argc() == 2)
+	top = bottom = atoi(Cmd_Argv(1)) & 15;
+    else {
+	top = atoi(Cmd_Argv(1)) & 15;
+	bottom = atoi(Cmd_Argv(2)) & 15;
+    }
+    if (top > 13)
+	top = 13;
+    if (bottom > 13)
+	bottom = 13;
+
+    Cvar_SetValue("_cl_color", top * 16 + bottom);
+    if (cls.state >= ca_connected)
+	Cmd_ForwardToServer();
+}
+
+/*
 ===============
 SetPal
 
@@ -813,6 +847,7 @@ CL_Init(void)
     Cmd_AddCommand("mcache", Mod_Print);
 
     Cmd_AddCommand("name", CL_Name_f);
+    Cmd_AddCommand("color", CL_Color_f);
     Cmd_AddCommand("status", NULL);
     Cmd_AddCommand("god", NULL);
     Cmd_AddCommand("fly", NULL);
