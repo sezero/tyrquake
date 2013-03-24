@@ -760,7 +760,7 @@ Cmd_ExecuteString(const char *text)
     if (cmd) {
 	if (cmd->function)
 	    cmd->function();
-#if defined(QW_HACK) && !defined(SERVERONLY)
+#ifndef SERVERONLY
 	else
 	    Cmd_ForwardToServer();
 #endif

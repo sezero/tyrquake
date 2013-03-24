@@ -449,6 +449,48 @@ SV_Name_f(client_t *client)
     MSG_WriteString(&sv.reliable_datagram, client->name);
 }
 
+/*
+==================
+SV_Status_f
+==================
+*/
+static void
+SV_Status_f(client_t *client)
+{
+    client_t *other;
+    int seconds;
+    int minutes;
+    int hours = 0;
+    int i;
+
+    /* FIXME - pass into client printf */
+    host_client = client;
+
+    SV_ClientPrintf("host:    %s\n", Cvar_VariableString("hostname"));
+    SV_ClientPrintf("version: TyrQuake-%s\n", stringify(TYR_VERSION));
+    if (tcpipAvailable)
+	SV_ClientPrintf("tcp/ip:  %s\n", my_tcpip_address);
+    SV_ClientPrintf("map:     %s\n", sv.name);
+    SV_ClientPrintf("players: %i active (%i max)\n\n", net_activeconnections,
+		    svs.maxclients);
+
+    other = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, other++) {
+	if (!other->active)
+	    continue;
+
+	seconds = (int)(net_time - other->netconnection->connecttime);
+	minutes = seconds / 60;
+	seconds -= (minutes * 60);
+	hours = minutes / 60;
+	minutes -= (hours * 60);
+	SV_ClientPrintf("#%-2u %-16.16s  %3i  %2i:%02i:%02i\n",
+			i + 1, client->name, (int)client->edict->v.frags,
+			hours, minutes, seconds);
+	SV_ClientPrintf("   %s\n", client->netconnection->address);
+    }
+}
+
 typedef struct {
     const char *name;
     void (*func)(client_t *client);
@@ -456,6 +498,7 @@ typedef struct {
 
 static client_command_t client_commands[] = {
     { "name", SV_Name_f },
+    { "status", SV_Status_f },
     { NULL, NULL },
 };
 
@@ -534,9 +577,7 @@ SV_ReadClientMessage(client_t *client)
 		    break;
 
 		ret = 0;
-		if (strncasecmp(message, "status", 6) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "god", 3) == 0)
+		if (strncasecmp(message, "god", 3) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "notarget", 8) == 0)
 		    ret = 1;

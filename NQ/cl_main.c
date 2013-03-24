@@ -809,6 +809,7 @@ CL_Init(void)
     Cmd_AddCommand("record", CL_Record_f);
     Cmd_AddCommand("stop", CL_Stop_f);
     Cmd_AddCommand("name", CL_Name_f);
+    Cmd_AddCommand("status", NULL);
     Cmd_AddCommand("playdemo", CL_PlayDemo_f);
     Cmd_SetCompletion("playdemo", CL_Demo_Arg_f);
     Cmd_AddCommand("timedemo", CL_TimeDemo_f);
