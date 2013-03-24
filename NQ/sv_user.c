@@ -1259,11 +1259,8 @@ SV_RunClients(void)
     client_t *client;
     int i;
 
-    for (i = 0, client = svs.clients; i < svs.maxclients; i++, client++) {
-
-	/* FIXME - remove host_client later */
-	host_client = client;
-
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++) {
 	if (!client->active)
 	    continue;
 

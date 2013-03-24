@@ -1208,19 +1208,18 @@ void
 SV_SaveSpawnparms(void)
 {
     int i, j;
+    client_t *client;
 
     svs.serverflags = pr_global_struct->serverflags;
-
-    for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	 i++, host_client++) {
-	if (!host_client->active)
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++) {
+	if (!client->active)
 	    continue;
-
-	// call the progs to get default spawn parms for the new client
-	pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+	/* call the progs to get default spawn parms for the new client */
+	pr_global_struct->self = EDICT_TO_PROG(client->edict);
 	PR_ExecuteProgram(pr_global_struct->SetChangeParms);
 	for (j = 0; j < NUM_SPAWN_PARMS; j++)
-	    host_client->spawn_parms[j] = (&pr_global_struct->parm1)[j];
+	    client->spawn_parms[j] = (&pr_global_struct->parm1)[j];
     }
 }
 
@@ -1235,6 +1234,7 @@ This is called at the start of each level
 void
 SV_SpawnServer(char *server)
 {
+    client_t *client;
     edict_t *ent;
     int i;
 
@@ -1369,10 +1369,10 @@ SV_SpawnServer(char *server)
     SV_CreateBaseline();
 
 // send serverinfo to all connected clients
-    for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	 i++, host_client++)
-	if (host_client->active)
-	    SV_SendServerinfo(host_client);
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++)
+	if (client->active)
+	    SV_SendServerinfo(client);
 
     Con_DPrintf("Server spawned.\n");
 }

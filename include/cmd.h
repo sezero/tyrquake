@@ -90,8 +90,7 @@ typedef struct stree_root *(*cmd_arg_f)(const char *);
  * source is not apropriate.
  */
 typedef enum {
-    src_client,		/* came in over a net connection as a clc_stringcmd
-			   host_client will be valid during this state. */
+    src_client,		/* came in over a net connection as a clc_stringcmd */
     src_command		/* from the command buffer */
 } cmd_source_t;
 

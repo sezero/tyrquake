@@ -70,8 +70,6 @@ int host_hunklevel;
 
 int minimum_memory;
 
-client_t *host_client;		// current client
-
 int fps_count;
 
 static jmp_buf host_abort;
