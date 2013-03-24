@@ -163,7 +163,7 @@ Loop_GetMessage(qsocket_t *sock)
 
 
 int
-Loop_SendMessage(qsocket_t *sock, sizebuf_t *data)
+Loop_SendMessage(qsocket_t *sock, const sizebuf_t *data)
 {
     byte *buffer;
     int *bufferLength;
@@ -198,7 +198,7 @@ Loop_SendMessage(qsocket_t *sock, sizebuf_t *data)
 
 
 int
-Loop_SendUnreliableMessage(qsocket_t *sock, sizebuf_t *data)
+Loop_SendUnreliableMessage(qsocket_t *sock, const sizebuf_t *data)
 {
     byte *buffer;
     int *bufferLength;

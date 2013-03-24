@@ -141,7 +141,7 @@ SendPacket(qsocket_t *sock)
 }
 
 int
-Datagram_SendMessage(qsocket_t *sock, sizebuf_t *data)
+Datagram_SendMessage(qsocket_t *sock, const sizebuf_t *data)
 {
 #ifdef DEBUG
     if (data->cursize == 0)
@@ -196,7 +196,7 @@ Datagram_CanSendUnreliableMessage(qsocket_t *sock)
 
 
 int
-Datagram_SendUnreliableMessage(qsocket_t *sock, sizebuf_t *data)
+Datagram_SendUnreliableMessage(qsocket_t *sock, const sizebuf_t *data)
 {
     int packetLen;
 

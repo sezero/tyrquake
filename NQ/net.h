@@ -195,8 +195,8 @@ typedef struct net_driver_s {
     qsocket_t *(*Connect)(const char *host);
     qsocket_t *(*CheckNewConnections)(void);
     int (*QGetMessage)(qsocket_t *sock);
-    int (*QSendMessage)(qsocket_t *sock, sizebuf_t *data);
-    int (*SendUnreliableMessage)(qsocket_t *sock, sizebuf_t *data);
+    int (*QSendMessage)(qsocket_t *sock, const sizebuf_t *data);
+    int (*SendUnreliableMessage)(qsocket_t *sock, const sizebuf_t *data);
     qboolean (*CanSendMessage)(qsocket_t *sock);
     qboolean (*CanSendUnreliableMessage)(qsocket_t *sock);
     void (*Close)(qsocket_t *sock);
@@ -292,13 +292,13 @@ int NET_GetMessage(struct qsocket_s *sock);
  * returns  1 if the message was sent properly
  * returns -1 if the connection died
  */
-int NET_SendMessage(struct qsocket_s *sock, sizebuf_t *data);
-int NET_SendUnreliableMessage(struct qsocket_s *sock, sizebuf_t *data);
+int NET_SendMessage(struct qsocket_s *sock, const sizebuf_t *data);
+int NET_SendUnreliableMessage(struct qsocket_s *sock, const sizebuf_t *data);
 
 /*
  * This is a reliable *blocking* send to all attached clients.
  */
-int NET_SendToAll(sizebuf_t *data, double blocktime);
+int NET_SendToAll(const sizebuf_t *data, double blocktime);
 
 /*
  * if a dead connection is returned by a get or send function, this function

@@ -559,7 +559,7 @@ NET_GetMessage(qsocket_t *sock)
  * ==================
  */
 int
-NET_SendMessage(qsocket_t *sock, sizebuf_t *data)
+NET_SendMessage(qsocket_t *sock, const sizebuf_t *data)
 {
     int r;
 
@@ -581,7 +581,7 @@ NET_SendMessage(qsocket_t *sock, sizebuf_t *data)
 
 
 int
-NET_SendUnreliableMessage(qsocket_t *sock, sizebuf_t *data)
+NET_SendUnreliableMessage(qsocket_t *sock, const sizebuf_t *data)
 {
     int r;
 
@@ -630,7 +630,7 @@ NET_CanSendMessage(qsocket_t *sock)
 
 
 int
-NET_SendToAll(sizebuf_t *data, double blocktime)
+NET_SendToAll(const sizebuf_t *data, double blocktime)
 {
     client_t *client;
     double start;
