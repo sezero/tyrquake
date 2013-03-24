@@ -802,18 +802,20 @@ CL_Init(void)
     Cvar_RegisterVariable(&m_forward);
     Cvar_RegisterVariable(&m_side);
 
-//      Cvar_RegisterVariable (&cl_autofire);
-
     Cmd_AddCommand("entities", CL_PrintEntities_f);
     Cmd_AddCommand("disconnect", CL_Disconnect_f);
     Cmd_AddCommand("record", CL_Record_f);
     Cmd_AddCommand("stop", CL_Stop_f);
-    Cmd_AddCommand("name", CL_Name_f);
-    Cmd_AddCommand("status", NULL);
     Cmd_AddCommand("playdemo", CL_PlayDemo_f);
     Cmd_SetCompletion("playdemo", CL_Demo_Arg_f);
     Cmd_AddCommand("timedemo", CL_TimeDemo_f);
     Cmd_SetCompletion("timedemo", CL_Demo_Arg_f);
-
     Cmd_AddCommand("mcache", Mod_Print);
+
+    Cmd_AddCommand("name", CL_Name_f);
+    Cmd_AddCommand("status", NULL);
+    Cmd_AddCommand("god", NULL);
+    Cmd_AddCommand("fly", NULL);
+    Cmd_AddCommand("noclip", NULL);
+    Cmd_AddCommand("notarget", NULL);
 }

@@ -491,6 +491,104 @@ SV_Status_f(client_t *client)
     }
 }
 
+/*
+==================
+SV_God_f
+
+Sets client to godmode
+==================
+*/
+static void
+SV_God_f(client_t *client)
+{
+    edict_t *player;
+
+    if (pr_global_struct->deathmatch)
+	return;
+
+    player = client->edict;
+    player->v.flags = (int)player->v.flags ^ FL_GODMODE;
+    if (!((int)player->v.flags & FL_GODMODE))
+	SV_ClientPrintf("godmode OFF\n");
+    else
+	SV_ClientPrintf("godmode ON\n");
+}
+
+/*
+==================
+SV_Fly_f
+
+Sets client to flymode
+==================
+*/
+static void
+SV_Fly_f(client_t *client)
+{
+    edict_t *player;
+
+    if (pr_global_struct->deathmatch)
+	return;
+
+    player = client->edict;
+    if (player->v.movetype != MOVETYPE_FLY) {
+	player->v.movetype = MOVETYPE_FLY;
+	SV_ClientPrintf("flymode ON\n");
+    } else {
+	player->v.movetype = MOVETYPE_WALK;
+	SV_ClientPrintf("flymode OFF\n");
+    }
+}
+
+/*
+==================
+SV_Noclip_f
+
+Sets client to noclip mode
+==================
+*/
+static void
+SV_Noclip_f(client_t *client)
+{
+    edict_t *player;
+
+    if (pr_global_struct->deathmatch)
+	return;
+
+    player = client->edict;
+    if (player->v.movetype != MOVETYPE_NOCLIP) {
+	noclip_anglehack = true;
+	player->v.movetype = MOVETYPE_NOCLIP;
+	SV_ClientPrintf("noclip ON\n");
+    } else {
+	noclip_anglehack = false;
+	player->v.movetype = MOVETYPE_WALK;
+	SV_ClientPrintf("noclip OFF\n");
+    }
+}
+
+/*
+==================
+SV_Notarget_f
+
+Sets client to notarget mode
+==================
+*/
+static void
+SV_Notarget_f(client_t *client)
+{
+    edict_t *player;
+
+    if (pr_global_struct->deathmatch)
+	return;
+
+    player = client->edict;
+    player->v.flags = (int)player->v.flags ^ FL_NOTARGET;
+    if (!((int)player->v.flags & FL_NOTARGET))
+	SV_ClientPrintf("notarget OFF\n");
+    else
+	SV_ClientPrintf("notarget ON\n");
+}
+
 typedef struct {
     const char *name;
     void (*func)(client_t *client);
@@ -499,6 +597,10 @@ typedef struct {
 static client_command_t client_commands[] = {
     { "name", SV_Name_f },
     { "status", SV_Status_f },
+    { "god", SV_God_f },
+    { "fly", SV_Fly_f },
+    { "noclip", SV_Noclip_f },
+    { "notarget", SV_Notarget_f },
     { NULL, NULL },
 };
 
@@ -577,17 +679,7 @@ SV_ReadClientMessage(client_t *client)
 		    break;
 
 		ret = 0;
-		if (strncasecmp(message, "god", 3) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "notarget", 8) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "fly", 3) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "name", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "noclip", 6) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "say", 3) == 0)
+		if (strncasecmp(message, "say", 3) == 0)
 		    ret = 1;
 		else if (strncasecmp(message, "say_team", 8) == 0)
 		    ret = 1;
