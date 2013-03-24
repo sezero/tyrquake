@@ -361,54 +361,54 @@ if (crash = true), don't bother sending signofs
 =====================
 */
 void
-SV_DropClient(qboolean crash)
+SV_DropClient(client_t *client, qboolean crash)
 {
-    int saveSelf;
     int i;
-    client_t *client;
+    client_t *notify;
 
     if (!crash) {
-	// send any final messages (don't check for errors)
-	if (NET_CanSendMessage(host_client->netconnection)) {
-	    MSG_WriteByte(&host_client->message, svc_disconnect);
-	    NET_SendMessage(host_client->netconnection,
-			    &host_client->message);
+	/* send any final messages (don't check for errors) */
+	if (NET_CanSendMessage(client->netconnection)) {
+	    MSG_WriteByte(&client->message, svc_disconnect);
+	    NET_SendMessage(client->netconnection, &client->message);
 	}
-
-	if (host_client->edict && host_client->spawned) {
-	    // call the prog function for removing a client
-	    // this will set the body to a dead frame, among other things
-	    saveSelf = pr_global_struct->self;
-	    pr_global_struct->self = EDICT_TO_PROG(host_client->edict);
+	if (client->edict && client->spawned) {
+	    /*
+	     * call the prog function for removing a client
+	     * this will set the body to a dead frame, among other things
+	     */
+	    const int save_self = pr_global_struct->self;
+	    pr_global_struct->self = EDICT_TO_PROG(client->edict);
 	    PR_ExecuteProgram(pr_global_struct->ClientDisconnect);
-	    pr_global_struct->self = saveSelf;
+	    pr_global_struct->self = save_self;
 	}
-
-	Sys_Printf("Client %s removed\n", host_client->name);
+	Sys_Printf("Client %s removed\n", client->name);
     }
-// break the net connection
-    NET_Close(host_client->netconnection);
-    host_client->netconnection = NULL;
 
-// free the client (the body stays around)
-    host_client->active = false;
-    host_client->name[0] = 0;
-    host_client->old_frags = -999999;
+    /* break the net connection */
+    NET_Close(client->netconnection);
+    client->netconnection = NULL;
+
+    /* free the client (the body stays around) */
+    client->active = false;
+    client->name[0] = 0;
+    client->old_frags = -999999;
     net_activeconnections--;
 
-// send notification to all clients
-    for (i = 0, client = svs.clients; i < svs.maxclients; i++, client++) {
+    /* send notification to all clients */
+    notify = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, notify++) {
 	if (!client->active)
 	    continue;
-	MSG_WriteByte(&client->message, svc_updatename);
-	MSG_WriteByte(&client->message, host_client - svs.clients);
-	MSG_WriteString(&client->message, "");
-	MSG_WriteByte(&client->message, svc_updatefrags);
-	MSG_WriteByte(&client->message, host_client - svs.clients);
-	MSG_WriteShort(&client->message, 0);
-	MSG_WriteByte(&client->message, svc_updatecolors);
-	MSG_WriteByte(&client->message, host_client - svs.clients);
-	MSG_WriteByte(&client->message, 0);
+	MSG_WriteByte(&notify->message, svc_updatename);
+	MSG_WriteByte(&notify->message, client - svs.clients);
+	MSG_WriteString(&notify->message, "");
+	MSG_WriteByte(&notify->message, svc_updatefrags);
+	MSG_WriteByte(&notify->message, client - svs.clients);
+	MSG_WriteShort(&notify->message, 0);
+	MSG_WriteByte(&notify->message, svc_updatecolors);
+	MSG_WriteByte(&notify->message, client - svs.clients);
+	MSG_WriteByte(&notify->message, 0);
     }
 }
 
@@ -471,7 +471,7 @@ Host_ShutdownServer(qboolean crash)
     for (i = 0, host_client = svs.clients; i < svs.maxclients;
 	 i++, host_client++)
 	if (host_client->active)
-	    SV_DropClient(crash);
+	    SV_DropClient(host_client, crash);
 
 //
 // clear structures

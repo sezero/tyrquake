@@ -1032,7 +1032,7 @@ SV_Kick_f(client_t *client)
 	SV_ClientPrintf(victim, "Kicked by %s: %s\n", who, message);
     else
 	SV_ClientPrintf(victim, "Kicked by %s\n", who);
-    SV_DropClient(false);
+    SV_DropClient(victim, false);
 }
 
 static void
@@ -1272,7 +1272,7 @@ SV_RunClients(void)
 
 	if (!SV_ReadClientMessage(client)) {
 	    /* client misbehaved... */
-	    SV_DropClient(false);
+	    SV_DropClient(client, false);
 	    continue;
 	}
 

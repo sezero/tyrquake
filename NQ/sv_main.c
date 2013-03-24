@@ -912,7 +912,7 @@ SV_SendClientDatagram(client_t *client)
     err = NET_SendUnreliableMessage(client->netconnection, &msg);
     /* if the message couldn't send, kick the client off */
     if (err == -1) {
-	SV_DropClient(true);
+	SV_DropClient(client, true);
 	return false;
     }
 
@@ -981,7 +981,7 @@ SV_SendNop(client_t *client)
     err = NET_SendUnreliableMessage(client->netconnection, &msg);
     /* if the message couldn't send, kick the client off */
     if (err == -1)
-	SV_DropClient(true);
+	SV_DropClient(client, true);
     client->last_message = realtime;
 }
 
@@ -1024,7 +1024,7 @@ SV_SendClientMessages(void)
 	// on a very fucked up connection that backs up a lot, then
 	// changes level
 	if (host_client->message.overflowed) {
-	    SV_DropClient(true);
+	    SV_DropClient(host_client, true);
 	    host_client->message.overflowed = false;
 	    continue;
 	}
@@ -1034,13 +1034,13 @@ SV_SendClientMessages(void)
 		continue;
 
 	    if (host_client->dropasap) {
-		SV_DropClient(false);	// went to another level
+		SV_DropClient(host_client, false);	// went to another level
 	    } else {
 		err = NET_SendMessage(host_client->netconnection,
 				      &host_client->message);
 		/* if the message couldn't send, kick the client off */
 		if (err == -1)
-		    SV_DropClient(true);
+		    SV_DropClient(host_client, true);
 
 		SZ_Clear(&host_client->message);
 		host_client->last_message = realtime;
