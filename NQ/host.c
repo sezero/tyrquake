@@ -422,8 +422,8 @@ This only happens at the end of a game, not between levels
 void
 Host_ShutdownServer(qboolean crash)
 {
-    int i;
-    int count;
+    client_t *client;
+    int i, count;
     sizebuf_t buf;
     byte message[4];
     double start;
@@ -433,32 +433,31 @@ Host_ShutdownServer(qboolean crash)
 
     sv.active = false;
 
-// stop all client sounds immediately
+    /* stop all client sounds immediately */
     if (cls.state >= ca_connected)
 	CL_Disconnect();
 
-// flush any pending messages - like the score!!!
+    /* flush any pending messages - like the score!!! */
     start = Sys_DoubleTime();
     do {
 	count = 0;
-	for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	     i++, host_client++) {
-	    if (host_client->active && host_client->message.cursize) {
-		if (NET_CanSendMessage(host_client->netconnection)) {
-		    NET_SendMessage(host_client->netconnection,
-				    &host_client->message);
-		    SZ_Clear(&host_client->message);
-		} else {
-		    NET_GetMessage(host_client->netconnection);
-		    count++;
-		}
+	client = svs.clients;
+	for (i = 0; i < svs.maxclients; i++, client++) {
+	    if (!client->active || !client->message.cursize)
+		continue;
+	    if (NET_CanSendMessage(client->netconnection)) {
+		NET_SendMessage(client->netconnection, &client->message);
+		SZ_Clear(&client->message);
+	    } else {
+		NET_GetMessage(client->netconnection);
+		count++;
 	    }
 	}
 	if ((Sys_DoubleTime() - start) > 3.0)
 	    break;
     } while (count);
 
-// make sure all the clients know we're disconnecting
+    /* make sure all the clients know we're disconnecting */
     buf.data = message;
     buf.maxsize = 4;
     buf.cursize = 0;
@@ -468,14 +467,12 @@ Host_ShutdownServer(qboolean crash)
 	Con_Printf("%s: NET_SendToAll failed for %u clients\n", __func__,
 		   count);
 
-    for (i = 0, host_client = svs.clients; i < svs.maxclients;
-	 i++, host_client++)
-	if (host_client->active)
-	    SV_DropClient(host_client, crash);
+    client = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, client++)
+	if (client->active)
+	    SV_DropClient(client, crash);
 
-//
-// clear structures
-//
+    /* clear structures */
     memset(&sv, 0, sizeof(sv));
     memset(svs.clients, 0, svs.maxclientslimit * sizeof(client_t));
 }
