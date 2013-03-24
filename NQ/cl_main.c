@@ -849,12 +849,18 @@ CL_Init(void)
     Cmd_AddCommand("name", CL_Name_f);
     Cmd_AddCommand("color", CL_Color_f);
     Cmd_AddCommand("status", NULL);
+    Cmd_AddCommand("ping", NULL);
+    Cmd_AddCommand("say", NULL);
+    Cmd_AddCommand("say_team", NULL);
+    Cmd_AddCommand("tell", NULL);
+
+    Cmd_AddCommand("pause", NULL);
+    Cmd_AddCommand("kill", NULL);
+    Cmd_AddCommand("kick", NULL);
+
     Cmd_AddCommand("god", NULL);
     Cmd_AddCommand("fly", NULL);
     Cmd_AddCommand("noclip", NULL);
     Cmd_AddCommand("notarget", NULL);
-    Cmd_AddCommand("ping", NULL);
     Cmd_AddCommand("give", NULL);
-    Cmd_AddCommand("kill", NULL);
-    Cmd_AddCommand("pause", NULL);
 }

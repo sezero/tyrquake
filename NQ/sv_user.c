@@ -804,7 +804,7 @@ SV_Kill_f(client_t *client)
 
 /*
 ==================
-Host_Pause_f
+SV_Pause_f
 ==================
 */
 static void
@@ -969,10 +969,183 @@ SV_Begin_f(client_t *client)
     client->spawned = true;
 }
 
-//===========================================================================
+/* ------------------------------------------------------------------------ */
+
+/*
+==================
+SV_Kick_f
+
+Kicks a user off of the server
+==================
+*/
+static void
+SV_Kick_f(client_t *client)
+{
+    const char *message = NULL;
+    const char *who;
+    client_t *victim;
+    qboolean byNumber = false;
+    int i, clientnum;
+
+    if (pr_global_struct->deathmatch)
+	return;
+
+    if (Cmd_Argc() > 2 && strcmp(Cmd_Argv(1), "#") == 0) {
+	clientnum = Q_atof(Cmd_Argv(2)) - 1;
+	if (clientnum < 0 || clientnum >= svs.maxclients)
+	    return;
+	victim = svs.clients + clientnum;
+	if (!victim->active)
+	    return;
+
+	byNumber = true;
+
+    } else {
+	victim = svs.clients;
+	for (i = 0; i < svs.maxclients; i++, victim++) {
+	    if (!victim->active)
+		continue;
+	    if (!strcasecmp(victim->name, Cmd_Argv(1)))
+		break;
+	}
+	if (i == svs.maxclients)
+	    return;
+    }
+
+    /* can't kick yourself! */
+    if (victim == client)
+	return;
+
+    if (Cmd_Argc() > 2) {
+	message = COM_Parse(Cmd_Args());
+	if (*message == '#') {
+	    message++;
+	    while (*message == ' ')
+		message++;
+	    message += strlen(Cmd_Argv(2));
+	}
+	while (*message && *message == ' ')
+	    message++;
+    }
+
+    who = (cls.state == ca_dedicated) ? "Console" : client->name;
+
+    /* FIXME - host_client abuse */
+    host_client = victim;
+    if (message)
+	SV_ClientPrintf("Kicked by %s: %s\n", who, message);
+    else
+	SV_ClientPrintf("Kicked by %s\n", who);
+    SV_DropClient(false);
+}
+
+static void
+SV_Say(client_t *client, qboolean teamonly)
+{
+    client_t *recipient;
+    int i;
+    size_t len, space;
+    const char *msg;
+    char text[64];
+    qboolean fromServer = false;
+
+    if (Cmd_Argc() < 2)
+	return;
+
+    if (cls.state == ca_dedicated) {
+	fromServer = true;
+	teamonly = false;
+    }
+
+    /* turn on color set 1 */
+    if (!fromServer)
+	snprintf(text, sizeof(text), "%c%s: ", 1, client->name);
+    else
+	snprintf(text, sizeof(text), "%c<%s> ", 1, hostname.string);
+
+    len = strlen(text);
+    space = sizeof(text) - len - 2; /* -2 for \n and null terminator */
+    msg = Cmd_Args();
+    if (*msg == '"') {
+	/* remove quotes */
+	strncat(text, msg + 1, qmin(strlen(msg) - 2, space));
+	text[len + qmin(strlen(msg) - 2, space)] = 0;
+    } else {
+	strncat(text, msg, space);
+	text[len + qmin(strlen(msg), space)] = 0;
+    }
+    strcat(text, "\n");
+
+    recipient = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, recipient++) {
+	if (!recipient->active || !recipient->spawned)
+	    continue;
+	if (teamplay.value && teamonly
+	    && client->edict->v.team != recipient->edict->v.team)
+	    continue;
+
+	/* FIXME - host_client abuse */
+	host_client = recipient;
+	SV_ClientPrintf("%s", text);
+    }
+    host_client = client;
+
+    Sys_Printf("%s", &text[1]);
+}
+
+static void
+SV_Say_f(client_t *client)
+{
+    SV_Say(client, false);
+}
 
 
+static void
+SV_Say_Team_f(client_t *client)
+{
+    SV_Say(client, true);
+}
 
+static void
+SV_Tell_f(client_t *client)
+{
+    client_t *recipient;
+    int i, len, space;
+    const char *msg;
+    char text[64];
+
+    if (Cmd_Argc() < 3)
+	return;
+
+    snprintf(text, sizeof(text), "%s: ", client->name);
+
+    len = strlen(text);
+    space = sizeof(text) - len - 2; /* -2 for \n and null terminator */
+    msg = Cmd_Args();
+    if (*msg == '"') {
+	/* remove quotes */
+	strncat(text, msg + 1, qmin((int)strlen(msg) - 2, space));
+	text[len + qmin((int)strlen(msg) - 2, space)] = 0;
+    } else {
+	strncat(text, msg, space);
+	text[len + qmin((int)strlen(msg), space)] = 0;
+    }
+    strcat(text, "\n");
+
+    recipient = svs.clients;
+    for (i = 0; i < svs.maxclients; i++, recipient++) {
+	if (!recipient->active || !recipient->spawned)
+	    continue;
+	if (strcasecmp(recipient->name, Cmd_Argv(1)))
+	    continue;
+
+	/* FIXME - host_client abuse */
+	host_client = client;
+	SV_ClientPrintf("%s", text);
+	break;
+    }
+    host_client = client;
+}
 
 /* ------------------------------------------------------------------------ */
 
@@ -985,6 +1158,9 @@ static client_command_t client_commands[] = {
     { "name", SV_Name_f },
     { "color", SV_Color_f },
     { "status", SV_Status_f },
+    { "say", SV_Say_f },
+    { "say_team", SV_Say_Team_f },
+    { "tell", SV_Tell_f },
     { "god", SV_God_f },
     { "fly", SV_Fly_f },
     { "noclip", SV_Noclip_f },
@@ -993,6 +1169,7 @@ static client_command_t client_commands[] = {
     { "ping", SV_Ping_f },
     { "kill", SV_Kill_f },
     { "pause", SV_Pause_f },
+    { "kick", SV_Kick_f },
     { "prespawn", SV_PreSpawn_f },
     { "spawn", SV_Spawn_f },
     { "begin", SV_Begin_f },
@@ -1073,22 +1250,12 @@ SV_ReadClientMessage(client_t *client)
 		if (found)
 		    break;
 
-		ret = 0;
-		if (strncasecmp(message, "say", 3) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "say_team", 8) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "tell", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "kick", 4) == 0)
-		    ret = 1;
-		else if (strncasecmp(message, "ban", 3) == 0)
-		    ret = 1;
-
-		if (ret == 1)
+		if (!strncasecmp(message, "ban", 3)) {
 		    Cmd_ExecuteString(message, src_client);
-		else
+		} else {
 		    Con_DPrintf("%s tried to %s\n", client->name, message);
+		    ret = 0;
+		}
 		break;
 
 	    case clc_disconnect:
