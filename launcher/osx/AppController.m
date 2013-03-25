@@ -34,20 +34,17 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
 
 +(void) initialize {
     NSMutableDictionary *defaults = [NSMutableDictionary dictionary];
-    
+
     [defaults setObject:@"" forKey:FQPrefCommandLineKey];
     [defaults setObject:[NSNumber numberWithBool:YES] forKey:FQPrefFullscreenKey];
     [defaults setObject:[NSNumber numberWithInt:0] forKey:FQPrefScreenModeKey];
-    
+
     [[NSUserDefaults standardUserDefaults] registerDefaults:defaults];
 }
 
 - (id)init {
-    int i,j;
-    int flags;
-    int bpps[3] = {32, 24, 16};
-    SDL_PixelFormat format;
-    SDL_Rect **modes;
+    int i, nummodes, err;
+    SDL_DisplayMode mode;
     ScreenInfo *info;
 
     self = [super init];
@@ -59,26 +56,18 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
 
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) == -1)
         return self;
-    
-    flags = SDL_OPENGL | SDL_FULLSCREEN;
-    format.palette = NULL;
-    
-    for (i = 0; i < 3; i++) {
-        format.BitsPerPixel = bpps[i];
-        modes = SDL_ListModes(&format, flags);
 
-        if (modes == (SDL_Rect **)0 || modes == (SDL_Rect **)-1)
-            continue;
-
-        for (j = 0; modes[j]; j++) {
-            info = [[ScreenInfo alloc] initWithWidth:modes[j]->w height:modes[j]->h bpp:bpps[i]];
-            [screenModes addObject:info];
-            [info release];
-        }
+    nummodes = SDL_GetNumDisplayModes(0);
+    for (i = 0; i < nummodes; i++) {
+	err = SDL_GetDisplayMode(0, i, &mode);
+	if (err)
+	    continue;
+	info = [[ScreenInfo alloc] initWithWidth:mode.w	height:mode.h bpp:SDL_BITSPERPIXEL(mode.format)];
+	[screenModes addObject:info];
+	[info release];
     }
-
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
-    
+
     arguments = [[QuakeArguments alloc] initWithArguments:gArgv + 1 count:gArgc - 1];
     return self;
 }
@@ -95,10 +84,10 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
     } else {
 		NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         [paramTextField setStringValue:[defaults stringForKey:FQPrefCommandLineKey]];
-        
+
         BOOL fullscreen = [defaults boolForKey:FQPrefFullscreenKey];
         [fullscreenCheckBox setState:fullscreen ? NSOnState : NSOffState];
-        
+
         int screenModeIndex = [defaults integerForKey:FQPrefScreenModeKey];
         [screenModePopUp selectItemAtIndex:screenModeIndex];
     }
@@ -121,11 +110,10 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
 
 - (IBAction)launchQuake:(id)sender {
     [arguments parseArguments:[paramTextField stringValue]];
-    
+
     int index = [screenModePopUp indexOfSelectedItem];
     if (index > 0) {
         ScreenInfo *info = [screenModes objectAtIndex:index];
-        
         int width = [info width];
         int height = [info height];
         int bpp = [info bpp];
@@ -134,7 +122,7 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
         [arguments addArgument:@"-height" withValue:[NSString stringWithFormat:@"%d", height]];
         [arguments addArgument:@"-bpp" withValue:[NSString stringWithFormat:@"%d", bpp]];
     }
-    
+
     [arguments removeArgument:@"-fullscreen"];
     [arguments removeArgument:@"-window"];
     BOOL fullscreen = [fullscreenCheckBox state] == NSOnState;
@@ -144,17 +132,17 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
         [arguments addArgument:@"-window"];
 
     NSString *path = [NSString stringWithCString:gArgv[0] encoding:NSASCIIStringEncoding];
-    
+
     int i;
     for (i = 0; i < 4; i++)
         path = [path stringByDeletingLastPathComponent];
 
     NSFileManager *fileManager = [NSFileManager defaultManager];
     [fileManager changeCurrentDirectoryPath:path];
-    
+
     int argc = [arguments count] + 1;
     char *argv[argc];
-    
+
     argv[0] = gArgv[0];
     [arguments setArguments:argv + 1];
 
@@ -167,7 +155,7 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
     [defaults setObject:[NSNumber numberWithInt:index] forKey:FQPrefScreenModeKey];
     [defaults synchronize];
 
-    int status = SDL_main (argc, argv);
+    int status = SDL_main(argc, argv);
     exit(status);
 }
 
@@ -179,6 +167,5 @@ NSString *FQPrefScreenModeKey = @"ScreenMode";
     [screenModes release];
     [super dealloc];
 }
-
 
 @end

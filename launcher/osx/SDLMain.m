@@ -13,7 +13,6 @@
 #import "SDLMain.h"
 #import <sys/param.h> /* for MAXPATHLEN */
 #import <unistd.h>
-#import "SDLApplication.h"
 
 int    gArgc;
 char  **gArgv;
@@ -57,13 +56,12 @@ BOOL   gCalledAppMainline = FALSE;
 }
 @end
 
-
 #ifdef main
 #  undef main
 #endif
 
 /* Main entry point to executable - should *not* be SDL_main! */
-int main (int argc, char **argv)
+int main(int argc, char **argv)
 {
     /* Copy the arguments into a global variable */
     /* This is passed if we are launched by double-clicking */
@@ -72,7 +70,7 @@ int main (int argc, char **argv)
         gArgv[0] = argv[0];
         gArgv[1] = NULL;
         gArgc = 1;
-        gFinderLaunch = YES;
+        gFinderLaunch = TRUE;
     } else {
         int i;
         gArgc = argc;
@@ -82,6 +80,6 @@ int main (int argc, char **argv)
         gFinderLaunch = NO;
     }
 
-    NSApplicationMain (argc, (const char**) argv);
+    NSApplicationMain(argc, (const char**)argv);
     return 0;
 }
