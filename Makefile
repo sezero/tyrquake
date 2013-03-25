@@ -314,6 +314,18 @@ define do_cc_o_c
 	@$(cmd_cc_o_c);
 endef
 
+cmd_cc_dep_m = $(cmd_cc_dep_c)
+
+quiet_cmd_cc_o_m = '  CC       $@'
+      cmd_cc_o_m = $(CC) -c $(CPPFLAGS) $(CFLAGS) -o $@ $<
+
+define do_cc_o_m
+	@$(do_mkdir);
+	@$(cmd_cc_dep_m);
+	@echo $($(quiet)cmd_cc_o_m);
+	@$(cmd_cc_o_m);
+endef
+
 cmd_cc_dep_rc = \
 	$(CC) -x c-header -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< ; \
 	$(cmd_fixdep)
@@ -917,3 +929,29 @@ clean:
 	@rm -f $(shell find . \( \
 		-name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' \
 	\) -print)
+
+# ----------------------------------------------------------------------------
+# OSX Launcher (not yet working...)
+# ----------------------------------------------------------------------------
+
+LAUNCHER_DIR = $(BUILD_DIR)/launcher
+
+LAUNCHER_CPPFLAGS := $(COMMON_CPPFLAGS)
+LAUNCHER_CPPFLAGS += $(shell sdl2-config --cflags)
+LAUNCHER_LFLAGS := -lobjc
+LAUNCHER_LFLAGS += $(shell sdl2-config --libs)
+
+$(LAUNCHER_DIR)/%.o: CPPFLAGS = $(LAUNCHER_CPPFLAGS)
+$(LAUNCHER_DIR)/%.o: launcher/osx/%.m	; $(do_cc_o_m)
+
+LAUNCHER_OBJS = \
+	AppController.o		\
+	QuakeArgument.o		\
+	QuakeArguments.o	\
+	SDLApplication.o	\
+	SDLMain.o		\
+	ScreenInfo.o
+
+$(BIN_DIR)/launcher:	$(patsubst %,$(LAUNCHER_DIR)/%,$(LAUNCHER_OBJS))
+	$(call do_cc_link,$(LAUNCHER_LFLAGS))
+	$(call do_strip,$@)
