@@ -291,6 +291,15 @@ define do_mkdir
 	fi
 endef
 
+quiet_cmd_cp = '  CP       $@'
+      cmd_cp = cp $< $@
+
+define do_cp
+	$(do_mkdir)
+	@echo $($(quiet)cmd_cp)
+	@$(cmd_cp)
+endef
+
 # cmd_fixdep => Turn all pre-requisites into targets with no commands, to
 # prevent errors when moving files around between builds (e.g. from NQ or QW
 # dirs to the common dir.)
@@ -983,28 +992,42 @@ $(BUNDLE_CONTENTS)/Info.plist:	launcher/osx/Info.plist Makefile
 	$(call do_plist_set,NSMainNibFile,Launcher)
 	@mv $(@D)/.$(@F).tmp $@
 
+quiet_cmd_ibtool_nib = '  IBTOOL   $@'
+      cmd_ibtool_nib = ibtool --compile $@ $(<D)
+
+define do_ibtool_nib
+	$(do_mkdir)
+	@echo $($(quiet)cmd_ibtool_nib)
+	@$(cmd_ibtool_nib)
+endef
+
 $(BUNDLE_CONTENTS)/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
-	@$(do_mkdir)
-	ibtool --compile $@ $(<D)
+	@$(do_ibtool_nib)
 
 $(BUNDLE_CONTENTS)/MacOS/Launcher:	$(ALL_LAUNCHER_OBJS)
-	@$(do_mkdir)
+	$(do_mkdir)
 	$(call do_cc_link,$(LAUNCHER_LFLAGS))
 	$(call do_strip,$@)
 
-$(BUNDLE_CONTENTS)/PkgInfo:
-	@$(do_mkdir)
-	echo "APPL????" > $@
+$(BUNDLE_CONTENTS)/PkgInfo:	launcher/osx/PkgInfo
+	$(do_cp)
 
 $(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
-	@$(do_mkdir)
-	cp $< $@
+	$(do_cp)
 
 ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 
+quiet_cmd_iconutil_icns = '  ICONUTIL $@'
+      cmd_iconutil_icns = iconutil -c icns -o $@ $(<D)
+
+define do_iconutil_icns
+	$(do_mkdir)
+	@echo $($(quiet)cmd_iconutil_icns)
+	$(cmd_iconutil_icns)
+endef
+
 $(BUNDLE_CONTENTS)/Resources/TyrQuake.icns:	$(ICNS_FILES)
-	@$(do_mkdir)
-	iconutil -c icns -o $@ $(<D)
+	$(do_iconutil_icns)
 
 BUNDLE_FILES = \
 	$(BUNDLE_CONTENTS)/Info.plist				\
