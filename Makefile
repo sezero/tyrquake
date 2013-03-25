@@ -729,6 +729,12 @@ COMMON_CPPFLAGS += -DELF
 COMMON_OBJS += net_udp.o sys_unix.o
 COMMON_LIBS += m
 NQCL_OBJS   += net_bsd.o
+
+# FIXME - stupid hack
+ifeq ($(APP_BUNDLE),Y)
+COMMON_CPPFLAGS += -Dmain=SDL_main
+endif
+
 # If we are on OSX (Darwin) and this is not the GLX target, we will link with
 # "-framework OpenGL" instead. Otherwise, link with libGL as normal
 # => if ($TARGET_UNIX != darwin || $VID_TARGET == x11)...
@@ -932,14 +938,15 @@ clean:
 
 # ----------------------------------------------------------------------------
 # OSX Launcher (not yet working...)
+# - hacking about to see if I can get at least the glquake target running...
 # ----------------------------------------------------------------------------
-
-LAUNCHER_DIR = $(BUILD_DIR)/launcher
 
 LAUNCHER_CPPFLAGS := $(COMMON_CPPFLAGS)
 LAUNCHER_CPPFLAGS += $(shell sdl2-config --cflags)
-LAUNCHER_LFLAGS := -lobjc
-LAUNCHER_LFLAGS += $(shell sdl2-config --libs)
+LAUNCHER_LFLAGS := $(ALL_NQGL_LFLAGS) -lobjc -framework Cocoa
+LAUNCHER_DIR = $(BUILD_DIR)/launcher
+
+BUNDLE_CONTENTS = $(BIN_DIR)/tyr-glquake.app/Contents
 
 $(LAUNCHER_DIR)/%.o: CPPFLAGS = $(LAUNCHER_CPPFLAGS)
 $(LAUNCHER_DIR)/%.o: launcher/osx/%.m	; $(do_cc_o_m)
@@ -952,6 +959,55 @@ LAUNCHER_OBJS = \
 	SDLMain.o		\
 	ScreenInfo.o
 
-$(BIN_DIR)/launcher:	$(patsubst %,$(LAUNCHER_DIR)/%,$(LAUNCHER_OBJS))
+ALL_LAUNCHER_OBJS = \
+	$(patsubst %,$(LAUNCHER_DIR)/%,$(LAUNCHER_OBJS)) \
+	$(patsubst %,$(NQGLDIR)/%,$(ALL_NQGL_OBJS))
+
+PLIST=/usr/libexec/PlistBuddy
+
+$(BUNDLE_CONTENTS)/Info.plist:	launcher/osx/Info.plist Makefile
+	@$(do_mkdir)
+	cp launcher/osx/Info.plist $(LAUNCHER_DIR)/.Info.plist.tmp
+	$(PLIST) -c "Set :CFBundleName TyrQuake"                     $(LAUNCHER_DIR)/.Info.plist.tmp
+	$(PLIST) -c "Set :CFBundleExecutable Launcher"               $(LAUNCHER_DIR)/.Info.plist.tmp
+	$(PLIST) -c "Set :CFBundleShortVersionString $(TYR_VERSION)" $(LAUNCHER_DIR)/.Info.plist.tmp
+	$(PLIST) -c "Set :CFBundleIconFile TyrQuake"                 $(LAUNCHER_DIR)/.Info.plist.tmp
+	$(PLIST) -c "Set :NSMainNibFile Launcher"                    $(LAUNCHER_DIR)/.Info.plist.tmp
+	mv $(LAUNCHER_DIR)/.Info.plist.tmp $@
+
+$(BUNDLE_CONTENTS)/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
+	@$(do_mkdir)
+	ibtool --compile $@ $(<D)
+
+$(BUNDLE_CONTENTS)/MacOS/Launcher:	$(ALL_LAUNCHER_OBJS)
+	@$(do_mkdir)
 	$(call do_cc_link,$(LAUNCHER_LFLAGS))
 	$(call do_strip,$@)
+
+$(BUNDLE_CONTENTS)/PkgInfo:
+	@$(do_mkdir)
+	echo "APPL????" > $@
+
+$(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
+	@$(do_mkdir)
+	cp $< $@
+
+ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
+
+$(BUNDLE_CONTENTS)/Resources/TyrQuake.icns:	$(ICNS_FILES)
+	@$(do_mkdir)
+	iconutil -c icns -o $@ $(<D)
+
+BUNDLE_FILES = \
+	$(BUNDLE_CONTENTS)/Info.plist				\
+	$(BUNDLE_CONTENTS)/Resources/English.lproj/Launcher.nib	\
+	$(BUNDLE_CONTENTS)/Resources/TyrQuake.icns		\
+	$(BUNDLE_CONTENTS)/MacOS/Launcher			\
+	$(BUNDLE_CONTENTS)/PkgInfo
+
+.PHONY:	bundle
+
+#
+# To test, do 'make APP_BUNDLE=Y bundle'
+#
+bundle:	$(BUNDLE_FILES)
