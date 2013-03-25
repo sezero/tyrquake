@@ -291,16 +291,6 @@ define do_mkdir
 	fi
 endef
 
-quiet_cmd_mkdir_arg = '  MKDIR    $(1)'
-      cmd_mkdir_arg = mkdir -p $(1)
-
-define do_mkdir_arg
-	@if [ ! -d $(1) ]; then \
-		echo $($(quiet)cmd_mkdir_arg); \
-		$(call cmd_mkdir_arg,$(1)); \
-	fi
-endef
-
 # cmd_fixdep => Turn all pre-requisites into targets with no commands, to
 # prevent errors when moving files around between builds (e.g. from NQ or QW
 # dirs to the common dir.)
@@ -975,16 +965,23 @@ ALL_LAUNCHER_OBJS = \
 
 PLIST=/usr/libexec/PlistBuddy
 
+quiet_cmd_plist_set = '  PLIST    $@ $(1): $(2)'
+      cmd_plist_set = $(PLIST) -c "Set :$(1) $(2)" $(@D)/.$(@F).tmp
+
+define do_plist_set
+	@echo $(call $(quiet)cmd_plist_set,$(1),$(2));
+	@$(call cmd_plist_set,$(1),$(2))
+endef
+
 $(BUNDLE_CONTENTS)/Info.plist:	launcher/osx/Info.plist Makefile
-	@$(call do_mkdir_arg,$(LAUNCHER_DIR))
-	cp launcher/osx/Info.plist $(LAUNCHER_DIR)/.Info.plist.tmp
-	$(PLIST) -c "Set :CFBundleName TyrQuake"                     $(LAUNCHER_DIR)/.Info.plist.tmp
-	$(PLIST) -c "Set :CFBundleExecutable Launcher"               $(LAUNCHER_DIR)/.Info.plist.tmp
-	$(PLIST) -c "Set :CFBundleShortVersionString $(TYR_VERSION)" $(LAUNCHER_DIR)/.Info.plist.tmp
-	$(PLIST) -c "Set :CFBundleIconFile TyrQuake"                 $(LAUNCHER_DIR)/.Info.plist.tmp
-	$(PLIST) -c "Set :NSMainNibFile Launcher"                    $(LAUNCHER_DIR)/.Info.plist.tmp
-	@$(do_mkdir)
-	mv $(LAUNCHER_DIR)/.Info.plist.tmp $@
+	$(do_mkdir)
+	@cp $< $(@D)/.$(@F).tmp
+	$(call do_plist_set,CFBundleName,TyrQuake)
+	$(call do_plist_set,CFBundleExecutable,Launcher)
+	$(call do_plist_set,CFBundleShortVersionString,$(TYR_VERSION))
+	$(call do_plist_set,CFBundleIconFile,TyrQuake)
+	$(call do_plist_set,NSMainNibFile,Launcher)
+	@mv $(@D)/.$(@F).tmp $@
 
 $(BUNDLE_CONTENTS)/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
 	@$(do_mkdir)
