@@ -946,16 +946,47 @@ clean:
 	\) -print)
 
 # ----------------------------------------------------------------------------
-# OSX Launcher (not yet working...)
-# - hacking about to see if I can get at least the glquake target running...
+# OSX Packaging Tools (WIP)
+# ----------------------------------------------------------------------------
+
+PLIST    ?= /usr/libexec/PlistBuddy
+IBTOOL   ?= ibtool
+ICONUTIL ?= iconutil
+
+quiet_cmd_plist_set = '  PLIST    $@ $(1)'
+      cmd_plist_set = $(PLIST) -c "Set :$(1) $(2)" $(@D)/.$(@F).tmp
+
+define do_plist_set
+	@echo $(call $(quiet)cmd_plist_set,$(1),$(2));
+	@$(call cmd_plist_set,$(1),$(2))
+endef
+
+quiet_cmd_ibtool_nib = '  IBTOOL   $@'
+      cmd_ibtool_nib = $(IBTOOL) --compile $@ $(<D)
+
+define do_ibtool_nib
+	$(do_mkdir)
+	@echo $($(quiet)cmd_ibtool_nib)
+	@$(cmd_ibtool_nib)
+endef
+
+quiet_cmd_iconutil_icns = '  ICONUTIL $@'
+      cmd_iconutil_icns = $(ICONUTIL) -c icns -o $@ $(<D)
+
+define do_iconutil_icns
+	$(do_mkdir)
+	@echo $($(quiet)cmd_iconutil_icns)
+	@$(cmd_iconutil_icns)
+endef
+
+# ----------------------------------------------------------------------------
+# OSX Launcher - Application stub which launches the main quake executable
 # ----------------------------------------------------------------------------
 
 LAUNCHER_CPPFLAGS := $(COMMON_CPPFLAGS)
 LAUNCHER_CPPFLAGS += $(shell sdl2-config --cflags)
 LAUNCHER_LFLAGS := $(ALL_NQGL_LFLAGS) -lobjc -framework Cocoa
 LAUNCHER_DIR = $(BUILD_DIR)/launcher
-
-BUNDLE_CONTENTS = $(BIN_DIR)/tyr-glquake.app/Contents
 
 $(LAUNCHER_DIR)/%.o: CPPFLAGS = $(LAUNCHER_CPPFLAGS)
 $(LAUNCHER_DIR)/%.o: launcher/osx/%.m	; $(do_cc_o_m)
@@ -968,21 +999,54 @@ LAUNCHER_OBJS = \
 	SDLMain.o		\
 	ScreenInfo.o
 
-ALL_LAUNCHER_OBJS = \
+# The launcher uses a hack to rename 'main' to SDL_main - so need to compile
+# separate versions of the sys_unix.o files for each app
+
+$(LAUNCHER_DIR)/sys_unix-nqsw.o: CPPFLAGS = $(ALL_NQSW_CPPFLAGS) -Dmain=SDL_main
+$(LAUNCHER_DIR)/sys_unix-nqgl.o: CPPFLAGS = $(ALL_NQGL_CPPFLAGS) -Dmain=SDL_main
+$(LAUNCHER_DIR)/sys_unix-qwsw.o: CPPFLAGS = $(ALL_QWSW_CPPFLAGS) -Dmain=SDL_main
+$(LAUNCHER_DIR)/sys_unix-qwgl.o: CPPFLAGS = $(ALL_QWGL_CPPFLAGS) -Dmain=SDL_main
+
+$(LAUNCHER_DIR)/sys_unix-%.o: common/sys_unix.c; $(do_cc_o_c)
+
+NQSW_LAUNCHER = $(BIN_DIR)/Tyr-Quake.app/Contents/MacOS/Launcher
+NQGL_LAUNCHER = $(BIN_DIR)/Tyr-GLQuake.app/Contents/MacOS/Launcher
+QWSW_LAUNCHER = $(BIN_DIR)/Tyr-QWCL.app/Contents/MacOS/Launcher
+QWGL_LAUNCHER = $(BIN_DIR)/Tyr-GLQWCL.app/Contents/MacOS/Launcher
+
+launcher-objs = \
 	$(patsubst %,$(LAUNCHER_DIR)/%,$(LAUNCHER_OBJS)) \
-	$(patsubst %,$(NQGLDIR)/%,$(ALL_NQGL_OBJS))
+	$(patsubst %,$($(1)DIR)/%,$(filter-out sys_unix.o,$(ALL_$(1)_OBJS))) \
+	$(LAUNCHER_DIR)/sys_unix-$(2).o
 
-PLIST=/usr/libexec/PlistBuddy
+NQSW_LAUNCHER_OBJS = $(call launcher-objs,NQSW,nqsw)
+NQGL_LAUNCHER_OBJS = $(call launcher-objs,NQGL,nqgl)
+QWSW_LAUNCHER_OBJS = $(call launcher-objs,QWSW,qwsw)
+QWGL_LAUNCHER_OBJS = $(call launcher-objs,QWGL,qwgl)
 
-quiet_cmd_plist_set = '  PLIST    $@ $(1): $(2)'
-      cmd_plist_set = $(PLIST) -c "Set :$(1) $(2)" $(@D)/.$(@F).tmp
-
-define do_plist_set
-	@echo $(call $(quiet)cmd_plist_set,$(1),$(2));
-	@$(call cmd_plist_set,$(1),$(2))
+define do_build_launcher
+	$(call do_cc_link,$(LAUNCHER_LFLAGS))
+	$(call do_strip,$@)
 endef
 
-$(BUNDLE_CONTENTS)/Info.plist:	launcher/osx/Info.plist Makefile
+$(NQSW_LAUNCHER): $(NQSW_LAUNCHER_OBJS); $(do_build_launcher)
+$(NQGL_LAUNCHER): $(NQGL_LAUNCHER_OBJS); $(do_build_launcher)
+$(QWSW_LAUNCHER): $(QWSW_LAUNCHER_OBJS); $(do_build_launcher)
+$(QWGL_LAUNCHER): $(QWGL_LAUNCHER_OBJS); $(do_build_launcher)
+
+# ----------------------------------------------------------------------------
+# Application bundle contents
+# ----------------------------------------------------------------------------
+
+$(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
+	$(do_cp)
+
+ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
+
+%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
+	$(do_iconutil_icns)
+
+%/Contents/Info.plist:	launcher/osx/Info.plist Makefile
 	$(do_mkdir)
 	@cp $< $(@D)/.$(@F).tmp
 	$(call do_plist_set,CFBundleName,TyrQuake)
@@ -992,53 +1056,33 @@ $(BUNDLE_CONTENTS)/Info.plist:	launcher/osx/Info.plist Makefile
 	$(call do_plist_set,NSMainNibFile,Launcher)
 	@mv $(@D)/.$(@F).tmp $@
 
-quiet_cmd_ibtool_nib = '  IBTOOL   $@'
-      cmd_ibtool_nib = ibtool --compile $@ $(<D)
-
-define do_ibtool_nib
-	$(do_mkdir)
-	@echo $($(quiet)cmd_ibtool_nib)
-	@$(cmd_ibtool_nib)
-endef
-
-$(BUNDLE_CONTENTS)/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
+%/Contents/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
 	@$(do_ibtool_nib)
 
-$(BUNDLE_CONTENTS)/MacOS/Launcher:	$(ALL_LAUNCHER_OBJS)
-	$(do_mkdir)
-	$(call do_cc_link,$(LAUNCHER_LFLAGS))
-	$(call do_strip,$@)
-
-$(BUNDLE_CONTENTS)/PkgInfo:	launcher/osx/PkgInfo
+%/Contents/PkgInfo:	launcher/osx/PkgInfo
 	$(do_cp)
-
-$(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
-	$(do_cp)
-
-ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
-
-quiet_cmd_iconutil_icns = '  ICONUTIL $@'
-      cmd_iconutil_icns = iconutil -c icns -o $@ $(<D)
-
-define do_iconutil_icns
-	$(do_mkdir)
-	@echo $($(quiet)cmd_iconutil_icns)
-	$(cmd_iconutil_icns)
-endef
-
-$(BUNDLE_CONTENTS)/Resources/TyrQuake.icns:	$(ICNS_FILES)
-	$(do_iconutil_icns)
 
 BUNDLE_FILES = \
-	$(BUNDLE_CONTENTS)/Info.plist				\
-	$(BUNDLE_CONTENTS)/Resources/English.lproj/Launcher.nib	\
-	$(BUNDLE_CONTENTS)/Resources/TyrQuake.icns		\
-	$(BUNDLE_CONTENTS)/MacOS/Launcher			\
-	$(BUNDLE_CONTENTS)/PkgInfo
+	Contents/PkgInfo				\
+	Contents/Info.plist				\
+	Contents/Resources/English.lproj/Launcher.nib	\
+	Contents/Resources/TyrQuake.icns		\
+	Contents/MacOS/Launcher
 
-.PHONY:	bundle
+NQSW_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-Quake.app/%,$(BUNDLE_FILES))
+NQGL_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-GLQuake.app/%,$(BUNDLE_FILES))
+QWSW_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-QWCL.app/%,$(BUNDLE_FILES))
+QWGL_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-GLQWCL.app/%,$(BUNDLE_FILES))
+
+ALL_BUNDLE_FILES = \
+	$(NQSW_BUNDLE_FILES)	\
+	$(NQGL_BUNDLE_FILES)	\
+	$(QWSW_BUNDLE_FILES)	\
+	$(QWGL_BUNDLE_FILES)
+
+.PHONY:	bundles
 
 #
-# To test, do 'make APP_BUNDLE=Y bundle'
+# To test, do 'make bundles'
 #
-bundle:	$(BUNDLE_FILES)
+bundles: $(ALL_BUNDLE_FILES)
