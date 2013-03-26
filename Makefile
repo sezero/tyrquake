@@ -17,6 +17,7 @@ TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 BUILD_DIR        ?= build
 BIN_DIR          ?= bin
 DOC_DIR          ?= doc
+DIST_DIR         ?= dist
 DEBUG            ?= N# Compile with debug info
 OPTIMIZED_CFLAGS ?= Y# Enable compiler optimisations (if DEBUG != Y)
 USE_X86_ASM      ?= $(I386_GUESS)
@@ -941,6 +942,7 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(DOC_DIR)
+	@rm -rf $(DIST_DIR)
 	@rm -f $(shell find . \( \
 		-name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' \
 	\) -print)
@@ -977,6 +979,15 @@ define do_iconutil_icns
 	$(do_mkdir)
 	@echo $($(quiet)cmd_iconutil_icns)
 	@$(cmd_iconutil_icns)
+endef
+
+quiet_cmd_hdiutil = '  HDIUTIL  $@'
+      cmd_hdiutil = hdiutil create $@ -srcfolder $(1) -ov -volname $(2)
+
+define do_hdiutil
+	$(do_mkdir)
+	@echo $(call $(quiet)cmd_hdiutil,$(1),$(2))
+	@$(call cmd_hdiutil,$(1),$(2)) $(if $(quiet),>/dev/null,)
 endef
 
 # ----------------------------------------------------------------------------
@@ -1038,15 +1049,17 @@ $(QWGL_LAUNCHER): $(QWGL_LAUNCHER_OBJS); $(do_build_launcher)
 # Application bundle contents
 # ----------------------------------------------------------------------------
 
+OSX_DIR = $(DIST_DIR)/osx
+
 $(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
 	$(do_cp)
 
 ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 
-%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
+$(OSX_DIR)/%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
 	$(do_iconutil_icns)
 
-%/Contents/Info.plist:	launcher/osx/Info.plist Makefile
+$(OSX_DIR)/%/Contents/Info.plist:	launcher/osx/Info.plist Makefile
 	$(do_mkdir)
 	@cp $< $(@D)/.$(@F).tmp
 	$(call do_plist_set,CFBundleName,TyrQuake)
@@ -1056,10 +1069,13 @@ ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 	$(call do_plist_set,NSMainNibFile,Launcher)
 	@mv $(@D)/.$(@F).tmp $@
 
-%/Contents/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
+$(OSX_DIR)/%/Contents/Resources/English.lproj/Launcher.nib:	launcher/osx/English.lproj/Launcher.nib/designable.nib
 	@$(do_ibtool_nib)
 
-%/Contents/PkgInfo:	launcher/osx/PkgInfo
+$(OSX_DIR)/%/Contents/PkgInfo:	launcher/osx/PkgInfo
+	$(do_cp)
+
+$(OSX_DIR)/%/Contents/MacOS/Launcher:	$(BIN_DIR)/%/Contents/MacOS/Launcher
 	$(do_cp)
 
 BUNDLE_FILES = \
@@ -1069,10 +1085,18 @@ BUNDLE_FILES = \
 	Contents/Resources/TyrQuake.icns		\
 	Contents/MacOS/Launcher
 
-NQSW_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-Quake.app/%,$(BUNDLE_FILES))
-NQGL_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-GLQuake.app/%,$(BUNDLE_FILES))
-QWSW_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-QWCL.app/%,$(BUNDLE_FILES))
-QWGL_BUNDLE_FILES = $(patsubst %,$(BIN_DIR)/Tyr-GLQWCL.app/%,$(BUNDLE_FILES))
+NQSW_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-Quake.app/%,$(BUNDLE_FILES))
+NQGL_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-GLQuake.app/%,$(BUNDLE_FILES))
+QWSW_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-QWCL.app/%,$(BUNDLE_FILES))
+QWGL_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-GLQWCL.app/%,$(BUNDLE_FILES))
+
+# ----------------------------------------------------------------------------
+# Packaging
+# ----------------------------------------------------------------------------
+
+$(DIST_DIR)/osx/%.txt:		%.txt		; $(do_cp)
+$(DIST_DIR)/osx/doc/%.txt:	doc/%.txt	; $(do_cp)
+$(DIST_DIR)/osx/doc/%.html:	doc/%.html	; $(do_cp)
 
 ALL_BUNDLE_FILES = \
 	$(NQSW_BUNDLE_FILES)	\
@@ -1080,9 +1104,20 @@ ALL_BUNDLE_FILES = \
 	$(QWSW_BUNDLE_FILES)	\
 	$(QWGL_BUNDLE_FILES)
 
-.PHONY:	bundles
+DIST_FILES_OSX = \
+	$(ALL_BUNDLE_FILES)			\
+	$(DIST_DIR)/osx/readme.txt		\
+	$(DIST_DIR)/osx/gnu.txt			\
+	$(DIST_DIR)/osx/doc/tyrquake.txt	\
+	$(DIST_DIR)/osx/doc/tyrquake.html
+
+$(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-osx.dmg: $(DIST_FILES_OSX)
+	$(call do_hdiutil,$(DIST_DIR)/osx,"TyrQuake $(TYR_VERSION)")
+
+.PHONY:	bundles snapshot
 
 #
-# To test, do 'make bundles'
+# To test, do 'make bundles' or 'make snapshot'
 #
 bundles: $(ALL_BUNDLE_FILES)
+snapshot: $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-osx.dmg
