@@ -1060,6 +1060,9 @@ OSX_DIR = $(DIST_DIR)/osx
 $(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
 	$(do_cp)
 
+# Just to stop make printing 'rm' commands dirtying up the quiet output
+.PRECIOUS: $(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png
+
 ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 
 $(OSX_DIR)/%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
