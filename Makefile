@@ -966,6 +966,12 @@ endef
 quiet_cmd_ibtool_nib = '  IBTOOL   $@'
       cmd_ibtool_nib = $(IBTOOL) --compile $@ $(<D)
 
+# NOTE: ibtool seems to launch an agent process to do it's compiling and this
+#       agent hangs around after ibtool has finished.  Unfortunately make
+#       detects that there is still a sub-process running, so doesn't exit
+#       until the agent times out (30-seconds).  The timeout used to be
+#       settable on the command line, but that option has been removed now.
+#       Oh well, just be patient then...
 define do_ibtool_nib
 	$(do_mkdir)
 	@echo $($(quiet)cmd_ibtool_nib)
