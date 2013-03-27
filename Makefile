@@ -1162,7 +1162,7 @@ $(OSX_DIR)/Tyr-GLQWCL.app/Contents/MacOS/Launcher:  $(call launcher-arch-files,q
 
 # Make a copy of the SDL2.framework for the bundle
 $(OSX_DIR)/%/Contents/Frameworks/SDL2.framework: /Library/Frameworks/SDL2.framework
-	$(call do_rsync,-rltp --delete "$<" "$@")
+	$(call do_rsync,-rltp --delete "$<" "$(@D)/")
 
 BUNDLE_FILES = \
 	Contents/PkgInfo				\
