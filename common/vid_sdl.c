@@ -986,6 +986,20 @@ VID_Init(unsigned char *palette) /* (byte *palette, byte *colormap) */
     int err;
     SDL_DisplayMode desktop_mode;
 
+    Cvar_RegisterVariable(&vid_mode);
+    Cvar_RegisterVariable(&vid_wait);
+    Cvar_RegisterVariable(&vid_nopageflip);
+    Cvar_RegisterVariable(&_vid_wait_override);
+    Cvar_RegisterVariable(&_vid_default_mode);
+    Cvar_RegisterVariable(&_vid_default_mode_win);
+    Cvar_RegisterVariable(&vid_fullscreen_mode);
+    Cvar_RegisterVariable(&vid_windowed_mode);
+    Cvar_RegisterVariable(&block_switch);
+    Cvar_RegisterVariable(&vid_window_x);
+    Cvar_RegisterVariable(&vid_window_y);
+
+    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
+
     /*
      * Init SDL and the video subsystem
      */
@@ -1015,20 +1029,6 @@ VID_Init(unsigned char *palette) /* (byte *palette, byte *colormap) */
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
-
-    Cvar_RegisterVariable(&vid_mode);
-    Cvar_RegisterVariable(&vid_wait);
-    Cvar_RegisterVariable(&vid_nopageflip);
-    Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&_vid_default_mode);
-    Cvar_RegisterVariable(&_vid_default_mode_win);
-    Cvar_RegisterVariable(&vid_fullscreen_mode);
-    Cvar_RegisterVariable(&vid_windowed_mode);
-    Cvar_RegisterVariable(&block_switch);
-    Cvar_RegisterVariable(&vid_window_x);
-    Cvar_RegisterVariable(&vid_window_y);
-
-    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
 }
 
 void
