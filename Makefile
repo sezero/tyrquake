@@ -314,6 +314,15 @@ define do_cp
 	@$(cmd_cp)
 endef
 
+quiet_cmd_rsync = '  RSYNC    $@'
+      cmd_rsync = rsync $(1)
+
+define do_rsync
+	$(do_mkdir)
+	@echo $(call $(quiet)cmd_rsync,$(1))
+	@$(call cmd_rsync,$(1))
+endef
+
 # cmd_fixdep => Turn all pre-requisites into targets with no commands, to
 # prevent errors when moving files around between builds (e.g. from NQ or QW
 # dirs to the common dir.)
@@ -440,50 +449,78 @@ ifneq ($(DEPFILES),)
 -include $(DEPFILES)
 endif
 
-$(NQSWDIR)/%.o:	CPPFLAGS = $(ALL_NQSW_CPPFLAGS)
-$(NQGLDIR)/%.o:	CPPFLAGS = $(ALL_NQGL_CPPFLAGS)
-$(QWSWDIR)/%.o:	CPPFLAGS = $(ALL_QWSW_CPPFLAGS)
-$(QWGLDIR)/%.o:	CPPFLAGS = $(ALL_QWGL_CPPFLAGS)
-$(QWSVDIR)/%.o:	CPPFLAGS = $(ALL_QWSV_CPPFLAGS)
+# ----------------------------------------------------------------------------
+# Build rule generation
+# ----------------------------------------------------------------------------
+# Because I want to do nasty things like build for multiple architectures
+# with a single make invocation (and not resort to recursion) I generate the
+# rules for building using defines.
 
-$(NQSWDIR)/%.o:		common/%.S	; $(do_cc_o_c)
-$(NQSWDIR)/%.o:		NQ/%.S		; $(do_cc_o_c)
-$(NQSWDIR)/%.o:		common/%.c	; $(do_cc_o_c)
-$(NQSWDIR)/%.o:		NQ/%.c		; $(do_cc_o_c)
-$(NQSWDIR)/%.res:	common/%.rc	; $(do_windres_res_rc)
-$(NQSWDIR)/%.res:	NQ/%.rc		; $(do_windres_res_rc)
+#  define rulesets for building object files
+#  $(1) - the build directory
+#  $(2) - CPPFLAGS
+#  $(3) - CFLAGS
+define NQCL_RULES
+$(1)/%.o:	CPPFLAGS = $(2)
+$(1)/%.o:	CFLAGS += $(3)
+$(1)/%.o:	common/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	NQ/%.S		; $$(do_cc_o_c)
+$(1)/%.o:	common/%.c	; $$(do_cc_o_c)
+$(1)/%.o:	NQ/%.c		; $$(do_cc_o_c)
+$(1)/%.res:	common/%.rc	; $$(do_windres_res_rc)
+$(1)/%.res:	NQ/%.rc		; $$(do_windres_res_rc)
+endef
+define QWCL_RULES
+$(1)/%.o:	CPPFLAGS = $(2)
+$(1)/%.o:	CFLAGS += $(3)
+$(1)/%.o:	common/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	QW/client/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	QW/common/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	common/%.c	; $$(do_cc_o_c)
+$(1)/%.o:	QW/client/%.c	; $$(do_cc_o_c)
+$(1)/%.o:	QW/common/%.c	; $$(do_cc_o_c)
+$(1)/%.res:	common/%.rc	; $$(do_windres_res_rc)
+$(1)/%.res:	QW/client/%.rc	; $$(do_windres_res_rc)
+endef
+define QWSV_RULES
+$(1)/%.o:	CPPFLAGS = $(2)
+$(1)/%.o:	CFLAGS += $(3)
+$(1)/%.o:	QW/server/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	QW/common/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	common/%.S	; $$(do_cc_o_c)
+$(1)/%.o:	QW/server/%.c	; $$(do_cc_o_c)
+$(1)/%.o:	QW/common/%.c	; $$(do_cc_o_c)
+$(1)/%.o:	common/%.c	; $$(do_cc_o_c)
+endef
 
-$(NQGLDIR)/%.o:		common/%.S	; $(do_cc_o_c)
-$(NQGLDIR)/%.o:		NQ/%.S		; $(do_cc_o_c)
-$(NQGLDIR)/%.o:		common/%.c	; $(do_cc_o_c)
-$(NQGLDIR)/%.o:		NQ/%.c		; $(do_cc_o_c)
-$(NQGLDIR)/%.res:	common/%.rc	; $(do_windres_res_rc)
-$(NQGLDIR)/%.res:	NQ/%.rc		; $(do_windres_res_rc)
+# Another level of indirection
+# Generate five sets of rules for the five target build directories
+# $(1) - build sub-directory
+# $(2) - extra cflags for arch
+define TARGET_RULES
+$(eval $(call NQCL_RULES,$$(BUILD_DIR)/$(1)/nqsw,$$(ALL_NQSW_CPPFLAGS),$(2)))
+$(eval $(call NQCL_RULES,$$(BUILD_DIR)/$(1)/nqgl,$$(ALL_NQGL_CPPFLAGS),$(2)))
+$(eval $(call QWCL_RULES,$$(BUILD_DIR)/$(1)/qwsw,$$(ALL_QWSW_CPPFLAGS),$(2)))
+$(eval $(call QWCL_RULES,$$(BUILD_DIR)/$(1)/qwgl,$$(ALL_QWGL_CPPFLAGS),$(2)))
+$(eval $(call QWSV_RULES,$$(BUILD_DIR)/$(1)/qwsv,$$(ALL_QWSV_CPPFLAGS),$(2)))
+endef
 
-$(QWSWDIR)/%.o:		common/%.S	; $(do_cc_o_c)
-$(QWSWDIR)/%.o:		QW/client/%.S	; $(do_cc_o_c)
-$(QWSWDIR)/%.o:		QW/common/%.S	; $(do_cc_o_c)
-$(QWSWDIR)/%.o:		common/%.c	; $(do_cc_o_c)
-$(QWSWDIR)/%.o:		QW/client/%.c	; $(do_cc_o_c)
-$(QWSWDIR)/%.o:		QW/common/%.c	; $(do_cc_o_c)
-$(QWSWDIR)/%.res:	common/%.rc	; $(do_windres_res_rc)
-$(QWSWDIR)/%.res:	QW/client/%.rc	; $(do_windres_res_rc)
+# Standard build rules
+$(eval $(call NQCL_RULES,$$(BUILD_DIR)/nqsw,$$(ALL_NQSW_CPPFLAGS),))
+$(eval $(call NQCL_RULES,$$(BUILD_DIR)/nqgl,$$(ALL_NQGL_CPPFLAGS),))
+$(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwsw,$$(ALL_QWSW_CPPFLAGS),))
+$(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwgl,$$(ALL_QWGL_CPPFLAGS),))
+$(eval $(call QWSV_RULES,$$(BUILD_DIR)/qwsv,$$(ALL_QWSV_CPPFLAGS),))
 
-$(QWGLDIR)/%.o:		common/%.S	; $(do_cc_o_c)
-$(QWGLDIR)/%.o:		QW/client/%.S	; $(do_cc_o_c)
-$(QWGLDIR)/%.o:		QW/common/%.S	; $(do_cc_o_c)
-$(QWGLDIR)/%.o:		common/%.c	; $(do_cc_o_c)
-$(QWGLDIR)/%.o:		QW/client/%.c	; $(do_cc_o_c)
-$(QWGLDIR)/%.o:		QW/common/%.c	; $(do_cc_o_c)
-$(QWGLDIR)/%.res:	common/%.rc	; $(do_windres_res_rc)
-$(QWGLDIR)/%.res:	QW/client/%.rc	; $(do_windres_res_rc)
+# OSX building for two intel archs, two ppc archs
+$(eval $(call TARGET_RULES,osx-intel-32,-arch i386))
+$(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64))
+$(eval $(call TARGET_RULES,osx-ppc-32,-arch ppc))
+$(eval $(call TARGET_RULES,osx-ppc-64,-arch ppc64))
 
-$(QWSVDIR)/%.o:		QW/server/%.S	; $(do_cc_o_c)
-$(QWSVDIR)/%.o:		QW/common/%.S	; $(do_cc_o_c)
-$(QWSVDIR)/%.o:		common/%.S	; $(do_cc_o_c)
-$(QWSVDIR)/%.o:		QW/server/%.c	; $(do_cc_o_c)
-$(QWSVDIR)/%.o:		QW/common/%.c	; $(do_cc_o_c)
-$(QWSVDIR)/%.o:		common/%.c	; $(do_cc_o_c)
+# Win32 and Win64 builds ?? - cross compiler...
+$(eval $(call TARGET_RULES,win32,))
+$(eval $(call TARGET_RULES,win64,))
 
 # ----------------------------------
 # Output the build Options: Output
@@ -895,11 +932,11 @@ ALL_QWSW_LIBS := $(call filter-dups,$(call qwsw-list,LIBS))
 ALL_QWGL_LIBS := $(call filter-dups,$(call qwgl-list,LIBS))
 ALL_QWSV_LIBS := $(call filter-dups,$(call qwsv-list,LIBS))
 
-ALL_NQSW_LFLAGS := $(call filter-dups,$(call nqsw-list,LFLAGS))
-ALL_NQGL_LFLAGS := $(call filter-dups,$(call nqgl-list,LFLAGS))
-ALL_QWSW_LFLAGS := $(call filter-dups,$(call qwsw-list,LFLAGS))
-ALL_QWGL_LFLAGS := $(call filter-dups,$(call qwgl-list,LFLAGS))
-ALL_QWSV_LFLAGS := $(call filter-dups,$(call qwsv-list,LFLAGS))
+ALL_NQSW_LFLAGS := $(call nqsw-list,LFLAGS)
+ALL_NQGL_LFLAGS := $(call nqgl-list,LFLAGS)
+ALL_QWSW_LFLAGS := $(call qwsw-list,LFLAGS)
+ALL_QWGL_LFLAGS := $(call qwgl-list,LFLAGS)
+ALL_QWSV_LFLAGS := $(call qwsv-list,LFLAGS)
 
 ALL_NQSW_LFLAGS += $(patsubst %,-l%,$(ALL_NQSW_LIBS))
 ALL_NQGL_LFLAGS += $(patsubst %,-l%,$(ALL_NQGL_LIBS))
@@ -967,6 +1004,8 @@ clean:
 PLIST    ?= /usr/libexec/PlistBuddy
 IBTOOL   ?= ibtool
 ICONUTIL ?= iconutil
+LIPO     ?= lipo
+HDIUTIL  ?= hdiutil
 
 quiet_cmd_plist_set = '  PLIST    $@ $(1)'
       cmd_plist_set = $(PLIST) -c "Set :$(1) $(2)" $(@D)/.$(@F).tmp
@@ -1001,7 +1040,7 @@ define do_iconutil_icns
 endef
 
 quiet_cmd_hdiutil = '  HDIUTIL  $@'
-      cmd_hdiutil = hdiutil create $@ -srcfolder $(1) -ov -volname $(2)
+      cmd_hdiutil = $(HDIUTIL) create $@ -srcfolder $(1) -ov -volname $(2)
 
 define do_hdiutil
 	$(do_mkdir)
@@ -1009,17 +1048,23 @@ define do_hdiutil
 	@$(call cmd_hdiutil,$(1),$(2)) $(if $(quiet),>/dev/null,)
 endef
 
+quiet_cmd_lipo = '  LIPO     $@'
+      cmd_lipo = lipo -create $^ -output $@
+
+define do_lipo
+	$(do_mkdir)
+	@echo $($(quiet)cmd_lipo)
+	@$(cmd_lipo)
+endef
+
 # ----------------------------------------------------------------------------
 # OSX Launcher - Application stub which launches the main quake executable
 # ----------------------------------------------------------------------------
 
 LAUNCHER_CPPFLAGS := $(COMMON_CPPFLAGS)
-LAUNCHER_CPPFLAGS += $(shell sdl2-config --cflags)
-LAUNCHER_LFLAGS := $(ALL_NQGL_LFLAGS) -lobjc -framework Cocoa
+LAUNCHER_CPPFLAGS += $(SDL_CFLAGS)
+LAUNCHER_LFLAGS = $(ALL_$(1)_LFLAGS) -lobjc -framework Cocoa
 LAUNCHER_DIR = $(BUILD_DIR)/launcher
-
-$(LAUNCHER_DIR)/%.o: CPPFLAGS = $(LAUNCHER_CPPFLAGS)
-$(LAUNCHER_DIR)/%.o: launcher/osx/%.m	; $(do_cc_o_m)
 
 LAUNCHER_OBJS = \
 	AppController.o		\
@@ -1028,41 +1073,6 @@ LAUNCHER_OBJS = \
 	SDLApplication.o	\
 	SDLMain.o		\
 	ScreenInfo.o
-
-# The launcher uses a hack to rename 'main' to SDL_main - so need to compile
-# separate versions of the sys_unix.o files for each app
-
-$(LAUNCHER_DIR)/sys_unix-nqsw.o: CPPFLAGS = $(ALL_NQSW_CPPFLAGS) -Dmain=SDL_main
-$(LAUNCHER_DIR)/sys_unix-nqgl.o: CPPFLAGS = $(ALL_NQGL_CPPFLAGS) -Dmain=SDL_main
-$(LAUNCHER_DIR)/sys_unix-qwsw.o: CPPFLAGS = $(ALL_QWSW_CPPFLAGS) -Dmain=SDL_main
-$(LAUNCHER_DIR)/sys_unix-qwgl.o: CPPFLAGS = $(ALL_QWGL_CPPFLAGS) -Dmain=SDL_main
-
-$(LAUNCHER_DIR)/sys_unix-%.o: common/sys_unix.c; $(do_cc_o_c)
-
-NQSW_LAUNCHER = $(BIN_DIR)/Tyr-Quake.app/Contents/MacOS/Launcher
-NQGL_LAUNCHER = $(BIN_DIR)/Tyr-GLQuake.app/Contents/MacOS/Launcher
-QWSW_LAUNCHER = $(BIN_DIR)/Tyr-QWCL.app/Contents/MacOS/Launcher
-QWGL_LAUNCHER = $(BIN_DIR)/Tyr-GLQWCL.app/Contents/MacOS/Launcher
-
-launcher-objs = \
-	$(patsubst %,$(LAUNCHER_DIR)/%,$(LAUNCHER_OBJS)) \
-	$(patsubst %,$($(1)DIR)/%,$(filter-out sys_unix.o,$(ALL_$(1)_OBJS))) \
-	$(LAUNCHER_DIR)/sys_unix-$(2).o
-
-NQSW_LAUNCHER_OBJS = $(call launcher-objs,NQSW,nqsw)
-NQGL_LAUNCHER_OBJS = $(call launcher-objs,NQGL,nqgl)
-QWSW_LAUNCHER_OBJS = $(call launcher-objs,QWSW,qwsw)
-QWGL_LAUNCHER_OBJS = $(call launcher-objs,QWGL,qwgl)
-
-define do_build_launcher
-	$(call do_cc_link,$(LAUNCHER_LFLAGS))
-	$(call do_strip,$@)
-endef
-
-$(NQSW_LAUNCHER): $(NQSW_LAUNCHER_OBJS); $(do_build_launcher)
-$(NQGL_LAUNCHER): $(NQGL_LAUNCHER_OBJS); $(do_build_launcher)
-$(QWSW_LAUNCHER): $(QWSW_LAUNCHER_OBJS); $(do_build_launcher)
-$(QWGL_LAUNCHER): $(QWGL_LAUNCHER_OBJS); $(do_build_launcher)
 
 # ----------------------------------------------------------------------------
 # Application bundle contents
@@ -1097,15 +1107,70 @@ $(OSX_DIR)/%/Contents/Resources/English.lproj/Launcher.nib:	launcher/osx/English
 $(OSX_DIR)/%/Contents/PkgInfo:	launcher/osx/PkgInfo
 	$(do_cp)
 
-$(OSX_DIR)/%/Contents/MacOS/Launcher:	$(BIN_DIR)/%/Contents/MacOS/Launcher
-	$(do_cp)
+# Arch specific launcher binaries
+
+# $(1) - arch build dir
+# $(2) - client build dir
+# $(3) - target client uppercase for ALL_*_OBJS
+launcher-objs = \
+	$(patsubst %,$(BUILD_DIR)/$(1)/launcher/%,$(LAUNCHER_OBJS)) \
+	$(patsubst %,$(BUILD_DIR)/$(1)/$(2)/%,$(filter-out sys_unix.o,$(ALL_$(3)_OBJS))) \
+	$(BUILD_DIR)/$(1)/launcher/sys_unix-$(2).o
+
+# $(1) - which LFLAGS to use
+# $(2) - linker arch option
+define do_link_launcher
+	$(call do_cc_link,$(2) $(call LAUNCHER_LFLAGS,$(1)))
+	$(call do_strip,$@)
+endef
+
+# $(1) - arch build dir
+# $(2) - arch compiler option
+define LAUNCHER_ARCH_RULES
+# The launcher uses a hack to rename 'main' to SDL_main - so need to compile
+# separate versions of the sys_unix.o files for each app
+$$(BUILD_DIR)/$(1)/launcher/sys_unix-nqsw.o: CPPFLAGS = $$(ALL_NQSW_CPPFLAGS) -Dmain=SDL_main
+$$(BUILD_DIR)/$(1)/launcher/sys_unix-nqgl.o: CPPFLAGS = $$(ALL_NQGL_CPPFLAGS) -Dmain=SDL_main
+$$(BUILD_DIR)/$(1)/launcher/sys_unix-qwsw.o: CPPFLAGS = $$(ALL_QWSW_CPPFLAGS) -Dmain=SDL_main
+$$(BUILD_DIR)/$(1)/launcher/sys_unix-qwgl.o: CPPFLAGS = $$(ALL_QWGL_CPPFLAGS) -Dmain=SDL_main
+$$(BUILD_DIR)/$(1)/launcher/sys_unix-%.o: common/sys_unix.c; $$(do_cc_o_c)
+
+# The shared launcher objects (from .m) just use the common cflags
+$$(BUILD_DIR)/$(1)/launcher/%.o: CPPFLAGS = $$(COMMON_CPPFLAGS) $$(SDL_CFLAGS)
+$$(BUILD_DIR)/$(1)/launcher/%.o: CFLAGS += $(2)
+$$(BUILD_DIR)/$(1)/launcher/%.o: launcher/osx/%.m ; $$(do_cc_o_m)
+
+# Finally, give a recipie to build the arch launcher
+$$(BUILD_DIR)/$(1)/nqsw/Launcher: $$(call launcher-objs,$(1),nqsw,NQSW) ; $$(call do_link_launcher,NQSW,$(2))
+$$(BUILD_DIR)/$(1)/nqgl/Launcher: $$(call launcher-objs,$(1),nqgl,NQGL) ; $$(call do_link_launcher,NQGL,$(2))
+$$(BUILD_DIR)/$(1)/qwsw/Launcher: $$(call launcher-objs,$(1),qwsw,QWSW) ; $$(call do_link_launcher,QWSW,$(2))
+$$(BUILD_DIR)/$(1)/qwgl/Launcher: $$(call launcher-objs,$(1),qwgl,QWGL) ; $$(call do_link_launcher,QWGL,$(2))
+endef
+
+# Rules to build the individual architecture launchers
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-32,-arch i386))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64))
+
+launcher-arch-files = \
+	$(BUILD_DIR)/osx-intel-32/$(1)/Launcher \
+	$(BUILD_DIR)/osx-intel-64/$(1)/Launcher
+
+$(OSX_DIR)/Tyr-Quake.app/Contents/MacOS/Launcher:   $(call launcher-arch-files,nqsw) ; $(do_lipo)
+$(OSX_DIR)/Tyr-GLQuake.app/Contents/MacOS/Launcher: $(call launcher-arch-files,nqgl) ; $(do_lipo)
+$(OSX_DIR)/Tyr-QWCL.app/Contents/MacOS/Launcher:    $(call launcher-arch-files,qwsw) ; $(do_lipo)
+$(OSX_DIR)/Tyr-GLQWCL.app/Contents/MacOS/Launcher:  $(call launcher-arch-files,qwgl) ; $(do_lipo)
+
+# Make a copy of the SDL2.framework for the bundle
+$(OSX_DIR)/%/Contents/Frameworks/SDL2.framework: /Library/Frameworks/SDL2.framework
+	$(call do_rsync,-rltp --delete "$<" "$@")
 
 BUNDLE_FILES = \
 	Contents/PkgInfo				\
 	Contents/Info.plist				\
 	Contents/Resources/English.lproj/Launcher.nib	\
 	Contents/Resources/TyrQuake.icns		\
-	Contents/MacOS/Launcher
+	Contents/MacOS/Launcher				\
+	Contents/Frameworks/SDL2.framework
 
 NQSW_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-Quake.app/%,$(BUNDLE_FILES))
 NQGL_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-GLQuake.app/%,$(BUNDLE_FILES))
