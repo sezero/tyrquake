@@ -332,8 +332,8 @@ quiet_cmd_cc_o_c = '  CC       $@'
 
 define do_cc_o_c
 	@$(do_mkdir);
-	@$(cmd_cc_dep_c);
 	@echo $($(quiet)cmd_cc_o_c);
+	@$(cmd_cc_dep_c);
 	@$(cmd_cc_o_c);
 endef
 
@@ -344,8 +344,8 @@ quiet_cmd_cc_o_m = '  CC       $@'
 
 define do_cc_o_m
 	@$(do_mkdir);
-	@$(cmd_cc_dep_m);
 	@echo $($(quiet)cmd_cc_o_m);
+	@$(cmd_cc_dep_m);
 	@$(cmd_cc_o_m);
 endef
 
