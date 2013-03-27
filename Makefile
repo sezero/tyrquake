@@ -513,8 +513,8 @@ $(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwgl,$$(ALL_QWGL_CPPFLAGS),))
 $(eval $(call QWSV_RULES,$$(BUILD_DIR)/qwsv,$$(ALL_QWSV_CPPFLAGS),))
 
 # OSX building for two intel archs, two ppc archs
-$(eval $(call TARGET_RULES,osx-intel-32,-arch i386))
-$(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64))
+$(eval $(call TARGET_RULES,osx-intel-32,-arch i386 -mmacosx-version-min=10.5))
+$(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.5))
 $(eval $(call TARGET_RULES,osx-ppc-32,-arch ppc))
 $(eval $(call TARGET_RULES,osx-ppc-64,-arch ppc64))
 
@@ -1148,8 +1148,8 @@ $$(BUILD_DIR)/$(1)/qwgl/Launcher: $$(call launcher-objs,$(1),qwgl,QWGL) ; $$(cal
 endef
 
 # Rules to build the individual architecture launchers
-$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-32,-arch i386))
-$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-32,-arch i386 -mmacosx-version-min=10.5))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.5))
 
 launcher-arch-files = \
 	$(BUILD_DIR)/osx-intel-32/$(1)/Launcher \
