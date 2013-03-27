@@ -318,13 +318,13 @@ endef
 # prevent errors when moving files around between builds (e.g. from NQ or QW
 # dirs to the common dir.)
 cmd_fixdep = \
-	cp $(@D)/.$(@F).d $(@D)/.$(@F).d.tmp ; \
+	cp $(@D)/.$(@F).d $(@D)/.$(@F).d.tmp && \
 	sed -e 's/\#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' -e '/^$$/ d' \
-	    -e 's/$$/ :/' < $(@D)/.$(@F).d.tmp >> $(@D)/.$(@F).d ; \
+	    -e 's/$$/ :/' < $(@D)/.$(@F).d.tmp >> $(@D)/.$(@F).d && \
 	rm -f $(@D)/.$(@F).d.tmp
 
 cmd_cc_dep_c = \
-	$(CC) -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< ; \
+	$(CC) -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< && \
 	$(cmd_fixdep)
 
 quiet_cmd_cc_o_c = '  CC       $@'
