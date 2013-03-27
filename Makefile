@@ -6,7 +6,7 @@
 #
 
 TYR_RELEASE := v0.63-pre
-TYR_GIT := $(shell git describe 2> /dev/null)
+TYR_GIT := $(shell git describe --dirty 2> /dev/null)
 TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
 TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
