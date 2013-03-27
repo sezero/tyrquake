@@ -144,6 +144,19 @@ endif
 # For generating html/text documentation
 GROFF ?= groff
 
+# Now that defaults are set, if we are using SDL set the CFLAGS/LFLAGS
+ifneq (,$(filter sdl,$(VID_TARGET) $(SND_TARGET) $(IN_TARGET)))
+ifeq (,$(filter-out UNIX,$(TARGET_OS))$(filter-out darwin,$(TARGET_UNIX)))
+SDL_CFLAGS_DEFAULT := -iquote /Library/Frameworks/SDL2.framework/Versions/Current/Headers
+SDL_LFLAGS_DEFAULT := -framework SDL2
+else
+SDL_CFLAGS_DEFAULT := $(shell sdl2-config --cflags)
+SDL_LFLAGS_DEFAULT := $(shell sdl2-config --libs)
+endif
+SDL_CFLAGS ?= $(SDL_CFLAGS_DEFAULT)
+SDL_LFLAGS ?= $(SDL_LFLAGS_DEFAULT)
+endif
+
 # ============================================================================
 # Helper functions
 # ============================================================================
@@ -788,8 +801,8 @@ endif
 ifeq ($(VID_TARGET),sdl)
 SW_OBJS += vid_sdl.o sdl_common.o
 GL_OBJS += vid_sgl.o sdl_common.o
-CL_CPPFLAGS += $(shell sdl2-config --cflags)
-CL_LFLAGS += $(shell sdl2-config --libs)
+CL_CPPFLAGS += $(SDL_CFLAGS)
+CL_LFLAGS += $(SDL_LFLAGS)
 endif
 
 # ----------------
@@ -850,8 +863,8 @@ CL_LIBS += sndio
 endif
 ifeq ($(SND_TARGET),sdl)
 CL_OBJS += snd_sdl.o sdl_common.o
-CL_CPPFLAGS += $(shell sdl2-config --cflags)
-CL_LFLAGS += $(shell sdl2-config --libs)
+CL_CPPFLAGS += $(SDL_CFLAGS)
+CL_LFLAGS += $(SDL_LFLAGS)
 endif
 
 # ----------------------------------------------------------------------------
