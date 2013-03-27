@@ -354,10 +354,20 @@ to use this (and it probably doesn't even work anymore!)
 .IP "\fBsv_gamedir\fP"
 .IP "\fBfloodprot\fP"
 .IP "\fBfloodprotmsg\fP"
-.IP "\fBaddip\fP"
-.IP "\fBremoveip\fP"
+.IP "\fBaddip ip\fP[\fB/mask\fP]"
+Add an IP filter to drop packets from the specified IP address or network. IP
+addresses are specified in the standard form \fIA.B.C.D\fP.  A network can be
+specified using a netmask length, e.g. \fBaddip 10.10.10.0/24\fP or by giving
+only the first one, two or three octets; e.g. \fBaddip 10.10.10\fP.
+.IP "\fBremoveip ip\fP[\fB/mask\fP]"
+Remove an IP address or network from the IP filter list.  Note that if an IP
+address is filtered as part of a network filter, you can only un-filter the IP
+by removing the network filter.
 .IP "\fBlistip\fP"
+Show the current IP filter list.
 .IP "\fBwriteip\fP"
+Writes commands to re-construct the current IP filter list to the file
+listip.cfg which can later be restored with 'exec listip.cfg'.
 
 .SH "CONSOLE VARIABLES"
 
@@ -379,8 +389,12 @@ to use this (and it probably doesn't even work anymore!)
 .IP "\fBr_fullbright\fP"
 .IP "\fBr_drawentities\fP"
 .IP "\fBr_drawviewmodel\fP"
-.IP "\fBr_lerpmodels\fP"
-.IP "\fBr_lerpmove\fP"
+.IP "\fBr_lerpmodels 0\fP|\fB1\fP (tyr-quake,tyr-glquake only)"
+If 1, smooth out animation of alias models by interpolating between
+animation frames. If enabling this setting, it is recommended to enable
+r_lerpmove as well. Default 0.
+.IP "\fBr_lerpmove 0\fP|\fB1\fP"
+If 1, interpolate movement of alias model entities. Default 0.
 .IP "\fBr_norefresh\fP"
 .IP "\fBr_lightmap\fP"
 .IP "\fBr_shadows\fP"
