@@ -1469,7 +1469,7 @@ VID_Init(const byte *palette)
 static int vid_wmodes;
 
 typedef struct {
-    int modenum;
+    const qvidmode_t *mode;
     const char *desc;
     int iscur;
 } modedesc_t;
@@ -1477,23 +1477,20 @@ typedef struct {
 #define VID_ROW_SIZE     3
 #define MAX_COLUMN_SIZE  9
 #define MODE_AREA_HEIGHT (MAX_COLUMN_SIZE + 2)
-#define MAX_MODEDESCS    (MAX_COLUMN_SIZE * 3)
+#define MAX_MODEDESCS    (MAX_COLUMN_SIZE * VID_ROW_SIZE)
 
 static modedesc_t modedescs[MAX_MODEDESCS];
 
 static const char *
 VID_GetModeDescription(const qvidmode_t *mode)
 {
-    static char pinfo[40];
+    static char desc[40];
+    char temp[40];
 
-    if (mode->fullscreen)
-	snprintf(pinfo, sizeof(pinfo), "%4d x %4d x %2d @ %3dHz",
-		 mode->width, mode->height, mode->bpp, mode->refresh);
-    else
-	snprintf(pinfo, sizeof(pinfo), "%4d x %4d windowed",
-		 mode->width, mode->height);
+    snprintf(temp, sizeof(temp), "%dx%dx%d", mode->width, mode->height, mode->bpp);
+    snprintf(desc, sizeof(desc), "%14s", temp);
 
-    return pinfo;
+    return desc;
 }
 
 /*
@@ -1504,26 +1501,19 @@ VID_MenuDraw_WGL
 static void
 VID_MenuDraw_WGL(void)
 {
-    const qpic_t *p;
-    const char *ptr;
-    int lnummodes, i, k, column, row;
+    const qpic_t *pic;
+    int i, column, row;
 
-    p = Draw_CachePic("gfx/vidmodes.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    pic = Draw_CachePic("gfx/vidmodes.lmp");
+    M_DrawPic((320 - pic->width) / 2, 4, pic);
 
     vid_wmodes = 0;
-    lnummodes = nummodes;
 
-    for (i = 1; (i < lnummodes) && (vid_wmodes < MAX_MODEDESCS); i++) {
-	ptr = VID_GetModeDescription(&modelist[i]);
-
-	k = vid_wmodes;
-	modedescs[k].modenum = i;
-	modedescs[k].desc = ptr;
-	modedescs[k].iscur = 0;
-	if (i == vid_modenum)
-	    modedescs[k].iscur = 1;
-
+    for (i = 1; (i < nummodes) && (vid_wmodes < MAX_MODEDESCS); i++) {
+	modedesc_t *mode = &modedescs[vid_wmodes];
+	mode->mode = &modelist[i];
+	mode->desc = NULL;
+	mode->iscur = (i == vid_modenum);
 	vid_wmodes++;
     }
 
@@ -1534,13 +1524,15 @@ VID_MenuDraw_WGL(void)
 	row = 36 + 2 * 8;
 
 	for (i = 0; i < vid_wmodes; i++) {
-	    if (modedescs[i].iscur)
-		M_PrintWhite(column, row, modedescs[i].desc);
+	    const modedesc_t *mode = &modedescs[i];
+	    const char *desc = VID_GetModeDescription(mode->mode);
+
+	    if (mode->iscur)
+		M_PrintWhite(column, row, desc);
 	    else
-		M_Print(column, row, modedescs[i].desc);
+		M_Print(column, row, desc);
 
-	    column += 13 * 8;
-
+	    column += 15 * 8;
 	    if ((i % VID_ROW_SIZE) == (VID_ROW_SIZE - 1)) {
 		column = 8;
 		row += 8;
