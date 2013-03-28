@@ -41,13 +41,27 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define WARP_WIDTH 320
 #define WARP_HEIGHT 200
 
+int vid_modenum = VID_MODE_NONE;
+
+static cvar_t vid_mode = {
+    .name = "vid_mode",
+    .string = stringify(VID_MODE_WINDOWED),
+    .archive = false
+};
+
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
 unsigned char d_15to8table[65536];
 
 viddef_t vid;
 
-qboolean VID_IsFullScreen(void) { return false; }
+qboolean
+VID_IsFullScreen(void)
+{
+    return modelist[vid_modenum].fullscreen;
+}
+
+qboolean VID_CheckAdequateMem(int width, int height) { return true; }
 void VID_LockBuffer(void) {}
 void VID_UnlockBuffer(void) {}
 
@@ -92,22 +106,11 @@ qboolean window_visible(void) { return true; }
  * FIXME - I'm sorry, it's horrible :(
  */
 typedef struct {
-    int width;
-    int height;
-    int modenum;
-    int fullscreen;
-    int bpp;
-    int refresh;
-    char modedesc[13];
     typeof(SDL_PIXELFORMAT_UNKNOWN) format;
-} vmode_t;
+} qvidformat_t;
 
-/*
- * modelist - Last entry is a custom mode for command line parameters
- */
-#define MAX_MODE_LIST 1
-#define VID_MODE_CMDLINE MAX_MODE_LIST
-static vmode_t modelist[MAX_MODE_LIST + 1];
+/* FIXME - ugly hack -> use a struct with embedded qvidmode_t instead? */
+static qvidformat_t formats[MAX_MODE_LIST + 1];
 
 static SDL_PixelFormat *sdl_desktop_format = NULL;
 
@@ -165,7 +168,7 @@ VID_CheckCmdlineMode(void)
 
     if (bpp == modelist[0].bpp) {
 	modelist[VID_MODE_CMDLINE].bpp = bpp;
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
 	return true;
     }
 
@@ -176,7 +179,7 @@ VID_CheckCmdlineMode(void)
 	break;
     default:
 	modelist[VID_MODE_CMDLINE].bpp = modelist[0].bpp;
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
 	return true;
     }
 
@@ -187,7 +190,7 @@ VID_CheckCmdlineMode(void)
 	bpp = 32;
     if (bpp != 16 && bpp != 32) {
 	modelist[VID_MODE_CMDLINE].bpp = modelist[0].bpp;
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
 	return true;
     }
 
@@ -198,31 +201,31 @@ VID_CheckCmdlineMode(void)
     modelist[VID_MODE_CMDLINE].bpp = bpp;
     switch (SDL_PIXELORDER(sdl_desktop_format->format)) {
     case SDL_PACKEDORDER_XRGB:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGB888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGB888;
 	break;
     case SDL_PACKEDORDER_RGBX:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGBA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGBA8888;
 	break;
     case SDL_PACKEDORDER_ARGB:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ARGB4444 : SDL_PIXELFORMAT_ARGB8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ARGB4444 : SDL_PIXELFORMAT_ARGB8888;
 	break;
     case SDL_PACKEDORDER_RGBA:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGBA4444 : SDL_PIXELFORMAT_RGBA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGBA4444 : SDL_PIXELFORMAT_RGBA8888;
 	break;
     case SDL_PACKEDORDER_XBGR:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_ABGR8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_ABGR8888;
 	break;
     case SDL_PACKEDORDER_BGRX:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_BGRA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_BGRA8888;
 	break;
     case SDL_PACKEDORDER_ABGR:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ABGR4444 : SDL_PIXELFORMAT_ABGR8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ABGR4444 : SDL_PIXELFORMAT_ABGR8888;
 	break;
     case SDL_PACKEDORDER_BGRA:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGRA4444 : SDL_PIXELFORMAT_BGRA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGRA4444 : SDL_PIXELFORMAT_BGRA8888;
 	break;
     default:
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
     }
     return true;
 }
@@ -258,6 +261,8 @@ VID_GL_CheckExtn(const char *extn)
 static void
 VID_InitGL(void)
 {
+    Cvar_RegisterVariable(&vid_mode);
+
     gl_vendor = (const char *)glGetString(GL_VENDOR);
     gl_renderer = (const char *)glGetString(GL_RENDERER);
     gl_version = (const char *)glGetString(GL_VERSION);
@@ -302,12 +307,11 @@ VID_InitGL(void)
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 }
 
-static int
-VID_SetMode(int modenum, unsigned char *palette)
+qboolean
+VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
     Uint32 flags;
     int err;
-    vmode_t *mode = &modelist[modenum];
 
     if (gl_context)
 	SDL_GL_DeleteContext(gl_context);
@@ -347,15 +351,19 @@ VID_SetMode(int modenum, unsigned char *palette)
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
+    vid_modenum = mode - modelist;
+    Cvar_SetValue("vid_mode", vid_modenum);
+
     return true;
 }
 
 void
-VID_Init(unsigned char *palette)
+VID_Init(const byte *palette)
 {
     int err;
     SDL_DisplayMode desktop_mode;
     qboolean cmdline_mode;
+    const qvidmode_t *mode;
 
     Cvar_RegisterVariable(&gl_ztrick);
 
@@ -379,10 +387,11 @@ VID_Init(unsigned char *palette)
     modelist[0].modenum = 0;
     modelist[0].fullscreen = 0;
     modelist[0].bpp = sdl_desktop_format->BitsPerPixel;
-    modelist[0].format = sdl_desktop_format->format;
+    formats[0].format = sdl_desktop_format->format;
 
     cmdline_mode = VID_CheckCmdlineMode();
-    VID_SetMode(cmdline_mode ? VID_MODE_CMDLINE : 0, palette);
+    mode = &modelist[cmdline_mode ? VID_MODE_CMDLINE : 0];
+    VID_SetMode(mode, palette);
 
     VID_SetPalette(palette);
 }
@@ -412,7 +421,7 @@ GL_EndRendering(void)
 }
 
 void
-VID_SetPalette(unsigned char *palette)
+VID_SetPalette(const byte *palette)
 {
     unsigned i, r, g, b, pixel;
 
@@ -436,7 +445,7 @@ VID_SetPalette(unsigned char *palette)
 }
 
 void
-VID_ShiftPalette(unsigned char *palette)
+VID_ShiftPalette(const byte *palette)
 {
     /* Done via gl_polyblend instead */
     //VID_SetPalette(palette);

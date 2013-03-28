@@ -49,13 +49,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "resource.h"
 
-#define MAX_MODE_LIST	80
-#define VID_ROW_SIZE	3
-
-static void VID_MenuDraw(void);
-static void VID_MenuKey(int key);
-static int VID_SetMode(int modenum, unsigned char *palette);
-
 static qboolean Minimized;
 
 qboolean
@@ -90,13 +83,6 @@ static qboolean vid_mode_set, hide_window;
 static HICON hIcon;
 
 viddef_t vid;			// global video state
-
-#define VID_MODE_NONE			(-1)
-#define VID_MODE_WINDOWED		0
-#define NUM_WINDOWED_MODES		5
-
-/* so this can be "stringified" -> (VID_MODE_WINDOWED+NUM_WINDOWED_MODES) */
-#define VID_MODE_FULLSCREEN_DEFAULT	5
 
 static cvar_t vid_mode = {
     .name = "vid_mode",
@@ -140,9 +126,7 @@ typedef struct {
 
 static int windowed_default;
 static int vid_default = VID_MODE_WINDOWED;
-static int vid_modenum = VID_MODE_NONE;
-static int vid_testingmode, vid_realmode;
-static double vid_testendtime;
+int vid_modenum = VID_MODE_NONE;
 
 static modestate_t modestate = MS_UNINIT;
 
@@ -150,24 +134,10 @@ static byte *vid_surfcache;
 static int vid_surfcachesize;
 static int VID_highhunkmark;
 
-static unsigned char vid_curpal[256 * 3];
+static byte vid_curpal[256 * 3];
 
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
-
-typedef struct {
-    modestate_t type;
-    int width;
-    int height;
-    int modenum;
-    int fullscreen;
-    char modedesc[13];
-} vmode_t;
-
-static vmode_t modelist[MAX_MODE_LIST];
-static int nummodes;
-
-static vmode_t badmode;
 
 static byte backingbuf[48 * 24];
 
@@ -175,12 +145,10 @@ static void AppActivate(BOOL fActive, BOOL minimize);
 static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 			       LPARAM lParam);
 
-typedef struct dibinfo
-{
-	BITMAPINFOHEADER	header;
-	RGBQUAD				acolors[256];
+typedef struct dibinfo {
+    BITMAPINFOHEADER header;
+    RGBQUAD acolors[256];
 } dibinfo_t;
-
 
 static HGDIOBJ previously_selected_GDI_obj = NULL;
 static HBITMAP hDIBSection;
@@ -209,7 +177,7 @@ VID_ShutdownDIB(void)
 }
 
 static void
-VID_CreateDIB(int width, int height, unsigned char *palette)
+VID_CreateDIB(int width, int height, const byte *palette)
 {
     dibinfo_t dibheader;
     BITMAPINFO *pbmiDIB = (BITMAPINFO *)&dibheader;
@@ -356,7 +324,7 @@ ClearAllStates(void)
 VID_CheckAdequateMem
 ====================
 */
-static qboolean
+qboolean
 VID_CheckAdequateMem(int width, int height)
 {
     int tbuffersize;
@@ -416,9 +384,8 @@ VID_AllocBuffers(int width, int height)
 }
 
 static void
-InitWindowedMode(vmode_t *mode, int num, int width, int height)
+InitWindowedMode(qvidmode_t *mode, int num, int width, int height)
 {
-    mode->type = MS_WINDOWED;
     mode->width = width;
     mode->height = height;
     snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%d", width, height);
@@ -471,7 +438,7 @@ VID_InitModes(HINSTANCE hInstance)
 
     windowed_default = vid_default;
     ReleaseDC(NULL, hdc);
-    nummodes = NUM_WINDOWED_MODES;
+    nummodes = 5;
 }
 
 /*
@@ -504,7 +471,6 @@ VID_GetDisplayModes(void)
 
 	    result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
 	    if (result == DISP_CHANGE_SUCCESSFUL) {
-		modelist[nummodes].type = MS_FULLDIB;
 		modelist[nummodes].width = devmode.dmPelsWidth;
 		modelist[nummodes].height = devmode.dmPelsHeight;
 		modelist[nummodes].modenum = 0;
@@ -545,110 +511,8 @@ VID_DestroyWindow (void)
     VID_ShutdownDIB ();
 }
 
-
-
-/*
-=================
-VID_NumModes
-=================
-*/
-static int
-VID_NumModes(void)
-{
-    return nummodes;
-}
-
-
-/*
-=================
-VID_GetModePtr
-=================
-*/
-static vmode_t *
-VID_GetModePtr(int modenum)
-{
-    if ((modenum >= 0) && (modenum < nummodes))
-	return &modelist[modenum];
-    else
-	return &badmode;
-}
-
-/*
-=================
-VID_GetModeDescriptionMemCheck
-=================
-*/
-static char *
-VID_GetModeDescriptionMemCheck(int mode)
-{
-    char *pinfo;
-    vmode_t *pv;
-
-    if ((mode < 0) || (mode >= nummodes))
-	return NULL;
-
-    pv = VID_GetModePtr(mode);
-    pinfo = pv->modedesc;
-
-    if (VID_CheckAdequateMem(pv->width, pv->height)) {
-	return pinfo;
-    } else {
-	return NULL;
-    }
-}
-
-
-/*
-=================
-VID_GetModeDescription
-=================
-*/
-static char *
-VID_GetModeDescription(int mode)
-{
-    char *pinfo;
-    vmode_t *pv;
-
-    if ((mode < 0) || (mode >= nummodes))
-	return NULL;
-
-    pv = VID_GetModePtr(mode);
-    pinfo = pv->modedesc;
-    return pinfo;
-}
-
-
-/*
-=================
-VID_GetModeDescription2
-
-Tacks on "windowed" or "fullscreen"
-=================
-*/
-static char *
-VID_GetModeDescription2(int mode)
-{
-    static char pinfo[40];
-    vmode_t *pv;
-
-    if ((mode < 0) || (mode >= nummodes))
-	return NULL;
-
-    pv = VID_GetModePtr(mode);
-
-    if (modelist[mode].type == MS_FULLSCREEN) {
-	sprintf(pinfo, "%s fullscreen", pv->modedesc);
-    } else if (modelist[mode].type == MS_FULLDIB) {
-	sprintf(pinfo, "%s fullscreen", pv->modedesc);
-    } else {
-	sprintf(pinfo, "%s windowed", pv->modedesc);
-    }
-
-    return pinfo;
-}
-
 static qboolean
-VID_SetWindowedMode(int modenum)
+VID_SetWindowedMode(const qvidmode_t *mode)
 {
     if (!windowed_mode_set) {
 	if (COM_CheckParm("-resetwinpos")) {
@@ -661,10 +525,10 @@ VID_SetWindowedMode(int modenum)
     VID_DestroyWindow();
 
     WindowRect.top = WindowRect.left = 0;
-    WindowRect.right = modelist[modenum].width;
-    WindowRect.bottom = modelist[modenum].height;
-    DIBWidth = modelist[modenum].width;
-    DIBHeight = modelist[modenum].height;
+    WindowRect.right = mode->width;
+    WindowRect.bottom = mode->height;
+    DIBWidth = mode->width;
+    DIBHeight = mode->height;
     WindowStyle = WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU |
 	WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     ExWindowStyle = 0;
@@ -734,15 +598,15 @@ VID_SetWindowedMode(int modenum)
 }
 
 static qboolean
-VID_SetFullDIBMode(int modenum)
+VID_SetFullDIBMode(const qvidmode_t *mode)
 {
     LONG result;
 
     VID_DestroyWindow();
 
     gdevmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-    gdevmode.dmPelsWidth = modelist[modenum].width;
-    gdevmode.dmPelsHeight = modelist[modenum].height;
+    gdevmode.dmPelsWidth = mode->width;
+    gdevmode.dmPelsHeight = mode->height;
     gdevmode.dmSize = sizeof(gdevmode);
 
     result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
@@ -750,14 +614,14 @@ VID_SetFullDIBMode(int modenum)
 	Sys_Error("Couldn't set fullscreen DIB mode");
 
     modestate = MS_FULLDIB;
-    vid_fulldib_on_focus_mode = modenum;
+    vid_fulldib_on_focus_mode = mode - modelist;
     WindowRect.top = WindowRect.left = 0;
 
-    WindowRect.right = modelist[modenum].width;
-    WindowRect.bottom =	modelist[modenum].height;
+    WindowRect.right = mode->width;
+    WindowRect.bottom =	mode->height;
 
-    DIBWidth = modelist[modenum].width;
-    DIBHeight = modelist[modenum].height;
+    DIBWidth = mode->width;
+    DIBHeight = mode->height;
 
     WindowStyle = WS_POPUP | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     ExWindowStyle = 0;
@@ -798,7 +662,7 @@ VID_SetFullDIBMode(int modenum)
 
 
 static void
-VID_RestoreOldMode(int original_mode)
+VID_RestoreOldMode(const qvidmode_t *mode)
 {
     static qboolean inerror = false;
 
@@ -809,11 +673,11 @@ VID_RestoreOldMode(int original_mode)
     inerror = true;
 
     /* make sure mode set happens (video mode changes) */
-    vid_modenum = original_mode - 1;
+    vid_modenum = mode - modelist - 1;
 
-    if (!VID_SetMode(original_mode, vid_curpal)) {
+    if (!VID_SetMode(mode, vid_curpal)) {
 	vid_modenum = VID_MODE_NONE;
-	if (!VID_SetMode(windowed_default, vid_curpal))
+	if (!VID_SetMode(&modelist[windowed_default], vid_curpal))
 	    Sys_Error("Can't set any video mode");
     }
     inerror = false;
@@ -824,30 +688,30 @@ void
 VID_SetDefaultMode(void)
 {
     if (vid_initialized)
-	VID_SetMode(VID_MODE_WINDOWED, vid_curpal);
+	VID_SetMode(&modelist[VID_MODE_WINDOWED], vid_curpal);
     IN_DeactivateMouse();
 }
 
 
-static int
-VID_SetMode(int modenum, unsigned char *palette)
+qboolean
+VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
-    int original_mode, temp;
+    int original_mode, temp, modenum;
     qboolean stat;
     MSG msg;
     HDC hdc;
 
-    while ((modenum >= nummodes) || (modenum < 0)) {
+    modenum = mode - modelist;
+    while ((modenum >= nummodes || modenum < 0) && modenum != VID_MODE_CMDLINE) {
 	if (vid_modenum == VID_MODE_NONE) {
 	    if (modenum == vid_default) {
 		modenum = windowed_default;
 	    } else {
 		modenum = vid_default;
 	    }
-
-	    Cvar_SetValue("vid_mode", (float)modenum);
+	    Cvar_SetValue("vid_mode", modenum);
 	} else {
-	    Cvar_SetValue("vid_mode", (float)vid_modenum);
+	    Cvar_SetValue("vid_mode", vid_modenum);
 	    return 0;
 	}
     }
@@ -855,7 +719,7 @@ VID_SetMode(int modenum, unsigned char *palette)
     if (!force_mode_set && (modenum == vid_modenum))
 	return true;
 
-// so Con_Printfs don't mess us up by forcing vid and snd updates
+    /* so Con_Printfs don't mess us up by forcing vid and snd updates */
     temp = scr_disabled_for_loading;
     scr_disabled_for_loading = true;
     in_mode_set = true;
@@ -868,21 +732,22 @@ VID_SetMode(int modenum, unsigned char *palette)
     else
 	original_mode = vid_modenum;
 
-    // Set either the fullscreen or windowed mode
-    if (modelist[modenum].type == MS_WINDOWED) {
+    /* Set either the fullscreen or windowed mode */
+    mode = &modelist[modenum];
+    if (mode->fullscreen) {
+	stat = VID_SetFullDIBMode(mode);
+	IN_ActivateMouse();
+	IN_HideMouse();
+    } else {
 	if (_windowed_mouse.value && key_dest == key_game) {
-	    stat = VID_SetWindowedMode(modenum);
+	    stat = VID_SetWindowedMode(mode);
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	} else {
 	    IN_DeactivateMouse();
 	    IN_ShowMouse();
-	    stat = VID_SetWindowedMode(modenum);
+	    stat = VID_SetWindowedMode(mode);
 	}
-    } else {
-	stat = VID_SetFullDIBMode(modenum);
-	IN_ActivateMouse();
-	IN_HideMouse();
     }
 
     /* Create the DIB */
@@ -896,7 +761,7 @@ VID_SetMode(int modenum, unsigned char *palette)
     scr_disabled_for_loading = temp;
 
     if (!stat) {
-	VID_RestoreOldMode(original_mode);
+	VID_RestoreOldMode(&modelist[original_mode]);
 	return false;
     }
 
@@ -929,7 +794,7 @@ VID_SetMode(int modenum, unsigned char *palette)
 
     if (!VID_AllocBuffers(vid.width, vid.height)) {
 	// couldn't get memory for this mode; try to fall back to previous mode
-	VID_RestoreOldMode(original_mode);
+	VID_RestoreOldMode(&modelist[original_mode]);
 	return false;
     }
 
@@ -953,10 +818,6 @@ VID_SetMode(int modenum, unsigned char *palette)
        away */
     ClearAllStates();
 
-    if (!msg_suppress_1)
-	Con_SafePrintf("Video mode %s initialized\n",
-		       VID_GetModeDescription(vid_modenum));
-
     VID_SetPalette(palette);
     in_mode_set = false;
     vid.recalc_refdef = 1;
@@ -965,11 +826,11 @@ VID_SetMode(int modenum, unsigned char *palette)
 }
 
 void
-VID_SetPalette(unsigned char *palette)
+VID_SetPalette(const byte *palette)
 {
     INT i;
     RGBQUAD colors[256];
-    unsigned char *pal;
+    const byte *pal;
 
     if (window_visible() && hdcDIBSection) {
 	/* incoming palette is 3 component */
@@ -997,88 +858,10 @@ VID_SetPalette(unsigned char *palette)
 
 
 void
-VID_ShiftPalette(unsigned char *palette)
+VID_ShiftPalette(const byte *palette)
 {
     VID_SetPalette(palette);
 }
-
-
-/*
-=================
-VID_DescribeCurrentMode_f
-=================
-*/
-static void
-VID_DescribeCurrentMode_f(void)
-{
-    Con_Printf("%s\n", VID_GetModeDescription2(vid_modenum));
-}
-
-
-/*
-=================
-VID_NumModes_f
-=================
-*/
-static void
-VID_NumModes_f(void)
-{
-    if (nummodes == 1)
-	Con_Printf("%d video mode is available\n", nummodes);
-    else
-	Con_Printf("%d video modes are available\n", nummodes);
-}
-
-
-/*
-=================
-VID_DescribeMode_f
-=================
-*/
-static void
-VID_DescribeMode_f(void)
-{
-    int modenum;
-
-    modenum = Q_atoi(Cmd_Argv(1));
-    Con_Printf("%s\n", VID_GetModeDescription2(modenum));
-}
-
-
-/*
-=================
-VID_DescribeModes_f
-=================
-*/
-static void
-VID_DescribeModes_f(void)
-{
-    int i, lnummodes;
-    char *pinfo;
-    qboolean na;
-    vmode_t *pv;
-
-    na = false;
-
-    lnummodes = VID_NumModes();
-
-    for (i = 0; i < lnummodes; i++) {
-	pv = VID_GetModePtr(i);
-	pinfo = VID_GetModeDescription2(i);
-
-	if (VID_CheckAdequateMem(pv->width, pv->height)) {
-	    Con_Printf("%2d: %s\n", i, pinfo);
-	} else {
-	    Con_Printf("**: %s\n", pinfo);
-	    na = true;
-	}
-    }
-
-    if (na) {
-	Con_Printf("\n[**: not enough system RAM for mode]\n");
-    }
-}
-
 
 /*
 =================
@@ -1094,7 +877,7 @@ VID_TestMode_f(void)
     if (!vid_testingmode) {
 	modenum = Q_atoi(Cmd_Argv(1));
 
-	if (VID_SetMode(modenum, vid_curpal)) {
+	if (VID_SetMode(&modelist[modenum], vid_curpal)) {
 	    vid_testingmode = 1;
 	    testduration = Q_atof(Cmd_Argv(2));
 	    if (testduration == 0)
@@ -1113,7 +896,8 @@ VID_Windowed_f
 static void
 VID_Windowed_f(void)
 {
-    VID_SetMode((int)vid_windowed_mode.value, vid_curpal);
+    const qvidmode_t *mode = &modelist[(int)vid_windowed_mode.value];
+    VID_SetMode(mode, vid_curpal);
 }
 
 
@@ -1125,7 +909,8 @@ VID_Fullscreen_f
 static void
 VID_Fullscreen_f(void)
 {
-    VID_SetMode((int)vid_fullscreen_mode.value, vid_curpal);
+    const qvidmode_t *mode = &modelist[(int)vid_fullscreen_mode.value];
+    VID_SetMode(mode, vid_curpal);
 }
 
 
@@ -1159,14 +944,14 @@ VID_ForceMode_f(void)
 	modenum = Q_atoi(Cmd_Argv(1));
 
 	force_mode_set = 1;
-	VID_SetMode(modenum, vid_curpal);
+	VID_SetMode(&modelist[modenum], vid_curpal);
 	force_mode_set = 0;
     }
 }
 
 
 void
-VID_Init(unsigned char *palette)
+VID_Init(const byte *palette)
 {
     int i, bestmatch, bestmatchmetric, t, dr, dg, db;
     byte *ptmp;
@@ -1193,7 +978,6 @@ VID_Init(unsigned char *palette)
     Cmd_AddCommand("vid_windowed", VID_Windowed_f);
     Cmd_AddCommand("vid_fullscreen", VID_Fullscreen_f);
     Cmd_AddCommand("vid_minimize", VID_Minimize_f);
-
 
     VID_InitModes(global_hInstance);
     VID_GetDisplayModes();
@@ -1240,19 +1024,18 @@ VID_Init(unsigned char *palette)
 
     /* keep the window minimized until we're ready for the first mode set */
     hide_window = true;
-    VID_SetMode(VID_MODE_WINDOWED, palette);
+    VID_SetMode(&modelist[VID_MODE_WINDOWED], palette);
     hide_window = false;
 
     vid_initialized = true;
     force_mode_set = true;
-    VID_SetMode(vid_default, palette);
+    VID_SetMode(&modelist[vid_default], palette);
     force_mode_set = false;
 
     vid_realmode = vid_modenum;
     VID_SetPalette(palette);
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
-    strcpy(badmode.modedesc, "Bad mode");
 }
 
 
@@ -1440,12 +1223,12 @@ VID_Update(vrect_t *rects)
 
     if (vid_testingmode) {
 	if (realtime >= vid_testendtime) {
-	    VID_SetMode(vid_realmode, vid_curpal);
+	    VID_SetMode(&modelist[vid_realmode], vid_curpal);
 	    vid_testingmode = 0;
 	}
     } else {
 	if ((int)vid_mode.value != vid_realmode) {
-	    VID_SetMode((int)vid_mode.value, vid_curpal);
+	    VID_SetMode(&modelist[(int)vid_mode.value], vid_curpal);
 	    Cvar_SetValue("vid_mode", (float)vid_modenum);
 	    // so if mode set fails, we don't keep on
 	    //  trying to set that mode
@@ -1567,7 +1350,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 		if (vid_initialized) {
 		    /* don't want to see normal mode set message */
 		    msg_suppress_1 = true;
-		    VID_SetMode(vid_fulldib_on_focus_mode, vid_curpal);
+		    VID_SetMode(&modelist[vid_fulldib_on_focus_mode], vid_curpal);
 		    msg_suppress_1 = false;
 
 		    t = in_mode_set;
@@ -1592,7 +1375,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 
 		    /* don't want to see normal mode set message */
 		    msg_suppress_1 = true;
-		    VID_SetMode(windowed_default, vid_curpal);
+		    VID_SetMode(&modelist[windowed_default], vid_curpal);
 		    msg_suppress_1 = false;
 		    vid_fulldib_on_focus_mode = i;
 		    force_minimized = false;
@@ -1649,11 +1432,11 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	    // so we will have the right state to restore
 	    if (Minimized) {
 		force_mode_set = true;
-		VID_SetMode(vid_modenum, vid_curpal);
+		VID_SetMode(&modelist[vid_modenum], vid_curpal);
 		force_mode_set = false;
 	    }
 
-	    VID_SetMode((int)vid_fullscreen_mode.value, vid_curpal);
+	    VID_SetMode(&modelist[(int)vid_fullscreen_mode.value], vid_curpal);
 	    break;
 
 	case SC_SCREENSAVE:
@@ -1772,7 +1555,7 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	if (!in_mode_set && (modestate == MS_WINDOWED)
 	    && !vid_fulldib_on_focus_mode) {
 	    force_mode_set = true;
-	    VID_SetMode(vid_modenum, vid_curpal);
+	    VID_SetMode(&modelist[vid_modenum], vid_curpal);
 	    force_mode_set = false;
 	}
 	break;
@@ -1806,320 +1589,10 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return lRet;
 }
 
-static int vid_line;
-static int vid_wmodes;
-
-typedef struct {
-    int modenum;
-    char *desc;
-    int iscur;
-    int width;
-    int height;
-} modedesc_t;
-
-#define MAX_COLUMN_SIZE		5
-#define MODE_AREA_HEIGHT	(MAX_COLUMN_SIZE + 7)
-#define MAX_MODEDESCS		(MAX_COLUMN_SIZE * 3 + NUM_WINDOWED_MODES)
-
-static modedesc_t modedescs[MAX_MODEDESCS];
-
-/*
-================
-VID_MenuDraw
-================
-*/
-static void
-VID_MenuDraw(void)
-{
-    const qpic_t *p;
-    char *ptr;
-    int lnummodes, i, j, k, column, row, dup, dupmode;
-    char temp[100];
-    vmode_t *pv;
-    modedesc_t tmodedesc;
-
-    p = Draw_CachePic("gfx/vidmodes.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-
-    for (i = 0; i < NUM_WINDOWED_MODES; i++) {
-	ptr = VID_GetModeDescriptionMemCheck(i);
-	modedescs[i].modenum = modelist[i].modenum;
-	modedescs[i].desc = ptr;
-	modedescs[i].iscur = 0;
-
-	if (vid_modenum == i)
-	    modedescs[i].iscur = 1;
-    }
-
-    vid_wmodes = NUM_WINDOWED_MODES;
-    lnummodes = VID_NumModes();
-
-    dupmode = 0;	// FIXME - uninitialized -> guesssing 0
-
-    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < lnummodes; i++) {
-	ptr = VID_GetModeDescriptionMemCheck(i);
-	pv = VID_GetModePtr(i);
-
-	// we only have room for 15 fullscreen modes, so don't allow
-	// 360-wide modes, because if there are 5 320-wide modes and
-	// 5 360-wide modes, we'll run out of space
-	if (ptr && ((pv->width != 360) || COM_CheckParm("-allow360"))) {
-	    dup = 0;
-	    for (j = VID_MODE_FULLSCREEN_DEFAULT; j < vid_wmodes; j++) {
-		if (!strcmp(modedescs[j].desc, ptr)) {
-		    dup = 1;
-		    dupmode = j;
-		    break;
-		}
-	    }
-
-	    if (dup || (vid_wmodes < MAX_MODEDESCS)) {
-		if (!dup || COM_CheckParm("-noforcevga")) {
-		    if (dup) {
-			k = dupmode;
-		    } else {
-			k = vid_wmodes;
-		    }
-
-		    modedescs[k].modenum = i;
-		    modedescs[k].desc = ptr;
-		    modedescs[k].iscur = 0;
-		    modedescs[k].width = pv->width;
-		    modedescs[k].height = pv->height;
-
-		    if (i == vid_modenum)
-			modedescs[k].iscur = 1;
-
-		    if (!dup)
-			vid_wmodes++;
-		}
-	    }
-	}
-    }
-
-    /*
-     * Sort the modes on width & height
-     * (to handle picking up oddball dibonly modes after all the others)
-     */
-    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < (vid_wmodes - 1); i++) {
-	for (j = (i + 1); j < vid_wmodes; j++) {
-	    if (modedescs[i].width > modedescs[j].width	||
-		(modedescs[i].width == modedescs[j].width &&
-		 modedescs[i].height > modedescs[j].height)) {
-		tmodedesc = modedescs[i];
-		modedescs[i] = modedescs[j];
-		modedescs[j] = tmodedesc;
-	    }
-	}
-    }
-    M_Print(13 * 8, 36, "Windowed Modes");
-
-    column = 16;
-    row = 36 + 2 * 8;
-
-    for (i = 0; i < NUM_WINDOWED_MODES; i++) {
-	if (modedescs[i].iscur)
-	    M_PrintWhite(column, row, modedescs[i].desc);
-	else
-	    M_Print(column, row, modedescs[i].desc);
-
-	column += 13 * 8;
-	if (!((i + 1) % VID_ROW_SIZE)) {
-	    column = 16;
-	    row += 8;
-	}
-    }
-    /* go to next row if previous row not filled */
-    if (NUM_WINDOWED_MODES % VID_ROW_SIZE)
-	row += 8;
-
-    if (vid_wmodes > NUM_WINDOWED_MODES) {
-	M_Print(12 * 8, row + 8, "Fullscreen Modes");
-
-	column = 16;
-	row += 3 * 8;
-
-	for (i = VID_MODE_FULLSCREEN_DEFAULT; i < vid_wmodes; i++) {
-	    if (modedescs[i].iscur)
-		M_PrintWhite(column, row, modedescs[i].desc);
-	    else
-		M_Print(column, row, modedescs[i].desc);
-
-	    column += 13 * 8;
-	    if (!((i - NUM_WINDOWED_MODES + 1) % VID_ROW_SIZE)) {
-		column = 16;
-		row += 8;
-	    }
-	}
-    }
-
-    /* line cursor */
-    if (vid_testingmode) {
-	sprintf(temp, "TESTING %s", modedescs[vid_line].desc);
-	M_Print(13 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 4, temp);
-	M_Print(9 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6,
-		"Please wait 5 seconds...");
-    } else {
-	M_Print(9 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8,
-		"Press Enter to set mode");
-	M_Print(6 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 3,
-		"T to test mode for 5 seconds");
-	ptr = VID_GetModeDescription2(vid_modenum);
-
-	if (ptr) {
-	    sprintf(temp, "D to set default: %s", ptr);
-	    M_Print(2 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 5, temp);
-	}
-
-	ptr = VID_GetModeDescription2((int)_vid_default_mode_win.value);
-	if (ptr) {
-	    sprintf(temp, "Current default: %s", ptr);
-	    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6, temp);
-	}
-
-	M_Print(15 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 8, "Esc to exit");
-
-	if (vid_line < NUM_WINDOWED_MODES) {
-	    row = 36 + 2 * 8 + (vid_line / VID_ROW_SIZE) * 8;
-	    column = 8 + (vid_line % VID_ROW_SIZE) * 13 * 8;
-	} else {
-	    row = 36 + (5 + (NUM_WINDOWED_MODES + 2) / VID_ROW_SIZE) * 8;
-	    row += ((vid_line - NUM_WINDOWED_MODES) / VID_ROW_SIZE) * 8;
-	    column = 8 + ((vid_line - NUM_WINDOWED_MODES) % VID_ROW_SIZE) *
-		13 * 8;
-	}
-	M_DrawCharacter(column, row, 12 + ((int)(realtime * 4) & 1));
-    }
-}
-
-
-/*
-================
-VID_MenuKey
-================
-*/
-static void
-VID_MenuKey(int key)
-{
-    if (vid_testingmode)
-	return;
-
-    switch (key) {
-    case K_ESCAPE:
-	S_LocalSound("misc/menu1.wav");
-	M_Menu_Options_f();
-	break;
-
-    case K_LEFTARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES) {
-	    if (!vid_line) {
-		vid_line = VID_ROW_SIZE - 1;
-	    } else if (vid_line % VID_ROW_SIZE) {
-		vid_line -= 1;
-	    } else {
-		vid_line += VID_ROW_SIZE - 1;
-		if (vid_line >= NUM_WINDOWED_MODES)
-		    vid_line = NUM_WINDOWED_MODES - 1;
-	    }
-	} else if ((vid_line - NUM_WINDOWED_MODES) % VID_ROW_SIZE) {
-	    vid_line -= 1;
-	} else {
-	    vid_line += VID_ROW_SIZE - 1;
-	    if (vid_line >= vid_wmodes)
-		vid_line = vid_wmodes - 1;
-	}
-	break;
-
-    case K_RIGHTARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES) {
-	    if ((vid_line + 1) % VID_ROW_SIZE) {
-		vid_line += 1;
-		if (vid_line >= NUM_WINDOWED_MODES)
-		    vid_line = ((NUM_WINDOWED_MODES - 1) / VID_ROW_SIZE) *
-			VID_ROW_SIZE;
-	    } else {
-		vid_line -= VID_ROW_SIZE - 1;
-	    }
-	} else if ((vid_line - NUM_WINDOWED_MODES + 1) % VID_ROW_SIZE) {
-	    vid_line += 1;
-	    if (vid_line >= vid_wmodes)
-		vid_line = ((vid_line - NUM_WINDOWED_MODES) / VID_ROW_SIZE) *
-		    VID_ROW_SIZE + NUM_WINDOWED_MODES;
-	} else {
-	    vid_line -= VID_ROW_SIZE - 1;
-	}
-	break;
-
-    case K_UPARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES + VID_ROW_SIZE &&
-	    vid_line >= NUM_WINDOWED_MODES) {
-	    /* Going from fullscreen section to windowed section */
-	    vid_line -= NUM_WINDOWED_MODES % VID_ROW_SIZE;
-	    while (vid_line >= NUM_WINDOWED_MODES)
-		vid_line -= VID_ROW_SIZE;
-	} else if (vid_line < VID_ROW_SIZE) {
-	    /* From top to bottom */
-	    vid_line += (vid_wmodes / VID_ROW_SIZE + 1) * VID_ROW_SIZE;
-	    vid_line += NUM_WINDOWED_MODES % VID_ROW_SIZE;
-	    while (vid_line >= vid_wmodes)
-		vid_line -= VID_ROW_SIZE;
-	} else {
-	    vid_line -= VID_ROW_SIZE;
-	}
-	break;
-
-    case K_DOWNARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES &&
-	    vid_line + VID_ROW_SIZE >= NUM_WINDOWED_MODES) {
-	    /* windowed to fullscreen section */
-	    vid_line = NUM_WINDOWED_MODES + (vid_line % VID_ROW_SIZE);
-	} else if (vid_line + VID_ROW_SIZE >= vid_wmodes) {
-	    /* bottom to top */
-	    vid_line = (vid_line - NUM_WINDOWED_MODES) % VID_ROW_SIZE;
-	} else {
-	    vid_line += VID_ROW_SIZE;
-	}
-	break;
-
-    case K_ENTER:
-	S_LocalSound("misc/menu1.wav");
-	VID_SetMode(modedescs[vid_line].modenum, vid_curpal);
-	break;
-
-    case 'T':
-    case 't':
-	S_LocalSound("misc/menu1.wav");
-	// have to set this before setting the mode because WM_PAINT
-	// happens during the mode set and does a VID_Update, which
-	// checks vid_testingmode
-	vid_testingmode = 1;
-	vid_testendtime = realtime + 5.0;
-
-	if (!VID_SetMode(modedescs[vid_line].modenum, vid_curpal)) {
-	    vid_testingmode = 0;
-	}
-	break;
-
-    case 'D':
-    case 'd':
-	S_LocalSound("misc/menu1.wav");
-	firstupdate = 0;
-	Cvar_SetValue("_vid_default_mode_win", vid_modenum);
-	break;
-
-    default:
-	break;
-    }
-}
-
 qboolean
 VID_IsFullScreen()
 {
-    return VID_GetModePtr(vid_modenum)->fullscreen;
+    return modelist[vid_modenum].fullscreen;
 }
 
 void VID_LockBuffer(void) {}

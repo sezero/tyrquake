@@ -58,14 +58,63 @@ typedef struct {
 extern viddef_t vid;		// global video state
 extern unsigned short d_8to16table[256];
 extern unsigned d_8to24table[256];
+
+/*
+ * ------------------------------------------------------------------------
+ * VIDEO MODES
+ * (very ugly, cleanup pending...)
+ * ------------------------------------------------------------------------
+ */
+
+typedef struct {
+    int width;
+    int height;
+    int modenum;
+    int fullscreen;
+    int bpp;
+    int refresh;
+    char modedesc[13];
+} qvidmode_t;
+
+/*
+ * modelist - Last entry is a custom mode for command line parameters
+ */
+#define MAX_MODE_LIST 200
+#define VID_MODE_CMDLINE MAX_MODE_LIST
+extern qvidmode_t modelist[MAX_MODE_LIST + 1];
+extern qvidmode_t badmode;
+
+extern int nummodes;
+extern int vid_modenum;
+
+/* FIXME - vid mode testing */
+extern int vid_testingmode;
+extern int vid_realmode;
+extern double vid_testendtime;
+
+#define VID_MODE_NONE               (-1)
+#define VID_MODE_WINDOWED           0
+#define VID_MODE_FULLSCREEN_DEFAULT 5
+
+void VID_MenuDraw(void);
+void VID_MenuKey(int key);
+qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette);
+qboolean VID_CheckAdequateMem(int width, int height);
+void VID_NumModes_f(void);
+void VID_DescribeModes_f(void);
+void VID_DescribeMode_f(void);
+void VID_DescribeCurrentMode_f(void);
+
 extern void (*vid_menudrawfn) (void);
 extern void (*vid_menukeyfn) (int key);
 
-void VID_SetPalette(unsigned char *palette);
+/* ------------------------------------------------------------------------ */
+
+void VID_SetPalette(const byte *palette);
 
 // called at startup and after any gamma correction
 
-void VID_ShiftPalette(unsigned char *palette);
+void VID_ShiftPalette(const byte *palette);
 
 // called for bonus and pain flashes, and for underwater color changes
 
@@ -74,7 +123,7 @@ extern void (*VID_SetGammaRamp)(unsigned short ramp[3][256]);
 
 // called to set hardware gamma (if available - primarily for OpenGL renderer)
 
-void VID_Init(unsigned char *palette);
+void VID_Init(const byte *palette);
 
 // Called at startup to set up translation tables, takes 256 8 bit RGB values
 // the palette data will go away after the call, so it must be copied off if

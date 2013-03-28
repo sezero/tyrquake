@@ -78,7 +78,6 @@ static int VID_highhunkmark;
 static qboolean hide_window;
 //static int window_x, window_y;
 static int window_width, window_height;
-static int firstupdate = 1;
 
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
@@ -110,7 +109,7 @@ void VID_Shutdown(void)
 static qboolean palette_changed;
 
 void
-VID_ShiftPalette(unsigned char *palette)
+VID_ShiftPalette(const byte *palette)
 {
     VID_SetPalette(palette);
 }
@@ -118,16 +117,6 @@ VID_ShiftPalette(unsigned char *palette)
 void VID_SetDefaultMode(void) { }
 static qboolean VID_SetWindowedMode(int modenum) { return true; }
 static qboolean VID_FullScreenMode(int modenum) { return true; }
-
-#define MAX_MODE_LIST	200
-#define VID_ROW_SIZE	3
-
-#define VID_MODE_NONE			(-1)
-#define VID_MODE_WINDOWED		0
-#define NUM_WINDOWED_MODES		5
-
-/* so this can be "stringified" -> (VID_MODE_WINDOWED+NUM_WINDOWED_MODES) */
-#define VID_MODE_FULLSCREEN_DEFAULT	5
 
 static cvar_t vid_mode = {
     .name = "vid_mode",
@@ -176,38 +165,14 @@ static lmode_t lowresmodes[] = {
 
 static int windowed_default;
 static int vid_default = VID_MODE_WINDOWED;
-static int vid_modenum = VID_MODE_NONE;
-static int vid_testingmode, vid_realmode;
-static double vid_testendtime;
+int vid_modenum = VID_MODE_NONE;
 
 typedef struct {
-    int width;
-    int height;
-    int modenum;
-    int fullscreen;
-    int bpp;
-    int refresh;
-    char modedesc[13];
     typeof(SDL_PIXELFORMAT_UNKNOWN) format;
-} vmode_t;
+} qvidformat_t;
 
-/*
- * modelist - Last entry is a custom mode for command line parameters
- */
-#define VID_MODE_CMDLINE MAX_MODE_LIST
-static vmode_t modelist[MAX_MODE_LIST + 1];
-static int nummodes;
-
-static vmode_t badmode;
-
-static void VID_MenuDraw(void);
-static void VID_MenuKey(int key);
-static int VID_SetMode(int modenum, unsigned char *palette);
-static char *VID_GetModeDescription(int mode);
-static char *VID_GetModeDescription2(int mode);
-static char *VID_GetModeDescriptionMemCheck(int mode);
-static int VID_NumModes(void);
-static vmode_t *VID_GetModePtr(int modenum);
+/* FIXME - ugly hack -> use a struct with embedded qvidmode_t instead? */
+static qvidformat_t formats[MAX_MODE_LIST + 1];
 
 static qboolean Minimized;
 static qboolean force_mode_set;
@@ -225,12 +190,12 @@ VID_GetWindowSize(int default_width, int default_height)
 }
 
 static void
-InitMode(vmode_t *mode, int num, int fullscreen, int width, int height)
+InitMode(qvidmode_t *mode, int num, int fullscreen, int width, int height)
 {
     mode->modenum = num;
     mode->fullscreen = fullscreen;
     mode->bpp = sdl_desktop_format->BitsPerPixel;
-    mode->format = sdl_desktop_format->format;
+    formats[mode - modelist].format = sdl_desktop_format->format;
     mode->width = width;
     mode->height = height;
     snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%d", width, height);
@@ -244,6 +209,7 @@ VID_InitModeList(void)
     SDL_DisplayMode mode;
 
     memset(modelist, 0, sizeof(modelist));
+    memset(formats, 0, sizeof(formats));
 
     displays = SDL_GetNumVideoDisplays();
     if (displays < 1)
@@ -292,7 +258,7 @@ VID_InitModeList(void)
 	modelist[nummodes].width = mode.w;
 	modelist[nummodes].height = mode.h;
 	modelist[nummodes].refresh = mode.refresh_rate;
-	modelist[nummodes].format = mode.format;
+	formats[nummodes].format = mode.format;
 	sprintf(modelist[nummodes].modedesc, "%dx%d", mode.w, mode.h);
 	nummodes++;
     }
@@ -353,7 +319,7 @@ VID_CheckCmdlineMode(void)
 
     if (bpp == modelist[0].bpp) {
 	modelist[VID_MODE_CMDLINE].bpp = bpp;
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
 	return true;
     }
 
@@ -364,7 +330,7 @@ VID_CheckCmdlineMode(void)
 	break;
     default:
 	modelist[VID_MODE_CMDLINE].bpp = modelist[0].bpp;
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
 	return true;
     }
 
@@ -375,7 +341,7 @@ VID_CheckCmdlineMode(void)
 	bpp = 32;
     if (bpp != 16 && bpp != 32) {
 	modelist[VID_MODE_CMDLINE].bpp = modelist[0].bpp;
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
 	return true;
     }
 
@@ -386,342 +352,33 @@ VID_CheckCmdlineMode(void)
     modelist[VID_MODE_CMDLINE].bpp = bpp;
     switch (SDL_PIXELORDER(sdl_desktop_format->format)) {
     case SDL_PACKEDORDER_XRGB:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGB888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGB888;
 	break;
     case SDL_PACKEDORDER_RGBX:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGBA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGBA8888;
 	break;
     case SDL_PACKEDORDER_ARGB:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ARGB4444 : SDL_PIXELFORMAT_ARGB8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ARGB4444 : SDL_PIXELFORMAT_ARGB8888;
 	break;
     case SDL_PACKEDORDER_RGBA:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGBA4444 : SDL_PIXELFORMAT_RGBA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGBA4444 : SDL_PIXELFORMAT_RGBA8888;
 	break;
     case SDL_PACKEDORDER_XBGR:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_ABGR8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_ABGR8888;
 	break;
     case SDL_PACKEDORDER_BGRX:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_BGRA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_BGRA8888;
 	break;
     case SDL_PACKEDORDER_ABGR:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ABGR4444 : SDL_PIXELFORMAT_ABGR8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ABGR4444 : SDL_PIXELFORMAT_ABGR8888;
 	break;
     case SDL_PACKEDORDER_BGRA:
-	modelist[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGRA4444 : SDL_PIXELFORMAT_BGRA8888;
+	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGRA4444 : SDL_PIXELFORMAT_BGRA8888;
 	break;
     default:
-	modelist[VID_MODE_CMDLINE].format = modelist[0].format;
+	formats[VID_MODE_CMDLINE].format = formats[0].format;
     }
     return true;
-}
-
-static int vid_line;
-static int vid_wmodes;
-
-typedef struct {
-    int modenum;
-    char *desc;
-    int iscur;
-    int width;
-    int height;
-} modedesc_t;
-
-#define MAX_COLUMN_SIZE		5
-#define MODE_AREA_HEIGHT	(MAX_COLUMN_SIZE + 7)
-#define MAX_MODEDESCS		(MAX_COLUMN_SIZE * 3 + NUM_WINDOWED_MODES)
-
-static modedesc_t modedescs[MAX_MODEDESCS];
-
-/*
-================
-VID_MenuDraw
-================
-*/
-static void
-VID_MenuDraw(void)
-{
-    const qpic_t *p;
-    char *ptr;
-    int lnummodes, i, j, k, column, row, dup, dupmode;
-    char temp[100];
-    vmode_t *pv;
-    modedesc_t tmodedesc;
-
-    p = Draw_CachePic("gfx/vidmodes.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-
-    for (i = 0; i < NUM_WINDOWED_MODES; i++) {
-	ptr = VID_GetModeDescriptionMemCheck(i);
-	modedescs[i].modenum = modelist[i].modenum;
-	modedescs[i].desc = ptr;
-	modedescs[i].iscur = 0;
-
-	if (vid_modenum == i)
-	    modedescs[i].iscur = 1;
-    }
-
-    vid_wmodes = NUM_WINDOWED_MODES;
-    lnummodes = VID_NumModes();
-
-    dupmode = 0;	// FIXME - uninitialized -> guesssing 0
-
-    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < lnummodes; i++) {
-	ptr = VID_GetModeDescriptionMemCheck(i);
-	pv = VID_GetModePtr(i);
-
-	// we only have room for 15 fullscreen modes, so don't allow
-	// 360-wide modes, because if there are 5 320-wide modes and
-	// 5 360-wide modes, we'll run out of space
-	if (ptr && ((pv->width != 360) || COM_CheckParm("-allow360"))) {
-	    dup = 0;
-	    for (j = VID_MODE_FULLSCREEN_DEFAULT; j < vid_wmodes; j++) {
-		if (!strcmp(modedescs[j].desc, ptr)) {
-		    dup = 1;
-		    dupmode = j;
-		    break;
-		}
-	    }
-
-	    if (dup || (vid_wmodes < MAX_MODEDESCS)) {
-		if (!dup || COM_CheckParm("-noforcevga")) {
-		    if (dup) {
-			k = dupmode;
-		    } else {
-			k = vid_wmodes;
-		    }
-
-		    modedescs[k].modenum = i;
-		    modedescs[k].desc = ptr;
-		    modedescs[k].iscur = 0;
-		    modedescs[k].width = pv->width;
-		    modedescs[k].height = pv->height;
-
-		    if (i == vid_modenum)
-			modedescs[k].iscur = 1;
-
-		    if (!dup)
-			vid_wmodes++;
-		}
-	    }
-	}
-    }
-
-    /*
-     * Sort the modes on width & height
-     * (to handle picking up oddball dibonly modes after all the others)
-     */
-    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < (vid_wmodes - 1); i++) {
-	for (j = (i + 1); j < vid_wmodes; j++) {
-	    if (modedescs[i].width > modedescs[j].width	||
-		(modedescs[i].width == modedescs[j].width &&
-		 modedescs[i].height > modedescs[j].height)) {
-		tmodedesc = modedescs[i];
-		modedescs[i] = modedescs[j];
-		modedescs[j] = tmodedesc;
-	    }
-	}
-    }
-    M_Print(13 * 8, 36, "Windowed Modes");
-
-    column = 16;
-    row = 36 + 2 * 8;
-
-    for (i = 0; i < NUM_WINDOWED_MODES; i++) {
-	if (modedescs[i].iscur)
-	    M_PrintWhite(column, row, modedescs[i].desc);
-	else
-	    M_Print(column, row, modedescs[i].desc);
-
-	column += 13 * 8;
-	if (!((i + 1) % VID_ROW_SIZE)) {
-	    column = 16;
-	    row += 8;
-	}
-    }
-    /* go to next row if previous row not filled */
-    if (NUM_WINDOWED_MODES % VID_ROW_SIZE)
-	row += 8;
-
-    if (vid_wmodes > NUM_WINDOWED_MODES) {
-	M_Print(12 * 8, row + 8, "Fullscreen Modes");
-
-	column = 16;
-	row += 3 * 8;
-
-	for (i = VID_MODE_FULLSCREEN_DEFAULT; i < vid_wmodes; i++) {
-	    if (modedescs[i].iscur)
-		M_PrintWhite(column, row, modedescs[i].desc);
-	    else
-		M_Print(column, row, modedescs[i].desc);
-
-	    column += 13 * 8;
-	    if (!((i - NUM_WINDOWED_MODES + 1) % VID_ROW_SIZE)) {
-		column = 16;
-		row += 8;
-	    }
-	}
-    }
-
-    /* line cursor */
-    if (vid_testingmode) {
-	sprintf(temp, "TESTING %s", modedescs[vid_line].desc);
-	M_Print(13 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 4, temp);
-	M_Print(9 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6,
-		"Please wait 5 seconds...");
-    } else {
-	M_Print(9 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8,
-		"Press Enter to set mode");
-	M_Print(6 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 3,
-		"T to test mode for 5 seconds");
-	ptr = VID_GetModeDescription2(vid_modenum);
-
-	if (ptr) {
-	    sprintf(temp, "D to set default: %s", ptr);
-	    M_Print(2 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 5, temp);
-	}
-
-	ptr = VID_GetModeDescription2((int)_vid_default_mode_win.value);
-	if (ptr) {
-	    sprintf(temp, "Current default: %s", ptr);
-	    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6, temp);
-	}
-
-	M_Print(15 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 8, "Esc to exit");
-
-	if (vid_line < NUM_WINDOWED_MODES) {
-	    row = 36 + 2 * 8 + (vid_line / VID_ROW_SIZE) * 8;
-	    column = 8 + (vid_line % VID_ROW_SIZE) * 13 * 8;
-	} else {
-	    row = 36 + (5 + (NUM_WINDOWED_MODES + 2) / VID_ROW_SIZE) * 8;
-	    row += ((vid_line - NUM_WINDOWED_MODES) / VID_ROW_SIZE) * 8;
-	    column = 8 + ((vid_line - NUM_WINDOWED_MODES) % VID_ROW_SIZE) *
-		13 * 8;
-	}
-	M_DrawCharacter(column, row, 12 + ((int)(realtime * 4) & 1));
-    }
-}
-
-/*
-================
-VID_MenuKey
-================
-*/
-static void
-VID_MenuKey(int key)
-{
-    if (vid_testingmode)
-	return;
-
-    switch (key) {
-    case K_ESCAPE:
-	S_LocalSound("misc/menu1.wav");
-	M_Menu_Options_f();
-	break;
-
-    case K_LEFTARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES) {
-	    if (!vid_line) {
-		vid_line = VID_ROW_SIZE - 1;
-	    } else if (vid_line % VID_ROW_SIZE) {
-		vid_line -= 1;
-	    } else {
-		vid_line += VID_ROW_SIZE - 1;
-		if (vid_line >= NUM_WINDOWED_MODES)
-		    vid_line = NUM_WINDOWED_MODES - 1;
-	    }
-	} else if ((vid_line - NUM_WINDOWED_MODES) % VID_ROW_SIZE) {
-	    vid_line -= 1;
-	} else {
-	    vid_line += VID_ROW_SIZE - 1;
-	    if (vid_line >= vid_wmodes)
-		vid_line = vid_wmodes - 1;
-	}
-	break;
-
-    case K_RIGHTARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES) {
-	    if ((vid_line + 1) % VID_ROW_SIZE) {
-		vid_line += 1;
-		if (vid_line >= NUM_WINDOWED_MODES)
-		    vid_line = ((NUM_WINDOWED_MODES - 1) / VID_ROW_SIZE) *
-			VID_ROW_SIZE;
-	    } else {
-		vid_line -= VID_ROW_SIZE - 1;
-	    }
-	} else if ((vid_line - NUM_WINDOWED_MODES + 1) % VID_ROW_SIZE) {
-	    vid_line += 1;
-	    if (vid_line >= vid_wmodes)
-		vid_line = ((vid_line - NUM_WINDOWED_MODES) / VID_ROW_SIZE) *
-		    VID_ROW_SIZE + NUM_WINDOWED_MODES;
-	} else {
-	    vid_line -= VID_ROW_SIZE - 1;
-	}
-	break;
-
-    case K_UPARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES + VID_ROW_SIZE &&
-	    vid_line >= NUM_WINDOWED_MODES) {
-	    /* Going from fullscreen section to windowed section */
-	    vid_line -= NUM_WINDOWED_MODES % VID_ROW_SIZE;
-	    while (vid_line >= NUM_WINDOWED_MODES)
-		vid_line -= VID_ROW_SIZE;
-	} else if (vid_line < VID_ROW_SIZE) {
-	    /* From top to bottom */
-	    vid_line += (vid_wmodes / VID_ROW_SIZE + 1) * VID_ROW_SIZE;
-	    vid_line += NUM_WINDOWED_MODES % VID_ROW_SIZE;
-	    while (vid_line >= vid_wmodes)
-		vid_line -= VID_ROW_SIZE;
-	} else {
-	    vid_line -= VID_ROW_SIZE;
-	}
-	break;
-
-    case K_DOWNARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (vid_line < NUM_WINDOWED_MODES &&
-	    vid_line + VID_ROW_SIZE >= NUM_WINDOWED_MODES) {
-	    /* windowed to fullscreen section */
-	    vid_line = NUM_WINDOWED_MODES + (vid_line % VID_ROW_SIZE);
-	} else if (vid_line + VID_ROW_SIZE >= vid_wmodes) {
-	    /* bottom to top */
-	    vid_line = (vid_line - NUM_WINDOWED_MODES) % VID_ROW_SIZE;
-	} else {
-	    vid_line += VID_ROW_SIZE;
-	}
-	break;
-
-    case K_ENTER:
-	S_LocalSound("misc/menu1.wav");
-	VID_SetMode(modedescs[vid_line].modenum, host_basepal);
-	break;
-
-    case 'T':
-    case 't':
-	S_LocalSound("misc/menu1.wav");
-	// have to set this before setting the mode because WM_PAINT
-	// happens during the mode set and does a VID_Update, which
-	// checks vid_testingmode
-	vid_testingmode = 1;
-	vid_testendtime = realtime + 5.0;
-
-	if (!VID_SetMode(modedescs[vid_line].modenum, host_basepal)) {
-	    vid_testingmode = 0;
-	}
-	break;
-
-    case 'D':
-    case 'd':
-	S_LocalSound("misc/menu1.wav");
-	firstupdate = 0;
-	Cvar_SetValue("_vid_default_mode_win", vid_modenum);
-	break;
-
-    default:
-	break;
-    }
 }
 
 /*
@@ -747,7 +404,7 @@ ClearAllStates(void)
 VID_CheckAdequateMem
 ====================
 */
-static qboolean
+qboolean
 VID_CheckAdequateMem(int width, int height)
 {
     int tbuffersize;
@@ -806,141 +463,10 @@ VID_AllocBuffers(int width, int height)
     return true;
 }
 
-/*
-=================
-VID_NumModes
-=================
-*/
-static int
-VID_NumModes(void)
-{
-    return nummodes;
-}
-
-
-/*
-=================
-VID_GetModePtr
-=================
-*/
-static vmode_t *
-VID_GetModePtr(int modenum)
-{
-    if ((modenum >= 0 && modenum < nummodes) || modenum == VID_MODE_CMDLINE)
-	return &modelist[modenum];
-    else
-	return &badmode;
-}
-
-/*
-=================
-VID_GetModeDescription
-=================
-*/
-static char *
-VID_GetModeDescription(int mode)
-{
-    char *pinfo;
-    vmode_t *pv;
-
-    if ((mode < 0) || (mode >= nummodes))
-	return NULL;
-
-    pv = VID_GetModePtr(mode);
-    pinfo = pv->modedesc;
-    return pinfo;
-}
-
-/*
-=================
-VID_GetModeDescription2
-
-Tacks on "windowed" or "fullscreen"
-=================
-*/
-static char *
-VID_GetModeDescription2(int mode)
-{
-    static char pinfo[40];
-    vmode_t *pv;
-
-    if ((mode < 0) || (mode >= nummodes))
-	return NULL;
-
-    pv = VID_GetModePtr(mode);
-
-    if (modelist[mode].fullscreen) {
-	sprintf(pinfo, "%4d x %4d x %2d @ %3dHz", pv->width, pv->height,
-		pv->bpp, pv->refresh);
-    } else {
-	sprintf(pinfo, "%4d x %4d windowed", pv->width, pv->height);
-    }
-
-    return pinfo;
-}
-
-/*
-=================
-VID_GetModeDescriptionMemCheck
-=================
-*/
-static char *
-VID_GetModeDescriptionMemCheck(int mode)
-{
-    char *pinfo;
-    vmode_t *pv;
-
-    if ((mode < 0) || (mode >= nummodes))
-	return NULL;
-
-    pv = VID_GetModePtr(mode);
-    pinfo = pv->modedesc;
-
-    if (VID_CheckAdequateMem(pv->width, pv->height)) {
-	return pinfo;
-    } else {
-	return NULL;
-    }
-}
-
-/*
-=================
-VID_DescribeModes_f
-=================
-*/
-static void
-VID_DescribeModes_f(void)
-{
-    int i, lnummodes;
-    char *pinfo;
-    qboolean na;
-    vmode_t *pv;
-
-    na = false;
-
-    lnummodes = VID_NumModes();
-
-    for (i = 0; i < lnummodes; i++) {
-	pv = VID_GetModePtr(i);
-	pinfo = VID_GetModeDescription2(i);
-
-	if (VID_CheckAdequateMem(pv->width, pv->height)) {
-	    Con_Printf("%2d: %s\n", i, pinfo);
-	} else {
-	    Con_Printf("**: %s\n", pinfo);
-	    na = true;
-	}
-    }
-
-    if (na) {
-	Con_Printf("\n[**: not enough system RAM for mode]\n");
-    }
-}
-
 qboolean
 VID_IsFullScreen()
 {
-    return VID_GetModePtr(vid_modenum)->fullscreen;
+    return modelist[vid_modenum].fullscreen;
 }
 
 /*
@@ -963,15 +489,12 @@ VID_UpdateWindowStatus(void)
 #endif
 }
 
-static int
-VID_SetMode(int modenum, unsigned char *palette)
+qboolean
+VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
-    vmode_t *mode;
     int w, h;
     Uint32 flags;
     qboolean mouse_grab;
-
-    printf("%s: modenum = %d\n", __func__, modenum);
 
     /* FIXME - hack to reset mouse grabs */
     mouse_grab = _windowed_mouse.value;
@@ -979,10 +502,6 @@ VID_SetMode(int modenum, unsigned char *palette)
 	_windowed_mouse.value = 0;
 	_windowed_mouse.callback(&_windowed_mouse);
     }
-
-    mode = VID_GetModePtr(modenum);
-
-    printf("%s: mode - modelist == %d\n", __func__, (int)(mode - modelist));
 
     w = mode->width;
     h = mode->height;
@@ -997,7 +516,7 @@ VID_SetMode(int modenum, unsigned char *palette)
     if (sdl_format)
 	SDL_FreeFormat(sdl_format);
 
-    sdl_format = SDL_AllocFormat(mode->format);
+    sdl_format = SDL_AllocFormat(formats[mode - modelist].format);
 
     sdl_window = SDL_CreateWindow("TyrQuake",
 				  SDL_WINDOWPOS_UNDEFINED,
@@ -1011,7 +530,7 @@ VID_SetMode(int modenum, unsigned char *palette)
 	Sys_Error("%s: Unable to create renderer: %s", __func__, SDL_GetError());
 
     texture = SDL_CreateTexture(renderer,
-				mode->format,
+				formats[mode - modelist].format,
 				SDL_TEXTUREACCESS_STREAMING,
 				w, h);
     if (!texture)
@@ -1042,8 +561,8 @@ VID_SetMode(int modenum, unsigned char *palette)
     window_height = vid.height;
     VID_UpdateWindowStatus();
 
-    vid_modenum = modenum;
-    Cvar_SetValue("vid_mode", (float)vid_modenum);
+    vid_modenum = mode - modelist;
+    Cvar_SetValue("vid_mode", vid_modenum);
 
     vid.recalc_refdef = 1;
 
@@ -1072,7 +591,7 @@ byte *VGA_pagebase;
 int VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
 
 void
-VID_SetPalette(unsigned char *palette)
+VID_SetPalette(const byte *palette)
 {
     unsigned i, r, g, b;
 
@@ -1109,11 +628,12 @@ do_screen_buffer(void)
 }
 
 void
-VID_Init(unsigned char *palette) /* (byte *palette, byte *colormap) */
+VID_Init(const byte *palette)
 {
     int err;
     qboolean cmdline_mode;
     SDL_DisplayMode desktop_mode;
+    const qvidmode_t *mode;
 
     Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&vid_wait);
@@ -1149,7 +669,8 @@ VID_Init(unsigned char *palette) /* (byte *palette, byte *colormap) */
     VID_InitModeList();
     cmdline_mode = VID_CheckCmdlineMode();
 
-    VID_SetMode(cmdline_mode ? VID_MODE_CMDLINE : 0, palette);
+    mode = &modelist[cmdline_mode ? VID_MODE_CMDLINE : 0];
+    VID_SetMode(mode, palette);
 
 #ifdef _WIN32
     mainwindow=GetActiveWindow();
@@ -1175,12 +696,14 @@ VID_Update(vrect_t *rects)
     int pitch;
     int height;
     int err;
+    const qvidmode_t *mode;
 
     /*
      * Check for vid_mode changes
      */
     if ((int)vid_mode.value != vid_modenum) {
-	VID_SetMode((int)vid_mode.value, host_basepal);
+	mode = &modelist[(int)vid_mode.value];
+	VID_SetMode(mode, host_basepal);
 	/* FIXME - not the right place! redraw the scene to buffer first */
 	return;
     }

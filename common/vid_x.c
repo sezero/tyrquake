@@ -49,6 +49,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "screen.h"
 #include "sys.h"
+#include "vid.h"
 
 #ifdef NQ_HACK
 #include "host.h"
@@ -486,7 +487,7 @@ VID_restore_vidmode()
 // the palette data will go away after the call, so it must be copied off if
 // the video driver will need it again
 void
-VID_Init(unsigned char *palette)
+VID_Init(const byte*palette)
 {
     int pnum, i;
     XVisualInfo template;
@@ -737,15 +738,13 @@ VID_Init(unsigned char *palette)
 }
 
 void
-VID_ShiftPalette(unsigned char *p)
+VID_ShiftPalette(const byte *palette)
 {
-    VID_SetPalette(p);
+    VID_SetPalette(palette);
 }
 
-
-
 void
-VID_SetPalette(unsigned char *palette)
+VID_SetPalette(const byte *palette)
 {
 
     int i;
@@ -787,7 +786,7 @@ VID_Shutdown(void)
 }
 
 static int
-XLateKey(XKeyEvent * ev)
+XLateKey(XKeyEvent *ev)
 {
     int key;
     char buf[64];

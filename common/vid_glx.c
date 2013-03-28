@@ -511,15 +511,15 @@ InitSig(void)
  * - Updates hardware gamma
  */
 void
-VID_ShiftPalette(unsigned char *p)
+VID_ShiftPalette(const byte *palette)
 {
-//      VID_SetPalette(p);
+//      VID_SetPalette(palette);
 }
 
 void
-VID_SetPalette(unsigned char *palette)
+VID_SetPalette(const byte *palette)
 {
-    byte *pal;
+    const byte *pal;
     unsigned r, g, b;
     unsigned v;
     int r1, g1, b1;
@@ -721,10 +721,10 @@ GL_EndRendering(void)
 #if 0
 /* FIXME - re-enable? */
 static void
-Check_Gamma(unsigned char *pal)
+Check_Gamma(byte *palette)
 {
     float f, inf;
-    unsigned char palette[768];
+    byte newpalette[768];
     int i;
 
     if ((i = COM_CheckParm("-gamma")) == 0)
@@ -733,16 +733,16 @@ Check_Gamma(unsigned char *pal)
 	vid_gamma = Q_atof(com_argv[i + 1]);
 
     for (i = 0; i < 768; i++) {
-	f = pow((pal[i] + 1) / 256.0, vid_gamma);
+	f = pow((palette[i] + 1) / 256.0, vid_gamma);
 	inf = f * 255 + 0.5;
 	if (inf < 0)
 	    inf = 0;
 	if (inf > 255)
 	    inf = 255;
-	palette[i] = inf;
+	newpalette[i] = inf;
     }
 
-    memcpy(pal, palette, sizeof(palette));
+    memcpy(palette, newpalette, sizeof(newpalette));
 }
 #endif
 
@@ -805,7 +805,7 @@ VID_restore_vidmode()
 }
 
 void
-VID_Init(unsigned char *palette)
+VID_Init(const byte *palette)
 {
     int i;
     int attrib[] = {

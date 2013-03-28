@@ -830,14 +830,14 @@ endif
 endif
 ifeq ($(VID_TARGET),win)
 CL_CPPFLAGS += -idirafter $(DX_INC)
-SW_OBJS += vid_win.o
-GL_OBJS += vid_wgl.o
+SW_OBJS += vid_win.o vid_mode.o
+GL_OBJS += vid_wgl.o vid_mode.o
 CL_LIBS += gdi32
 GL_LIBS += comctl32
 endif
 ifeq ($(VID_TARGET),sdl)
-SW_OBJS += vid_sdl.o sdl_common.o
-GL_OBJS += vid_sgl.o sdl_common.o
+SW_OBJS += vid_sdl.o sdl_common.o vid_mode.o
+GL_OBJS += vid_sgl.o sdl_common.o vid_mode.o
 CL_CPPFLAGS += $(SDL_CFLAGS)
 CL_LFLAGS += $(SDL_LFLAGS)
 endif
@@ -1091,7 +1091,7 @@ ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 $(OSX_DIR)/%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
 	$(do_iconutil_icns)
 
-$(OSX_DIR)/%/Contents/Info.plist:	launcher/osx/Info.plist Makefile
+$(OSX_DIR)/%/Contents/Info.plist:	launcher/osx/Info.plist
 	$(do_mkdir)
 	@cp $< $(@D)/.$(@F).tmp
 	$(call do_plist_set,CFBundleName,TyrQuake)
