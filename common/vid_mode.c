@@ -66,6 +66,84 @@ static modedesc_t modedescs[MAX_MODEDESCS];
 static const char *VID_GetModeDescription(const qvidmode_t *mode);
 static const char *VID_GetModeDescriptionMemCheck(const qvidmode_t *mode);
 
+
+static void
+VID_InitModedescs(void)
+{
+    modedesc_t *modedesc;
+    int i, j, dupmode;
+    qboolean dup;
+
+    for (i = 0; i < NUM_WINDOWED_MODES; i++) {
+	modedescs[i].mode = &modelist[i];
+	modedescs[i].iscur = 0;
+	if (vid_modenum == i)
+	    modedescs[i].iscur = 1;
+    }
+
+    vid_wmodes = NUM_WINDOWED_MODES;
+    dupmode = VID_MODE_NONE;
+
+    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < nummodes; i++) {
+	const qvidmode_t *mode = &modelist[i];
+	const char *desc = VID_GetModeDescriptionMemCheck(mode);
+	if (!desc)
+	    continue;
+
+	// we only have room for 15 fullscreen modes, so don't allow
+	// 360-wide modes, because if there are 5 320-wide modes and
+	// 5 360-wide modes, we'll run out of space
+	if (mode->width == 360 && !COM_CheckParm("-allow360"))
+	    continue;
+
+	dup = false;
+	for (j = VID_MODE_FULLSCREEN_DEFAULT; j < vid_wmodes; j++) {
+	    const qvidmode_t *mode2 = modedescs[j].mode;
+	    const char *desc2 = VID_GetModeDescriptionMemCheck(mode2);
+	    if (!strcmp(desc, desc2)) {
+		dup = true;
+		dupmode = j;
+		break;
+	    }
+	}
+	if (!dup && vid_wmodes == MAX_MODEDESCS)
+	    continue;
+	if (dup && !COM_CheckParm("-noforcevga"))
+	    continue;
+
+	if (dup) {
+	    modedesc = &modedescs[dupmode];
+	} else {
+	    modedesc = &modedescs[vid_wmodes];
+	    vid_wmodes++;
+	}
+	modedesc->mode = mode;
+	modedesc->desc = desc;
+	modedesc->iscur = (mode->modenum == vid_modenum);
+	modedesc->width = mode->width;
+	modedesc->height = mode->height;
+    }
+
+    /*
+     * Sort the modes on width & height
+     * (to handle picking up oddball dibonly modes after all the others)
+     */
+    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < (vid_wmodes - 1); i++) {
+	modedesc_t *desc1 = &modedescs[i];
+	for (j = (i + 1); j < vid_wmodes; j++) {
+	    modedesc_t *desc2 = &modedescs[j];
+	    modedesc_t temp;
+	    if (desc1->width < desc2->width)
+		continue;
+	    if (desc1->width == desc2->width && desc1->height <= desc2->height)
+		continue;
+	    /* swap */
+	    temp = *desc1;
+	    *desc1 = *desc2;
+	    *desc2 = temp;
+	}
+    }
+}
 /*
 ================
 VID_MenuDraw
@@ -74,97 +152,28 @@ VID_MenuDraw
 void
 VID_MenuDraw(void)
 {
-    const qpic_t *p;
-    const char *ptr;
-    int lnummodes, i, j, k, column, row, dup, dupmode;
-    char temp[100];
     const qvidmode_t *mode;
-    modedesc_t tmodedesc;
+    const modedesc_t *modedesc;
+    const char *desc;
+    const qpic_t *pic;
+    int i, column, row;
+    char temp[100];
 
-    p = Draw_CachePic("gfx/vidmodes.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    VID_InitModedescs();
 
-    for (i = 0; i < NUM_WINDOWED_MODES; i++) {
-	ptr = VID_GetModeDescriptionMemCheck(&modelist[i]);
-	modedescs[i].mode = &modelist[i];
-	modedescs[i].desc = ptr;
-	modedescs[i].iscur = 0;
+    pic = Draw_CachePic("gfx/vidmodes.lmp");
+    M_DrawPic((320 - pic->width) / 2, 4, pic);
 
-	if (vid_modenum == i)
-	    modedescs[i].iscur = 1;
-    }
-
-    vid_wmodes = NUM_WINDOWED_MODES;
-    lnummodes = nummodes;
-
-    dupmode = 0;	// FIXME - uninitialized -> guesssing 0
-
-    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < lnummodes; i++) {
-	ptr = VID_GetModeDescriptionMemCheck(&modelist[i]);
-	mode = &modelist[i];
-
-	// we only have room for 15 fullscreen modes, so don't allow
-	// 360-wide modes, because if there are 5 320-wide modes and
-	// 5 360-wide modes, we'll run out of space
-	if (ptr && ((mode->width != 360) || COM_CheckParm("-allow360"))) {
-	    dup = 0;
-	    for (j = VID_MODE_FULLSCREEN_DEFAULT; j < vid_wmodes; j++) {
-		if (!strcmp(modedescs[j].desc, ptr)) {
-		    dup = 1;
-		    dupmode = j;
-		    break;
-		}
-	    }
-
-	    if (dup || (vid_wmodes < MAX_MODEDESCS)) {
-		if (!dup || COM_CheckParm("-noforcevga")) {
-		    if (dup) {
-			k = dupmode;
-		    } else {
-			k = vid_wmodes;
-		    }
-
-		    modedescs[k].mode = &modelist[i];
-		    modedescs[k].desc = ptr;
-		    modedescs[k].iscur = 0;
-		    modedescs[k].width = mode->width;
-		    modedescs[k].height = mode->height;
-
-		    if (i == vid_modenum)
-			modedescs[k].iscur = 1;
-
-		    if (!dup)
-			vid_wmodes++;
-		}
-	    }
-	}
-    }
-
-    /*
-     * Sort the modes on width & height
-     * (to handle picking up oddball dibonly modes after all the others)
-     */
-    for (i = VID_MODE_FULLSCREEN_DEFAULT; i < (vid_wmodes - 1); i++) {
-	for (j = (i + 1); j < vid_wmodes; j++) {
-	    if (modedescs[i].width > modedescs[j].width	||
-		(modedescs[i].width == modedescs[j].width &&
-		 modedescs[i].height > modedescs[j].height)) {
-		tmodedesc = modedescs[i];
-		modedescs[i] = modedescs[j];
-		modedescs[j] = tmodedesc;
-	    }
-	}
-    }
     M_Print(13 * 8, 36, "Windowed Modes");
 
     column = 16;
     row = 36 + 2 * 8;
-
     for (i = 0; i < NUM_WINDOWED_MODES; i++) {
-	if (modedescs[i].iscur)
-	    M_PrintWhite(column, row, modedescs[i].desc);
+	modedesc = &modedescs[i];
+	if (modedesc->iscur)
+	    M_PrintWhite(column, row, modedesc->desc);
 	else
-	    M_Print(column, row, modedescs[i].desc);
+	    M_Print(column, row, modedesc->desc);
 
 	column += 13 * 8;
 	if (!((i + 1) % VID_ROW_SIZE)) {
@@ -183,10 +192,11 @@ VID_MenuDraw(void)
 	row += 3 * 8;
 
 	for (i = VID_MODE_FULLSCREEN_DEFAULT; i < vid_wmodes; i++) {
-	    if (modedescs[i].iscur)
-		M_PrintWhite(column, row, modedescs[i].desc);
+	    modedesc = &modedescs[i];
+	    if (modedesc->iscur)
+		M_PrintWhite(column, row, modedesc->desc);
 	    else
-		M_Print(column, row, modedescs[i].desc);
+		M_Print(column, row, modedesc->desc);
 
 	    column += 13 * 8;
 	    if (!((i - NUM_WINDOWED_MODES + 1) % VID_ROW_SIZE)) {
@@ -198,7 +208,8 @@ VID_MenuDraw(void)
 
     /* line cursor */
     if (vid_testingmode) {
-	snprintf(temp, sizeof(temp), "TESTING %s", modedescs[vid_line].desc);
+	modedesc = &modedescs[vid_line];
+	snprintf(temp, sizeof(temp), "TESTING %s", modedesc->desc);
 	M_Print(13 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 4, temp);
 	M_Print(9 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6,
 		"Please wait 5 seconds...");
@@ -208,17 +219,16 @@ VID_MenuDraw(void)
 	M_Print(6 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 3,
 		"T to test mode for 5 seconds");
 	mode = &modelist[vid_modenum];
-	ptr = VID_GetModeDescription(mode);
-
-	if (ptr) {
-	    snprintf(temp, sizeof(temp), "D to set default: %s", ptr);
+	desc = VID_GetModeDescription(mode);
+	if (desc) {
+	    snprintf(temp, sizeof(temp), "D to set default: %s", desc);
 	    M_Print(2 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 5, temp);
 	}
 
 	mode = &modelist[(int)Cvar_VariableValue("_vid_default_mode_win")];
-	ptr = VID_GetModeDescription(mode);
-	if (ptr) {
-	    snprintf(temp, sizeof(temp), "Current default: %s", ptr);
+	desc = VID_GetModeDescription(mode);
+	if (desc) {
+	    snprintf(temp, sizeof(temp), "Current default: %s", desc);
 	    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6, temp);
 	}
 
@@ -404,16 +414,14 @@ VID_DescribeModes_f
 void
 VID_DescribeModes_f(void)
 {
-    int i, lnummodes;
+    int i;
     const char *pinfo;
     qboolean na;
     const qvidmode_t *mode;
 
     na = false;
 
-    lnummodes = nummodes;
-
-    for (i = 0; i < lnummodes; i++) {
+    for (i = 0; i < nummodes; i++) {
 	mode = &modelist[i];
 	pinfo = VID_GetModeDescription(mode);
 	if (VID_CheckAdequateMem(mode->width, mode->height)) {
