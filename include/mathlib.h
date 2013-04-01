@@ -87,6 +87,7 @@ float VectorNormalize(vec3_t v);	// returns vector length
 void VectorInverse(vec3_t v);
 void VectorScale(const vec3_t in, const vec_t scale, vec3_t out);
 int Q_log2(int val);
+int Q_gcd(int a, int b);
 
 void R_ConcatRotations(float in1[3][3], float in2[3][3], float out[3][3]);
 void R_ConcatTransforms(float in1[3][4], float in2[3][4], float out[3][4]);

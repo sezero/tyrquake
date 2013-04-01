@@ -151,18 +151,6 @@ static cvar_t block_switch = { "block_switch", "0", true };
 static cvar_t vid_window_x = { "vid_window_x", "0", true };
 static cvar_t vid_window_y = { "vid_window_y", "0", true };
 
-typedef struct {
-    int width;
-    int height;
-} lmode_t;
-
-static lmode_t lowresmodes[] = {
-    {320, 200},
-    {320, 240},
-    {400, 300},
-    {512, 384},
-};
-
 static int windowed_default;
 static int vid_default = VID_MODE_WINDOWED;
 int vid_modenum = VID_MODE_NONE;
@@ -170,9 +158,6 @@ int vid_modenum = VID_MODE_NONE;
 typedef struct {
     typeof(SDL_PIXELFORMAT_UNKNOWN) format;
 } qvidformat_t;
-
-/* FIXME - ugly hack -> use a struct with embedded qvidmode_t instead? */
-static qvidformat_t formats[MAX_MODE_LIST + 1];
 
 static qboolean Minimized;
 static qboolean force_mode_set;
@@ -184,32 +169,13 @@ window_visible(void)
 }
 
 static void
-VID_GetWindowSize(int default_width, int default_height)
-{
-
-}
-
-static void
-InitMode(qvidmode_t *mode, int num, int fullscreen, int width, int height)
-{
-    mode->modenum = num;
-    mode->fullscreen = fullscreen;
-    mode->bpp = sdl_desktop_format->BitsPerPixel;
-    formats[mode - modelist].format = sdl_desktop_format->format;
-    mode->width = width;
-    mode->height = height;
-    snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%d", width, height);
-}
-
-static void
 VID_InitModeList(void)
 {
     int i, err;
     int displays, sdlmodes;
-    SDL_DisplayMode mode;
-
-    memset(modelist, 0, sizeof(modelist));
-    memset(formats, 0, sizeof(formats));
+    SDL_DisplayMode sdlmode;
+    qvidmode_t *mode;
+    qvidformat_t *format;
 
     displays = SDL_GetNumVideoDisplays();
     if (displays < 1)
@@ -221,164 +187,42 @@ VID_InitModeList(void)
 	Con_SafePrintf("%s: error enumerating SDL display modes (%s)\n",
 		       __func__, SDL_GetError());
 
-    nummodes = 0;
-
-    InitMode(&modelist[0], 0, 0, 320, 240);
-    InitMode(&modelist[1], 1, 0, 640, 480);
-    InitMode(&modelist[2], 2, 0, 800, 600);
-    InitMode(&modelist[3], 3, 0, 1024, 768);
-    InitMode(&modelist[4], 4, 0, 1280, 960);
-    nummodes = 5;
-
     /*
      * Check availability of fullscreen modes
      * (default to display 0 for now)
      */
+    mode = &modelist[1];
+    nummodes = 1;
     for (i = 0; i < sdlmodes && nummodes < MAX_MODE_LIST; i++) {
-	err = SDL_GetDisplayMode(0, i, &mode);
+	err = SDL_GetDisplayMode(0, i, &sdlmode);
 	if (err)
 	    Sys_Error("%s: couldn't get mode %d info (%s)",
 		      __func__, i, SDL_GetError());
 
 	printf("%s: checking mode %i: %dx%d, %s\n", __func__,
-	       i, mode.w, mode.h, SDL_GetPixelFormatName(mode.format));
+	       i, sdlmode.w, sdlmode.h, SDL_GetPixelFormatName(sdlmode.format));
 
-	if (mode.h > MAXHEIGHT)
+	if (sdlmode.h > MAXHEIGHT)
 	    continue;
 
-	if (SDL_PIXELTYPE(mode.format) == SDL_PIXELTYPE_PACKED32)
+	if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED32)
 	    modelist[nummodes].bpp = 32;
-	else if (SDL_PIXELTYPE(mode.format) == SDL_PIXELTYPE_PACKED16)
+	else if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED16)
 	    modelist[nummodes].bpp = 16;
 	else
 	    continue;
 
-	modelist[nummodes].modenum = nummodes;
-	modelist[nummodes].fullscreen = 1;
-	modelist[nummodes].width = mode.w;
-	modelist[nummodes].height = mode.h;
-	modelist[nummodes].refresh = mode.refresh_rate;
-	formats[nummodes].format = mode.format;
-	sprintf(modelist[nummodes].modedesc, "%dx%d", mode.w, mode.h);
+	mode->modenum = nummodes;
+	mode->width = sdlmode.w;
+	mode->height = sdlmode.h;
+	mode->refresh = sdlmode.refresh_rate;
+	format = (qvidformat_t *)mode->driverdata;
+	format->format = sdlmode.format;
 	nummodes++;
-    }
-}
-
-/* FIXME - I'm sorry, it's horrible :( */
-static qboolean
-VID_CheckCmdlineMode(void)
-{
-    int width, height, bpp, fullscreen, windowed;
-
-    printf("com_argc == %d\n", com_argc);
-
-    width = COM_CheckParm("-width");
-
-    printf("width == %d\n", width);
-
-    if (width)
-	width = (com_argc > width + 1) ? atoi(com_argv[width + 1]) : 0;
-
-    printf("width == %d\n", width);
-
-    height = COM_CheckParm("-height");
-    if (height)
-	height = (com_argc > height + 1) ? atoi(com_argv[height + 1]) : 0;
-    bpp = COM_CheckParm("-bpp");
-    if (bpp)
-	bpp = (com_argc > bpp + 1) ? atoi(com_argv[bpp + 1]) : 0;
-    fullscreen = COM_CheckParm("-fullscreen");
-    windowed = COM_CheckParm("-windowed");
-
-    /* If nothing was specified, just go with the build-in default */
-    if (!width && !height && !bpp && !fullscreen && !windowed)
-	return false;
-
-    /* Default to windowed mode unless fullscreen requested */
-    fullscreen = fullscreen && !windowed;
-
-    if (!width && !height) {
-	width = modelist[0].width;
-	width = modelist[0].height;
-    } else if (!width) {
-	width = height * 4 / 3;
-    } else if (!height) {
-	height = width * 3 / 4;
-    }
-    if (!bpp)
-	bpp = modelist[0].bpp;
-
-    printf("height == %d\n", height);
-    printf("bpp == %d\n", bpp);
-
-    modelist[VID_MODE_CMDLINE].modenum = VID_MODE_CMDLINE;
-    modelist[VID_MODE_CMDLINE].fullscreen = fullscreen;
-    modelist[VID_MODE_CMDLINE].width = width;
-    modelist[VID_MODE_CMDLINE].height = height;
-    modelist[VID_MODE_CMDLINE].refresh = 60; /* play it safe, I guess? */
-
-    if (bpp == modelist[0].bpp) {
-	modelist[VID_MODE_CMDLINE].bpp = bpp;
-	formats[VID_MODE_CMDLINE].format = formats[0].format;
-	return true;
+	mode++;
     }
 
-    /* Don't know what to do with wierd layouts */
-    switch (SDL_PIXELTYPE(sdl_desktop_format->format)) {
-    case SDL_PIXELTYPE_PACKED16:
-    case SDL_PIXELTYPE_PACKED32:
-	break;
-    default:
-	modelist[VID_MODE_CMDLINE].bpp = modelist[0].bpp;
-	formats[VID_MODE_CMDLINE].format = formats[0].format;
-	return true;
-    }
-
-    /* Also don't know what to do with non 16/32 formats... */
-    if (bpp == 15)
-	bpp = 16;
-    if (bpp == 24)
-	bpp = 32;
-    if (bpp != 16 && bpp != 32) {
-	modelist[VID_MODE_CMDLINE].bpp = modelist[0].bpp;
-	formats[VID_MODE_CMDLINE].format = formats[0].format;
-	return true;
-    }
-
-    /*
-     * BPP not same as desktop, guess a similar pixel format
-     * I suspect this doesn't really work too well...
-     */
-    modelist[VID_MODE_CMDLINE].bpp = bpp;
-    switch (SDL_PIXELORDER(sdl_desktop_format->format)) {
-    case SDL_PACKEDORDER_XRGB:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGB888;
-	break;
-    case SDL_PACKEDORDER_RGBX:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGB565   : SDL_PIXELFORMAT_RGBA8888;
-	break;
-    case SDL_PACKEDORDER_ARGB:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ARGB4444 : SDL_PIXELFORMAT_ARGB8888;
-	break;
-    case SDL_PACKEDORDER_RGBA:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_RGBA4444 : SDL_PIXELFORMAT_RGBA8888;
-	break;
-    case SDL_PACKEDORDER_XBGR:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_ABGR8888;
-	break;
-    case SDL_PACKEDORDER_BGRX:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGR565   : SDL_PIXELFORMAT_BGRA8888;
-	break;
-    case SDL_PACKEDORDER_ABGR:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_ABGR4444 : SDL_PIXELFORMAT_ABGR8888;
-	break;
-    case SDL_PACKEDORDER_BGRA:
-	formats[VID_MODE_CMDLINE].format = (bpp == 16) ? SDL_PIXELFORMAT_BGRA4444 : SDL_PIXELFORMAT_BGRA8888;
-	break;
-    default:
-	formats[VID_MODE_CMDLINE].format = formats[0].format;
-    }
-    return true;
+    VID_SortModeList(modelist, nummodes);
 }
 
 /*
@@ -466,7 +310,7 @@ VID_AllocBuffers(int width, int height)
 qboolean
 VID_IsFullScreen()
 {
-    return modelist[vid_modenum].fullscreen;
+    return !!vid_modenum;
 }
 
 /*
@@ -492,9 +336,9 @@ VID_UpdateWindowStatus(void)
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
-    int w, h;
     Uint32 flags;
     qboolean mouse_grab;
+    const qvidformat_t *format;
 
     /* FIXME - hack to reset mouse grabs */
     mouse_grab = _windowed_mouse.value;
@@ -503,10 +347,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	_windowed_mouse.callback(&_windowed_mouse);
     }
 
-    w = mode->width;
-    h = mode->height;
     flags = SDL_WINDOW_SHOWN;
-    if (mode->fullscreen)
+    if (mode - modelist != 0)
 	flags |= SDL_WINDOW_FULLSCREEN;
 
     if (renderer)
@@ -516,12 +358,13 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     if (sdl_format)
 	SDL_FreeFormat(sdl_format);
 
-    sdl_format = SDL_AllocFormat(formats[mode - modelist].format);
+    format = (const qvidformat_t *)mode->driverdata;
+    sdl_format = SDL_AllocFormat(format->format);
 
     sdl_window = SDL_CreateWindow("TyrQuake",
 				  SDL_WINDOWPOS_UNDEFINED,
 				  SDL_WINDOWPOS_UNDEFINED,
-				  w, h, flags);
+				  mode->width, mode->height, flags);
     if (!sdl_window)
 	Sys_Error("%s: Unable to create window: %s", __func__, SDL_GetError());
 
@@ -530,9 +373,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	Sys_Error("%s: Unable to create renderer: %s", __func__, SDL_GetError());
 
     texture = SDL_CreateTexture(renderer,
-				formats[mode - modelist].format,
+				format->format,
 				SDL_TEXTUREACCESS_STREAMING,
-				w, h);
+				mode->width, mode->height);
     if (!texture)
 	Sys_Error("%s: Unable to create texture: %s", __func__, SDL_GetError());
 
@@ -540,8 +383,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     VID_SetPalette(palette);
 
     vid.numpages = 1;
-    vid.width = vid.conwidth = w;
-    vid.height = vid.conheight = h;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
@@ -577,6 +420,12 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	_windowed_mouse.value = 1;
 	_windowed_mouse.callback(&_windowed_mouse);
     }
+
+    Cvar_SetValue("vid_fullscreen", mode - modelist != 0);
+    Cvar_SetValue("vid_width", mode->width);
+    Cvar_SetValue("vid_height", mode->height);
+    Cvar_SetValue("vid_bpp", mode->bpp);
+    Cvar_SetValue("vid_refreshrate", mode->refresh);
 
     return true;
 }
@@ -631,9 +480,10 @@ void
 VID_Init(const byte *palette)
 {
     int err;
-    qboolean cmdline_mode;
     SDL_DisplayMode desktop_mode;
-    const qvidmode_t *mode;
+    qvidmode_t *mode;
+    qvidformat_t *format;
+    const qvidmode_t *setmode;
 
     Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&vid_wait);
@@ -646,6 +496,8 @@ VID_Init(const byte *palette)
     Cvar_RegisterVariable(&block_switch);
     Cvar_RegisterVariable(&vid_window_x);
     Cvar_RegisterVariable(&vid_window_y);
+
+    VID_InitModeCvars();
 
     Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
 
@@ -666,11 +518,24 @@ VID_Init(const byte *palette)
 	Sys_Error("%s: Unable to allocate desktop pixel format (%s)",
 		  __func__, SDL_GetError());
 
-    VID_InitModeList();
-    cmdline_mode = VID_CheckCmdlineMode();
+    /* Init default windowed mode */
+    mode = modelist;
+    mode->modenum = 0;
+    mode->bpp = sdl_desktop_format->BitsPerPixel;
+    format = (qvidformat_t *)mode->driverdata;
+    format->format = sdl_desktop_format->format;
+    mode->refresh = desktop_mode.refresh_rate;
+    mode->width = 640;
+    mode->height = 480;
+    nummodes = 1;
 
-    mode = &modelist[cmdline_mode ? VID_MODE_CMDLINE : 0];
-    VID_SetMode(mode, palette);
+    /* TODO: read config files first to avoid multiple mode sets */
+    VID_InitModeList();
+    setmode = VID_GetCmdlineMode();
+    if (!setmode)
+	setmode = &modelist[0];
+
+    VID_SetMode(setmode, palette);
 
 #ifdef _WIN32
     mainwindow=GetActiveWindow();

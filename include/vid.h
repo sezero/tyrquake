@@ -67,21 +67,19 @@ extern unsigned d_8to24table[256];
  */
 
 typedef struct {
+    int modenum;
     int width;
     int height;
-    int modenum;
-    int fullscreen;
     int bpp;
     int refresh;
-    char modedesc[13];
+    byte driverdata[8];	/* Allow drivers to stuff some data */
 } qvidmode_t;
 
 /*
- * modelist - Last entry is a custom mode for command line parameters
+ * TODO ~ Have the vid driver allocate modelist dynamically
  */
-#define MAX_MODE_LIST 200
-#define VID_MODE_CMDLINE MAX_MODE_LIST
-extern qvidmode_t modelist[MAX_MODE_LIST + 1];
+#define MAX_MODE_LIST 600
+extern qvidmode_t modelist[MAX_MODE_LIST];
 extern qvidmode_t badmode;
 
 extern int nummodes;
@@ -94,9 +92,13 @@ extern double vid_testendtime;
 
 #define VID_MODE_NONE               (-1)
 #define VID_MODE_WINDOWED           0
-#define VID_MODE_FULLSCREEN_DEFAULT 5
+
+void VID_InitModeCvars(void);
+void VID_SortModeList(qvidmode_t *modelist, int nummodes);
+const qvidmode_t *VID_GetCmdlineMode(void);
 
 void VID_MenuDraw(void);
+void VID_MenuInitState(const qvidmode_t *mode);
 void VID_MenuKey(int key);
 qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette);
 qboolean VID_CheckAdequateMem(int width, int height);

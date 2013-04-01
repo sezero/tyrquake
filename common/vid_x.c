@@ -55,6 +55,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
+/* compatibility cludges for new menu code */
+qboolean VID_CheckAdequateMem(int width, int height) { return true; }
+qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette) { return true; }
+int vid_modenum;
+
 static int ignorenext;
 
 typedef struct {

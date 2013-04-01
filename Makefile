@@ -617,6 +617,7 @@ CL_OBJS := \
 	snd_mem.o	\
 	snd_mix.o	\
 	sprite_model.o	\
+	vid_mode.o	\
 	view.o		\
 	wad.o
 
@@ -830,14 +831,14 @@ endif
 endif
 ifeq ($(VID_TARGET),win)
 CL_CPPFLAGS += -idirafter $(DX_INC)
-SW_OBJS += vid_win.o vid_mode.o
-GL_OBJS += vid_wgl.o vid_mode.o
+SW_OBJS += vid_win.o
+GL_OBJS += vid_wgl.o
 CL_LIBS += gdi32
 GL_LIBS += comctl32
 endif
 ifeq ($(VID_TARGET),sdl)
-SW_OBJS += vid_sdl.o sdl_common.o vid_mode.o
-GL_OBJS += vid_sgl.o sdl_common.o vid_mode.o
+SW_OBJS += vid_sdl.o sdl_common.o
+GL_OBJS += vid_sgl.o sdl_common.o
 CL_CPPFLAGS += $(SDL_CFLAGS)
 CL_LFLAGS += $(SDL_LFLAGS)
 endif

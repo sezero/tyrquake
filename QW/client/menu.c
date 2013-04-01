@@ -386,13 +386,10 @@ M_DrawSlider(int x, int y, float range)
     M_DrawCharacter(x + (SLIDER_RANGE - 1) * 8 * range, y, 131);
 }
 
-static void
-M_DrawCheckbox(int x, int y, int on)
+void
+M_DrawCheckbox(int x, int y, qboolean checked)
 {
-    if (on)
-	M_Print(x, y, "on");
-    else
-	M_Print(x, y, "off");
+    M_Print(x, y, checked ? "on" : "off");
 }
 
 static void

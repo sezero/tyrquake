@@ -978,19 +978,10 @@ M_DrawSlider(int x, int y, float range)
     M_DrawCharacter(x + (SLIDER_RANGE - 1) * 8 * range, y, 131);
 }
 
-static void
-M_DrawCheckbox(int x, int y, int on)
+void
+M_DrawCheckbox(int x, int y, qboolean checked)
 {
-#if 0
-    if (on)
-	M_DrawCharacter(x, y, 131);
-    else
-	M_DrawCharacter(x, y, 129);
-#endif
-    if (on)
-	M_Print(x, y, "on");
-    else
-	M_Print(x, y, "off");
+    M_Print(x, y, checked ? "on" : "off");
 }
 
 static void
@@ -1317,6 +1308,7 @@ M_Menu_Video_f(void)
     key_dest = key_menu;
     m_state = m_video;
     m_entersound = true;
+    VID_MenuInitState(&modelist[vid_modenum]);
 }
 
 

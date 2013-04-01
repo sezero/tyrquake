@@ -64,18 +64,6 @@ window_visible(void)
 static void VID_MenuDraw_WGL(void);
 static void VID_MenuKey_WGL(int key);
 
-typedef struct {
-    int width;
-    int height;
-} lmode_t;
-
-static lmode_t lowresmodes[] = {
-    {320, 200},
-    {320, 240},
-    {400, 300},
-    {512, 384},
-};
-
 const char *gl_renderer;
 static const char *gl_vendor;
 static const char *gl_version;
@@ -148,8 +136,7 @@ static cvar_t vid_mode = { "vid_mode", "0", false };
 // Note that 0 is VID_MODE_WINDOWED
 static cvar_t _vid_default_mode = { "_vid_default_mode", "0", true };
 
-// Note that 5 is VID_MODE_FULLSCREEN_DEFAULT
-static cvar_t _vid_default_mode_win = { "_vid_default_mode_win", "5", true };
+static cvar_t _vid_default_mode_win = { "_vid_default_mode_win", "0", true };
 static cvar_t vid_wait = { "vid_wait", "0" };
 static cvar_t vid_nopageflip = { "vid_nopageflip", "0", true };
 static cvar_t _vid_wait_override = { "_vid_wait_override", "0", true };
@@ -392,7 +379,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     // Set either the fullscreen or windowed mode
     stat = false;
-    if (mode->fullscreen) {
+    if (mode - modelist != 0) {
 	stat = VID_SetFullDIBMode(mode);
 	IN_ActivateMouse();
 	IN_HideMouse();
@@ -1036,9 +1023,8 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 }
 
 static void
-VID_InitDIB(HINSTANCE hInstance)
+VID_InitWindowClass(HINSTANCE hInstance)
 {
-    qvidmode_t *mode = &modelist[0];
     WNDCLASS wc;
 
     /* Register the frame class */
@@ -1055,32 +1041,6 @@ VID_InitDIB(HINSTANCE hInstance)
 
     if (!RegisterClass(&wc))
 	Sys_Error("Couldn't register window class");
-
-    /* Fill in a vidmode from the command line */
-    mode->fullscreen = false;
-    if (COM_CheckParm("-width"))
-	mode->width = Q_atoi(com_argv[COM_CheckParm("-width") + 1]);
-    else
-	mode->width = 640;
-
-    if (mode->width < 320)
-	mode->width = 320;
-
-    if (COM_CheckParm("-height"))
-	mode->height = Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
-    else
-	mode->height = mode->width * 240 / 320;
-
-    if (mode->height < 240)
-	mode->height = 240;
-
-    snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%d",
-	     mode->width, mode->height);
-
-    mode->modenum = 0;
-    mode->bpp = 0;
-
-    nummodes = 1;
 }
 
 
@@ -1090,120 +1050,53 @@ VID_InitFullDIB
 =================
 */
 static void
-VID_InitFullDIB(HINSTANCE hInstance)
+VID_InitModeList(void)
 {
     DEVMODE devmode;
-    int i, modenum, originalnummodes, existingmode, numlowresmodes;
-    int j, bpp, done;
-    BOOL stat;
+    DWORD testmodenum;
+    LONG result;
+    BOOL success;
     qvidmode_t *mode;
 
-// enumerate >8 bpp modes
-    originalnummodes = nummodes;
-    modenum = 0;
+    /* Query the desktop mode */
+    memset(&devmode, 0, sizeof(devmode));
+    success = EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &devmode);
+    if (!success)
+	Sys_Error("Unable to query desktop display settings");
 
-    do {
-	stat = EnumDisplaySettings(NULL, modenum, &devmode);
+    /* Setup the default windowed mode */
+    mode = modelist;
+    mode->width = 640;
+    mode->height = 480;
+    mode->bpp = devmode.dmBitsPerPel;
+    mode->refresh = devmode.dmDisplayFrequency;
+    mode++;
+    nummodes = 1;
 
-	if ((devmode.dmBitsPerPel >= 15) &&
-	    (devmode.dmPelsWidth <= MAXWIDTH) &&
-	    (devmode.dmPelsHeight <= MAXHEIGHT) &&
-	    (nummodes < MAX_MODE_LIST)) {
-	    devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-
-	    if (ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN) ==
-		DISP_CHANGE_SUCCESSFUL) {
-		mode = &modelist[nummodes];
-
-		mode->width = devmode.dmPelsWidth;
-		mode->height = devmode.dmPelsHeight;
-		mode->modenum = 0;
-		mode->fullscreen = 1;
-		mode->bpp = devmode.dmBitsPerPel;
-		snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%dx%d",
-			 mode->width, mode->height, mode->bpp);
-
-		/*
-		 * if the width is more than twice the height, reduce
-		 * it by half because this is probably a dual-screen
-		 * monitor
-		 */
-		if (!COM_CheckParm("-noadjustaspect")) {
-		    if (mode->width > mode->height << 1) {
-			mode->width >>= 1;
-			snprintf(mode->modedesc, sizeof(mode->modedesc),
-				 "%dx%dx%d", mode->width, mode->height,
-				 mode->bpp);
-		    }
-		}
-
-		for (i = originalnummodes, existingmode = 0; i < nummodes; i++) {
-		    if (mode->width == modelist[i].width
-			&& mode->height == modelist[i].height
-			&& mode->bpp == modelist[i].bpp) {
-			existingmode = 1;
-			break;
-		    }
-		}
-		if (!existingmode)
-		    nummodes++;
-	    }
-	}
-	modenum++;
-    } while (stat);
-
-// see if there are any low-res modes that aren't being reported
-    numlowresmodes = sizeof(lowresmodes) / sizeof(lowresmodes[0]);
-    bpp = 16;
-    done = 0;
-
-    do {
-	for (j = 0; (j < numlowresmodes) && (nummodes < MAX_MODE_LIST); j++) {
-	    devmode.dmBitsPerPel = bpp;
-	    devmode.dmPelsWidth = lowresmodes[j].width;
-	    devmode.dmPelsHeight = lowresmodes[j].height;
-	    devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
-
-	    if (ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN) ==
-		DISP_CHANGE_SUCCESSFUL) {
-		mode = &modelist[nummodes];
-
-		mode->width = devmode.dmPelsWidth;
-		mode->height = devmode.dmPelsHeight;
-		mode->modenum = 0;
-		mode->fullscreen = 1;
-		mode->bpp = devmode.dmBitsPerPel;
-		snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%dx%d",
-			 mode->width, mode->height, mode->bpp);
-
-		for (i = originalnummodes, existingmode = 0; i < nummodes; i++) {
-		    if (mode->width == modelist[i].width
-			&& mode->height == modelist[i].height
-			&& mode->bpp == modelist[i].bpp) {
-			existingmode = 1;
-			break;
-		    }
-		}
-		if (!existingmode)
-		    nummodes++;
-	    }
-	}
-	switch (bpp) {
-	case 16:
-	    bpp = 32;
+    memset(&devmode, 0, sizeof(devmode));
+    testmodenum = 0;
+    while (EnumDisplaySettings(NULL, testmodenum++, &devmode)) {
+	if (nummodes == MAX_MODE_LIST)
 	    break;
+	if (devmode.dmPelsWidth > MAXWIDTH || devmode.dmPelsHeight > MAXHEIGHT)
+	    continue;
+	if (devmode.dmBitsPerPel < 15)
+	    continue;
 
-	case 32:
-	    bpp = 24;
-	    break;
+	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
+	if (result != DISP_CHANGE_SUCCESSFUL)
+	    continue;
 
-	case 24:
-	    done = 1;
-	    break;
-	}
-    } while (!done);
+	mode->width = devmode.dmPelsWidth;
+	mode->height = devmode.dmPelsHeight;
+	mode->bpp = devmode.dmBitsPerPel;
+	mode->refresh = devmode.dmDisplayFrequency;
+	mode->modenum = nummodes++;
+	mode++;
+    }
 
-    if (nummodes == originalnummodes)
+    if (nummodes == 1)
 	Con_SafePrintf("No fullscreen DIB modes found\n");
 }
 
@@ -1235,13 +1128,11 @@ VID_Init
 void
 VID_Init(const byte *palette)
 {
-    int i, existingmode;
-    int width, height, bpp, findbpp, done;
+    int i;
     byte gamma_palette[256 * 3];
     char gldir[MAX_OSPATH];
-    HDC hdc;
     DEVMODE devmode;
-    qvidmode_t *mode;
+    const qvidmode_t *mode;
 
     memset(&devmode, 0, sizeof(devmode));
 
@@ -1266,142 +1157,138 @@ VID_Init(const byte *palette)
 
     InitCommonControls();
 
-    VID_InitDIB(global_hInstance);
-    nummodes = 1;
+    VID_InitWindowClass(global_hInstance);
+    VID_InitModeList();
+    mode = VID_GetCmdlineMode();
+    if (!mode)
+	mode = &modelist[0];
 
-    VID_InitFullDIB(global_hInstance);
+    /* TODO - command line mode setting... */
 
-    height = 0;			// FIXME - Uninitialized? Zero probably not desirable...
-
+    /* FIXME - todo... clean this up, remove duplication */
+#if 0
     if (COM_CheckParm("-window") || COM_CheckParm("-w")) {
 	hdc = GetDC(NULL);
-
-	if (GetDeviceCaps(hdc, RASTERCAPS) & RC_PALETTE) {
+	if (GetDeviceCaps(hdc, RASTERCAPS) & RC_PALETTE)
 	    Sys_Error("Can't run in non-RGB mode");
-	}
 
 	ReleaseDC(NULL, hdc);
-
 	windowed = true;
-
 	vid_default = VID_MODE_WINDOWED;
     } else {
 	if (nummodes == 1)
 	    Sys_Error("No RGB fullscreen modes available");
 
 	windowed = false;
-
 	if (COM_CheckParm("-mode")) {
 	    vid_default = Q_atoi(com_argv[COM_CheckParm("-mode") + 1]);
+	} else if (COM_CheckParm("-current")) {
+	    mode = &modelist[VID_MODE_FULLSCREEN_DEFAULT];
+	    mode->width = GetSystemMetrics(SM_CXSCREEN);
+	    mode->height = GetSystemMetrics(SM_CYSCREEN);
+	    vid_default = VID_MODE_FULLSCREEN_DEFAULT;
+	    leavecurrentmode = 1;
 	} else {
-	    if (COM_CheckParm("-current")) {
-		mode = &modelist[VID_MODE_FULLSCREEN_DEFAULT];
-		mode->width = GetSystemMetrics(SM_CXSCREEN);
-		mode->height = GetSystemMetrics(SM_CYSCREEN);
-		vid_default = VID_MODE_FULLSCREEN_DEFAULT;
-		leavecurrentmode = 1;
+	    if (COM_CheckParm("-width")) {
+		width = Q_atoi(com_argv[COM_CheckParm("-width") + 1]);
 	    } else {
-		if (COM_CheckParm("-width")) {
-		    width = Q_atoi(com_argv[COM_CheckParm("-width") + 1]);
-		} else {
-		    width = 640;
-		}
+		width = 640;
+	    }
 
-		if (COM_CheckParm("-bpp")) {
-		    bpp = Q_atoi(com_argv[COM_CheckParm("-bpp") + 1]);
-		    findbpp = 0;
-		} else {
-		    bpp = 15;
-		    findbpp = 1;
-		}
+	    if (COM_CheckParm("-bpp")) {
+		bpp = Q_atoi(com_argv[COM_CheckParm("-bpp") + 1]);
+		findbpp = 0;
+	    } else {
+		bpp = 15;
+		findbpp = 1;
+	    }
 
+	    if (COM_CheckParm("-height")) {
+		height = Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
+	    } else {
+		// FIXME - what default to use? calculate for 4:3 aspect?
+		height = 0;
+	    }
+
+	    // if they want to force it, add the specified mode to the list
+	    if (COM_CheckParm("-force") && (nummodes < MAX_MODE_LIST)) {
+		mode = &modelist[nummodes];
+
+		mode->width = width;
+		mode->height = height;
+		mode->modenum = 0;
+		mode->bpp = bpp;
+		sprintf(mode->modedesc, "%ldx%ldx%ld",
+			devmode.dmPelsWidth, devmode.dmPelsHeight,
+			devmode.dmBitsPerPel);
+
+		for (i = nummodes, existingmode = 0; i < nummodes; i++) {
+		    if ((mode->width == modelist[i].width) &&
+			(mode->height == modelist[i].height)
+			&& (mode->bpp == modelist[i].bpp)) {
+			existingmode = 1;
+			break;
+		    }
+		}
+		if (!existingmode)
+		    nummodes++;
+	    }
+
+	    done = 0;
+
+	    do {
 		if (COM_CheckParm("-height")) {
-		    height = Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
-		} else {
-		    // FIXME - what default to use? calculate for 4:3 aspect?
-		    height = 0;
-		}
+		    height =
+			Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
 
-		// if they want to force it, add the specified mode to the list
-		if (COM_CheckParm("-force") && (nummodes < MAX_MODE_LIST)) {
-		    mode = &modelist[nummodes];
-
-		    mode->width = width;
-		    mode->height = height;
-		    mode->modenum = 0;
-		    mode->fullscreen = 1;
-		    mode->bpp = bpp;
-		    sprintf(mode->modedesc, "%ldx%ldx%ld",
-			    devmode.dmPelsWidth, devmode.dmPelsHeight,
-			    devmode.dmBitsPerPel);
-
-		    for (i = nummodes, existingmode = 0; i < nummodes; i++) {
-			if ((mode->width == modelist[i].width) &&
-			    (mode->height == modelist[i].height)
-			    && (mode->bpp == modelist[i].bpp)) {
-			    existingmode = 1;
+		    for (i = 1, vid_default = 0; i < nummodes; i++) {
+			if ((modelist[i].width == width) &&
+			    (modelist[i].height == height) &&
+			    (modelist[i].bpp == bpp)) {
+			    vid_default = i;
+			    done = 1;
 			    break;
 			}
 		    }
-		    if (!existingmode)
-			nummodes++;
+		} else {
+		    for (i = 1, vid_default = 0; i < nummodes; i++) {
+			if ((modelist[i].width == width)
+			    && (modelist[i].bpp == bpp)) {
+			    vid_default = i;
+			    done = 1;
+			    break;
+			}
+		    }
 		}
 
-		done = 0;
-
-		do {
-		    if (COM_CheckParm("-height")) {
-			height =
-			    Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
-
-			for (i = 1, vid_default = 0; i < nummodes; i++) {
-			    if ((modelist[i].width == width) &&
-				(modelist[i].height == height) &&
-				(modelist[i].bpp == bpp)) {
-				vid_default = i;
-				done = 1;
-				break;
-			    }
+		if (!done) {
+		    if (findbpp) {
+			switch (bpp) {
+			case 15:
+			    bpp = 16;
+			    break;
+			case 16:
+			    bpp = 32;
+			    break;
+			case 32:
+			    bpp = 24;
+			    break;
+			case 24:
+			    done = 1;
+			    break;
 			}
 		    } else {
-			for (i = 1, vid_default = 0; i < nummodes; i++) {
-			    if ((modelist[i].width == width)
-				&& (modelist[i].bpp == bpp)) {
-				vid_default = i;
-				done = 1;
-				break;
-			    }
-			}
+			done = 1;
 		    }
-
-		    if (!done) {
-			if (findbpp) {
-			    switch (bpp) {
-			    case 15:
-				bpp = 16;
-				break;
-			    case 16:
-				bpp = 32;
-				break;
-			    case 32:
-				bpp = 24;
-				break;
-			    case 24:
-				done = 1;
-				break;
-			    }
-			} else {
-			    done = 1;
-			}
-		    }
-		} while (!done);
-
-		if (!vid_default) {
-		    Sys_Error("Specified video mode not available");
 		}
+	    } while (!done);
+
+	    if (!vid_default) {
+		Sys_Error("Specified video mode not available");
 	    }
 	}
     }
+#endif
 
     vid_initialized = true;
 
@@ -1433,6 +1320,7 @@ VID_Init(const byte *palette)
     Check_Gamma(palette, gamma_palette);
     VID_SetPalette(gamma_palette);
 
+    windowed = !vid_default;
     VID_SetMode(&modelist[vid_default], gamma_palette);
     Gamma_Init();
 
@@ -1449,7 +1337,7 @@ VID_Init(const byte *palette)
 
     GL_Init();
 
-    sprintf(gldir, "%s/glquake", com_gamedir);
+    snprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
     Sys_mkdir(gldir);
 
     vid_realmode = vid_modenum;
@@ -1573,5 +1461,5 @@ VID_MenuKey_WGL(int key)
 qboolean
 VID_IsFullScreen()
 {
-    return modelist[vid_modenum].fullscreen;
+    return vid_modenum != 0;
 }

@@ -96,12 +96,12 @@ static cvar_t _vid_default_mode = {
 };
 static cvar_t _vid_default_mode_win = {
     .name = "_vid_default_mode_win",
-    .string = stringify(VID_MODE_FULLSCREEN_DEFAULT),
+    .string = stringify(VID_MODE_WINDOWED),
     .archive = true
 };
 static cvar_t vid_fullscreen_mode = {
     .name = "vid_fullscreen_mode",
-    .string = stringify(VID_MODE_FULLSCREEN_DEFAULT),
+    .string = "1",
     .archive = true
 };
 static cvar_t vid_windowed_mode = {
@@ -124,7 +124,6 @@ typedef struct {
     int height;
 } lmode_t;
 
-static int windowed_default;
 static int vid_default = VID_MODE_WINDOWED;
 int vid_modenum = VID_MODE_NONE;
 
@@ -384,21 +383,9 @@ VID_AllocBuffers(int width, int height)
 }
 
 static void
-InitWindowedMode(qvidmode_t *mode, int num, int width, int height)
-{
-    mode->width = width;
-    mode->height = height;
-    snprintf(mode->modedesc, sizeof(mode->modedesc), "%dx%d", width, height);
-    mode->modenum = num;
-    mode->fullscreen = 0;
-}
-
-static void
-VID_InitModes(HINSTANCE hInstance)
+VID_InitWindowClass(HINSTANCE hInstance)
 {
     WNDCLASS wc;
-    HDC hdc;
-    int width;
 
     hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON2));
 
@@ -416,29 +403,6 @@ VID_InitModes(HINSTANCE hInstance)
 
     if (!RegisterClass(&wc))
 	Sys_Error("Couldn't register window class");
-
-    InitWindowedMode(&modelist[0], 0, 320, 240);
-    InitWindowedMode(&modelist[1], 1, 640, 480);
-    InitWindowedMode(&modelist[2], 2, 800, 600);
-    InitWindowedMode(&modelist[3], 3, 1024, 768);
-    InitWindowedMode(&modelist[4], 4, 1280, 960);
-
-    /*
-     * automatically stretch the default mode up if > 640x480 desktop
-     * resolution
-     */
-    hdc = GetDC(NULL);
-    width = GetDeviceCaps(hdc, HORZRES);
-    if (width > 800 && !COM_CheckParm("-noautostretch"))
-	vid_default = VID_MODE_WINDOWED + 2;
-    else if (width > 640 && !COM_CheckParm("-noautostretch"))
-	vid_default = VID_MODE_WINDOWED + 1;
-    else
-	vid_default = VID_MODE_WINDOWED;
-
-    windowed_default = vid_default;
-    ReleaseDC(NULL, hdc);
-    nummodes = 5;
 }
 
 /*
@@ -447,59 +411,62 @@ VID_GetDisplayModes
 =================
 */
 static void
-VID_GetDisplayModes(void)
+VID_InitModeList(void)
 {
     DEVMODE devmode;
-    int i, modenum, originalnummodes, lowestres;
-    BOOL stat;
+    DWORD testmodenum;
     LONG result;
+    BOOL success;
+    qvidmode_t *mode;
 
-    /* enumerate > 8 bpp modes */
-    originalnummodes = nummodes;
-    modenum = 0;
-    lowestres = 999999;
+    /*
+     * FIXME - work out why this is needed to fix sound... obviously
+     * it's a problem that we block updates while testing for
+     * available modes... but why?
+     */
+    S_BlockSound();
+    S_ClearBuffer();
 
-    do {
-	stat = EnumDisplaySettings(NULL, modenum, &devmode);
+    /* Query the desktop mode */
+    success = EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &devmode);
+    if (!success)
+	Sys_Error("Unable to query desktop display settings");
 
-	if (devmode.dmPelsWidth <= MAXWIDTH &&
-	    devmode.dmPelsHeight <= MAXHEIGHT &&
-	    devmode.dmPelsWidth >= 640 &&
-	    devmode.dmPelsHeight >= 480 &&
-	    nummodes < MAX_MODE_LIST) {
-	    devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+    /* Setup the default windowed mode */
+    mode = modelist;
+    mode->width = 640;
+    mode->height = 480;
+    mode->bpp = devmode.dmBitsPerPel;
+    mode->refresh = devmode.dmDisplayFrequency;
+    mode++;
+    nummodes = 1;
 
-	    result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
-	    if (result == DISP_CHANGE_SUCCESSFUL) {
-		modelist[nummodes].width = devmode.dmPelsWidth;
-		modelist[nummodes].height = devmode.dmPelsHeight;
-		modelist[nummodes].modenum = 0;
-		modelist[nummodes].fullscreen = 1;
-		sprintf(modelist[nummodes].modedesc, "%ldx%ld",
-			devmode.dmPelsWidth, devmode.dmPelsHeight);
+    testmodenum = 0;
+    while (EnumDisplaySettings(NULL, testmodenum++, &devmode)) {
+	if (nummodes == MAX_MODE_LIST)
+	    break;
+	if (devmode.dmPelsWidth > MAXWIDTH || devmode.dmPelsHeight > MAXHEIGHT)
+	    continue;
+	if (devmode.dmPelsWidth < 640 || devmode.dmPelsHeight < 480)
+	    continue;
 
-		/*
-		 * see is the mode already there (same dimensions but
-		 * different refresh rate)
-		 */
-		for (i = originalnummodes; i < nummodes; i++) {
-		    if (modelist[nummodes].width == modelist[i].width
-			&& modelist[nummodes].height == modelist[i].height)
-			break;
-		}
-		if (i == nummodes) {
-		    if (modelist[nummodes].width < lowestres)
-			lowestres = modelist[nummodes].width;
-		    nummodes++;
-		}
-	    }
-	}
+	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
+	if (result != DISP_CHANGE_SUCCESSFUL)
+	    continue;
 
-	modenum++;
-    } while (stat);
+	mode->width = devmode.dmPelsWidth;
+	mode->height = devmode.dmPelsHeight;
+	mode->bpp = devmode.dmBitsPerPel;
+	mode->refresh = devmode.dmDisplayFrequency;
+	mode->modenum = nummodes++;
+	mode++;
+    }
 
-    if (nummodes == originalnummodes)
+    if (nummodes == 1)
 	Con_SafePrintf("No fullscreen DIB modes found\n");
+
+    S_UnblockSound();
 }
 
 static void
@@ -677,7 +644,7 @@ VID_RestoreOldMode(const qvidmode_t *mode)
 
     if (!VID_SetMode(mode, vid_curpal)) {
 	vid_modenum = VID_MODE_NONE;
-	if (!VID_SetMode(&modelist[windowed_default], vid_curpal))
+	if (!VID_SetMode(&modelist[0], vid_curpal))
 	    Sys_Error("Can't set any video mode");
     }
     inerror = false;
@@ -702,21 +669,21 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     HDC hdc;
 
     modenum = mode - modelist;
-    while ((modenum >= nummodes || modenum < 0) && modenum != VID_MODE_CMDLINE) {
+    while (modenum >= nummodes || modenum < 0) {
 	if (vid_modenum == VID_MODE_NONE) {
 	    if (modenum == vid_default) {
-		modenum = windowed_default;
+		modenum = 0;
 	    } else {
 		modenum = vid_default;
 	    }
 	    Cvar_SetValue("vid_mode", modenum);
 	} else {
 	    Cvar_SetValue("vid_mode", vid_modenum);
-	    return 0;
+	    return false;
 	}
     }
 
-    if (!force_mode_set && (modenum == vid_modenum))
+    if (!force_mode_set && modenum && (modenum == vid_modenum))
 	return true;
 
     /* so Con_Printfs don't mess us up by forcing vid and snd updates */
@@ -728,13 +695,13 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     S_ClearBuffer();
 
     if (vid_modenum == VID_MODE_NONE)
-	original_mode = windowed_default;
+	original_mode = 0;
     else
 	original_mode = vid_modenum;
 
     /* Set either the fullscreen or windowed mode */
     mode = &modelist[modenum];
-    if (mode->fullscreen) {
+    if (mode - modelist != 0) {
 	stat = VID_SetFullDIBMode(mode);
 	IN_ActivateMouse();
 	IN_HideMouse();
@@ -953,6 +920,7 @@ VID_ForceMode_f(void)
 void
 VID_Init(const byte *palette)
 {
+    const qvidmode_t *mode;
     int i, bestmatch, bestmatchmetric, t, dr, dg, db;
     byte *ptmp;
 
@@ -979,8 +947,13 @@ VID_Init(const byte *palette)
     Cmd_AddCommand("vid_fullscreen", VID_Fullscreen_f);
     Cmd_AddCommand("vid_minimize", VID_Minimize_f);
 
-    VID_InitModes(global_hInstance);
-    VID_GetDisplayModes();
+    VID_InitWindowClass(global_hInstance);
+    VID_InitModeList();
+    mode = VID_GetCmdlineMode();
+    if (!mode)
+	mode = &modelist[0];
+
+    /* TODO - command line mode setting... */
 
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
@@ -1017,14 +990,14 @@ VID_Init(const byte *palette)
     }
 
     startwindowed = 1;
-    vid_default = windowed_default;
+    vid_default = 0;
 
     if (hwnd_dialog)
 	DestroyWindow(hwnd_dialog);
 
     /* keep the window minimized until we're ready for the first mode set */
     hide_window = true;
-    VID_SetMode(&modelist[VID_MODE_WINDOWED], palette);
+    VID_SetMode(&modelist[0], palette);
     hide_window = false;
 
     vid_initialized = true;
@@ -1201,8 +1174,7 @@ VID_Update(vrect_t *rects)
 	    }
 	}
 
-	if (!startwindowed ||
-	    _vid_default_mode_win.value < VID_MODE_FULLSCREEN_DEFAULT) {
+	if (!startwindowed || !_vid_default_mode_win.value) {
 	    firstupdate = 0;
 
 	    if (COM_CheckParm("-resetwinpos")) {
@@ -1212,7 +1184,7 @@ VID_Update(vrect_t *rects)
 
 	    if ((_vid_default_mode_win.value < 0) ||
 		(_vid_default_mode_win.value >= nummodes)) {
-		Cvar_SetValue("_vid_default_mode_win", windowed_default);
+		Cvar_SetValue("_vid_default_mode_win", 0);
 	    }
 
 	    Cvar_SetValue("vid_mode", _vid_default_mode_win.value);
@@ -1375,7 +1347,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 
 		    /* don't want to see normal mode set message */
 		    msg_suppress_1 = true;
-		    VID_SetMode(&modelist[windowed_default], vid_curpal);
+		    VID_SetMode(&modelist[0], vid_curpal);
 		    msg_suppress_1 = false;
 		    vid_fulldib_on_focus_mode = i;
 		    force_minimized = false;
@@ -1592,7 +1564,7 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 qboolean
 VID_IsFullScreen()
 {
-    return modelist[vid_modenum].fullscreen;
+    return vid_modenum != 0;
 }
 
 void VID_LockBuffer(void) {}

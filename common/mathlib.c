@@ -444,7 +444,6 @@ VectorScale(const vec3_t in, const vec_t scale, vec3_t out)
     out[2] = in[2] * scale;
 }
 
-
 int
 Q_log2(int val)
 {
@@ -455,6 +454,26 @@ Q_log2(int val)
     return answer;
 }
 
+int
+Q_gcd(int a, int b)
+{
+    if (a < b) {
+	int tmp = a;
+	a = b;
+	b = tmp;
+    }
+    if (!b)
+	return a ? a : 1; /* just in case... */
+
+    while (a % b) {
+	int tmp = a;
+	a = b;
+	b = tmp;
+	b %= a;
+    }
+
+    return b;
+}
 
 /*
 ================
