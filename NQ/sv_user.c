@@ -978,7 +978,6 @@ SV_Kick_f(client_t *client)
     const char *message = NULL;
     const char *who;
     client_t *victim;
-    qboolean byNumber = false;
     int i, clientnum;
 
     if (pr_global_struct->deathmatch)
@@ -991,9 +990,6 @@ SV_Kick_f(client_t *client)
 	victim = svs.clients + clientnum;
 	if (!victim->active)
 	    return;
-
-	byNumber = true;
-
     } else {
 	victim = svs.clients;
 	for (i = 0; i < svs.maxclients; i++, victim++) {
