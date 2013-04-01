@@ -450,7 +450,8 @@ VID_InitModeList(void)
 	if (devmode.dmPelsWidth < 640 || devmode.dmPelsHeight < 480)
 	    continue;
 
-	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+	devmode.dmFields =
+	    DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
 	if (result != DISP_CHANGE_SUCCESSFUL)
 	    continue;
@@ -571,7 +572,8 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 
     VID_DestroyWindow();
 
-    gdevmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+    gdevmode.dmFields =
+	DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
     gdevmode.dmPelsWidth = mode->width;
     gdevmode.dmPelsHeight = mode->height;
     gdevmode.dmSize = sizeof(gdevmode);

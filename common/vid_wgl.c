@@ -282,7 +282,8 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     RECT rect;
 
     if (!leavecurrentmode) {
-	gdevmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+	gdevmode.dmFields =
+	    DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 	gdevmode.dmBitsPerPel = mode->bpp;
 	gdevmode.dmPelsWidth = mode->width;
 	gdevmode.dmPelsHeight = mode->height;
@@ -1083,7 +1084,8 @@ VID_InitModeList(void)
 	if (devmode.dmBitsPerPel < 15)
 	    continue;
 
-	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT;
+	devmode.dmFields =
+	    DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
 	if (result != DISP_CHANGE_SUCCESSFUL)
 	    continue;
