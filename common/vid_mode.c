@@ -149,9 +149,13 @@ VID_MenuDraw_(const vid_menustate_t *menu)
     M_Print(184, cursor_heights[cursor], va("%i", menu->mode.bpp));
     cursor++;
 
+    /* Refresh rate is not always available */
+    if (menu->mode.refresh && menu->fullscreen)
+	text = va("%i Hz", menu->mode.refresh);
+    else
+	text = "n/a";
     M_Print(16, cursor_heights[cursor], "      Refresh rate");
-    M_Print(184, cursor_heights[cursor],
-	    menu->fullscreen ? va("%i Hz", menu->mode.refresh) : "n/a");
+    M_Print(184, cursor_heights[cursor], text);
     cursor++;
 
     M_Print(16, cursor_heights[cursor], "        Fullscreen");
