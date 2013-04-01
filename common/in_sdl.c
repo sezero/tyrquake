@@ -524,8 +524,10 @@ IN_ProcessEvents(void)
 	    Key_Event(ksym, state);
 	    //Key_Event(unicode, state);
 
+#ifdef DEBUG
 	    Sys_Printf("%s: ksym = %d, unicode = %d\n",
 		       __func__, (int)ksym, (int)unicode);
+#endif
 
 	    break;
 
