@@ -100,7 +100,8 @@ The basic solid body movement clip that slides along multiple planes
 static int
 PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
 {
-    int bumpcount, numbumps;
+    const int numbumps = 4;
+    int bumpcount;
     vec3_t dir;
     float d;
     int numplanes;
@@ -111,9 +112,9 @@ PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
     vec3_t end;
     float time_left;
     int blocked;
+#ifdef SERVERONLY
     const physent_t *touch;
-
-    numbumps = 4;
+#endif
 
     blocked = MOVE_CLIP_NONE;
     VectorCopy(pmove->velocity, original_velocity);
@@ -126,7 +127,11 @@ PM_FlyMove(playermove_t *pmove, const physent_stack_t *pestack)
 	for (i = 0; i < 3; i++)
 	    end[i] = pmove->origin[i] + time_left * pmove->velocity[i];
 
+#ifdef SERVERONLY
 	touch = PM_PlayerMove(pmove->origin, end, pestack, &trace);
+#else
+	PM_PlayerMove(pmove->origin, end, pestack, &trace);
+#endif
 	if (trace.startsolid || trace.allsolid) {
 	    /* entity is trapped in another solid */
 	    VectorCopy(vec3_origin, pmove->velocity);
