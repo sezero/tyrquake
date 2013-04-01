@@ -149,6 +149,7 @@ CL_PredictMove(physent_stack_t *pestack)
 
     /* predict forward until cl.time <= to->senttime */
     to = NULL;
+    tostate = NULL;
     oldphysent = pestack->numphysent;
     CL_SetSolidPlayers(pestack, cl.playernum);
 
@@ -165,7 +166,7 @@ CL_PredictMove(physent_stack_t *pestack)
     pestack->numphysent = oldphysent;
 
     /* bail if net hasn't delivered packets in a long time... */
-    if (i == UPDATE_BACKUP - 1 || !to)
+    if (i == UPDATE_BACKUP - 1 || !to || !tostate)
 	return;
 
     for (i = 0; i < 3; i++) {
