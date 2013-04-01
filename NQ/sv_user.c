@@ -335,13 +335,11 @@ static void
 SV_ClientThink(client_t *client)
 {
     edict_t *player = client->edict;
-    qboolean onground;
     vec3_t v_angle;
 
     if (player->v.movetype == MOVETYPE_NONE)
 	return;
 
-    onground = (int)player->v.flags & FL_ONGROUND;
     DropPunchAngle(player->v.punchangle);
 
     /* if dead, behave differently */
