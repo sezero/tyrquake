@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "SDL.h"
 
+#include "cmd.h"
 #include "console.h"
 #include "glquake.h"
 #include "input.h"
@@ -303,6 +304,10 @@ VID_Init(const byte *palette)
 
     Cvar_RegisterVariable(&gl_ztrick);
 
+    VID_InitModeCvars();
+
+    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
+
     Q_SDL_InitOnce();
     err = SDL_InitSubSystem(SDL_INIT_VIDEO);
     if (err < 0)
@@ -337,6 +342,9 @@ VID_Init(const byte *palette)
     VID_SetMode(setmode, palette);
 
     VID_SetPalette(palette);
+
+    vid_menudrawfn = VID_MenuDraw;
+    vid_menukeyfn = VID_MenuKey;
 }
 
 void
