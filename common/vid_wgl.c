@@ -82,7 +82,6 @@ static qboolean vid_wassuspended = false;
 static int windowed_mouse;
 
 static HICON hIcon;
-static int DIBWidth, DIBHeight;
 static RECT WindowRect;
 static DWORD WindowStyle, ExWindowStyle;
 
@@ -115,7 +114,7 @@ static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 			       LPARAM lParam);
 
 static void ClearAllStates(void);
-static void VID_UpdateWindowStatus(void);
+static void VID_UpdateWindowStatus(int x, int y, int width, int height);
 
 static void GL_Init(void);
 
@@ -147,9 +146,6 @@ static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
 cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
 
 int window_center_x, window_center_y;
-
-static int window_x, window_y;
-static int window_width, window_height;
 
 RECT window_rect;
 
@@ -213,9 +209,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 
     WindowRect.right = mode->width;
     WindowRect.bottom = mode->height;
-
-    DIBWidth = mode->width;
-    DIBHeight = mode->height;
 
     WindowStyle = WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU |
 	WS_MINIMIZEBOX;
@@ -300,9 +293,6 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     WindowRect.right = mode->width;
     WindowRect.bottom = mode->height;
 
-    DIBWidth = mode->width;
-    DIBHeight = mode->height;
-
     WindowStyle = WS_POPUP;
     ExWindowStyle = 0;
 
@@ -343,11 +333,6 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     vid.height = vid.conheight;
 
     vid.numpages = 2;
-
-// needed because we're not getting WM_MOVE messages fullscreen on NT
-    window_x = 0;
-    window_y = 0;
-
     mainwindow = dibwindow;
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
@@ -382,23 +367,22 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     stat = false;
     if (mode - modelist != 0) {
 	stat = VID_SetFullDIBMode(mode);
+	VID_UpdateWindowStatus(0, 0, mode->width, mode->height);
 	IN_ActivateMouse();
 	IN_HideMouse();
     } else {
 	if (_windowed_mouse.value && key_dest == key_game) {
 	    stat = VID_SetWindowedMode(mode);
+	    VID_UpdateWindowStatus(WindowRect.left, WindowRect.top, mode->width, mode->height);
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	} else {
 	    IN_DeactivateMouse();
 	    IN_ShowMouse();
 	    stat = VID_SetWindowedMode(mode);
+	    VID_UpdateWindowStatus(WindowRect.left, WindowRect.top, mode->width, mode->height);
 	}
     }
-
-    window_width = DIBWidth;
-    window_height = DIBHeight;
-    VID_UpdateWindowStatus();
 
     CDAudio_Resume();
     scr_disabled_for_loading = temp;
@@ -447,13 +431,12 @@ VID_UpdateWindowStatus
 ================
 */
 static void
-VID_UpdateWindowStatus(void)
+VID_UpdateWindowStatus(int x, int y, int width, int height)
 {
-
-    window_rect.left = window_x;
-    window_rect.top = window_y;
-    window_rect.right = window_x + window_width;
-    window_rect.bottom = window_y + window_height;
+    window_rect.left = x;
+    window_rect.top = y;
+    window_rect.right = x + width;
+    window_rect.bottom = y + height;
     window_center_x = (window_rect.left + window_rect.right) / 2;
     window_center_y = (window_rect.top + window_rect.bottom) / 2;
 
@@ -907,7 +890,8 @@ static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LONG lRet = 1;
-    int fActive, fMinimized, temp;
+    int fActive, fMinimized, temp, window_x, window_y;
+    const qvidmode_t *mode;
 
     if (uMsg == uiWheelMessage)
 	uMsg = WM_MOUSEWHEEL;
@@ -924,7 +908,8 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_MOVE:
 	window_x = (int)LOWORD(lParam);
 	window_y = (int)HIWORD(lParam);
-	VID_UpdateWindowStatus();
+	mode = &modelist[vid_modenum];
+	VID_UpdateWindowStatus(window_x, window_y, mode->width, mode->height);
 	break;
 
     case WM_KEYDOWN:

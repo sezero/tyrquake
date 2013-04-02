@@ -60,14 +60,10 @@ window_visible(void)
 HWND mainwindow;
 qboolean DDActive;
 
-static int DIBWidth, DIBHeight;
 static RECT WindowRect;
 static DWORD WindowStyle, ExWindowStyle;
 
 int window_center_x, window_center_y;
-
-static int window_x, window_y;
-static int window_width, window_height;
 
 RECT window_rect;
 
@@ -286,12 +282,12 @@ VID_UpdateWindowStatus
 ================
 */
 static void
-VID_UpdateWindowStatus(void)
+VID_UpdateWindowStatus(int x, int y, int width, int height)
 {
-    window_rect.left = window_x;
-    window_rect.top = window_y;
-    window_rect.right = window_x + window_width;
-    window_rect.bottom = window_y + window_height;
+    window_rect.left = x;
+    window_rect.top = y;
+    window_rect.right = x + width;
+    window_rect.bottom = y + height;
     window_center_x = (window_rect.left + window_rect.right) / 2;
     window_center_y = (window_rect.top + window_rect.bottom) / 2;
 
@@ -495,8 +491,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
     WindowRect.bottom = mode->height;
-    DIBWidth = mode->width;
-    DIBHeight = mode->height;
     WindowStyle = WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU |
 	WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     ExWindowStyle = 0;
@@ -555,8 +549,8 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid.numpages = 1;
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
-    vid.height = vid.conheight = DIBHeight;
-    vid.width = vid.conwidth = DIBWidth;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)TRUE, (LPARAM)hIcon);
@@ -589,9 +583,6 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     WindowRect.right = mode->width;
     WindowRect.bottom =	mode->height;
 
-    DIBWidth = mode->width;
-    DIBHeight = mode->height;
-
     WindowStyle = WS_POPUP | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     ExWindowStyle = 0;
 
@@ -618,13 +609,9 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     vid.numpages = 1;
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
-    vid.height = vid.conheight = DIBHeight;
-    vid.width = vid.conwidth = DIBWidth;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
-
-    /* needed because we're not getting WM_MOVE messages fullscreen on NT */
-    window_x = 0;
-    window_y = 0;
 
     return true;
 }
@@ -705,26 +692,25 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     mode = &modelist[modenum];
     if (mode - modelist != 0) {
 	stat = VID_SetFullDIBMode(mode);
+	VID_UpdateWindowStatus(0, 0, mode->width, mode->height);
 	IN_ActivateMouse();
 	IN_HideMouse();
     } else {
 	if (_windowed_mouse.value && key_dest == key_game) {
 	    stat = VID_SetWindowedMode(mode);
+	    VID_UpdateWindowStatus(WindowRect.left, WindowRect.top, mode->width, mode->height);
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	} else {
 	    IN_DeactivateMouse();
 	    IN_ShowMouse();
 	    stat = VID_SetWindowedMode(mode);
+	    VID_UpdateWindowStatus(WindowRect.left, WindowRect.top, mode->width, mode->height);
 	}
     }
 
     /* Create the DIB */
-    VID_CreateDIB(DIBWidth, DIBHeight, palette);
-
-    window_width = vid.width;
-    window_height = vid.height;
-    VID_UpdateWindowStatus();
+    VID_CreateDIB(mode->width, mode->height, palette);
 
     CDAudio_Resume();
     scr_disabled_for_loading = temp;
@@ -1385,9 +1371,10 @@ static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LONG lRet = 0;
-    int fActive, fMinimized, temp;
+    int fActive, fMinimized, temp, window_x, window_y;
     HDC hdc;
     PAINTSTRUCT ps;
+    const qvidmode_t *mode;
 
     if (uMsg == uiWheelMessage) {
 	uMsg = WM_MOUSEWHEEL;
@@ -1436,7 +1423,8 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_MOVE:
 	window_x = (int)LOWORD(lParam);
 	window_y = (int)HIWORD(lParam);
-	VID_UpdateWindowStatus();
+	mode = &modelist[vid_modenum];
+	VID_UpdateWindowStatus(window_x, window_y, mode->width, mode->height);
 
 	if ((modestate == MS_WINDOWED) && !in_mode_set && !Minimized)
 	    VID_RememberWindowPos();
