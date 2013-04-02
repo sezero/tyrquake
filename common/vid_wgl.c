@@ -341,7 +341,8 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
-    int temp, modenum;
+    qboolean scr_disabled_for_loading_save;
+    int modenum;
     qboolean stat;
     MSG msg;
 
@@ -355,7 +356,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     }
 
     /* so Con_Printfs don't mess us up by forcing vid and snd updates */
-    temp = scr_disabled_for_loading;
+    scr_disabled_for_loading_save = scr_disabled_for_loading;
     scr_disabled_for_loading = true;
 
     CDAudio_Pause();
@@ -382,7 +383,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     }
 
     CDAudio_Resume();
-    scr_disabled_for_loading = temp;
+    scr_disabled_for_loading = scr_disabled_for_loading_save;
 
     if (!stat) {
 	Sys_Error("Couldn't set video mode");
