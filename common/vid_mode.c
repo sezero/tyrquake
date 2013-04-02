@@ -699,7 +699,7 @@ VID_GetCmdlineMode(void)
     if (bpp)
 	bpp = (com_argc > bpp + 1) ? atoi(com_argv[bpp + 1]) : 0;
     fullscreen = COM_CheckParm("-fullscreen");
-    windowed = COM_CheckParm("-windowed");
+    windowed = COM_CheckParm("-window") || COM_CheckParm("-w");
 
     /* If nothing was specified, don't return a mode */
     if (!width && !height && !bpp && !fullscreen && !windowed)
