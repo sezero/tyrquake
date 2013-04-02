@@ -4,12 +4,6 @@
 # By default, all executables will be built and placed in the ./bin
 # subdirectory. If you want to build just one, type e.g. "make bin/tyr-quake".
 #
-
-TYR_RELEASE := v0.63-pre
-TYR_GIT := $(shell git describe --dirty 2> /dev/null)
-TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
-TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
-
 # ============================================================================
 # User configurable options here:
 # ============================================================================
@@ -32,6 +26,21 @@ TARGET_UNIX      ?= $(if $(filter UNIX,$(TARGET_OS)),$(HOST_UNIX),)
 .PHONY:	default clean docs
 
 # ============================================================================
+
+TYR_RELEASE := v0.63-pre
+TYR_GIT := $(shell git describe --dirty 2> /dev/null)
+TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
+TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
+
+# Create/update the build version file
+# Any source files which use TYR_VERSION will depend on this
+BUILD_VER = $(BUILD_DIR)/.build_version
+$(shell \
+	if [ ! -d "$(BUILD_DIR)" ]; then mkdir -p "$(BUILD_DIR)"; fi ; \
+	if [ ! -f "$(BUILD_VER)" ] || \
+	   [ "`cat $(BUILD_VER)`" != "$(TYR_VERSION)" ]; then \
+		printf '%s' "$(TYR_VERSION)" > "$(BUILD_VER)"; \
+	fi)
 
 # ---------------------------------------
 # Attempt detection of the build host OS
@@ -326,11 +335,15 @@ endef
 # cmd_fixdep => Turn all pre-requisites into targets with no commands, to
 # prevent errors when moving files around between builds (e.g. from NQ or QW
 # dirs to the common dir.)
+# Add dependency on build version if needed.
 cmd_fixdep = \
 	cp $(@D)/.$(@F).d $(@D)/.$(@F).d.tmp && \
 	sed -e 's/\#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' -e '/^$$/ d' \
 	    -e 's/$$/ :/' < $(@D)/.$(@F).d.tmp >> $(@D)/.$(@F).d && \
-	rm -f $(@D)/.$(@F).d.tmp
+	rm -f $(@D)/.$(@F).d.tmp && \
+	if grep -q TYR_VERSION $<; then \
+		printf '%s: %s\n' $@ $(BUILD_VER) >> $(@D)/.$(@F).d ; \
+	fi
 
 cmd_cc_dep_c = \
 	$(CC) -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< && \
@@ -970,9 +983,9 @@ $(BIN_DIR)/tyr-qwsv$(EXT):	$(patsubst %,$(QWSVDIR)/%,$(ALL_QWSV_OBJS))
 	$(call do_strip,$@)
 
 # Build man pages, text and html docs from source
-$(DOC_DIR)/%.6:		man/%.6		; $(do_man2man)
-$(DOC_DIR)/%.txt:	$(DOC_DIR)/%.6	; $(do_man2txt)
-$(DOC_DIR)/%.html:	$(DOC_DIR)/%.6	; $(do_man2html)
+$(DOC_DIR)/%.6:		man/%.6	$(BUILD_VER)	; $(do_man2man)
+$(DOC_DIR)/%.txt:	$(DOC_DIR)/%.6		; $(do_man2txt)
+$(DOC_DIR)/%.html:	$(DOC_DIR)/%.6		; $(do_man2html)
 
 # ----------------------------------------------------------------------------
 # Documentation
@@ -1092,7 +1105,7 @@ ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 $(OSX_DIR)/%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
 	$(do_iconutil_icns)
 
-$(OSX_DIR)/%/Contents/Info.plist:	launcher/osx/Info.plist
+$(OSX_DIR)/%/Contents/Info.plist: launcher/osx/Info.plist $(BUILD_VER)
 	$(do_mkdir)
 	@cp $< $(@D)/.$(@F).tmp
 	$(call do_plist_set,CFBundleName,TyrQuake)
