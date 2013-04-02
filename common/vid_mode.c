@@ -711,7 +711,7 @@ VID_GetCmdlineMode(void)
     /* FIXME - default to desktop resolution? */
     if (!width && !height) {
 	width = modelist[0].width;
-	width = modelist[0].height;
+	height = modelist[0].height;
     } else if (!width) {
 	width = height * 4 / 3;
     } else if (!height) {
