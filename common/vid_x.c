@@ -45,6 +45,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "common.h"
 #include "console.h"
 #include "d_local.h"
+#include "input.h"
 #include "keys.h"
 #include "quakedef.h"
 #include "screen.h"
@@ -57,10 +58,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 /* compatibility cludges for new menu code */
 qboolean VID_CheckAdequateMem(int width, int height) { return true; }
-qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette) { return true; }
 int vid_modenum;
-
-static int ignorenext;
 
 typedef struct {
     int input;
@@ -351,15 +349,13 @@ ResetFrameBuffer(void)
     if (!x_framebuffer[0])
 	Sys_Error("VID: XCreateImage failed");
 
-    vid.buffer = (byte *)(x_framebuffer[0]);
+    vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
-
 }
 
 static void
 ResetSharedFrameBuffers(void)
 {
-
     int size;
     int key;
     int minsize = getpagesize();
@@ -432,49 +428,202 @@ ResetSharedFrameBuffers(void)
 	XSync(x_disp, 0);
 	shmctl(x_shminfo[frm].shmid, IPC_RMID, 0);
     }
+
+    vid.buffer = (byte *)x_framebuffer[0]->data;
+    vid.conbuffer = vid.buffer;
 }
 
-
-/*
- * Set the vidmode to the requested width/height if possible
- * Return true if successful, false otherwise
- */
-static qboolean
-VID_set_vidmode(int width, int height)
+static void
+VID_InitModeList(void)
 {
-    int i, x, y, dist;
-    int best_dist = 9999999;
-    int num_modes;
-    XF86VidModeModeInfo **modes;
-    XF86VidModeModeInfo *mode = NULL;
-    qboolean mode_changed = false;
+    XF86VidModeModeInfo **xmodes, *xmode;
+    qvidmode_t *mode;
+    int i, numxmodes;
 
-    if (vidmode_active)
-	Sys_Error("%s: called while vidmode_active == true.", __func__);
+    nummodes = 1;
+    mode = &modelist[1];
 
-    XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &num_modes, &modes);
-    for (i = 0; i < num_modes; i++) {
-	if (width > modes[i]->hdisplay || height > modes[i]->vdisplay)
+    XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &numxmodes, &xmodes);
+    xmode = *xmodes;
+    for (i = 0; i < numxmodes; i++, xmode++) {
+	if (nummodes == MAX_MODE_LIST)
+	    break;
+	if (xmode->hdisplay > MAXWIDTH || xmode->vdisplay > MAXHEIGHT)
 	    continue;
-	x = width - modes[i]->hdisplay;
-	y = height - modes[i]->vdisplay;
-	dist = (x * x) + (y * y);
-	if (dist < best_dist) {
-	    best_dist = dist;
-	    mode = modes[i];
+
+	mode->modenum = nummodes;
+	mode->width = xmode->hdisplay;
+	mode->height = xmode->vdisplay;
+	mode->bpp = x_visinfo->depth;
+	mode->refresh = 1000 * xmode->dotclock / xmode->htotal / xmode->vtotal;
+	nummodes++;
+	mode++;
+    }
+    free(xmodes);
+
+    VID_SortModeList(modelist, nummodes);
+}
+
+qboolean
+VID_SetMode(const qvidmode_t *mode, const byte *palette)
+{
+    unsigned long valuemask;
+    XSetWindowAttributes attributes;
+    Window root;
+
+    /* Free the existing structures */
+    if (x_win) {
+	XDestroyWindow(x_disp, x_win);
+	x_win = 0;
+    }
+    if (x_cmap) {
+	XFreeColormap(x_disp, x_cmap);
+	x_cmap = 0;
+    }
+
+    root = XRootWindow(x_disp, x_visinfo->screen);
+
+    /* window attributes */
+    valuemask = CWEventMask | CWColormap | CWBackPixel;
+    attributes.background_pixel = 0;
+    attributes.colormap = XCreateColormap(x_disp, root, x_vis, AllocNone);
+    attributes.event_mask = X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK;
+
+    if (mode != modelist) {
+	/* Fullscreen */
+	valuemask |= CWSaveUnder | CWBackingStore | CWOverrideRedirect;
+	attributes.override_redirect = True;
+	attributes.backing_store = NotUseful;
+	attributes.save_under = False;
+    } else {
+	/* Windowed */
+	valuemask |= CWBorderPixel;
+	attributes.border_pixel = 0;
+    }
+
+    /* Attempt to set the vid mode if necessary */
+    if (mode != modelist) {
+	XF86VidModeModeInfo **xmodes, *xmode;
+	int i, numxmodes, refresh;
+	Bool result;
+
+	XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &numxmodes, &xmodes);
+	xmode = *xmodes;
+
+	for (i = 0; i < numxmodes; i++, xmode++) {
+	    if (xmode->hdisplay != mode->width || xmode->vdisplay != mode->height)
+		continue;
+	    refresh = 1000 * xmode->dotclock / xmode->htotal / xmode->vtotal;
+	    if (refresh == mode->refresh)
+		break;
+	}
+	if (i == numxmodes)
+	    Sys_Error("%s: unable to find matching X display mode", __func__);
+
+	result = XF86VidModeSwitchToMode(x_disp, x_visinfo->screen, xmode);
+	if (!result)
+	    Sys_Error("%s: mode switch failed", __func__);
+
+	free(xmodes);
+    }
+
+    /* create the main window */
+    x_win = XCreateWindow(x_disp, XRootWindow(x_disp, x_visinfo->screen),
+			  0, 0,	// x, y
+			  mode->width, mode->height, 0,	// borderwidth
+			  mode->bpp,
+			  InputOutput, x_vis, valuemask, &attributes);
+    XFreeColormap(x_disp, attributes.colormap);
+    XStoreName(x_disp, x_win, "TyrQuake");
+
+    if (x_visinfo->depth == 8) {
+	/* create and upload the palette */
+	if (x_visinfo->class == PseudoColor) {
+	    x_cmap = XCreateColormap(x_disp, x_win, x_vis, AllocAll);
+	    VID_SetPalette(palette);
+	    XSetWindowColormap(x_disp, x_win, x_cmap);
 	}
     }
 
-    if (mode) {
-	mode_changed = XF86VidModeSwitchToMode(x_disp, x_visinfo->screen,
-					       mode);
-	if (mode_changed) {
-	    vidmode_active = true;
-	    memcpy(&saved_vidmode, modes[0], sizeof(XF86VidModeModeInfo));
+    /* Create the GC */
+    {
+	XGCValues xgcvalues;
+	int valuemask = GCGraphicsExposures;
+
+	xgcvalues.graphics_exposures = False;
+	x_gc = XCreateGC(x_disp, x_win, valuemask, &xgcvalues);
+    }
+
+    XMapWindow(x_disp, x_win);
+    if (mode != modelist) {
+	XMoveWindow(x_disp, x_win, 0, 0);
+	XRaiseWindow(x_disp, x_win);
+
+	/* FIXME - mouse may not be active... wrong place for this? */
+	IN_CenterMouse();
+	XFlush(x_disp);
+
+	XF86VidModeSetViewPort(x_disp, x_visinfo->screen, 0, 0);
+    }
+
+    /* Wait for first expose event so it's safe to draw */
+    {
+	XEvent event;
+
+	do {
+	    XNextEvent(x_disp, &event);
+	} while (event.type != Expose || event.xexpose.count);
+	oktodraw = true;
+    }
+
+    /* even if MITSHM is available, make sure it's a local connection */
+    if (XShmQueryExtension(x_disp)) {
+	char *displayname;
+
+	doShm = true;
+	displayname = (char *)getenv("DISPLAY");
+	if (displayname) {
+	    char *d = displayname;
+
+	    while (*d && (*d != ':'))
+		d++;
+	    if (*d)
+		*d = 0;
+	    if (!(!strcasecmp(displayname, "unix") || !*displayname))
+		doShm = false;
 	}
     }
 
-    return mode_changed;
+    current_framebuffer = 0;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
+    vid.maxwarpwidth = WARP_WIDTH;
+    vid.maxwarpheight = WARP_HEIGHT;
+    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.numpages = 2;
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+
+    vid_modenum = mode - modelist;
+
+    if (doShm) {
+	x_shmeventtype = XShmGetEventBase(x_disp) + ShmCompletion;
+	ResetSharedFrameBuffers();
+    } else {
+	ResetFrameBuffer();
+    }
+
+    vid.rowbytes = x_framebuffer[0]->bytes_per_line;
+    vid.conrowbytes = vid.rowbytes;
+    vid.recalc_refdef = 1;
+    Con_CheckResize();
+    Con_Clear_f();
+
+    // Need to grab the input focus at startup, just in case...
+    // FIXME - must be viewable or get BadMatch
+    XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
+
+    return true;
 }
 
 static void
@@ -492,35 +641,21 @@ VID_restore_vidmode()
 // the palette data will go away after the call, so it must be copied off if
 // the video driver will need it again
 void
-VID_Init(const byte*palette)
+VID_Init(const byte *palette)
 {
-    int pnum, i;
+    int i;
     XVisualInfo template;
     int num_visuals;
     int template_mask;
-    XSetWindowAttributes attr;
-    unsigned long mask;
-    qboolean fullscreen = true;
-    qboolean vidmode_ext = false;
     int MajorVersion, MinorVersion;
-    Window root;
-
-    ignorenext = 0;		// FIXME - what's this for??
-    vid.width = 320;
-    vid.height = 200;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
-    vid.numpages = 2;
-    vid.colormap = host_colormap;
-    //   vid.cbits = VID_CBITS;
-    //   vid.grades = VID_GRADES;
-    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+    qvidmode_t *mode;
+    const qvidmode_t *setmode;
 
     srandom(getpid());
 
     verbose = COM_CheckParm("-verbose");
 
-// open the display
+    /* open the display */
     x_disp = XOpenDisplay(NULL);
     if (x_disp == NULL) {
 	if (getenv("DISPLAY"))
@@ -529,15 +664,16 @@ VID_Init(const byte*palette)
 	    Sys_Error("VID: Could not open local display");
     }
 
-    // Check video mode extension
+    /* Check video mode extension */
     MajorVersion = MinorVersion = 0;
     if (XF86VidModeQueryVersion(x_disp, &MajorVersion, &MinorVersion)) {
 	Con_Printf("Using XFree86-VidModeExtension Version %i.%i\n",
 		   MajorVersion, MinorVersion);
-	vidmode_ext = true;
     }
 
-    // catch signals so i can turn on auto-repeat
+    /*
+     * Catch signals so i can try restore sane settings (FIXME!)
+     */
     {
 	struct sigaction sa;
 
@@ -549,56 +685,21 @@ VID_Init(const byte*palette)
 
     XAutoRepeatOff(x_disp);
 
-// for debugging only
+    /* for debugging only(?) */
     XSynchronize(x_disp, True);
 
-    if (COM_CheckParm("-window") || COM_CheckParm("-w"))
-	fullscreen = false;
-
-// check for command-line window size
-    if ((pnum = COM_CheckParm("-winsize"))) {
-	if (pnum >= com_argc - 2)
-	    Sys_Error("VID: -winsize <width> <height>");
-	vid.width = Q_atoi(com_argv[pnum + 1]);
-	vid.height = Q_atoi(com_argv[pnum + 2]);
-	if (!vid.width || !vid.height)
-	    Sys_Error("VID: Bad window width/height");
-    }
-    if ((pnum = COM_CheckParm("-width"))) {
-	if (pnum >= com_argc - 1)
-	    Sys_Error("VID: -width <width>");
-	vid.width = Q_atoi(com_argv[pnum + 1]);
-	if (!vid.width)
-	    Sys_Error("VID: Bad window width");
-    }
-    if ((pnum = COM_CheckParm("-height"))) {
-	if (pnum >= com_argc - 1)
-	    Sys_Error("VID: -height <height>");
-	vid.height = Q_atoi(com_argv[pnum + 1]);
-	if (!vid.height || vid.height > MAXHEIGHT)
-	    Sys_Error("VID: Bad window height");
-    }
-
-// specify a visual id
-    if ((pnum = COM_CheckParm("-visualid"))) {
-	if (pnum >= com_argc - 1)
-	    Sys_Error("VID: -visualid <id#>");
-	template.visualid = Q_atoi(com_argv[pnum + 1]);
-	template_mask = VisualIDMask;
-    }
-// If not specified, use default visual
-    else {
+    {
 	int screen;
+	Visual *visual;
 
 	screen = DefaultScreen(x_disp);
-	template.visualid =
-	    XVisualIDFromVisual(XDefaultVisual(x_disp, screen));
+	visual = DefaultVisual(x_disp, screen);
+	template.visualid = XVisualIDFromVisual(visual);
 	template_mask = VisualIDMask;
     }
 
-// pick a visual- warn if more than one was available
-    x_visinfo =
-	XGetVisualInfo(x_disp, template_mask, &template, &num_visuals);
+    // pick a visual- warn if more than one was available
+    x_visinfo =	XGetVisualInfo(x_disp, template_mask, &template, &num_visuals);
     if (num_visuals > 1) {
 	printf("Found more than one visual id at depth %d:\n",
 	       template.depth);
@@ -623,123 +724,25 @@ VID_Init(const byte*palette)
     }
 
     x_vis = x_visinfo->visual;
-    root = XRootWindow(x_disp, x_visinfo->screen);
 
-    /* Attempt to set the vidmode if needed */
-    if (vidmode_ext && fullscreen)
-	fullscreen = VID_set_vidmode(vid.width, vid.height);
+    /* Init a default windowed mode */
+    mode = modelist;
+    mode->modenum = 0;
+    mode->width = 640;
+    mode->height = 480;
+    mode->bpp = x_visinfo->depth;
+    mode->refresh = 0;
+    nummodes = 1;
 
-    /* window attributes */
-    mask = CWEventMask | CWColormap | CWBackPixel;
-    attr.background_pixel = 0;
-    attr.colormap = XCreateColormap(x_disp, root, x_vis, AllocNone);
-    attr.event_mask = X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK;
+    VID_InitModeList();
+    setmode = VID_GetCmdlineMode();
+    if (!setmode)
+	setmode = &modelist[0];
 
-    if (vidmode_active) {
-	mask |= CWSaveUnder | CWBackingStore | CWOverrideRedirect;
-	attr.override_redirect = True;
-	attr.backing_store = NotUseful;
-	attr.save_under = False;
-    } else {
-	mask |= CWBorderPixel;
-	attr.border_pixel = 0;
-    }
+    VID_SetMode(setmode, palette);
 
-// create the main window
-    x_win = XCreateWindow(x_disp, XRootWindow(x_disp, x_visinfo->screen),
-			  0, 0,	// x, y
-			  vid.width, vid.height, 0,	// borderwidth
-			  x_visinfo->depth,
-			  InputOutput, x_vis, mask, &attr);
-    XStoreName(x_disp, x_win, "Tyr-Quake");
-
-    if (x_visinfo->depth == 8) {
-	// create and upload the palette
-	if (x_visinfo->class == PseudoColor) {
-	    x_cmap = XCreateColormap(x_disp, x_win, x_vis, AllocAll);
-	    VID_SetPalette(palette);
-	    XSetWindowColormap(x_disp, x_win, x_cmap);
-	}
-    }
-
-// create the GC
-    {
-	XGCValues xgcvalues;
-	int valuemask = GCGraphicsExposures;
-
-	xgcvalues.graphics_exposures = False;
-	x_gc = XCreateGC(x_disp, x_win, valuemask, &xgcvalues);
-    }
-
-// map the window
-    XMapWindow(x_disp, x_win);
-
-    if (vidmode_active) {
-	XMoveWindow(x_disp, x_win, 0, 0);
-	XRaiseWindow(x_disp, x_win);
-
-	// FIXME - mouse may not be active...
-	IN_CenterMouse();
-	XFlush(x_disp);
-
-	XF86VidModeSetViewPort(x_disp, x_visinfo->screen, 0, 0);
-    }
-
-// wait for first exposure event
-    {
-	XEvent event;
-
-	do {
-	    XNextEvent(x_disp, &event);
-	    if (event.type == Expose && !event.xexpose.count)
-		oktodraw = true;
-	} while (!oktodraw);
-    }
-// now safe to draw
-
-// even if MITSHM is available, make sure it's a local connection
-    if (XShmQueryExtension(x_disp)) {
-	char *displayname;
-
-	doShm = true;
-	displayname = (char *)getenv("DISPLAY");
-	if (displayname) {
-	    char *d = displayname;
-
-	    while (*d && (*d != ':'))
-		d++;
-	    if (*d)
-		*d = 0;
-	    if (!(!strcasecmp(displayname, "unix") || !*displayname))
-		doShm = false;
-	}
-    }
-
-    if (doShm) {
-	x_shmeventtype = XShmGetEventBase(x_disp) + ShmCompletion;
-	ResetSharedFrameBuffers();
-    } else
-	ResetFrameBuffer();
-
-    current_framebuffer = 0;
-    vid.rowbytes = x_framebuffer[0]->bytes_per_line;
-    vid.buffer = (byte *)x_framebuffer[0]->data;
-    vid.direct = 0;
-    vid.conbuffer = vid.buffer;
-    vid.conrowbytes = vid.rowbytes;
-    vid.conwidth = vid.width;
-    vid.conheight = vid.height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
-
-#if 0
-    /*
-     * FIXME - make this configurable; e.g. this makes the aspect ratio look
-     *         correct on my non-standard (widescreen) laptop screen
-     */
-    vid.aspect = ((float)vid.height / (float)vid.width) * (1280.0 / 600.0);
-#endif
-
-//      XSynchronize(x_disp, False);
+    vid_menudrawfn = VID_MenuDraw;
+    vid_menukeyfn = VID_MenuKey;
 }
 
 void
@@ -751,7 +754,6 @@ VID_ShiftPalette(const byte *palette)
 void
 VID_SetPalette(const byte *palette)
 {
-
     int i;
     XColor colors[256];
 
@@ -776,10 +778,7 @@ VID_SetPalette(const byte *palette)
 	}
 	XStoreColors(x_disp, x_cmap, colors, 256);
     }
-
 }
-
-// Called at shutdown
 
 void
 VID_Shutdown(void)
@@ -1194,5 +1193,5 @@ VID_UnlockBuffer(void)
 qboolean
 VID_IsFullScreen()
 {
-    return vidmode_active;
+    return vid_modenum != 0;
 }

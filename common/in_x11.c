@@ -146,16 +146,18 @@ IN_GrabMouse(void)
 			   GrabModeAsync, x_win, None, CurrentTime);
 	if (err) {
 	    if (err == GrabNotViewable)
-		Sys_Error("%s: GrabNotViewable", __func__);
+		Con_DPrintf("%s: GrabNotViewable\n", __func__);
 	    if (err == AlreadyGrabbed)
-		Sys_Error("%s: AlreadyGrabbed", __func__);
+		Con_DPrintf("%s: AlreadyGrabbed\n", __func__);
 	    if (err == GrabFrozen)
-		Sys_Error("%s: GrabFrozen", __func__);
+		Con_DPrintf("%s: GrabFrozen\n", __func__);
 	    if (err == GrabInvalidTime)
-		Sys_Error("%s: GrabInvalidTime", __func__);
+		Con_DPrintf("%s: GrabInvalidTime\n", __func__);
+	    mouse_grab_active = true;
+	    return;
+	} else {
+	    mouse_grab_active = true;
 	}
-	mouse_grab_active = true;
-
 #ifdef USE_XF86DGA
 	// FIXME - need those cvar callbacks to fix changed values...
 	if (dga_available) {
@@ -194,8 +196,11 @@ IN_GrabKeyboard(void)
 
 	err = XGrabKeyboard(x_disp, x_win, False,
 			    GrabModeAsync, GrabModeAsync, CurrentTime);
-	if (err)
-	    Sys_Error("Couldn't grab keyboard!");
+	if (err) {
+	    Con_DPrintf("%s: Couldn't grab keyboard!\n", __func__);
+	    keyboard_grab_active = true;
+	    return;
+	}
 
 	keyboard_grab_active = true;
     }
