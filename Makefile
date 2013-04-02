@@ -1231,6 +1231,7 @@ ALL_BUNDLE_FILES = \
 DIST_FILES_OSX = \
 	$(ALL_BUNDLE_FILES)			\
 	$(DIST_DIR)/osx/readme.txt		\
+	$(DIST_DIR)/osx/changelog.txt		\
 	$(DIST_DIR)/osx/gnu.txt			\
 	$(DIST_DIR)/osx/doc/tyrquake.txt	\
 	$(DIST_DIR)/osx/doc/tyrquake.html
