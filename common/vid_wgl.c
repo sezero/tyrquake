@@ -441,13 +441,7 @@ VID_UpdateWindowStatus(int x, int y, int width, int height)
     IN_UpdateClipCursor();
 }
 
-//int           texture_mode = GL_NEAREST;
-//int           texture_mode = GL_NEAREST_MIPMAP_NEAREST;
-//int           texture_mode = GL_NEAREST_MIPMAP_LINEAR;
 int texture_mode = GL_LINEAR;
-
-//int           texture_mode = GL_LINEAR_MIPMAP_NEAREST;
-//int           texture_mode = GL_LINEAR_MIPMAP_LINEAR;
 
 static void
 CheckMultiTextureExtensions(void)
@@ -455,30 +449,32 @@ CheckMultiTextureExtensions(void)
     // FIXME - Do proper substring testing (could be last extension, no space)
     // FIXME - Check for wglGetProcAddress errors...
     gl_mtexable = false;
-    if (!COM_CheckParm("-nomtex")
-	&& strstr(gl_extensions, "GL_ARB_multitexture ")) {
-	Con_Printf("ARB multitexture extensions found.\n");
+    if (COM_CheckParm("-nomtex"))
+	return;
+    if (!strstr(gl_extensions, "GL_ARB_multitexture "))
+	return;
 
-	qglMultiTexCoord2fARB =
-	    (void *)wglGetProcAddress("glMultiTexCoord2fARB");
-	qglActiveTextureARB =
-	    (void *)wglGetProcAddress("glActiveTextureARB");
+    Con_Printf("ARB multitexture extensions found.\n");
+    qglMultiTexCoord2fARB = (void *)wglGetProcAddress("glMultiTexCoord2fARB");
+    qglActiveTextureARB = (void *)wglGetProcAddress("glActiveTextureARB");
 
-	/* Check how many texture units there actually are */
-	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_num_texture_units);
+    /* Check how many texture units there actually are */
+    glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_num_texture_units);
 
-	if (gl_num_texture_units < 2) {
-	    Con_Printf("Only %i texture units, multitexture disabled.\n",
-		       gl_num_texture_units);
-	} else if (!qglMultiTexCoord2fARB || !qglActiveTextureARB) {
-	    Con_Printf("ARB Multitexture symbols not found, disabled.\n");
-	} else {
-	    Con_Printf("ARB multitexture extension enabled\n"
-		       "-> %i texture units available\n",
-		       gl_num_texture_units);
-	    gl_mtexable = true;
-	}
+    if (gl_num_texture_units < 2) {
+	Con_Printf("Only %i texture units, multitexture disabled.\n",
+		   gl_num_texture_units);
+	return;
     }
+    if (!qglMultiTexCoord2fARB || !qglActiveTextureARB) {
+	Con_Printf("ARB Multitexture symbols not found, disabled.\n");
+	return;
+    }
+
+    Con_Printf("ARB multitexture extension enabled\n"
+	       "-> %i texture units available\n",
+	       gl_num_texture_units);
+    gl_mtexable = true;
 }
 
 
