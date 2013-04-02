@@ -1149,7 +1149,7 @@ VID_Init(const byte *palette)
     else
 	vid.conwidth = 640;
 
-    vid.conwidth &= 0xfff8;	// make it a multiple of eight
+    vid.conwidth &= ~7;	// make it a multiple of eight
 
     if (vid.conwidth < 320)
 	vid.conwidth = 320;
