@@ -664,8 +664,16 @@ VID_DescribeMode_f(void)
 {
     int modenum;
 
-    modenum = Q_atoi(Cmd_Argv(1));
-    Con_Printf("%s\n", VID_GetModeDescription(&modelist[modenum]));
+    if (Cmd_Argc() == 2) {
+	modenum = Q_atoi(Cmd_Argv(1));
+	if (modenum >= 0 && modenum < nummodes) {
+	    Con_Printf("%s\n", VID_GetModeDescription(&modelist[modenum]));
+	    return;
+	}
+	Con_Printf("Invalid video mode (%d)\n", modenum);
+    }
+    Con_Printf("vid_describemode <modenum>\n"
+	       "  Print a descrition of the specified mode number.\n");
 }
 
 void
