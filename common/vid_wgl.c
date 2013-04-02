@@ -363,7 +363,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     // Set either the fullscreen or windowed mode
     stat = false;
-    if (mode - modelist != 0) {
+    if (mode != modelist) {
 	stat = VID_SetFullDIBMode(mode);
 	VID_UpdateWindowStatus(0, 0, mode->width, mode->height);
 	IN_ActivateMouse();

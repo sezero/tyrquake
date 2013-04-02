@@ -348,7 +348,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     }
 
     flags = SDL_WINDOW_SHOWN;
-    if (mode - modelist != 0)
+    if (mode != modelist)
 	flags |= SDL_WINDOW_FULLSCREEN;
 
     if (renderer)
@@ -421,7 +421,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	_windowed_mouse.callback(&_windowed_mouse);
     }
 
-    Cvar_SetValue("vid_fullscreen", mode - modelist != 0);
+    Cvar_SetValue("vid_fullscreen", mode != modelist);
     Cvar_SetValue("vid_width", mode->width);
     Cvar_SetValue("vid_height", mode->height);
     Cvar_SetValue("vid_bpp", mode->bpp);

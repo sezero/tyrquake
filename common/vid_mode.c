@@ -586,7 +586,7 @@ VID_GetModeDescription(const qvidmode_t *mode)
 {
     static char pinfo[40];
 
-    if (mode - modelist != 0)
+    if (mode != modelist)
 	snprintf(pinfo, sizeof(pinfo), "%4d x %4d x %2d @ %3dHz",
 		 mode->width, mode->height, mode->bpp, mode->refresh);
     else
