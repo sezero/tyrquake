@@ -94,6 +94,7 @@ IN_TARGET ?= sdl
 SND_TARGET ?= sdl
 CD_TARGET ?= null
 USE_XF86DGA ?= N
+SNAPSHOT_TARGET = $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-osx.dmg
 else
 # All other unix can default to X11
 VID_TARGET ?= x11
@@ -122,6 +123,7 @@ CD_TARGET ?= win
 VID_TARGET ?= win
 IN_TARGET ?= win
 SND_TARGET ?= win
+SNAPSHOT_TARGET = $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win32.zip
 endif
 
 # --------------------------------------------------------------
@@ -449,6 +451,26 @@ define do_man2html
 	@$(do_mkdir)
 	@echo $(if $(quiet),$(quiet_cmd_man2html),"$(cmd_man2html)");
 	@$(cmd_man2html);
+endef
+
+# cmd_zip ~ takes a leading path to be stripped from the archive members
+#           (basically simulates tar's -C option).
+# $(1) - leading path to strip from files
+NOTHING:=
+SPACE:=$(NOTHING) $(NOTHING)
+quiet_cmd_zip = '  ZIP      $@'
+      cmd_zip = ( \
+	cd $(1) && \
+	zip -q $(subst $(SPACE),/,$(patsubst %,..,$(subst /, ,$(1))))/$@ \
+		$(patsubst $(1)/%,%,$^) )
+
+# $@ - the archive file
+# $^ - files to be added
+# $(1) - leading path to strip from files
+define do_zip
+	@$(do_mkdir)
+	@echo $(if $(quiet),$(quiet_cmd_zip),"$(call cmd_zip,$(1))")
+	@$(call cmd_zip,$(1))
 endef
 
 DEPFILES = \
@@ -1192,8 +1214,9 @@ QWSW_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-QWCL.app/%,$(BUNDLE_FILES))
 QWGL_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-GLQWCL.app/%,$(BUNDLE_FILES))
 
 # ----------------------------------------------------------------------------
-# Packaging
+# Packaging Rules
 # ----------------------------------------------------------------------------
+# OSX
 
 $(DIST_DIR)/osx/%.txt:		%.txt		; $(do_cp)
 $(DIST_DIR)/osx/doc/%.txt:	doc/%.txt	; $(do_cp)
@@ -1215,10 +1238,31 @@ DIST_FILES_OSX = \
 $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-osx.dmg: $(DIST_FILES_OSX)
 	$(call do_hdiutil,$(DIST_DIR)/osx,"TyrQuake $(TYR_VERSION)")
 
+# ----------------------------------------------------------------------------
+# WIN32
+
+$(DIST_DIR)/win32/%.txt:	%.txt			; $(do_cp)
+$(DIST_DIR)/win32/doc/%.txt:	doc/%.txt		; $(do_cp)
+$(DIST_DIR)/win32/doc/%.html:	doc/%.html		; $(do_cp)
+$(DIST_DIR)/win32/%.exe:	$(BIN_DIR)/%.exe	; $(do_cp)
+
+DIST_FILES_WIN32 = \
+	$(patsubst %,$(DIST_DIR)/win32/%,$(APPS))	\
+	$(DIST_DIR)/win32/readme.txt			\
+	$(DIST_DIR)/win32/changelog.txt			\
+	$(DIST_DIR)/win32/gnu.txt			\
+	$(DIST_DIR)/win32/doc/tyrquake.txt		\
+	$(DIST_DIR)/win32/doc/tyrquake.html
+
+$(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win32.zip: $(DIST_FILES_WIN32)
+	$(call do_zip,$(DIST_DIR)/win32)
+
+# ----------------------------------------------------------------------------
+
 .PHONY:	bundles snapshot
 
 #
 # To test, do 'make bundles' or 'make snapshot'
 #
 bundles: $(ALL_BUNDLE_FILES)
-snapshot: $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-osx.dmg
+snapshot: $(SNAPSHOT_TARGET)
