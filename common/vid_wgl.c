@@ -61,9 +61,6 @@ window_visible(void)
     return !Minimized;
 }
 
-static void VID_MenuDraw_WGL(void);
-static void VID_MenuKey_WGL(int key);
-
 const char *gl_renderer;
 static const char *gl_vendor;
 static const char *gl_version;
@@ -1148,134 +1145,7 @@ VID_Init(const byte *palette)
     VID_InitModeList();
     mode = VID_GetCmdlineMode();
     if (!mode)
-	mode = &modelist[0];
-
-    /* TODO - command line mode setting... */
-
-    /* FIXME - todo... clean this up, remove duplication */
-#if 0
-    if (COM_CheckParm("-window") || COM_CheckParm("-w")) {
-	hdc = GetDC(NULL);
-	if (GetDeviceCaps(hdc, RASTERCAPS) & RC_PALETTE)
-	    Sys_Error("Can't run in non-RGB mode");
-
-	ReleaseDC(NULL, hdc);
-	windowed = true;
-	vid_default = VID_MODE_WINDOWED;
-    } else {
-	if (nummodes == 1)
-	    Sys_Error("No RGB fullscreen modes available");
-
-	windowed = false;
-	if (COM_CheckParm("-mode")) {
-	    vid_default = Q_atoi(com_argv[COM_CheckParm("-mode") + 1]);
-	} else if (COM_CheckParm("-current")) {
-	    mode = &modelist[VID_MODE_FULLSCREEN_DEFAULT];
-	    mode->width = GetSystemMetrics(SM_CXSCREEN);
-	    mode->height = GetSystemMetrics(SM_CYSCREEN);
-	    vid_default = VID_MODE_FULLSCREEN_DEFAULT;
-	    leavecurrentmode = 1;
-	} else {
-	    if (COM_CheckParm("-width")) {
-		width = Q_atoi(com_argv[COM_CheckParm("-width") + 1]);
-	    } else {
-		width = 640;
-	    }
-
-	    if (COM_CheckParm("-bpp")) {
-		bpp = Q_atoi(com_argv[COM_CheckParm("-bpp") + 1]);
-		findbpp = 0;
-	    } else {
-		bpp = 15;
-		findbpp = 1;
-	    }
-
-	    if (COM_CheckParm("-height")) {
-		height = Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
-	    } else {
-		// FIXME - what default to use? calculate for 4:3 aspect?
-		height = 0;
-	    }
-
-	    // if they want to force it, add the specified mode to the list
-	    if (COM_CheckParm("-force") && (nummodes < MAX_MODE_LIST)) {
-		mode = &modelist[nummodes];
-
-		mode->width = width;
-		mode->height = height;
-		mode->modenum = 0;
-		mode->bpp = bpp;
-		sprintf(mode->modedesc, "%ldx%ldx%ld",
-			devmode.dmPelsWidth, devmode.dmPelsHeight,
-			devmode.dmBitsPerPel);
-
-		for (i = nummodes, existingmode = 0; i < nummodes; i++) {
-		    if ((mode->width == modelist[i].width) &&
-			(mode->height == modelist[i].height)
-			&& (mode->bpp == modelist[i].bpp)) {
-			existingmode = 1;
-			break;
-		    }
-		}
-		if (!existingmode)
-		    nummodes++;
-	    }
-
-	    done = 0;
-
-	    do {
-		if (COM_CheckParm("-height")) {
-		    height =
-			Q_atoi(com_argv[COM_CheckParm("-height") + 1]);
-
-		    for (i = 1, vid_default = 0; i < nummodes; i++) {
-			if ((modelist[i].width == width) &&
-			    (modelist[i].height == height) &&
-			    (modelist[i].bpp == bpp)) {
-			    vid_default = i;
-			    done = 1;
-			    break;
-			}
-		    }
-		} else {
-		    for (i = 1, vid_default = 0; i < nummodes; i++) {
-			if ((modelist[i].width == width)
-			    && (modelist[i].bpp == bpp)) {
-			    vid_default = i;
-			    done = 1;
-			    break;
-			}
-		    }
-		}
-
-		if (!done) {
-		    if (findbpp) {
-			switch (bpp) {
-			case 15:
-			    bpp = 16;
-			    break;
-			case 16:
-			    bpp = 32;
-			    break;
-			case 32:
-			    bpp = 24;
-			    break;
-			case 24:
-			    done = 1;
-			    break;
-			}
-		    } else {
-			done = 1;
-		    }
-		}
-	    } while (!done);
-
-	    if (!vid_default) {
-		Sys_Error("Specified video mode not available");
-	    }
-	}
-    }
-#endif
+	mode = &modelist[vid_default];
 
     vid_initialized = true;
 
@@ -1307,8 +1177,8 @@ VID_Init(const byte *palette)
     Check_Gamma(palette, gamma_palette);
     VID_SetPalette(gamma_palette);
 
-    windowed = !vid_default;
-    VID_SetMode(&modelist[vid_default], gamma_palette);
+    windowed = (mode == modelist);
+    VID_SetMode(mode, gamma_palette);
     Gamma_Init();
 
     maindc = GetDC(mainwindow);
@@ -1328,121 +1198,12 @@ VID_Init(const byte *palette)
     Sys_mkdir(gldir);
 
     vid_realmode = vid_modenum;
-    vid_menudrawfn = VID_MenuDraw_WGL;
-    vid_menukeyfn = VID_MenuKey_WGL;
+    vid_menudrawfn = VID_MenuDraw;
+    vid_menukeyfn = VID_MenuKey;
     vid_canalttab = true;
 
     if (COM_CheckParm("-fullsbar"))
 	fullsbardraw = true;
-}
-
-
-//========================================================
-// Video menu stuff
-//========================================================
-
-static int vid_wmodes;
-
-typedef struct {
-    const qvidmode_t *mode;
-    const char *desc;
-    int iscur;
-} modedesc_t;
-
-#define VID_ROW_SIZE     3
-#define MAX_COLUMN_SIZE  9
-#define MODE_AREA_HEIGHT (MAX_COLUMN_SIZE + 2)
-#define MAX_MODEDESCS    (MAX_COLUMN_SIZE * VID_ROW_SIZE)
-
-static modedesc_t modedescs[MAX_MODEDESCS];
-
-static const char *
-VID_GetModeDescription(const qvidmode_t *mode)
-{
-    static char desc[40];
-    char temp[40];
-
-    snprintf(temp, sizeof(temp), "%dx%dx%d", mode->width, mode->height, mode->bpp);
-    snprintf(desc, sizeof(desc), "%14s", temp);
-
-    return desc;
-}
-
-/*
-================
-VID_MenuDraw_WGL
-================
-*/
-static void
-VID_MenuDraw_WGL(void)
-{
-    const qpic_t *pic;
-    int i, column, row;
-
-    pic = Draw_CachePic("gfx/vidmodes.lmp");
-    M_DrawPic((320 - pic->width) / 2, 4, pic);
-
-    vid_wmodes = 0;
-
-    for (i = 1; (i < nummodes) && (vid_wmodes < MAX_MODEDESCS); i++) {
-	modedesc_t *mode = &modedescs[vid_wmodes];
-	mode->mode = &modelist[i];
-	mode->desc = NULL;
-	mode->iscur = (i == vid_modenum);
-	vid_wmodes++;
-    }
-
-    if (vid_wmodes > 0) {
-	M_Print(2 * 8, 36 + 0 * 8, "Fullscreen Modes (WIDTHxHEIGHTxBPP)");
-
-	column = 8;
-	row = 36 + 2 * 8;
-
-	for (i = 0; i < vid_wmodes; i++) {
-	    const modedesc_t *mode = &modedescs[i];
-	    const char *desc = VID_GetModeDescription(mode->mode);
-
-	    if (mode->iscur)
-		M_PrintWhite(column, row, desc);
-	    else
-		M_Print(column, row, desc);
-
-	    column += 15 * 8;
-	    if ((i % VID_ROW_SIZE) == (VID_ROW_SIZE - 1)) {
-		column = 8;
-		row += 8;
-	    }
-	}
-    }
-
-    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 2,
-	    "Video modes must be set from the");
-    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 3,
-	    "command line with -width <width>");
-    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 4,
-	    "and -bpp <bits-per-pixel>");
-    M_Print(3 * 8, 36 + MODE_AREA_HEIGHT * 8 + 8 * 6,
-	    "Select windowed mode with -window");
-}
-
-
-/*
-================
-VID_MenuKey_WGL
-================
-*/
-static void
-VID_MenuKey_WGL(int key)
-{
-    switch (key) {
-    case K_ESCAPE:
-	S_LocalSound("misc/menu1.wav");
-	M_Menu_Options_f();
-	break;
-
-    default:
-	break;
-    }
 }
 
 qboolean
