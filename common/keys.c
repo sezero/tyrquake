@@ -513,9 +513,6 @@ Key_Message(int key)
 	return;
     }
 
-    if (key < 32 || key > 127)
-	return;			// non printable
-
     if (key == K_BACKSPACE) {
 	if (chat_bufferlen) {
 	    chat_bufferlen--;
@@ -523,6 +520,9 @@ Key_Message(int key)
 	}
 	return;
     }
+
+    if (key < 32 || key > 127)
+	return;			// non printable
 
     if (chat_bufferlen == sizeof(chat_buffer) - 1)
 	return;			// all full
