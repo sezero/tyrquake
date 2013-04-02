@@ -164,6 +164,8 @@ keyname_t keynames[] = {
     {NULL, 0}
 };
 
+static cvar_t in_cfg_unbindall = { "in_cfg_unbindall", "1", true };
+
 /*
 ==============================================================================
 
@@ -714,6 +716,9 @@ Key_WriteBindings(FILE *f)
 {
     int i;
 
+    if (in_cfg_unbindall.value)
+	fprintf(f, "unbindall\n");
+
     for (i = 0; i < K_LAST; i++)
 	if (keybindings[i])
 	    fprintf(f, "bind \"%s\" \"%s\"\n",
@@ -788,6 +793,11 @@ Key_Init(void)
     menubound[K_ESCAPE] = true;
     for (i = K_F1; i <= K_F15; i++)
 	menubound[i] = true;
+
+//
+// register our variables
+//
+    Cvar_RegisterVariable(&in_cfg_unbindall);
 
 //
 // register our functions
