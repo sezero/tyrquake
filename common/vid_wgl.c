@@ -203,12 +203,11 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     RECT rect;
 
     WindowRect.top = WindowRect.left = 0;
-
     WindowRect.right = mode->width;
     WindowRect.bottom = mode->height;
 
-    WindowStyle = WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU |
-	WS_MINIMIZEBOX;
+    WindowStyle =
+	WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     ExWindowStyle = 0;
 
     rect = WindowRect;
@@ -267,9 +266,10 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 static qboolean
 VID_SetFullDIBMode(const qvidmode_t *mode)
 {
+    LONG result;
+    RECT rect;
     HDC hdc;
     int width, height;
-    RECT rect;
 
     if (!leavecurrentmode) {
 	gdevmode.dmFields =
@@ -279,8 +279,8 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 	gdevmode.dmPelsHeight = mode->height;
 	gdevmode.dmSize = sizeof(gdevmode);
 
-	if (ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN) !=
-	    DISP_CHANGE_SUCCESSFUL)
+	result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
+	if (result != DISP_CHANGE_SUCCESSFUL)
 	    Sys_Error("Couldn't set fullscreen DIB mode");
     }
 
@@ -495,8 +495,6 @@ GL_Init(void)
     Con_Printf("GL_VERSION: %s\n", gl_version);
     gl_extensions = (char *)glGetString(GL_EXTENSIONS);
     Con_DPrintf("GL_EXTENSIONS: %s\n", gl_extensions);
-
-//      Con_Printf ("%s %s\n", gl_renderer, gl_version);
 
     CheckMultiTextureExtensions();
 
