@@ -123,18 +123,26 @@ GL_Bind(int texnum)
 #define	BLOCK_WIDTH	256
 #define	BLOCK_HEIGHT	256
 
-static int scrap_allocated[MAX_SCRAPS][BLOCK_WIDTH];
-static byte scrap_texels[MAX_SCRAPS][BLOCK_WIDTH * BLOCK_HEIGHT * 4];
-static qboolean scrap_dirty;
-static GLuint scrap_textures[MAX_SCRAPS];
+typedef struct {
+    int allocated[BLOCK_WIDTH];
+    byte texels[BLOCK_WIDTH * BLOCK_HEIGHT * 4];
+    qboolean dirty;
+    GLuint glnum;
+} scrap_t;
 
-// returns a texture number and the position inside it
-static int
+static scrap_t gl_scraps[MAX_SCRAPS];
+
+/*
+ * Scrap_AllocBlock
+ *   Returns a scrap and the position inside it
+ */
+static scrap_t *
 Scrap_AllocBlock(int w, int h, int *x, int *y)
 {
     int i, j;
     int best, best2;
-    int texnum;
+    int scrapnum;
+    scrap_t *scrap;
 
     /*
      * I'm sure that x & y are always set when we return from this function,
@@ -143,19 +151,21 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
      */
     *x = *y = 0x818181;
 
-    for (texnum = 0; texnum < MAX_SCRAPS; texnum++) {
+    scrap = gl_scraps;
+    for (scrapnum = 0; scrapnum < MAX_SCRAPS; scrapnum++, scrap++) {
 	best = BLOCK_HEIGHT;
 
 	for (i = 0; i < BLOCK_WIDTH - w; i++) {
 	    best2 = 0;
 
 	    for (j = 0; j < w; j++) {
-		if (scrap_allocated[texnum][i + j] >= best)
+		if (scrap->allocated[i + j] >= best)
 		    break;
-		if (scrap_allocated[texnum][i + j] > best2)
-		    best2 = scrap_allocated[texnum][i + j];
+		if (scrap->allocated[i + j] > best2)
+		    best2 = scrap->allocated[i + j];
 	    }
-	    if (j == w) {	// this is a valid spot
+	    if (j == w) {
+		/* this is a valid spot */
 		*x = i;
 		*y = best = best2;
 	    }
@@ -165,12 +175,12 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
 	    continue;
 
 	for (i = 0; i < w; i++)
-	    scrap_allocated[texnum][*x + i] = best + h;
+	    scrap->allocated[*x + i] = best + h;
 
 	if (*x == 0x818181 || *y == 0x818181)
 	    Sys_Error("%s: block allocation problem", __func__);
 
-	return texnum;
+	return scrap;
     }
 
     Sys_Error("%s: full", __func__);
@@ -178,16 +188,20 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
 
 
 static void
-Scrap_Upload(void)
+Scrap_UploadDirty(GLuint texnum)
 {
-    int texnum;
+    int i;
+    scrap_t *scrap;
 
-    for (texnum = 0; texnum < MAX_SCRAPS; ++texnum) {
-	GL_Bind(scrap_textures[texnum]);
-	GL_Upload8(scrap_texels[texnum], BLOCK_WIDTH, BLOCK_HEIGHT, false,
-		   true);
+    scrap = gl_scraps;
+    for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
+	if (texnum == scrap->glnum && scrap->dirty) {
+	    GL_Bind(scrap->glnum);
+	    GL_Upload8(scrap->texels, BLOCK_WIDTH, BLOCK_HEIGHT, false, true);
+	    scrap->dirty = false;
+	    return;
+	}
     }
-    scrap_dirty = false;
 }
 
 //=============================================================================
@@ -213,6 +227,7 @@ Draw_PicFromWad(const char *name)
 {
     const qpic_t *p;
     glpic_t *gl;
+    scrap_t *scrap;
 
     p = W_GetLumpName(name);
     gl = (glpic_t *)p->data;
@@ -221,16 +236,14 @@ Draw_PicFromWad(const char *name)
     if (p->width < 64 && p->height < 64) {
 	int x, y;
 	int i, j, k;
-	int texnum;
 
-	texnum = Scrap_AllocBlock(p->width, p->height, &x, &y);
-	scrap_dirty = true;
+	scrap = Scrap_AllocBlock(p->width, p->height, &x, &y);
+	scrap->dirty = true;
 	k = 0;
 	for (i = 0; i < p->height; i++)
 	    for (j = 0; j < p->width; j++, k++)
-		scrap_texels[texnum][(y + i) * BLOCK_WIDTH + x + j] =
-		    p->data[k];
-	gl->texnum = scrap_textures[texnum];
+		scrap->texels[(y + i) * BLOCK_WIDTH + x + j] = p->data[k];
+	gl->texnum = scrap->glnum;
 	gl->sl = (x + 0.01) / (float)BLOCK_WIDTH;
 	gl->sh = (x + p->width - 0.01) / (float)BLOCK_WIDTH;
 	gl->tl = (y + 0.01) / (float)BLOCK_WIDTH;
@@ -445,6 +458,7 @@ Draw_Init(void)
     glpic_t *gl;
     int start;
     byte *ncdata;
+    scrap_t *scrap;
 
     Cvar_RegisterVariable(&gl_nobind);
     Cvar_RegisterVariable(&gl_max_size);
@@ -521,7 +535,9 @@ Draw_Init(void)
     glGenTextures(1, &translate_texture);
 
     // save slots for scraps
-    glGenTextures(MAX_SCRAPS, scrap_textures);
+    scrap = gl_scraps;
+    for (i = 0; i < MAX_SCRAPS; i++, scrap++)
+	glGenTextures(1, &scrap->glnum);
 
     //
     // get the other pics we need
@@ -647,11 +663,11 @@ Draw_Pic
 void
 Draw_Pic(int x, int y, const qpic_t *pic)
 {
-    glpic_t *gl;
+    const glpic_t *gl;
 
-    if (scrap_dirty)
-	Scrap_Upload();
-    gl = (glpic_t *)pic->data;
+    gl = (const glpic_t *)pic->data;
+    Scrap_UploadDirty(gl->texnum);
+
     glColor4f(1, 1, 1, 1);
     GL_Bind(gl->texnum);
     glBegin(GL_QUADS);
@@ -670,13 +686,12 @@ void
 Draw_SubPic(int x, int y, const qpic_t *pic, int srcx, int srcy, int width,
 	    int height)
 {
-    glpic_t *gl;
+    const glpic_t *gl;
     float newsl, newtl, newsh, newth;
     float oldglwidth, oldglheight;
 
-    if (scrap_dirty)
-	Scrap_Upload();
-    gl = (glpic_t *)pic->data;
+    gl = (const glpic_t *)pic->data;
+    Scrap_UploadDirty(gl->texnum);
 
     oldglwidth = gl->sh - gl->sl;
     oldglheight = gl->th - gl->tl;
@@ -776,11 +791,10 @@ Draw_ConsoleBackground
 static void
 Draw_ConsolePic(int lines, float offset, const qpic_t *pic, float alpha)
 {
-    glpic_t *gl;
+    const glpic_t *gl;
 
-    if (scrap_dirty)
-	Scrap_Upload();
-    gl = (glpic_t *)pic->data;
+    gl = (const glpic_t *)pic->data;
+    Scrap_UploadDirty(gl->texnum);
 
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_BLEND);
