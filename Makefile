@@ -473,12 +473,9 @@ define do_zip
 	@$(call cmd_zip,$(1))
 endef
 
-DEPFILES = \
-	$(wildcard $(NQSWDIR)/.*.d) \
-	$(wildcard $(NQGLDIR)/.*.d) \
-	$(wildcard $(QWSWDIR)/.*.d) \
-	$(wildcard $(QWGLDIR)/.*.d) \
-	$(wildcard $(QWSVDIR)/.*.d)
+DEPFILES := \
+	$(wildcard $(BUILD_DIR)/*/.*.d) \
+	$(wildcard $(BUILD_DIR)/*/*/.*.d)
 
 ifneq ($(DEPFILES),)
 -include $(DEPFILES)
