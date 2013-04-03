@@ -854,6 +854,10 @@ Key_Event(knum_t key, qboolean down)
     if (key == K_ESCAPE) {
 	if (!down)
 	    return;
+	if (lshift_down || rshift_down) {
+	    Con_ToggleConsole_f();
+	    return;
+	}
 	switch (key_dest) {
 	case key_message:
 	    Key_Message(key);
