@@ -519,8 +519,10 @@ IN_ProcessEvents(void)
 		    ksym = K_UNKNOWN;
 		break;
 	    }
+#if 0
 	    if (unicode > 255)
 		unicode = 0;
+#endif
 	    Key_Event(ksym, state);
 	    //Key_Event(unicode, state);
 
@@ -528,7 +530,6 @@ IN_ProcessEvents(void)
 	    Sys_Printf("%s: ksym = %d, unicode = %d\n",
 		       __func__, (int)ksym, (int)unicode);
 #endif
-
 	    break;
 
 	case SDL_MOUSEBUTTONDOWN:
