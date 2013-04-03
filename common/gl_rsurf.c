@@ -874,6 +874,9 @@ R_DrawBrushModel(const entity_t *e)
 
     psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
 
+    if (gl_zfix.value)
+	glEnable(GL_POLYGON_OFFSET_FILL);
+
     glPushMatrix();
     /* Stupid bug means pitch is reversed for entities */
     VectorCopy(e->angles, angles_bug);
@@ -934,6 +937,9 @@ R_DrawBrushModel(const entity_t *e)
     }
 
     glPopMatrix();
+
+    if (gl_zfix.value)
+	glDisable(GL_POLYGON_OFFSET_FILL);
 }
 
 /*
