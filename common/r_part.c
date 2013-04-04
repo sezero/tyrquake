@@ -98,8 +98,11 @@ R_EntityParticles(const entity_t *ent)
     float dist = 64;
 
     if (!avelocities[0][0]) {
-	for (i = 0; i < NUMVERTEXNORMALS * 3; i++)
-	    avelocities[0][i] = (rand() & 255) * 0.01;
+	for (i = 0; i < NUMVERTEXNORMALS; i++) {
+	    avelocities[i][0] = (rand() & 255) * 0.01;
+	    avelocities[i][1] = (rand() & 255) * 0.01;
+	    avelocities[i][2] = (rand() & 255) * 0.01;
+	}
     }
 
     for (i = 0; i < NUMVERTEXNORMALS; i++) {
