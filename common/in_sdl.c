@@ -66,9 +66,8 @@ void
 IN_ProcessEvents(void)
 {
     SDL_Event event;
-    int sym, state, but;
-    int ksym;
-    short unicode;
+    SDL_Keycode keycode;
+    int keystate, button, keynum;
 
     while (SDL_PollEvent(&event)) {
 	switch (event.type) {
@@ -84,467 +83,465 @@ IN_ProcessEvents(void)
 #endif
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
-	    sym = event.key.keysym.sym;
-	    state = event.key.state;
-	    unicode = event.key.keysym.unicode;
-	    switch (sym) {
+	    keycode = event.key.keysym.sym;
+	    keystate = event.key.state;
+	    switch (keycode) {
 	    case SDLK_UNKNOWN:
-		ksym = K_UNKNOWN;
+		keynum = K_UNKNOWN;
 		break;
 	    case SDLK_BACKSPACE:
-		ksym = K_BACKSPACE;
+		keynum = K_BACKSPACE;
 		break;
 	    case SDLK_TAB:
-		ksym = K_TAB;
+		keynum = K_TAB;
 		break;
 	    case SDLK_CLEAR:
-		ksym = K_CLEAR;
+		keynum = K_CLEAR;
 		break;
 	    case SDLK_RETURN:
-		ksym = K_ENTER;
+		keynum = K_ENTER;
 		break;
 	    case SDLK_PAUSE:
-		ksym = K_PAUSE;
+		keynum = K_PAUSE;
 		break;
 	    case SDLK_ESCAPE:
-		ksym = K_ESCAPE;
+		keynum = K_ESCAPE;
 		break;
 	    case SDLK_SPACE:
-		ksym = K_SPACE;
+		keynum = K_SPACE;
 		break;
 	    case SDLK_EXCLAIM:
-		ksym = K_EXCLAIM;
+		keynum = K_EXCLAIM;
 		break;
 	    case SDLK_QUOTEDBL:
-		ksym = K_QUOTEDBL;
+		keynum = K_QUOTEDBL;
 		break;
 	    case SDLK_HASH:
-		ksym = K_HASH;
+		keynum = K_HASH;
 		break;
 	    case SDLK_DOLLAR:
-		ksym = K_DOLLAR;
+		keynum = K_DOLLAR;
 		break;
 	    case SDLK_AMPERSAND:
-		ksym = K_AMPERSAND;
+		keynum = K_AMPERSAND;
 		break;
 	    case SDLK_QUOTE:
-		ksym = K_QUOTE;
+		keynum = K_QUOTE;
 		break;
 	    case SDLK_LEFTPAREN:
-		ksym = K_LEFTPAREN;
+		keynum = K_LEFTPAREN;
 		break;
 	    case SDLK_RIGHTPAREN:
-		ksym = K_RIGHTPAREN;
+		keynum = K_RIGHTPAREN;
 		break;
 	    case SDLK_ASTERISK:
-		ksym = K_ASTERISK;
+		keynum = K_ASTERISK;
 		break;
 	    case SDLK_PLUS:
-		ksym = K_PLUS;
+		keynum = K_PLUS;
 		break;
 	    case SDLK_COMMA:
-		ksym = K_COMMA;
+		keynum = K_COMMA;
 		break;
 	    case SDLK_MINUS:
-		ksym = K_MINUS;
+		keynum = K_MINUS;
 		break;
 	    case SDLK_PERIOD:
-		ksym = K_PERIOD;
+		keynum = K_PERIOD;
 		break;
 	    case SDLK_SLASH:
-		ksym = K_SLASH;
+		keynum = K_SLASH;
 		break;
 	    case SDLK_0:
-		ksym = K_0;
+		keynum = K_0;
 		break;
 	    case SDLK_1:
-		ksym = K_1;
+		keynum = K_1;
 		break;
 	    case SDLK_2:
-		ksym = K_2;
+		keynum = K_2;
 		break;
 	    case SDLK_3:
-		ksym = K_3;
+		keynum = K_3;
 		break;
 	    case SDLK_4:
-		ksym = K_4;
+		keynum = K_4;
 		break;
 	    case SDLK_5:
-		ksym = K_5;
+		keynum = K_5;
 		break;
 	    case SDLK_6:
-		ksym = K_6;
+		keynum = K_6;
 		break;
 	    case SDLK_7:
-		ksym = K_7;
+		keynum = K_7;
 		break;
 	    case SDLK_8:
-		ksym = K_8;
+		keynum = K_8;
 		break;
 	    case SDLK_9:
-		ksym = K_9;
+		keynum = K_9;
 		break;
 	    case SDLK_COLON:
-		ksym = K_COLON;
+		keynum = K_COLON;
 		break;
 	    case SDLK_SEMICOLON:
-		ksym = K_SEMICOLON;
+		keynum = K_SEMICOLON;
 		break;
 	    case SDLK_LESS:
-		ksym = K_LESS;
+		keynum = K_LESS;
 		break;
 	    case SDLK_EQUALS:
-		ksym = K_EQUALS;
+		keynum = K_EQUALS;
 		break;
 	    case SDLK_GREATER:
-		ksym = K_GREATER;
+		keynum = K_GREATER;
 		break;
 	    case SDLK_QUESTION:
-		ksym = K_QUESTION;
+		keynum = K_QUESTION;
 		break;
 	    case SDLK_AT:
-		ksym = K_AT;
+		keynum = K_AT;
 		break;
 	    case SDLK_LEFTBRACKET:
-		ksym = K_LEFTBRACKET;
+		keynum = K_LEFTBRACKET;
 		break;
 	    case SDLK_BACKSLASH:
-		ksym = K_BACKSLASH;
+		keynum = K_BACKSLASH;
 		break;
 	    case SDLK_RIGHTBRACKET:
-		ksym = K_RIGHTBRACKET;
+		keynum = K_RIGHTBRACKET;
 		break;
 	    case SDLK_CARET:
-		ksym = K_CARET;
+		keynum = K_CARET;
 		break;
 	    case SDLK_UNDERSCORE:
-		ksym = K_UNDERSCORE;
+		keynum = K_UNDERSCORE;
 		break;
 	    case SDLK_BACKQUOTE:
-		ksym = K_BACKQUOTE;
+		keynum = K_BACKQUOTE;
 		break;
 	    case SDLK_a:
-		ksym = K_a;
+		keynum = K_a;
 		break;
 	    case SDLK_b:
-		ksym = K_b;
+		keynum = K_b;
 		break;
 	    case SDLK_c:
-		ksym = K_c;
+		keynum = K_c;
 		break;
 	    case SDLK_d:
-		ksym = K_d;
+		keynum = K_d;
 		break;
 	    case SDLK_e:
-		ksym = K_e;
+		keynum = K_e;
 		break;
 	    case SDLK_f:
-		ksym = K_f;
+		keynum = K_f;
 		break;
 	    case SDLK_g:
-		ksym = K_g;
+		keynum = K_g;
 		break;
 	    case SDLK_h:
-		ksym = K_h;
+		keynum = K_h;
 		break;
 	    case SDLK_i:
-		ksym = K_i;
+		keynum = K_i;
 		break;
 	    case SDLK_j:
-		ksym = K_j;
+		keynum = K_j;
 		break;
 	    case SDLK_k:
-		ksym = K_k;
+		keynum = K_k;
 		break;
 	    case SDLK_l:
-		ksym = K_l;
+		keynum = K_l;
 		break;
 	    case SDLK_m:
-		ksym = K_m;
+		keynum = K_m;
 		break;
 	    case SDLK_n:
-		ksym = K_n;
+		keynum = K_n;
 		break;
 	    case SDLK_o:
-		ksym = K_o;
+		keynum = K_o;
 		break;
 	    case SDLK_p:
-		ksym = K_p;
+		keynum = K_p;
 		break;
 	    case SDLK_q:
-		ksym = K_q;
+		keynum = K_q;
 		break;
 	    case SDLK_r:
-		ksym = K_r;
+		keynum = K_r;
 		break;
 	    case SDLK_s:
-		ksym = K_s;
+		keynum = K_s;
 		break;
 	    case SDLK_t:
-		ksym = K_t;
+		keynum = K_t;
 		break;
 	    case SDLK_u:
-		ksym = K_u;
+		keynum = K_u;
 		break;
 	    case SDLK_v:
-		ksym = K_v;
+		keynum = K_v;
 		break;
 	    case SDLK_w:
-		ksym = K_w;
+		keynum = K_w;
 		break;
 	    case SDLK_x:
-		ksym = K_x;
+		keynum = K_x;
 		break;
 	    case SDLK_y:
-		ksym = K_y;
+		keynum = K_y;
 		break;
 	    case SDLK_z:
-		ksym = K_z;
+		keynum = K_z;
 		break;
 	    case SDLK_DELETE:
-		ksym = K_DEL;
+		keynum = K_DEL;
 		break;
 	    case SDLK_KP_0:
-		ksym = K_KP0;
+		keynum = K_KP0;
 		break;
 	    case SDLK_KP_1:
-		ksym = K_KP1;
+		keynum = K_KP1;
 		break;
 	    case SDLK_KP_2:
-		ksym = K_KP2;
+		keynum = K_KP2;
 		break;
 	    case SDLK_KP_3:
-		ksym = K_KP3;
+		keynum = K_KP3;
 		break;
 	    case SDLK_KP_4:
-		ksym = K_KP4;
+		keynum = K_KP4;
 		break;
 	    case SDLK_KP_5:
-		ksym = K_KP5;
+		keynum = K_KP5;
 		break;
 	    case SDLK_KP_6:
-		ksym = K_KP6;
+		keynum = K_KP6;
 		break;
 	    case SDLK_KP_7:
-		ksym = K_KP7;
+		keynum = K_KP7;
 		break;
 	    case SDLK_KP_8:
-		ksym = K_KP8;
+		keynum = K_KP8;
 		break;
 	    case SDLK_KP_9:
-		ksym = K_KP9;
+		keynum = K_KP9;
 		break;
 	    case SDLK_KP_PERIOD:
-		ksym = K_KP_PERIOD;
+		keynum = K_KP_PERIOD;
 		break;
 	    case SDLK_KP_DIVIDE:
-		ksym = K_KP_DIVIDE;
+		keynum = K_KP_DIVIDE;
 		break;
 	    case SDLK_KP_MULTIPLY:
-		ksym = K_KP_MULTIPLY;
+		keynum = K_KP_MULTIPLY;
 		break;
 	    case SDLK_KP_MINUS:
-		ksym = K_KP_MINUS;
+		keynum = K_KP_MINUS;
 		break;
 	    case SDLK_KP_PLUS:
-		ksym = K_KP_PLUS;
+		keynum = K_KP_PLUS;
 		break;
 	    case SDLK_KP_ENTER:
-		ksym = K_KP_ENTER;
+		keynum = K_KP_ENTER;
 		break;
 	    case SDLK_KP_EQUALS:
-		ksym = K_KP_EQUALS;
+		keynum = K_KP_EQUALS;
 		break;
 	    case SDLK_UP:
-		ksym = K_UPARROW;
+		keynum = K_UPARROW;
 		break;
 	    case SDLK_DOWN:
-		ksym = K_DOWNARROW;
+		keynum = K_DOWNARROW;
 		break;
 	    case SDLK_RIGHT:
-		ksym = K_RIGHTARROW;
+		keynum = K_RIGHTARROW;
 		break;
 	    case SDLK_LEFT:
-		ksym = K_LEFTARROW;
+		keynum = K_LEFTARROW;
 		break;
 	    case SDLK_INSERT:
-		ksym = K_INS;
+		keynum = K_INS;
 		break;
 	    case SDLK_HOME:
-		ksym = K_HOME;
+		keynum = K_HOME;
 		break;
 	    case SDLK_END:
-		ksym = K_END;
+		keynum = K_END;
 		break;
 	    case SDLK_PAGEUP:
-		ksym = K_PGUP;
+		keynum = K_PGUP;
 		break;
 	    case SDLK_PAGEDOWN:
-		ksym = K_PGDN;
+		keynum = K_PGDN;
 		break;
 	    case SDLK_F1:
-		ksym = K_F1;
+		keynum = K_F1;
 		break;
 	    case SDLK_F2:
-		ksym = K_F2;
+		keynum = K_F2;
 		break;
 	    case SDLK_F3:
-		ksym = K_F3;
+		keynum = K_F3;
 		break;
 	    case SDLK_F4:
-		ksym = K_F4;
+		keynum = K_F4;
 		break;
 	    case SDLK_F5:
-		ksym = K_F5;
+		keynum = K_F5;
 		break;
 	    case SDLK_F6:
-		ksym = K_F6;
+		keynum = K_F6;
 		break;
 	    case SDLK_F7:
-		ksym = K_F7;
+		keynum = K_F7;
 		break;
 	    case SDLK_F8:
-		ksym = K_F8;
+		keynum = K_F8;
 		break;
 	    case SDLK_F9:
-		ksym = K_F9;
+		keynum = K_F9;
 		break;
 	    case SDLK_F10:
-		ksym = K_F10;
+		keynum = K_F10;
 		break;
 	    case SDLK_F11:
-		ksym = K_F11;
+		keynum = K_F11;
 		break;
 	    case SDLK_F12:
-		ksym = K_F12;
+		keynum = K_F12;
 		break;
 	    case SDLK_F13:
-		ksym = K_F13;
+		keynum = K_F13;
 		break;
 	    case SDLK_F14:
-		ksym = K_F14;
+		keynum = K_F14;
 		break;
 	    case SDLK_F15:
-		ksym = K_F15;
+		keynum = K_F15;
 		break;
 	    case SDLK_NUMLOCKCLEAR:
-		ksym = K_NUMLOCK;
+		keynum = K_NUMLOCK;
 		break;
 	    case SDLK_CAPSLOCK:
-		ksym = K_CAPSLOCK;
+		keynum = K_CAPSLOCK;
 		break;
 	    case SDLK_SCROLLLOCK:
-		ksym = K_SCROLLOCK;
+		keynum = K_SCROLLOCK;
 		break;
 	    case SDLK_RSHIFT:
-		ksym = K_RSHIFT;
+		keynum = K_RSHIFT;
 		break;
 	    case SDLK_LSHIFT:
-		ksym = K_LSHIFT;
+		keynum = K_LSHIFT;
 		break;
 	    case SDLK_RCTRL:
-		ksym = K_RCTRL;
+		keynum = K_RCTRL;
 		break;
 	    case SDLK_LCTRL:
-		ksym = K_LCTRL;
+		keynum = K_LCTRL;
 		break;
 	    case SDLK_RALT:
-		ksym = K_RALT;
+		keynum = K_RALT;
 		break;
 	    case SDLK_LALT:
-		ksym = K_LALT;
+		keynum = K_LALT;
 		break;
 #if 0 // these keycodes now missing?
 	    case SDLK_RMETA:
-		ksym = K_RMETA;
+		keynum = K_RMETA;
 		break;
 	    case SDLK_LMETA:
-		ksym = K_LMETA;
+		keynum = K_LMETA;
 		break;
 	    case SDLK_LSUPER:
-		ksym = K_LSUPER;
+		keynum = K_LSUPER;
 		break;
 	    case SDLK_RSUPER:
-		ksym = K_RSUPER;
+		keynum = K_RSUPER;
 		break;
 #endif
 	    case SDLK_MODE:
-		ksym = K_MODE;
+		keynum = K_MODE;
 		break;
 #if 0 // these keycodes now missing?
 	    case SDLK_COMPOSE:
-		ksym = K_COMPOSE;
+		keynum = K_COMPOSE;
 		break;
 #endif
 	    case SDLK_HELP:
-		ksym = K_HELP;
+		keynum = K_HELP;
 		break;
 #if 0 // these keycodes now missing?
 	    case SDLK_PRINT:
-		ksym = K_PRINT;
+		keynum = K_PRINT;
 		break;
 #endif
 	    case SDLK_SYSREQ:
-		ksym = K_SYSREQ;
+		keynum = K_SYSREQ;
 		break;
 #if 0 // these keycodes now missing?
 	    case SDLK_BREAK:
-		ksym = K_BREAK;
+		keynum = K_BREAK;
 		break;
 #endif
 	    case SDLK_MENU:
-		ksym = K_MENU;
+		keynum = K_MENU;
 		break;
 	    case SDLK_POWER:
-		ksym = K_POWER;
+		keynum = K_POWER;
 		break;
 #if 0 // these keycodes now missing?
 	    case SDLK_EURO:
-		ksym = K_EURO;
+		keynum = K_EURO;
 		break;
 #endif
 	    case SDLK_UNDO:
-		ksym = K_UNDO;
+		keynum = K_UNDO;
 		break;
 	    default:
 #if 0
 		if (sym >= SDLK_a && sym <= SDLK_z)
-		    ksym = sym - SDLK_a + 'a';
+		    keynum = sym - SDLK_a + 'a';
 		else if (sym >= SDLK_0 && sym <= SDLK_9)
-		    ksym = sym - SDLK_0 + '0';
+		    keynum = sym - SDLK_0 + '0';
 		else if (sym >= SDLK_KP0 && sym <= SDLK_KP9)
-		    ksym = sym - SDLK_KP0 + '0';
+		    keynum = sym - SDLK_KP0 + '0';
 		else
 #endif
-		    ksym = K_UNKNOWN;
+		    keynum = K_UNKNOWN;
 		break;
 	    }
-#if 0
-	    if (unicode > 255)
-		unicode = 0;
-#endif
-	    Key_Event(ksym, state);
-	    //Key_Event(unicode, state);
+	    Key_Event(keynum, keystate);
 
 #ifdef DEBUG
-	    Sys_Printf("%s: ksym = %d, unicode = %d\n",
-		       __func__, (int)ksym, (int)unicode);
+	    Sys_Printf("%s: SDL keycode = %s (%d), SDL scancode = %s (%d), "
+		       "Quake key = %s (%d)\n", __func__,
+		       SDL_GetKeyName(keycode), (int)keycode,
+		       SDL_GetScancodeName(event.key.keysym.scancode),
+		       (int)event.key.keysym.scancode,
+		       Key_KeynumToString(keynum), keynum);
 #endif
 	    break;
 
 	case SDL_MOUSEBUTTONDOWN:
 	case SDL_MOUSEBUTTONUP:
-	    but = event.button.button;
-	    if (but == 2)
-		but = 3;
-	    else if (but == 3)
-		but = 2;
+	    button = event.button.button;
+	    if (button == 2)
+		button = 3;
+	    else if (button == 3)
+		button = 2;
 
-	    switch (but) {
+	    switch (button) {
 	    case 1:
 	    case 2:
 	    case 3:
-		Key_Event(K_MOUSE1 + but - 1,
+		Key_Event(K_MOUSE1 + button - 1,
 			  event.type == SDL_MOUSEBUTTONDOWN);
 		break;
 	    }
