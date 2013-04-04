@@ -180,6 +180,8 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
 	if (*x == 0x818181 || *y == 0x818181)
 	    Sys_Error("%s: block allocation problem", __func__);
 
+	scrap->dirty = true;
+
 	return scrap;
     }
 
@@ -238,7 +240,6 @@ Draw_PicFromWad(const char *name)
 	int i, j, k;
 
 	scrap = Scrap_AllocBlock(p->width, p->height, &x, &y);
-	scrap->dirty = true;
 	k = 0;
 	for (i = 0; i < p->height; i++)
 	    for (j = 0; j < p->width; j++, k++)
