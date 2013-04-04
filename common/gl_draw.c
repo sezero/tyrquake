@@ -132,6 +132,18 @@ typedef struct {
 
 static scrap_t gl_scraps[MAX_SCRAPS];
 
+static void
+Scrap_Init(void)
+{
+    int i;
+    scrap_t *scrap;
+
+    memset(gl_scraps, 0, sizeof(gl_scraps));
+    scrap = gl_scraps;
+    for (i = 0; i < MAX_SCRAPS; i++, scrap++)
+	glGenTextures(1, &scrap->glnum);
+}
+
 /*
  * Scrap_AllocBlock
  *   Returns a scrap and the position inside it
@@ -459,7 +471,6 @@ Draw_Init(void)
     glpic_t *gl;
     int start;
     byte *ncdata;
-    scrap_t *scrap;
 
     Cvar_RegisterVariable(&gl_nobind);
     Cvar_RegisterVariable(&gl_max_size);
@@ -535,10 +546,8 @@ Draw_Init(void)
     // save a texture slot for translated picture
     glGenTextures(1, &translate_texture);
 
-    // save slots for scraps
-    scrap = gl_scraps;
-    for (i = 0; i < MAX_SCRAPS; i++, scrap++)
-	glGenTextures(1, &scrap->glnum);
+    // create textures for scraps
+    Scrap_Init();
 
     //
     // get the other pics we need
