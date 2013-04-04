@@ -179,6 +179,7 @@ D_EndDirectRect(int x, int y, int width, int height)
 {
 }
 
+static BOOL bSetupPixelFormat(HDC hDC);
 
 static void
 CenterWindow(HWND hWndCenter, int width, int height, BOOL lefttopjustify)
@@ -195,12 +196,39 @@ CenterWindow(HWND hWndCenter, int width, int height, BOOL lefttopjustify)
 		 SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME);
 }
 
+static void
+VID_DestroyWindow(void)
+{
+    HGLRC hrc;
+    HDC hdc;
+
+    hrc = wglGetCurrentContext();
+    hdc = wglGetCurrentDC();
+    wglMakeCurrent(NULL, NULL);
+
+    if (hdc && dibwindow)
+	ReleaseDC(dibwindow, hdc);
+    if (modestate == MS_FULLDIB)
+	ChangeDisplaySettings(NULL, 0);
+    if (maindc && dibwindow)
+	ReleaseDC(dibwindow, maindc);
+    maindc = NULL;
+
+    if (dibwindow)
+	DestroyWindow(dibwindow);
+    dibwindow = NULL;
+
+    wglDeleteContext(hrc);
+}
+
 static qboolean
 VID_SetWindowedMode(const qvidmode_t *mode)
 {
     HDC hdc;
     int width, height;
     RECT rect;
+
+    VID_DestroyWindow();
 
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
@@ -258,6 +286,19 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
+
+    maindc = GetDC(mainwindow);
+    bSetupPixelFormat(maindc);
+
+    baseRC = wglCreateContext(maindc);
+    if (!baseRC)
+	Sys_Error("Could not initialize GL (wglCreateContext failed).\n\n"
+		  "Make sure you in are 65535 color mode, "
+		  "and try running -window.");
+    if (!wglMakeCurrent(maindc, baseRC))
+	Sys_Error("wglMakeCurrent failed");
+
+    GL_Init();
 
     return true;
 }
@@ -1175,19 +1216,6 @@ VID_Init(const byte *palette)
     windowed = (mode == modelist);
     VID_SetMode(mode, gamma_palette);
     Gamma_Init();
-
-    maindc = GetDC(mainwindow);
-    bSetupPixelFormat(maindc);
-
-    baseRC = wglCreateContext(maindc);
-    if (!baseRC)
-	Sys_Error("Could not initialize GL (wglCreateContext failed).\n\n"
-		  "Make sure you in are 65535 color mode, "
-		  "and try running -window.");
-    if (!wglMakeCurrent(maindc, baseRC))
-	Sys_Error("wglMakeCurrent failed");
-
-    GL_Init();
 
     snprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
     Sys_mkdir(gldir);
