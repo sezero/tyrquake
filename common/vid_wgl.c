@@ -574,9 +574,9 @@ GL_BeginRendering(int *x, int *y, int *width, int *height)
     *height = WindowRect.bottom - WindowRect.top;
 
 //    if (!wglMakeCurrent( maindc, baseRC ))
-//              Sys_Error ("wglMakeCurrent failed");
+//              Sys_Error("wglMakeCurrent failed");
 
-//      glViewport (*x, *y, *width, *height);
+//      glViewport(*x, *y, *width, *height);
 }
 
 
@@ -692,8 +692,8 @@ Gamma_Init(void)
 void
 VID_ShiftPalette(const byte *palette)
 {
-    //VID_SetPalette (palette);
-    //gammaworks = SetDeviceGammaRamp (maindc, ramps);
+    //VID_SetPalette(palette);
+    //gammaworks = SetDeviceGammaRamp(maindc, ramps);
 }
 
 
@@ -743,6 +743,9 @@ VID_Shutdown(void)
 static BOOL
 bSetupPixelFormat(HDC hDC)
 {
+    BOOL result;
+    int pixelformat;
+
     static PIXELFORMATDESCRIPTOR pfd = {
 	sizeof(PIXELFORMATDESCRIPTOR),	// size of this pfd
 	1,			// version number
@@ -763,14 +766,15 @@ bSetupPixelFormat(HDC hDC)
 	0,			// reserved
 	0, 0, 0			// layer masks ignored
     };
-    int pixelformat;
 
-    if ((pixelformat = ChoosePixelFormat(hDC, &pfd)) == 0) {
+    pixelformat = ChoosePixelFormat(hDC, &pfd);
+    if (!pixelformat) {
 	MessageBox(NULL, "ChoosePixelFormat failed", "Error", MB_OK);
 	return FALSE;
     }
 
-    if (SetPixelFormat(hDC, pixelformat, &pfd) == FALSE) {
+    result = SetPixelFormat(hDC, pixelformat, &pfd);
+    if (!result) {
 	MessageBox(NULL, "SetPixelFormat failed", "Error", MB_OK);
 	return FALSE;
     }
@@ -923,7 +927,7 @@ static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LONG lRet = 1;
-    int fActive, fMinimized, temp, window_x, window_y;
+    int fActive, fMinimized, temp, window_x, window_y, result;
     const qvidmode_t *mode;
 
     if (uMsg == uiWheelMessage)
@@ -1000,12 +1004,12 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	break;
 
     case WM_CLOSE:
-	if (MessageBox
-	    (mainwindow, "Are you sure you want to quit?", "Confirm Exit",
-	     MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION) == IDYES) {
+	result = MessageBox(mainwindow,
+			    "Are you sure you want to quit?",
+			    "Confirm Exit",
+			    MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION);
+	if (result == IDYES)
 	    Sys_Quit();
-	}
-
 	break;
 
     case WM_ACTIVATE:
@@ -1013,18 +1017,17 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	fMinimized = (BOOL)HIWORD(wParam);
 	AppActivate(!(fActive == WA_INACTIVE), fMinimized);
 
-	// fix the leftover Alt from any Alt-Tab or the like that switched us away
+	/*
+	 * Fix the leftover Alt from any Alt-Tab or the like that
+	 * switched us away
+	 */
 	ClearAllStates();
-
 	break;
 
     case WM_DESTROY:
-	{
-	    if (dibwindow)
-		DestroyWindow(dibwindow);
-
-	    PostQuitMessage(0);
-	}
+	if (dibwindow)
+	    DestroyWindow(dibwindow);
+	PostQuitMessage(0);
 	break;
 
     case MM_MCINOTIFY:
@@ -1048,7 +1051,7 @@ VID_InitWindowClass(HINSTANCE hInstance)
 
     /* Register the frame class */
     wc.style = 0;
-    wc.lpfnWndProc = (WNDPROC) MainWndProc;
+    wc.lpfnWndProc = (WNDPROC)MainWndProc;
     wc.cbClsExtra = 0;
     wc.cbWndExtra = 0;
     wc.hInstance = hInstance;

@@ -155,18 +155,18 @@ static void
 VID_ShutdownDIB(void)
 {
     if (hdcDIBSection) {
-	SelectObject (hdcDIBSection, previously_selected_GDI_obj);
-	DeleteDC (hdcDIBSection);
+	SelectObject(hdcDIBSection, previously_selected_GDI_obj);
+	DeleteDC(hdcDIBSection);
 	hdcDIBSection = NULL;
     }
     if (hDIBSection) {
-	DeleteObject (hDIBSection);
+	DeleteObject(hDIBSection);
 	hDIBSection = NULL;
 	pDIBBase = NULL;
     }
     if (maindc) {
 	// if maindc exists mainwindow must also be valid
-	ReleaseDC (mainwindow, maindc);
+	ReleaseDC(mainwindow, maindc);
 	maindc = NULL;
     }
 }
@@ -467,12 +467,12 @@ VID_InitModeList(void)
 }
 
 static void
-VID_DestroyWindow (void)
+VID_DestroyWindow(void)
 {
     if (modestate == MS_FULLDIB)
-	ChangeDisplaySettings (NULL, CDS_FULLSCREEN);
+	ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
 
-    VID_ShutdownDIB ();
+    VID_ShutdownDIB();
 }
 
 static qboolean
@@ -1371,7 +1371,7 @@ static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     LONG lRet = 0;
-    int fActive, fMinimized, temp, window_x, window_y;
+    int fActive, fMinimized, temp, window_x, window_y, result;
     HDC hdc;
     PAINTSTRUCT ps;
     const qvidmode_t *mode;
@@ -1529,11 +1529,12 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	 * (garbage and a crash on Win95)
 	 */
 	if (!in_mode_set) {
-	    if (MessageBox
-		(mainwindow, "Are you sure you want to quit?", "Confirm Exit",
-		 MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION) == IDYES) {
+	    result = MessageBox(mainwindow,
+				"Are you sure you want to quit?",
+				"Confirm Exit",
+				MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION);
+	    if (result == IDYES)
 		Sys_Quit();
-	    }
 	}
 	break;
 
