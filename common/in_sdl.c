@@ -643,7 +643,8 @@ IN_MouseMove(usercmd_t *cmd)
     else
 	cl.viewangles[YAW] -= m_yaw.value * mouse_x;
     if (in_mlook.state & 1)
-	V_StopPitchDrift();
+	if (mouse_x || mouse_y)
+	    V_StopPitchDrift();
 
     if ((in_mlook.state & 1) && !(in_strafe.state & 1)) {
 	cl.viewangles[PITCH] += m_pitch.value * mouse_y;
