@@ -121,7 +121,7 @@ cvar_t gl_polyblend = { "gl_polyblend", "1" };
 cvar_t gl_flashblend = { "gl_flashblend", "1" };
 cvar_t gl_playermip = { "gl_playermip", "0" };
 cvar_t gl_nocolors = { "gl_nocolors", "0" };
-cvar_t gl_zfix = { "gl_zfix", "1" };
+cvar_t gl_zfix = { "gl_zfix", "0" };
 #ifdef NQ_HACK
 cvar_t gl_doubleeyes = { "gl_doubleeyes", "1" };
 #endif
@@ -1383,9 +1383,9 @@ R_Clear(void)
     glDepthRange(gldepthmin, gldepthmax);
 
     if (gldepthmax > gldepthmin)
-	glPolygonOffset(0, 14);
+	glPolygonOffset(1, 1);
     else
-	glPolygonOffset(0, -14);
+	glPolygonOffset(-1, -1);
 }
 
 #ifdef NQ_HACK /* Mirrors disabled for now in QW */
