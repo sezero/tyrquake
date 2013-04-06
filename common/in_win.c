@@ -37,8 +37,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 /* For relative mouse movement and centering */
-int in_window_center_x, in_window_center_y;
-RECT in_window_rect;
+static int window_center_x, window_center_y;
+static RECT window_rect;
 
 unsigned int uiWheelMessage;
 qboolean mouseactive;
@@ -186,6 +186,23 @@ Force_CenterView_f(void)
     cl.viewangles[PITCH] = 0;
 }
 
+/*
+===========
+IN_UpdateWindowRect
+===========
+*/
+void
+IN_UpdateWindowRect(int x, int y, int width, int height)
+{
+    window_rect.left = x;
+    window_rect.top = y;
+    window_rect.right = x + width;
+    window_rect.bottom = y + height;
+    window_center_x = (window_rect.left + window_rect.right) / 2;
+    window_center_y = (window_rect.top + window_rect.bottom) / 2;
+
+    IN_UpdateClipCursor();
+}
 
 /*
 ===========
@@ -196,7 +213,7 @@ void
 IN_UpdateClipCursor(void)
 {
     if (mouseinitialized && mouseactive && !dinput)
-	ClipCursor(&in_window_rect);
+	ClipCursor(&window_rect);
 }
 
 
@@ -255,9 +272,9 @@ IN_ActivateMouse(void)
 		restore_spi =
 		    SystemParametersInfo(SPI_SETMOUSE, 0, newmouseparms, 0);
 
-	    SetCursorPos(in_window_center_x, in_window_center_y);
+	    SetCursorPos(window_center_x, window_center_y);
 	    SetCapture(mainwindow);
-	    ClipCursor(&in_window_rect);
+	    ClipCursor(&window_rect);
 	}
 
 	mouseactive = true;
@@ -617,8 +634,8 @@ IN_MouseMove(usercmd_t *cmd)
 	mouse_oldbuttonstate = mstate_di;
     } else {
 	GetCursorPos(&current_pos);
-	mx = current_pos.x - in_window_center_x + mx_accum;
-	my = current_pos.y - in_window_center_y + my_accum;
+	mx = current_pos.x - window_center_x + mx_accum;
+	my = current_pos.y - window_center_y + my_accum;
 	mx_accum = 0;
 	my_accum = 0;
     }
@@ -662,7 +679,7 @@ IN_MouseMove(usercmd_t *cmd)
 
 // if the mouse has moved, force it to the center, so there's room to move
     if (mx || my) {
-	SetCursorPos(in_window_center_x, in_window_center_y);
+	SetCursorPos(window_center_x, window_center_y);
     }
 }
 
@@ -693,11 +710,11 @@ IN_Accumulate(void)
     if (mouseactive && !dinput) {
 	GetCursorPos(&current_pos);
 
-	mx_accum += current_pos.x - in_window_center_x;
-	my_accum += current_pos.y - in_window_center_y;
+	mx_accum += current_pos.x - window_center_x;
+	my_accum += current_pos.y - window_center_y;
 
 	/* force the mouse to the center, so there's room to move */
-	SetCursorPos(in_window_center_x, in_window_center_y);
+	SetCursorPos(window_center_x, window_center_y);
     }
 }
 

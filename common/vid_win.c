@@ -272,25 +272,6 @@ VID_CheckWindowXY(void)
 
 /*
 ================
-VID_UpdateWindowStatus
-================
-*/
-static void
-VID_UpdateWindowStatus(int x, int y, int width, int height)
-{
-    in_window_rect.left = x;
-    in_window_rect.top = y;
-    in_window_rect.right = x + width;
-    in_window_rect.bottom = y + height;
-    in_window_center_x = (in_window_rect.left + in_window_rect.right) / 2;
-    in_window_center_y = (in_window_rect.top + in_window_rect.bottom) / 2;
-
-    IN_UpdateClipCursor();
-}
-
-
-/*
-================
 ClearAllStates
 ================
 */
@@ -701,20 +682,20 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     mode = &modelist[modenum];
     if (mode != modelist) {
 	stat = VID_SetFullDIBMode(mode);
-	VID_UpdateWindowStatus(0, 0, mode->width, mode->height);
+	IN_UpdateWindowRect(0, 0, mode->width, mode->height);
 	IN_ActivateMouse();
 	IN_HideMouse();
     } else {
 	if (_windowed_mouse.value && key_dest == key_game) {
 	    stat = VID_SetWindowedMode(mode);
-	    VID_UpdateWindowStatus(WindowRect.left, WindowRect.top, mode->width, mode->height);
+	    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, mode->width, mode->height);
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	} else {
 	    IN_DeactivateMouse();
 	    IN_ShowMouse();
 	    stat = VID_SetWindowedMode(mode);
-	    VID_UpdateWindowStatus(WindowRect.left, WindowRect.top, mode->width, mode->height);
+	    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, mode->width, mode->height);
 	}
     }
 
@@ -1433,7 +1414,7 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	window_x = (int)LOWORD(lParam);
 	window_y = (int)HIWORD(lParam);
 	mode = &modelist[vid_modenum];
-	VID_UpdateWindowStatus(window_x, window_y, mode->width, mode->height);
+	IN_UpdateWindowRect(window_x, window_y, mode->width, mode->height);
 
 	if ((modestate == MS_WINDOWED) && !in_mode_set && !Minimized)
 	    VID_RememberWindowPos();
