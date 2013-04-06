@@ -290,10 +290,12 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     ShowWindow(dibwindow, SW_SHOWDEFAULT);
     UpdateWindow(dibwindow);
 
-// because we have set the background brush for the window to NULL
-// (to avoid flickering when re-sizing the window on the desktop),
-// we clear the window to black when created, otherwise it will be
-// empty while Quake starts up.
+    /*
+     * because we have set the background brush for the window to NULL
+     * (to avoid flickering when re-sizing the window on the desktop),
+     * we clear the window to black when created, otherwise it will be
+     * empty while Quake starts up.
+     */
     hdc = GetDC(dibwindow);
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
     ReleaseDC(dibwindow, hdc);
@@ -306,7 +308,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid.height = vid.conheight;
 
     vid.numpages = 2;
-
     mainwindow = dibwindow;
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
@@ -369,10 +370,12 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     ShowWindow(dibwindow, SW_SHOWDEFAULT);
     UpdateWindow(dibwindow);
 
-    // Because we have set the background brush for the window to NULL
-    // (to avoid flickering when re-sizing the window on the desktop), we
-    // clear the window to black when created, otherwise it will be
-    // empty while Quake starts up.
+    /*
+     * Because we have set the background brush for the window to NULL
+     * (to avoid flickering when re-sizing the window on the desktop), we
+     * clear the window to black when created, otherwise it will be
+     * empty while Quake starts up.
+     */
     hdc = GetDC(dibwindow);
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
     ReleaseDC(dibwindow, hdc);

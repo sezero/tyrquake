@@ -402,7 +402,7 @@ VID_InitWindowClass(HINSTANCE hInstance)
 
 /*
 =================
-VID_GetDisplayModes
+VID_InitModeList
 =================
 */
 static void
