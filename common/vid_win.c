@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "keys.h"
 #include "menu.h"
 #include "quakedef.h"
+#include "resource.h"
 #include "screen.h"
 #include "sound.h"
 #include "sys.h"
@@ -47,8 +48,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "client.h"
 #endif
 
-#include "resource.h"
-
 static qboolean Minimized;
 
 qboolean
@@ -59,65 +58,50 @@ window_visible(void)
 
 HWND mainwindow;
 qboolean DDActive;
+viddef_t vid; /* global video state */
+int vid_modenum = VID_MODE_NONE;
 
+static HDC maindc = NULL;
+
+static HDC hdcDIBSection = NULL;
+static HGDIOBJ previously_selected_GDI_obj = NULL;
+static HBITMAP hDIBSection;
+static unsigned char *pDIBBase = NULL;
+
+static HICON hIcon;
 static RECT WindowRect;
 static DEVMODE gdevmode;
-static qboolean startwindowed = true, windowed_mode_set = false;
+static qboolean vid_initialized = false;
+static int vid_default = VID_MODE_WINDOWED;
+static modestate_t modestate = MS_UNINIT;
+
+static qboolean startwindowed = true;
+static qboolean windowed_mode_set = false;
+
 static int firstupdate = 1;
-static qboolean vid_initialized = false, vid_palettized;
+static qboolean vid_palettized;
 static int vid_fulldib_on_focus_mode;
 static qboolean force_minimized, in_mode_set, force_mode_set;
 static qboolean palette_changed;
 static qboolean vid_mode_set, hide_window;
 
-static HICON hIcon;
-
-viddef_t vid;			// global video state
-
-static cvar_t vid_mode = {
-    .name = "vid_mode",
-    .string = stringify(VID_MODE_WINDOWED),
-    .archive = false
-};
-static cvar_t _vid_default_mode = {
-    .name = "_vid_default_mode",
-    .string = stringify(VID_MODE_WINDOWED),
-    .archive = true
-};
-static cvar_t _vid_default_mode_win = {
-    .name = "_vid_default_mode_win",
-    .string = stringify(VID_MODE_WINDOWED),
-    .archive = true
-};
-static cvar_t vid_fullscreen_mode = {
-    .name = "vid_fullscreen_mode",
-    .string = "1",
-    .archive = true
-};
-static cvar_t vid_windowed_mode = {
-    .name = "vid_windowed_mode",
-    .string = stringify(VID_MODE_WINDOWED),
-    .archive = true
-};
-
-static cvar_t vid_wait = { "vid_wait", "0" };
-static cvar_t vid_nopageflip = { "vid_nopageflip", "0", true };
-static cvar_t _vid_wait_override = { "_vid_wait_override", "0", true };
-static cvar_t block_switch = { "block_switch", "0", true };
-static cvar_t vid_window_x = { "vid_window_x", "0", true };
-static cvar_t vid_window_y = { "vid_window_y", "0", true };
-
-
-static int vid_default = VID_MODE_WINDOWED;
-int vid_modenum = VID_MODE_NONE;
-
-static modestate_t modestate = MS_UNINIT;
-
 static byte *vid_surfcache;
 static int vid_surfcachesize;
 static int VID_highhunkmark;
-
 static byte vid_curpal[256 * 3];
+
+static cvar_t vid_mode = { "vid_mode", "0", false };
+static cvar_t _vid_default_mode = { "_vid_default_mode", "0", true };
+static cvar_t _vid_default_mode_win = { "_vid_default_mode_win", "0", true };
+static cvar_t vid_wait = { "vid_wait", "0" };
+static cvar_t vid_nopageflip = { "vid_nopageflip", "0", true };
+static cvar_t _vid_wait_override = { "_vid_wait_override", "0", true };
+
+static cvar_t vid_fullscreen_mode = { "vid_fullscreen_mode", "1", true };
+static cvar_t vid_windowed_mode = { "vid_windowed_mode", "0", true };
+static cvar_t block_switch = { "block_switch", "0", true };
+static cvar_t vid_window_x = { "vid_window_x", "0", true };
+static cvar_t vid_window_y = { "vid_window_y", "0", true };
 
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
@@ -127,17 +111,6 @@ static byte backingbuf[48 * 24];
 static void AppActivate(BOOL fActive, BOOL minimize);
 static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 			       LPARAM lParam);
-
-typedef struct dibinfo {
-    BITMAPINFOHEADER header;
-    RGBQUAD acolors[256];
-} dibinfo_t;
-
-static HGDIOBJ previously_selected_GDI_obj = NULL;
-static HBITMAP hDIBSection;
-static unsigned char *pDIBBase = NULL;
-static HDC hdcDIBSection = NULL;
-static HDC maindc = NULL;
 
 static void
 VID_ShutdownDIB(void)
@@ -162,7 +135,10 @@ VID_ShutdownDIB(void)
 static void
 VID_CreateDIB(int width, int height, const byte *palette)
 {
-    dibinfo_t dibheader;
+    struct {
+	BITMAPINFOHEADER header;
+	RGBQUAD acolors[256];
+    } dibheader;
     BITMAPINFO *pbmiDIB = (BITMAPINFO *)&dibheader;
     int i;
 
@@ -565,7 +541,7 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
-    WindowRect.bottom =	mode->height;
+    WindowRect.bottom = mode->height;
 
     WindowStyle = WS_POPUP | WS_SYSMENU | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
     ExWindowStyle = 0;

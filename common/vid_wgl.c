@@ -61,48 +61,53 @@ window_visible(void)
     return !Minimized;
 }
 
-const char *gl_renderer;
-static const char *gl_vendor;
-static const char *gl_version;
-static const char *gl_extensions;
-
-static int gl_num_texture_units;
-
+HWND mainwindow;
 qboolean DDActive;
+viddef_t vid; /* global video state */
+int vid_modenum = VID_MODE_NONE;
 
+static HICON hIcon;
+static RECT WindowRect;
 static DEVMODE gdevmode;
 static qboolean vid_initialized = false;
+static int vid_default = VID_MODE_WINDOWED;
+static modestate_t modestate = MS_UNINIT;
+
+static HDC maindc;
+
+static HGLRC baseRC;
+static RECT GL_WindowRect;
 static qboolean vid_canalttab = false;
 static qboolean vid_wassuspended = false;
 static int windowed_mouse;
 
-static HICON hIcon;
-static RECT WindowRect;
-static RECT GL_WindowRect;
+const char *gl_renderer;
+static int gl_num_texture_units;
+static const char *gl_vendor;
+static const char *gl_version;
+static const char *gl_extensions;
 
-HWND mainwindow;
-static HWND dibwindow;
-
-int vid_modenum = VID_MODE_NONE;
-static int vid_default = VID_MODE_WINDOWED;
 static qboolean fullsbardraw = false;
 
 static float vid_gamma = 1.0;
 
-static HGLRC baseRC;
-static HDC maindc;
+static cvar_t vid_mode = { "vid_mode", "0", false };
+static cvar_t _vid_default_mode = { "_vid_default_mode", "0", true };
+static cvar_t _vid_default_mode_win = { "_vid_default_mode_win", "0", true };
+static cvar_t vid_wait = { "vid_wait", "0" };
+static cvar_t vid_nopageflip = { "vid_nopageflip", "0", true };
+static cvar_t _vid_wait_override = { "_vid_wait_override", "0", true };
+static cvar_t vid_config_x = { "vid_config_x", "800", true };
+static cvar_t vid_config_y = { "vid_config_y", "600", true };
+static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
 
 cvar_t gl_ztrick = { "gl_ztrick", "1" };
-
-viddef_t vid;			// global video state
 
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
 byte d_15to8table[65536];
 
 float gldepthmin, gldepthmax;
-
-static modestate_t modestate = MS_UNINIT;
 
 static void AppActivate(BOOL fActive, BOOL minimize);
 static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
@@ -122,20 +127,6 @@ static PROC glVertexPointerEXT;
 qboolean gl_mtexable = false;
 
 //====================================
-
-static cvar_t vid_mode = { "vid_mode", "0", false };
-
-// Note that 0 is VID_MODE_WINDOWED
-static cvar_t _vid_default_mode = { "_vid_default_mode", "0", true };
-
-static cvar_t _vid_default_mode_win = { "_vid_default_mode_win", "0", true };
-static cvar_t vid_wait = { "vid_wait", "0" };
-static cvar_t vid_nopageflip = { "vid_nopageflip", "0", true };
-static cvar_t _vid_wait_override = { "_vid_wait_override", "0", true };
-static cvar_t vid_config_x = { "vid_config_x", "800", true };
-static cvar_t vid_config_y = { "vid_config_y", "600", true };
-static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
-
 // direct draw software compatability stuff
 
 void
@@ -173,17 +164,17 @@ VID_DestroyWindow(void)
     hdc = wglGetCurrentDC();
     wglMakeCurrent(NULL, NULL);
 
-    if (hdc && dibwindow)
-	ReleaseDC(dibwindow, hdc);
+    if (hdc && mainwindow)
+	ReleaseDC(mainwindow, hdc);
     if (modestate == MS_FULLSCREEN)
 	ChangeDisplaySettings(NULL, 0);
-    if (maindc && dibwindow)
-	ReleaseDC(dibwindow, maindc);
+    if (maindc && mainwindow)
+	ReleaseDC(mainwindow, maindc);
     maindc = NULL;
 
-    if (dibwindow)
-	DestroyWindow(dibwindow);
-    dibwindow = NULL;
+    if (mainwindow)
+	DestroyWindow(mainwindow);
+    mainwindow = NULL;
 
     wglDeleteContext(hrc);
 }
@@ -241,7 +232,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
 
     // Create the DIB window
-    dibwindow = CreateWindowEx(ExWindowStyle,
+    mainwindow = CreateWindowEx(ExWindowStyle,
 			       "TyrQuake",
 			       "TyrQuake",
 			       WindowStyle,
@@ -250,15 +241,15 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 			       WindowRect.bottom - WindowRect.top,
 			       NULL, NULL, global_hInstance, NULL);
 
-    if (!dibwindow)
+    if (!mainwindow)
 	Sys_Error("Couldn't create DIB window");
 
     // Center and show the DIB window
-    CenterWindow(dibwindow, WindowRect.right - WindowRect.left,
+    CenterWindow(mainwindow, WindowRect.right - WindowRect.left,
 		 WindowRect.bottom - WindowRect.top, false);
 
-    ShowWindow(dibwindow, SW_SHOWDEFAULT);
-    UpdateWindow(dibwindow);
+    ShowWindow(mainwindow, SW_SHOWDEFAULT);
+    UpdateWindow(mainwindow);
 
     /*
      * because we have set the background brush for the window to NULL
@@ -266,9 +257,9 @@ VID_SetWindowedMode(const qvidmode_t *mode)
      * we clear the window to black when created, otherwise it will be
      * empty while Quake starts up.
      */
-    hdc = GetDC(dibwindow);
+    hdc = GetDC(mainwindow);
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
-    ReleaseDC(dibwindow, hdc);
+    ReleaseDC(mainwindow, hdc);
 
     if (vid.conheight > mode->height)
 	vid.conheight = mode->height;
@@ -278,7 +269,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid.height = vid.conheight;
 
     vid.numpages = 2;
-    mainwindow = dibwindow;
+    mainwindow = mainwindow;
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
@@ -319,7 +310,7 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
 
     // Create the DIB window
-    dibwindow = CreateWindowEx(ExWindowStyle,
+    mainwindow = CreateWindowEx(ExWindowStyle,
 			       "TyrQuake",
 			       "TyrQuake",
 			       WindowStyle,
@@ -328,17 +319,17 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 			       WindowRect.bottom - WindowRect.top,
 			       NULL, NULL, global_hInstance, NULL);
 
-    if (!dibwindow)
+    if (!mainwindow)
 	Sys_Error("Couldn't create DIB window");
 
-    SetWindowLong(dibwindow, GWL_STYLE, WindowStyle | WS_VISIBLE);
-    SetWindowLong(dibwindow, GWL_EXSTYLE, ExWindowStyle);
+    SetWindowLong(mainwindow, GWL_STYLE, WindowStyle | WS_VISIBLE);
+    SetWindowLong(mainwindow, GWL_EXSTYLE, ExWindowStyle);
 
     /* Raise to top and show the DIB window */
-    //SetWindowPos(dibwindow, HWND_TOPMOST, 0, 0, 0, 0,
+    //SetWindowPos(mainwindow, HWND_TOPMOST, 0, 0, 0, 0,
     //SWP_NOSIZE | SWP_SHOWWINDOW | SWP_DRAWFRAME);
-    ShowWindow(dibwindow, SW_SHOWDEFAULT);
-    UpdateWindow(dibwindow);
+    ShowWindow(mainwindow, SW_SHOWDEFAULT);
+    UpdateWindow(mainwindow);
 
     /*
      * Because we have set the background brush for the window to NULL
@@ -346,9 +337,9 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
      * clear the window to black when created, otherwise it will be
      * empty while Quake starts up.
      */
-    hdc = GetDC(dibwindow);
+    hdc = GetDC(mainwindow);
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
-    ReleaseDC(dibwindow, hdc);
+    ReleaseDC(mainwindow, hdc);
 
     if (vid.conheight > mode->height)
 	vid.conheight = mode->height;
@@ -358,7 +349,7 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     vid.height = vid.conheight;
 
     vid.numpages = 2;
-    mainwindow = dibwindow;
+    mainwindow = mainwindow;
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
@@ -699,14 +690,14 @@ VID_Shutdown(void)
 	if (hRC)
 	    wglDeleteContext(hRC);
 
-	if (hDC && dibwindow)
-	    ReleaseDC(dibwindow, hDC);
+	if (hDC && mainwindow)
+	    ReleaseDC(mainwindow, hDC);
 
 	if (modestate == MS_FULLSCREEN)
 	    ChangeDisplaySettings(NULL, 0);
 
-	if (maindc && dibwindow)
-	    ReleaseDC(dibwindow, maindc);
+	if (maindc && mainwindow)
+	    ReleaseDC(mainwindow, maindc);
 
 	AppActivate(false, false);
     }
@@ -759,53 +750,6 @@ bSetupPixelFormat(HDC hDC)
 }
 
 
-static knum_t scantokey[128] = {
-//  0       1       2       3       4       5       6       7
-//  8       9       A       B       C       D       E       F
-    0,      K_ESCAPE, '1',  '2',    '3',    '4',    '5',    '6',
-    '7',    '8',    '9',    '0',    '-',    '=',    K_BACKSPACE, K_TAB,	// 0
-    'q',    'w',    'e',    'r',    't',    'y',    'u',    'i',
-    'o',    'p',    '[',    ']',    13,     K_LCTRL,'a',    's',	// 1
-    'd',    'f',    'g',    'h',    'j',    'k',    'l',    ';',
-    '\'',   '`',    K_LSHIFT, '\\', 'z',    'x',    'c',    'v',	// 2
-    'b',    'n',    'm',    ',',    '.',    '/',    K_RSHIFT, '*',
-    K_LALT, ' ',    0,      K_F1,   K_F2,   K_F3,   K_F4,   K_F5,	// 3
-    K_F6,   K_F7,   K_F8,   K_F9,   K_F10,  K_PAUSE, 0,     K_HOME,
-    K_UPARROW, K_PGUP, '-', K_LEFTARROW, '5', K_RIGHTARROW, '+', K_END,	// 4
-    K_DOWNARROW, K_PGDN, K_INS, K_DEL, 0,   0,      0,      K_F11,
-    K_F12,  0,      0,      0,      0,      0,      0,      0,		// 5
-    0,      0,      0,      0,      0,      0,      0,      0,
-    0,      0,      0,      0,      0,      0,      0,      0,		// 6
-    0,      0,      0,      0,      0,      0,      0,      0,
-    0,      0,      0,      0,      0,      0,      0,      0		// 7
-};
-
-/*
-=======
-MapKey
-
-Map from windows to quake keynums
-=======
-*/
-static knum_t
-MapKey(int key)
-{
-    key = (key >> 16) & 255;
-    if (key > 127)
-	return 0;
-    if (scantokey[key] == 0)
-	Con_DPrintf("key 0x%02x has no translation\n", key);
-    return scantokey[key];
-}
-
-/*
-===================================================================
-
-MAIN WINDOW
-
-===================================================================
-*/
-
 /*
 ================
 ClearAllStates
@@ -823,197 +767,6 @@ ClearAllStates(void)
 
     Key_ClearStates();
     IN_ClearStates();
-}
-
-/*
- * Function:     AppActivate
- * Parameters:   fActive - True if app is activating
- *
- * Description:  If the application is activating, then swap the system
- *               into SYSPAL_NOSTATIC mode so that our palettes will display
- *               correctly.
- */
-static void
-AppActivate(BOOL fActive, BOOL minimize)
-{
-    static BOOL sound_active;
-
-    ActiveApp = fActive;
-    Minimized = minimize;
-
-    /* enable/disable sound on focus gain/loss */
-    if (!ActiveApp && sound_active) {
-	S_BlockSound();
-	sound_active = false;
-    } else if (ActiveApp && !sound_active) {
-	S_UnblockSound();
-	sound_active = true;
-    }
-
-    if (fActive) {
-	if (modestate == MS_FULLSCREEN) {
-	    IN_ActivateMouse();
-	    IN_HideMouse();
-	    if (vid_canalttab && vid_wassuspended) {
-		vid_wassuspended = false;
-		ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
-		ShowWindow(mainwindow, SW_SHOWNORMAL);
-
-		/*
-		 * Work-around for a bug in some video drivers that don't
-		 * correctly update the offsets into the GL front buffer after
-		 * alt-tab to the desktop and back.
-		 */
-		MoveWindow(mainwindow, 0, 0, gdevmode.dmPelsWidth,
-			   gdevmode.dmPelsHeight, false);
-	    }
-	} else if ((modestate == MS_WINDOWED) && _windowed_mouse.value
-		   && key_dest == key_game) {
-	    IN_ActivateMouse();
-	    IN_HideMouse();
-	}
-	/* Restore game gamma */
-	if (VID_SetGammaRamp)
-	    VID_SetGammaRamp(ramps);
-    }
-
-    if (!fActive) {
-	/* Restore desktop gamma */
-	if (VID_SetGammaRamp)
-	    VID_SetGammaRamp(saved_gamma_ramp);
-	if (modestate == MS_FULLSCREEN) {
-	    IN_DeactivateMouse();
-	    IN_ShowMouse();
-	    if (vid_canalttab) {
-		ChangeDisplaySettings(NULL, 0);
-		vid_wassuspended = true;
-	    }
-	} else if ((modestate == MS_WINDOWED) && _windowed_mouse.value) {
-	    IN_DeactivateMouse();
-	    IN_ShowMouse();
-	}
-    }
-}
-
-
-/* main window procedure */
-static LONG WINAPI
-MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-    LONG msg_handled = 1;
-    int fActive, fMinimized, buttons, window_x, window_y, result;
-    const qvidmode_t *mode;
-
-    if (uMsg == uiWheelMessage)
-	uMsg = WM_MOUSEWHEEL;
-
-    switch (uMsg) {
-    case WM_KILLFOCUS:
-	if (modestate == MS_FULLSCREEN)
-	    ShowWindow(mainwindow, SW_SHOWMINNOACTIVE);
-	break;
-
-    case WM_CREATE:
-	break;
-
-    case WM_MOVE:
-	window_x = (int)LOWORD(lParam);
-	window_y = (int)HIWORD(lParam);
-	mode = &modelist[vid_modenum];
-	IN_UpdateWindowRect(window_x, window_y, mode->width, mode->height);
-	break;
-
-    case WM_SIZE:
-	break;
-
-    case WM_SYSCHAR:
-	/* keep Alt-Space from happening */
-	break;
-
-    case WM_ACTIVATE:
-	fActive = LOWORD(wParam);
-	fMinimized = (BOOL)HIWORD(wParam);
-	AppActivate(!(fActive == WA_INACTIVE), fMinimized);
-
-	/*
-	 * Fix the leftover Alt from any Alt-Tab or the like that
-	 * switched us away
-	 */
-	ClearAllStates();
-	break;
-
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
-	Key_Event(MapKey(lParam), true);
-	break;
-
-    case WM_KEYUP:
-    case WM_SYSKEYUP:
-	Key_Event(MapKey(lParam), false);
-	break;
-
-    case WM_LBUTTONDOWN:
-    case WM_LBUTTONUP:
-    case WM_RBUTTONDOWN:
-    case WM_RBUTTONUP:
-    case WM_MBUTTONDOWN:
-    case WM_MBUTTONUP:
-    case WM_MOUSEMOVE:
-	/*
-	 * this is complicated because Win32 seems to pack multiple mouse
-	 * events into one update sometimes, so we always check all states and
-	 * look for events
-	 */
-	buttons = 0;
-	if (wParam & MK_LBUTTON)
-	    buttons |= 1;
-	if (wParam & MK_RBUTTON)
-	    buttons |= 2;
-	if (wParam & MK_MBUTTON)
-	    buttons |= 4;
-	IN_MouseEvent(buttons);
-	break;
-
-    case WM_MOUSEWHEEL:
-	/*
-	 * This is the mouse wheel with the Intellimouse. Its delta is
-	 * either positive or neg, and we generate the proper Event.
-	 */
-	if ((short)HIWORD(wParam) > 0) {
-	    Key_Event(K_MWHEELUP, true);
-	    Key_Event(K_MWHEELUP, false);
-	} else {
-	    Key_Event(K_MWHEELDOWN, true);
-	    Key_Event(K_MWHEELDOWN, false);
-	}
-	break;
-
-    case WM_CLOSE:
-	result = MessageBox(mainwindow,
-			    "Are you sure you want to quit?",
-			    "Confirm Exit",
-			    MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION);
-	if (result == IDYES)
-	    Sys_Quit();
-	break;
-
-    case WM_DESTROY:
-	if (dibwindow)
-	    DestroyWindow(dibwindow);
-	PostQuitMessage(0);
-	break;
-
-    case MM_MCINOTIFY:
-	msg_handled = CDDrv_MessageHandler(hWnd, uMsg, wParam, lParam);
-	break;
-
-    default:
-	/* pass all unhandled messages to DefWindowProc */
-	msg_handled = DefWindowProc(hWnd, uMsg, wParam, lParam);
-	break;
-    }
-
-    return msg_handled;
 }
 
 static void
@@ -1200,6 +953,244 @@ VID_Init(const byte *palette)
 
     if (COM_CheckParm("-fullsbar"))
 	fullsbardraw = true;
+}
+
+//==========================================================================
+
+static knum_t scantokey[128] = {
+//  0       1       2       3       4       5       6       7
+//  8       9       A       B       C       D       E       F
+    0,      K_ESCAPE, '1',  '2',    '3',    '4',    '5',    '6',
+    '7',    '8',    '9',    '0',    '-',    '=',    K_BACKSPACE, K_TAB,	// 0
+    'q',    'w',    'e',    'r',    't',    'y',    'u',    'i',
+    'o',    'p',    '[',    ']',    13,     K_LCTRL,'a',    's',	// 1
+    'd',    'f',    'g',    'h',    'j',    'k',    'l',    ';',
+    '\'',   '`',    K_LSHIFT, '\\', 'z',    'x',    'c',    'v',	// 2
+    'b',    'n',    'm',    ',',    '.',    '/',    K_RSHIFT, '*',
+    K_LALT, ' ',    0,      K_F1,   K_F2,   K_F3,   K_F4,   K_F5,	// 3
+    K_F6,   K_F7,   K_F8,   K_F9,   K_F10,  K_PAUSE, 0,     K_HOME,
+    K_UPARROW, K_PGUP, '-', K_LEFTARROW, '5', K_RIGHTARROW, '+', K_END,	// 4
+    K_DOWNARROW, K_PGDN, K_INS, K_DEL, 0,   0,      0,      K_F11,
+    K_F12,  0,      0,      0,      0,      0,      0,      0,		// 5
+    0,      0,      0,      0,      0,      0,      0,      0,
+    0,      0,      0,      0,      0,      0,      0,      0,		// 6
+    0,      0,      0,      0,      0,      0,      0,      0,
+    0,      0,      0,      0,      0,      0,      0,      0		// 7
+};
+
+/*
+=======
+MapKey
+
+Map from windows to quake keynums
+=======
+*/
+static knum_t
+MapKey(int key)
+{
+    key = (key >> 16) & 255;
+    if (key > 127)
+	return 0;
+    if (scantokey[key] == 0)
+	Con_DPrintf("key 0x%02x has no translation\n", key);
+    return scantokey[key];
+}
+
+/*
+ * Function:     AppActivate
+ * Parameters:   fActive - True if app is activating
+ *
+ * Description:  If the application is activating, then swap the system
+ *               into SYSPAL_NOSTATIC mode so that our palettes will display
+ *               correctly.
+ */
+static void
+AppActivate(BOOL fActive, BOOL minimize)
+{
+    static BOOL sound_active;
+
+    ActiveApp = fActive;
+    Minimized = minimize;
+
+    /* enable/disable sound on focus gain/loss */
+    if (!ActiveApp && sound_active) {
+	S_BlockSound();
+	sound_active = false;
+    } else if (ActiveApp && !sound_active) {
+	S_UnblockSound();
+	sound_active = true;
+    }
+
+    if (fActive) {
+	if (modestate == MS_FULLSCREEN) {
+	    IN_ActivateMouse();
+	    IN_HideMouse();
+	    if (vid_canalttab && vid_wassuspended) {
+		vid_wassuspended = false;
+		ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
+		ShowWindow(mainwindow, SW_SHOWNORMAL);
+
+		/*
+		 * Work-around for a bug in some video drivers that don't
+		 * correctly update the offsets into the GL front buffer after
+		 * alt-tab to the desktop and back.
+		 */
+		MoveWindow(mainwindow, 0, 0, gdevmode.dmPelsWidth,
+			   gdevmode.dmPelsHeight, false);
+	    }
+	} else if ((modestate == MS_WINDOWED) && _windowed_mouse.value
+		   && key_dest == key_game) {
+	    IN_ActivateMouse();
+	    IN_HideMouse();
+	}
+	/* Restore game gamma */
+	if (VID_SetGammaRamp)
+	    VID_SetGammaRamp(ramps);
+    }
+
+    if (!fActive) {
+	/* Restore desktop gamma */
+	if (VID_SetGammaRamp)
+	    VID_SetGammaRamp(saved_gamma_ramp);
+	if (modestate == MS_FULLSCREEN) {
+	    IN_DeactivateMouse();
+	    IN_ShowMouse();
+	    if (vid_canalttab) {
+		ChangeDisplaySettings(NULL, 0);
+		vid_wassuspended = true;
+	    }
+	} else if ((modestate == MS_WINDOWED) && _windowed_mouse.value) {
+	    IN_DeactivateMouse();
+	    IN_ShowMouse();
+	}
+    }
+}
+
+
+/*
+===================================================================
+MAIN WINDOW
+===================================================================
+*/
+
+/* main window procedure */
+static LONG WINAPI
+MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    LONG msg_handled = 1;
+    int fActive, fMinimized, buttons, window_x, window_y, result;
+    const qvidmode_t *mode;
+
+    if (uMsg == uiWheelMessage)
+	uMsg = WM_MOUSEWHEEL;
+
+    switch (uMsg) {
+    case WM_KILLFOCUS:
+	if (modestate == MS_FULLSCREEN)
+	    ShowWindow(mainwindow, SW_SHOWMINNOACTIVE);
+	break;
+
+    case WM_CREATE:
+	break;
+
+    case WM_MOVE:
+	window_x = (int)LOWORD(lParam);
+	window_y = (int)HIWORD(lParam);
+	mode = &modelist[vid_modenum];
+	IN_UpdateWindowRect(window_x, window_y, mode->width, mode->height);
+	break;
+
+    case WM_SIZE:
+	break;
+
+    case WM_SYSCHAR:
+	/* keep Alt-Space from happening */
+	break;
+
+    case WM_ACTIVATE:
+	fActive = LOWORD(wParam);
+	fMinimized = (BOOL)HIWORD(wParam);
+	AppActivate(!(fActive == WA_INACTIVE), fMinimized);
+
+	/*
+	 * Fix the leftover Alt from any Alt-Tab or the like that
+	 * switched us away
+	 */
+	ClearAllStates();
+	break;
+
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+	Key_Event(MapKey(lParam), true);
+	break;
+
+    case WM_KEYUP:
+    case WM_SYSKEYUP:
+	Key_Event(MapKey(lParam), false);
+	break;
+
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MOUSEMOVE:
+	/*
+	 * this is complicated because Win32 seems to pack multiple mouse
+	 * events into one update sometimes, so we always check all states and
+	 * look for events
+	 */
+	buttons = 0;
+	if (wParam & MK_LBUTTON)
+	    buttons |= 1;
+	if (wParam & MK_RBUTTON)
+	    buttons |= 2;
+	if (wParam & MK_MBUTTON)
+	    buttons |= 4;
+	IN_MouseEvent(buttons);
+	break;
+
+    case WM_MOUSEWHEEL:
+	/*
+	 * This is the mouse wheel with the Intellimouse. Its delta is
+	 * either positive or neg, and we generate the proper Event.
+	 */
+	if ((short)HIWORD(wParam) > 0) {
+	    Key_Event(K_MWHEELUP, true);
+	    Key_Event(K_MWHEELUP, false);
+	} else {
+	    Key_Event(K_MWHEELDOWN, true);
+	    Key_Event(K_MWHEELDOWN, false);
+	}
+	break;
+
+    case WM_CLOSE:
+	result = MessageBox(mainwindow,
+			    "Are you sure you want to quit?",
+			    "Confirm Exit",
+			    MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION);
+	if (result == IDYES)
+	    Sys_Quit();
+	break;
+
+    case WM_DESTROY:
+	if (mainwindow)
+	    DestroyWindow(mainwindow);
+	PostQuitMessage(0);
+	break;
+
+    case MM_MCINOTIFY:
+	msg_handled = CDDrv_MessageHandler(hWnd, uMsg, wParam, lParam);
+	break;
+
+    default:
+	/* pass all unhandled messages to DefWindowProc */
+	msg_handled = DefWindowProc(hWnd, uMsg, wParam, lParam);
+	break;
+    }
+
+    return msg_handled;
 }
 
 qboolean
