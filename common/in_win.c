@@ -264,20 +264,6 @@ IN_ActivateMouse(void)
     }
 }
 
-
-/*
-===========
-IN_SetQuakeMouseState
-===========
-*/
-void
-IN_SetQuakeMouseState(void)
-{
-    if (mouseactivatetoggle)
-	IN_ActivateMouse();
-}
-
-
 /*
 ===========
 IN_DeactivateMouse

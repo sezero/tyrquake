@@ -70,7 +70,6 @@ void IN_DeactivateMouse(void);
 void IN_HideMouse(void);
 void IN_ActivateMouse(void);
 void IN_RestoreOriginalMouseState(void);
-void IN_SetQuakeMouseState(void);
 void IN_MouseEvent(int mstate);
 void IN_UpdateClipCursor(void);
 
