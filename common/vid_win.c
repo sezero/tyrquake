@@ -1271,9 +1271,8 @@ AppActivate(BOOL fActive, BOOL minimize)
     }
 
     if (vid_initialized) {
-	// yield the palette if we're losing the focus
+	/* yield the palette if we're losing the focus */
 	hdc = GetDC(NULL);
-
 	if (!Minimized)
 	    VID_SetPalette(vid_curpal);
 
@@ -1292,8 +1291,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 	sound_active = true;
     }
 
-    /* minimize/restore fulldib windows/mouse-capture normal windows on demand
-     */
+    /* Minimize/restore windows & mouse-capture on demand */
     if (!in_mode_set) {
 	if (ActiveApp) {
 	    if (vid_fulldib_on_focus_mode) {
@@ -1360,8 +1358,8 @@ MAIN WINDOW
 static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    LONG lRet = 0;
-    int fActive, fMinimized, temp, window_x, window_y, result;
+    LONG msg_handled = 0;
+    int fActive, fMinimized, buttons, window_x, window_y, result;
     HDC hdc;
     PAINTSTRUCT ps;
     const qvidmode_t *mode;
@@ -1376,11 +1374,13 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	break;
 
     case WM_SYSCOMMAND:
-	// Check for maximize being hit
+	/* Check for maximize being hit */
 	switch (wParam & ~0x0F) {
 	case SC_MAXIMIZE:
-	    // if minimized, bring up as a window before going fullscreen,
-	    // so we will have the right state to restore
+	    /*
+	     * if minimized, bring up as a window before going
+	     * fullscreen, so we will have the right state to restore
+	     */
 	    if (Minimized) {
 		force_mode_set = true;
 		VID_SetMode(&modelist[vid_modenum], vid_curpal);
@@ -1393,18 +1393,20 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	case SC_SCREENSAVE:
 	case SC_MONITORPOWER:
 	    if (modestate != MS_WINDOWED) {
-		// don't call DefWindowProc() because we don't want to start
-		// the screen saver fullscreen
+		/*
+		 * don't call DefWindowProc() because we don't want to
+		 * start the screen saver fullscreen
+		 */
 		break;
 	    }
-	    // fall through windowed and allow the screen saver to start
+	    /* fall through windowed and allow the screen saver to start */
 
 	default:
 	    if (!in_mode_set) {
 		S_BlockSound();
 		S_ClearBuffer();
 	    }
-	    lRet = DefWindowProc(hWnd, uMsg, wParam, lParam);
+	    msg_handled = DefWindowProc(hWnd, uMsg, wParam, lParam);
 	    if (!in_mode_set)
 		S_UnblockSound();
 	}
@@ -1428,7 +1430,7 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	break;
 
     case WM_SYSCHAR:
-	// keep Alt-Space from happening
+	/* keep Alt-Space from happening */
 	break;
 
     case WM_ACTIVATE:
@@ -1436,10 +1438,11 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	fMinimized = (BOOL)HIWORD(wParam);
 	AppActivate(!(fActive == WA_INACTIVE), fMinimized);
 
-	/* fix the leftover Alt from any Alt-Tab or the like that switched us
-	   away */
+	/*
+	 * Fix the leftover Alt from any Alt-Tab or the like that
+	 * switched us away
+	 */
 	ClearAllStates();
-
 	if (!in_mode_set)
 	    VID_SetPalette(vid_curpal);
 	break;
@@ -1465,11 +1468,6 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	    Key_Event(MapKey(lParam), false);
 	break;
 
-    /*
-     * this is complicated because Win32 seems to pack multiple mouse
-     * events into one update sometimes, so we always check all states and
-     * look for events
-     */
     case WM_LBUTTONDOWN:
     case WM_LBUTTONUP:
     case WM_RBUTTONDOWN:
@@ -1477,23 +1475,28 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_MBUTTONDOWN:
     case WM_MBUTTONUP:
     case WM_MOUSEMOVE:
+	/*
+	 * this is complicated because Win32 seems to pack multiple
+	 * mouse events into one update sometimes, so we always check
+	 * all states and look for events
+	 */
 	if (!in_mode_set) {
-	    temp = 0;
+	    buttons = 0;
 	    if (wParam & MK_LBUTTON)
-		temp |= 1;
+		buttons |= 1;
 	    if (wParam & MK_RBUTTON)
-		temp |= 2;
+		buttons |= 2;
 	    if (wParam & MK_MBUTTON)
-		temp |= 4;
-	    IN_MouseEvent(temp);
+		buttons |= 4;
+	    IN_MouseEvent(buttons);
 	}
 	break;
 
-	/*
-	 * JACK: This is the mouse wheel with the Intellimouse. Its delta is
-	 *       either positive or neg, and we generate the proper Event.
-	 */
     case WM_MOUSEWHEEL:
+	/*
+	 * This is the mouse wheel with the Intellimouse. Its delta is
+	 * either positive or neg, and we generate the proper Event.
+	 */
 	if ((short)HIWORD(wParam) > 0) {
 	    Key_Event(K_MWHEELUP, true);
 	    Key_Event(K_MWHEELUP, false);
@@ -1529,17 +1532,17 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	break;
 
     case MM_MCINOTIFY:
-	lRet = CDDrv_MessageHandler(hWnd, uMsg, wParam, lParam);
+	msg_handled = CDDrv_MessageHandler(hWnd, uMsg, wParam, lParam);
 	break;
 
     default:
 	/* pass all unhandled messages to DefWindowProc */
-	lRet = DefWindowProc(hWnd, uMsg, wParam, lParam);
+	msg_handled = DefWindowProc(hWnd, uMsg, wParam, lParam);
 	break;
     }
 
     /* return 0 if handled message, 1 if not */
-    return lRet;
+    return msg_handled;
 }
 
 qboolean

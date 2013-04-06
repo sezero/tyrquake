@@ -849,25 +849,23 @@ ClearAllStates(void)
     IN_ClearStates();
 }
 
+/*
+ * Function:     AppActivate
+ * Parameters:   fActive - True if app is activating
+ *
+ * Description:  If the application is activating, then swap the system
+ *               into SYSPAL_NOSTATIC mode so that our palettes will display
+ *               correctly.
+ */
 static void
 AppActivate(BOOL fActive, BOOL minimize)
-/****************************************************************************
-*
-* Function:     AppActivate
-* Parameters:   fActive - True if app is activating
-*
-* Description:  If the application is activating, then swap the system
-*               into SYSPAL_NOSTATIC mode so that our palettes will display
-*               correctly.
-*
-****************************************************************************/
 {
     static BOOL sound_active;
 
     ActiveApp = fActive;
     Minimized = minimize;
 
-// enable/disable sound on focus gain/loss
+    /* enable/disable sound on focus gain/loss */
     if (!ActiveApp && sound_active) {
 	S_BlockSound();
 	sound_active = false;
@@ -926,8 +924,8 @@ AppActivate(BOOL fActive, BOOL minimize)
 static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-    LONG lRet = 1;
-    int fActive, fMinimized, temp, window_x, window_y, result;
+    LONG msg_handled = 1;
+    int fActive, fMinimized, buttons, window_x, window_y, result;
     const qvidmode_t *mode;
 
     if (uMsg == uiWheelMessage)
@@ -949,67 +947,11 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	IN_UpdateWindowRect(window_x, window_y, mode->width, mode->height);
 	break;
 
-    case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
-	Key_Event(MapKey(lParam), true);
-	break;
-
-    case WM_KEYUP:
-    case WM_SYSKEYUP:
-	Key_Event(MapKey(lParam), false);
-	break;
-
-    case WM_SYSCHAR:
-	// keep Alt-Space from happening
-	break;
-
-	// this is complicated because Win32 seems to pack multiple mouse events into
-	// one update sometimes, so we always check all states and look for events
-    case WM_LBUTTONDOWN:
-    case WM_LBUTTONUP:
-    case WM_RBUTTONDOWN:
-    case WM_RBUTTONUP:
-    case WM_MBUTTONDOWN:
-    case WM_MBUTTONUP:
-    case WM_MOUSEMOVE:
-	temp = 0;
-
-	if (wParam & MK_LBUTTON)
-	    temp |= 1;
-
-	if (wParam & MK_RBUTTON)
-	    temp |= 2;
-
-	if (wParam & MK_MBUTTON)
-	    temp |= 4;
-
-	IN_MouseEvent(temp);
-
-	break;
-
-	// JACK: This is the mouse wheel with the Intellimouse
-	// Its delta is either positive or neg, and we generate the proper
-	// Event.
-    case WM_MOUSEWHEEL:
-	if ((short)HIWORD(wParam) > 0) {
-	    Key_Event(K_MWHEELUP, true);
-	    Key_Event(K_MWHEELUP, false);
-	} else {
-	    Key_Event(K_MWHEELDOWN, true);
-	    Key_Event(K_MWHEELDOWN, false);
-	}
-	break;
-
     case WM_SIZE:
 	break;
 
-    case WM_CLOSE:
-	result = MessageBox(mainwindow,
-			    "Are you sure you want to quit?",
-			    "Confirm Exit",
-			    MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION);
-	if (result == IDYES)
-	    Sys_Quit();
+    case WM_SYSCHAR:
+	/* keep Alt-Space from happening */
 	break;
 
     case WM_ACTIVATE:
@@ -1024,6 +966,61 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	ClearAllStates();
 	break;
 
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN:
+	Key_Event(MapKey(lParam), true);
+	break;
+
+    case WM_KEYUP:
+    case WM_SYSKEYUP:
+	Key_Event(MapKey(lParam), false);
+	break;
+
+    case WM_LBUTTONDOWN:
+    case WM_LBUTTONUP:
+    case WM_RBUTTONDOWN:
+    case WM_RBUTTONUP:
+    case WM_MBUTTONDOWN:
+    case WM_MBUTTONUP:
+    case WM_MOUSEMOVE:
+	/*
+	 * this is complicated because Win32 seems to pack multiple mouse
+	 * events into one update sometimes, so we always check all states and
+	 * look for events
+	 */
+	buttons = 0;
+	if (wParam & MK_LBUTTON)
+	    buttons |= 1;
+	if (wParam & MK_RBUTTON)
+	    buttons |= 2;
+	if (wParam & MK_MBUTTON)
+	    buttons |= 4;
+	IN_MouseEvent(buttons);
+	break;
+
+    case WM_MOUSEWHEEL:
+	/*
+	 * This is the mouse wheel with the Intellimouse. Its delta is
+	 * either positive or neg, and we generate the proper Event.
+	 */
+	if ((short)HIWORD(wParam) > 0) {
+	    Key_Event(K_MWHEELUP, true);
+	    Key_Event(K_MWHEELUP, false);
+	} else {
+	    Key_Event(K_MWHEELDOWN, true);
+	    Key_Event(K_MWHEELDOWN, false);
+	}
+	break;
+
+    case WM_CLOSE:
+	result = MessageBox(mainwindow,
+			    "Are you sure you want to quit?",
+			    "Confirm Exit",
+			    MB_YESNO | MB_SETFOREGROUND | MB_ICONQUESTION);
+	if (result == IDYES)
+	    Sys_Quit();
+	break;
+
     case WM_DESTROY:
 	if (dibwindow)
 	    DestroyWindow(dibwindow);
@@ -1031,17 +1028,16 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	break;
 
     case MM_MCINOTIFY:
-	lRet = CDDrv_MessageHandler(hWnd, uMsg, wParam, lParam);
+	msg_handled = CDDrv_MessageHandler(hWnd, uMsg, wParam, lParam);
 	break;
 
     default:
 	/* pass all unhandled messages to DefWindowProc */
-	lRet = DefWindowProc(hWnd, uMsg, wParam, lParam);
+	msg_handled = DefWindowProc(hWnd, uMsg, wParam, lParam);
 	break;
     }
 
-    /* return 1 if handled message, 0 if not */
-    return lRet;
+    return msg_handled;
 }
 
 static void
