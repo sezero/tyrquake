@@ -57,8 +57,6 @@ int VID_ForceUnlockedAndReturnState(void);
 void VID_ForceLockState(int lk);
 void VID_SetDefaultMode(void);
 
-extern int window_center_x, window_center_y;
-extern RECT window_rect;
 extern qboolean DDActive;
 
 //
@@ -74,6 +72,8 @@ void IN_MouseEvent(int mstate);
 void IN_UpdateClipCursor(void);
 
 extern qboolean mouseinitialized;
+extern int in_window_center_x, in_window_center_y;
+extern RECT in_window_rect;
 
 //
 // sound.h (or remove)

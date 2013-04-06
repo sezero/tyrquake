@@ -141,10 +141,6 @@ static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
 
 cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
 
-int window_center_x, window_center_y;
-
-RECT window_rect;
-
 // direct draw software compatability stuff
 
 void
@@ -497,12 +493,12 @@ VID_UpdateWindowStatus
 static void
 VID_UpdateWindowStatus(int x, int y, int width, int height)
 {
-    window_rect.left = x;
-    window_rect.top = y;
-    window_rect.right = x + width;
-    window_rect.bottom = y + height;
-    window_center_x = (window_rect.left + window_rect.right) / 2;
-    window_center_y = (window_rect.top + window_rect.bottom) / 2;
+    in_window_rect.left = x;
+    in_window_rect.top = y;
+    in_window_rect.right = x + width;
+    in_window_rect.bottom = y + height;
+    in_window_center_x = (in_window_rect.left + in_window_rect.right) / 2;
+    in_window_center_y = (in_window_rect.top + in_window_rect.bottom) / 2;
 
     IN_UpdateClipCursor();
 }

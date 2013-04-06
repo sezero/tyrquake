@@ -36,6 +36,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
+/* For relative mouse movement and centering */
+int in_window_center_x, in_window_center_y;
+RECT in_window_rect;
+
 #define DINPUT_BUFFERSIZE           16
 
 static HRESULT (WINAPI * pDirectInputCreate) (HINSTANCE hinst, DWORD dwVersion,
@@ -193,7 +197,7 @@ void
 IN_UpdateClipCursor(void)
 {
     if (mouseinitialized && mouseactive && !dinput)
-	ClipCursor(&window_rect);
+	ClipCursor(&in_window_rect);
 }
 
 
@@ -255,9 +259,9 @@ IN_ActivateMouse(void)
 		restore_spi =
 		    SystemParametersInfo(SPI_SETMOUSE, 0, newmouseparms, 0);
 
-	    SetCursorPos(window_center_x, window_center_y);
+	    SetCursorPos(in_window_center_x, in_window_center_y);
 	    SetCapture(mainwindow);
-	    ClipCursor(&window_rect);
+	    ClipCursor(&in_window_rect);
 	}
 
 	mouseactive = true;
@@ -639,8 +643,8 @@ IN_MouseMove(usercmd_t *cmd)
 	mouse_oldbuttonstate = mstate_di;
     } else {
 	GetCursorPos(&current_pos);
-	mx = current_pos.x - window_center_x + mx_accum;
-	my = current_pos.y - window_center_y + my_accum;
+	mx = current_pos.x - in_window_center_x + mx_accum;
+	my = current_pos.y - in_window_center_y + my_accum;
 	mx_accum = 0;
 	my_accum = 0;
     }
@@ -684,7 +688,7 @@ IN_MouseMove(usercmd_t *cmd)
 
 // if the mouse has moved, force it to the center, so there's room to move
     if (mx || my) {
-	SetCursorPos(window_center_x, window_center_y);
+	SetCursorPos(in_window_center_x, in_window_center_y);
     }
 }
 
@@ -716,11 +720,11 @@ IN_Accumulate(void)
     if (mouseactive && !dinput) {
 	GetCursorPos(&current_pos);
 
-	mx_accum += current_pos.x - window_center_x;
-	my_accum += current_pos.y - window_center_y;
+	mx_accum += current_pos.x - in_window_center_x;
+	my_accum += current_pos.y - in_window_center_y;
 
 	/* force the mouse to the center, so there's room to move */
-	SetCursorPos(window_center_x, window_center_y);
+	SetCursorPos(in_window_center_x, in_window_center_y);
     }
 }
 
