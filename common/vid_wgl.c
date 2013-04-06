@@ -73,7 +73,6 @@ qboolean scr_skipupdate;
 
 static DEVMODE gdevmode;
 static qboolean vid_initialized = false;
-static qboolean windowed, leavecurrentmode;
 static qboolean vid_canalttab = false;
 static qboolean vid_wassuspended = false;
 static int windowed_mouse;
@@ -307,18 +306,16 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     DWORD WindowStyle, ExWindowStyle;
     LONG result;
 
-    if (!leavecurrentmode) {
-	gdevmode.dmFields =
-	    DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-	gdevmode.dmBitsPerPel = mode->bpp;
-	gdevmode.dmPelsWidth = mode->width;
-	gdevmode.dmPelsHeight = mode->height;
-	gdevmode.dmSize = sizeof(gdevmode);
+    gdevmode.dmFields =
+	DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+    gdevmode.dmBitsPerPel = mode->bpp;
+    gdevmode.dmPelsWidth = mode->width;
+    gdevmode.dmPelsHeight = mode->height;
+    gdevmode.dmSize = sizeof(gdevmode);
 
-	result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
-	if (result != DISP_CHANGE_SUCCESSFUL)
-	    Sys_Error("Couldn't set fullscreen DIB mode");
-    }
+    result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
+    if (result != DISP_CHANGE_SUCCESSFUL)
+	Sys_Error("Couldn't set fullscreen DIB mode");
 
     modestate = MS_FULLDIB;
 
@@ -381,13 +378,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     MSG msg;
 
     modenum = mode - modelist;
-    if (windowed) {
-	if (modenum != 0)
-	    Sys_Error("Bad video mode");
-    } else {
-	if (modenum < 1 ||  modenum >= nummodes)
-	    Sys_Error("Bad video mode");
-    }
+    if (modenum < 0 ||  modenum >= nummodes)
+	Sys_Error("Bad video mode");
 
     /* so Con_Printfs don't mess us up by forcing vid and snd updates */
     scr_disabled_for_loading_save = scr_disabled_for_loading;
@@ -1209,7 +1201,6 @@ VID_Init(const byte *palette)
     Check_Gamma(palette, gamma_palette);
     VID_SetPalette(gamma_palette);
 
-    windowed = (mode == modelist);
     VID_SetMode(mode, gamma_palette);
     Gamma_Init();
 
