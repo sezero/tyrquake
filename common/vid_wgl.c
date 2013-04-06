@@ -142,27 +142,6 @@ cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
 // direct draw software compatability stuff
 
 void
-VID_ForceLockState(int lk)
-{
-}
-
-void
-VID_LockBuffer(void)
-{
-}
-
-void
-VID_UnlockBuffer(void)
-{
-}
-
-int
-VID_ForceUnlockedAndReturnState(void)
-{
-    return 0;
-}
-
-void
 D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height)
 {
 }
@@ -1232,3 +1211,6 @@ VID_IsFullScreen()
 {
     return vid_modenum != 0;
 }
+
+void VID_LockBuffer(void) {}
+void VID_UnlockBuffer(void) {}

@@ -95,8 +95,6 @@ void Sys_SendKeyEvents(void)
 qboolean DDActive;
 qboolean scr_skipupdate;
 HWND mainwindow;
-void VID_ForceLockState(int lk) {}
-int VID_ForceUnlockedAndReturnState(void) { return 0; }
 void VID_SetDefaultMode(void) {}
 qboolean window_visible(void) { return true; }
 #endif

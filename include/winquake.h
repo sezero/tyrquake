@@ -53,8 +53,6 @@ extern qboolean WinNT;
 // vid.h (or remove)
 //
 
-int VID_ForceUnlockedAndReturnState(void);
-void VID_ForceLockState(int lk);
 void VID_SetDefaultMode(void);
 
 extern qboolean DDActive;

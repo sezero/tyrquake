@@ -91,9 +91,6 @@ RECT window_rect;
 int window_center_x, window_center_y;
 static int window_x, window_y;
 
-/* Placeholders */
-void VID_ForceLockState(int lk) { }
-int VID_ForceUnlockedAndReturnState(void) { return 0; }
 void VID_Shutdown(void)
 {
     if (renderer)
