@@ -187,8 +187,6 @@ CenterWindow(HWND hWndCenter, int width, int height, BOOL lefttopjustify)
 
     CenterX = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     CenterY = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
-    if (CenterX > CenterY * 2)
-	CenterX >>= 1;		// dual screens
     CenterX = qmax(CenterX, 0);
     CenterY = qmax(CenterY, 0);
     SetWindowPos(hWndCenter, NULL, CenterX, CenterY, 0, 0,
