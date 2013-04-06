@@ -67,11 +67,9 @@ void IN_ShowMouse(void);
 void IN_DeactivateMouse(void);
 void IN_HideMouse(void);
 void IN_ActivateMouse(void);
-void IN_RestoreOriginalMouseState(void);
 void IN_MouseEvent(int mstate);
 void IN_UpdateClipCursor(void);
 
-extern qboolean mouseinitialized;
 extern int in_window_center_x, in_window_center_y;
 extern RECT in_window_rect;
 
