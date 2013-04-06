@@ -56,7 +56,7 @@ window_visible(void)
     return !Minimized;
 }
 
-HWND mainwindow;
+HWND mainwindow = NULL;
 qboolean DDActive;
 viddef_t vid; /* global video state */
 int vid_modenum = VID_MODE_NONE;
@@ -83,7 +83,7 @@ static qboolean vid_palettized;
 static int vid_fulldib_on_focus_mode;
 static qboolean force_minimized, in_mode_set, force_mode_set;
 static qboolean palette_changed;
-static qboolean vid_mode_set, hide_window;
+static qboolean hide_window;
 
 static byte *vid_surfcache;
 static int vid_surfcachesize;
@@ -469,14 +469,8 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     ExWindowStyle = 0;
     AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
 
-    /*
-     * the first time we're called to set the mode, create the window
-     * we'll use for the rest of the session
-     */
-    if (!vid_mode_set) {
-	mainwindow = CreateWindowEx(ExWindowStyle,
-				    "TyrQuake",
-				    "TyrQuake",
+    if (!mainwindow) {
+	mainwindow = CreateWindowEx(ExWindowStyle, "TyrQuake", "TyrQuake",
 				    WindowStyle,
 				    0, 0,
 				    WindowRect.right - WindowRect.left,
@@ -485,8 +479,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 
 	if (!mainwindow)
 	    Sys_Error("Couldn't create DIB window");
-
-	vid_mode_set = true;
     } else {
 	SetWindowLong(mainwindow, GWL_STYLE, WindowStyle | WS_VISIBLE);
 	SetWindowLong(mainwindow, GWL_EXSTYLE, ExWindowStyle);
