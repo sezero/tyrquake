@@ -107,12 +107,6 @@ static cvar_t block_switch = { "block_switch", "0", true };
 static cvar_t vid_window_x = { "vid_window_x", "0", true };
 static cvar_t vid_window_y = { "vid_window_y", "0", true };
 
-cvar_t _windowed_mouse = { "_windowed_mouse", "0", true };
-
-typedef struct {
-    int width;
-    int height;
-} lmode_t;
 
 static int vid_default = VID_MODE_WINDOWED;
 int vid_modenum = VID_MODE_NONE;
@@ -908,7 +902,6 @@ VID_Init(const byte *palette)
     Cvar_RegisterVariable(&_vid_wait_override);
     Cvar_RegisterVariable(&_vid_default_mode);
     Cvar_RegisterVariable(&_vid_default_mode_win);
-    Cvar_RegisterVariable(&_windowed_mouse);
     Cvar_RegisterVariable(&vid_fullscreen_mode);
     Cvar_RegisterVariable(&vid_windowed_mode);
     Cvar_RegisterVariable(&block_switch);

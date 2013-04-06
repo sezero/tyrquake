@@ -50,6 +50,7 @@ static HRESULT (WINAPI *pDirectInputCreate)(HINSTANCE hinst, DWORD dwVersion,
 					    LPUNKNOWN punkOuter);
 
 // mouse variables
+cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
 static cvar_t m_filter = { "m_filter", "0" };
 
 static int mouse_buttons;
@@ -455,6 +456,7 @@ IN_Init(void)
 {
     // mouse variables
     Cvar_RegisterVariable(&m_filter);
+    Cvar_RegisterVariable(&_windowed_mouse);
 
     // joystick variables
     Cvar_RegisterVariable(&in_joystick);

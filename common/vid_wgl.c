@@ -137,8 +137,6 @@ static cvar_t vid_config_x = { "vid_config_x", "800", true };
 static cvar_t vid_config_y = { "vid_config_y", "600", true };
 static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
 
-cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
-
 // direct draw software compatability stuff
 
 void
@@ -1143,7 +1141,6 @@ VID_Init(const byte *palette)
     Cvar_RegisterVariable(&vid_config_x);
     Cvar_RegisterVariable(&vid_config_y);
     Cvar_RegisterVariable(&vid_stretch_by_2);
-    Cvar_RegisterVariable(&_windowed_mouse);
     Cvar_RegisterVariable(&gl_ztrick);
 
     Cmd_AddCommand("vid_nummodes", VID_NumModes_f);
