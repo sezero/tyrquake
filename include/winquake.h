@@ -42,7 +42,7 @@ extern HINSTANCE global_hInstance;
 extern int global_nCmdShow;
 
 typedef enum {
-    MS_WINDOWED, MS_FULLSCREEN, MS_FULLDIB, MS_UNINIT
+    MS_WINDOWED, MS_FULLSCREEN, MS_UNINIT
 } modestate_t;
 
 extern HWND mainwindow;

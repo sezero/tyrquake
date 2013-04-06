@@ -205,7 +205,7 @@ VID_DestroyWindow(void)
 
     if (hdc && dibwindow)
 	ReleaseDC(dibwindow, hdc);
-    if (modestate == MS_FULLDIB)
+    if (modestate == MS_FULLSCREEN)
 	ChangeDisplaySettings(NULL, 0);
     if (maindc && dibwindow)
 	ReleaseDC(dibwindow, maindc);
@@ -228,7 +228,8 @@ VID_SetDisplayMode(const qvidmode_t *mode)
     LONG result;
 
     if (!mode) {
-	ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
+	if (modestate == MS_FULLSCREEN)
+	    ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
 	modestate = MS_WINDOWED;
 	return;
     }
@@ -245,7 +246,7 @@ VID_SetDisplayMode(const qvidmode_t *mode)
     if (result != DISP_CHANGE_SUCCESSFUL)
 	Sys_Error("Couldn't set fullscreen DIB mode");
 
-    modestate = MS_FULLDIB;
+    modestate = MS_FULLSCREEN;
     //vid_fulldib_on_focus_mode = mode - modelist;
 }
 
@@ -255,9 +256,8 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     HDC hdc;
     DWORD WindowStyle, ExWindowStyle;
 
-    if (modestate == MS_FULLSCREEN)
-	VID_SetDisplayMode(NULL);
     VID_DestroyWindow();
+    VID_SetDisplayMode(NULL);
 
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
@@ -751,7 +751,7 @@ VID_Shutdown(void)
 	if (hDC && dibwindow)
 	    ReleaseDC(dibwindow, hDC);
 
-	if (modestate == MS_FULLDIB)
+	if (modestate == MS_FULLSCREEN)
 	    ChangeDisplaySettings(NULL, 0);
 
 	if (maindc && dibwindow)
@@ -902,7 +902,7 @@ AppActivate(BOOL fActive, BOOL minimize)
     }
 
     if (fActive) {
-	if (modestate == MS_FULLDIB) {
+	if (modestate == MS_FULLSCREEN) {
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	    if (vid_canalttab && vid_wassuspended) {
@@ -932,7 +932,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 	/* Restore desktop gamma */
 	if (VID_SetGammaRamp)
 	    VID_SetGammaRamp(saved_gamma_ramp);
-	if (modestate == MS_FULLDIB) {
+	if (modestate == MS_FULLSCREEN) {
 	    IN_DeactivateMouse();
 	    IN_ShowMouse();
 	    if (vid_canalttab) {
@@ -960,7 +960,7 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
     switch (uMsg) {
     case WM_KILLFOCUS:
-	if (modestate == MS_FULLDIB)
+	if (modestate == MS_FULLSCREEN)
 	    ShowWindow(mainwindow, SW_SHOWMINNOACTIVE);
 	break;
 

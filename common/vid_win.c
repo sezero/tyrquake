@@ -477,7 +477,8 @@ VID_SetDisplayMode(const qvidmode_t *mode)
     LONG result;
 
     if (!mode) {
-	ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
+	if (modestate == MS_FULLSCREEN)
+	    ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
 	modestate = MS_WINDOWED;
 	return;
     }
@@ -494,7 +495,7 @@ VID_SetDisplayMode(const qvidmode_t *mode)
     if (result != DISP_CHANGE_SUCCESSFUL)
 	Sys_Error("Couldn't set fullscreen DIB mode");
 
-    modestate = MS_FULLDIB;
+    modestate = MS_FULLSCREEN;
     vid_fulldib_on_focus_mode = mode - modelist;
 }
 
@@ -512,8 +513,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     }
 
     VID_ShutdownDIB();
-    if (modestate == MS_FULLSCREEN)
-	VID_SetDisplayMode(NULL);
+    VID_SetDisplayMode(NULL);
 
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
@@ -1018,7 +1018,7 @@ void
 VID_Shutdown(void)
 {
     if (vid_initialized) {
-	if (modestate == MS_FULLDIB)
+	if (modestate == MS_FULLSCREEN)
 	    ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
 
 	PostMessage(HWND_BROADCAST, WM_PALETTECHANGED, (WPARAM)mainwindow,
@@ -1342,7 +1342,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 	}
 
 	if (!ActiveApp) {
-	    if (modestate == MS_FULLDIB) {
+	    if (modestate == MS_FULLSCREEN) {
 		if (vid_initialized) {
 		    force_minimized = true;
 		    i = vid_fulldib_on_focus_mode;
