@@ -80,6 +80,7 @@ static int windowed_mouse;
 
 static HICON hIcon;
 static RECT WindowRect;
+static RECT GL_WindowRect;
 
 HWND mainwindow;
 static HWND dibwindow;
@@ -225,8 +226,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 {
     HDC hdc;
     DWORD WindowStyle, ExWindowStyle;
-    int width, height;
-    RECT rect;
 
     VID_DestroyWindow();
 
@@ -238,20 +237,18 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 	WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
     ExWindowStyle = 0;
 
-    rect = WindowRect;
-    AdjustWindowRectEx(&rect, WindowStyle, FALSE, 0);
-
-    width = rect.right - rect.left;
-    height = rect.bottom - rect.top;
+    GL_WindowRect = WindowRect;
+    AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
 
     // Create the DIB window
     dibwindow = CreateWindowEx(ExWindowStyle,
 			       "TyrQuake",
 			       "TyrQuake",
 			       WindowStyle,
-			       rect.left, rect.top,
-			       width,
-			       height, NULL, NULL, global_hInstance, NULL);
+			       WindowRect.left, WindowRect.top,
+			       WindowRect.right - WindowRect.left,
+			       WindowRect.bottom - WindowRect.top,
+			       NULL, NULL, global_hInstance, NULL);
 
     if (!dibwindow)
 	Sys_Error("Couldn't create DIB window");
@@ -303,15 +300,12 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     return true;
 }
 
-
 static qboolean
 VID_SetFullDIBMode(const qvidmode_t *mode)
 {
-    RECT rect;
     HDC hdc;
     DWORD WindowStyle, ExWindowStyle;
     LONG result;
-    int width, height;
 
     if (!leavecurrentmode) {
 	gdevmode.dmFields =
@@ -335,20 +329,18 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     WindowStyle = WS_POPUP;
     ExWindowStyle = 0;
 
-    rect = WindowRect;
-    AdjustWindowRectEx(&rect, WindowStyle, FALSE, 0);
-
-    width = rect.right - rect.left;
-    height = rect.bottom - rect.top;
+    GL_WindowRect = WindowRect;
+    AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
 
     // Create the DIB window
     dibwindow = CreateWindowEx(ExWindowStyle,
 			       "TyrQuake",
 			       "TyrQuake",
 			       WindowStyle,
-			       rect.left, rect.top,
-			       width,
-			       height, NULL, NULL, global_hInstance, NULL);
+			       WindowRect.left, WindowRect.top,
+			       WindowRect.right - WindowRect.left,
+			       WindowRect.bottom - WindowRect.top,
+			       NULL, NULL, global_hInstance, NULL);
 
     if (!dibwindow)
 	Sys_Error("Couldn't create DIB window");
@@ -571,8 +563,8 @@ void
 GL_BeginRendering(int *x, int *y, int *width, int *height)
 {
     *x = *y = 0;
-    *width = WindowRect.right - WindowRect.left;
-    *height = WindowRect.bottom - WindowRect.top;
+    *width = GL_WindowRect.right - GL_WindowRect.left;
+    *height = GL_WindowRect.bottom - GL_WindowRect.top;
 
 //    if (!wglMakeCurrent( maindc, baseRC ))
 //              Sys_Error("wglMakeCurrent failed");
