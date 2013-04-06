@@ -93,7 +93,6 @@ void Sys_SendKeyEvents(void)
 #include <windows.h>
 
 qboolean DDActive;
-qboolean scr_skipupdate;
 HWND mainwindow;
 void VID_SetDefaultMode(void) {}
 qboolean window_visible(void) { return true; }

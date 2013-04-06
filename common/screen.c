@@ -104,6 +104,7 @@ vrect_t scr_vrect;
 
 qboolean scr_disabled_for_loading;
 qboolean scr_block_drawing;
+qboolean scr_skipupdate;
 
 static cvar_t scr_centertime = { "scr_centertime", "2" };
 static cvar_t scr_printspeed = { "scr_printspeed", "8" };
@@ -119,7 +120,6 @@ static cvar_t show_fps = { "show_fps", "0" };	/* set for running times */
 static cvar_t gl_triplebuffer = { "gl_triplebuffer", "1", true };
 #else
 static vrect_t *pconupdate;
-qboolean scr_skipupdate;
 #endif
 
 static const qpic_t *scr_ram;

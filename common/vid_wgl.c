@@ -69,7 +69,6 @@ static const char *gl_extensions;
 static int gl_num_texture_units;
 
 qboolean DDActive;
-qboolean scr_skipupdate;
 
 static DEVMODE gdevmode;
 static qboolean vid_initialized = false;
