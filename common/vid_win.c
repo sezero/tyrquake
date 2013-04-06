@@ -444,6 +444,8 @@ VID_InitModeList(void)
 	    continue;
 	if (devmode.dmPelsWidth < 640 || devmode.dmPelsHeight < 480)
 	    continue;
+	if (devmode.dmBitsPerPel < 15)
+	    continue;
 
 	devmode.dmFields =
 	    DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
