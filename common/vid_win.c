@@ -465,13 +465,35 @@ VID_InitModeList(void)
     S_UnblockSound();
 }
 
+/*
+ * VID_SetDisplayMode
+ * Pass NULL to restore desktop resolution
+ */
 static void
-VID_DestroyWindow(void)
+VID_SetDisplayMode(const qvidmode_t *mode)
 {
-    if (modestate == MS_FULLDIB)
-	ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
+    LONG result;
 
-    VID_ShutdownDIB();
+    if (!mode) {
+	ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
+	modestate = MS_WINDOWED;
+	return;
+    }
+
+    gdevmode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
+    gdevmode.dmFields |= DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+    gdevmode.dmPelsWidth = mode->width;
+    gdevmode.dmPelsHeight = mode->height;
+    gdevmode.dmBitsPerPel = mode->bpp;
+    gdevmode.dmDisplayFrequency = mode->refresh;
+    gdevmode.dmSize = sizeof(gdevmode);
+
+    result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
+    if (result != DISP_CHANGE_SUCCESSFUL)
+	Sys_Error("Couldn't set fullscreen DIB mode");
+
+    modestate = MS_FULLDIB;
+    vid_fulldib_on_focus_mode = mode - modelist;
 }
 
 static qboolean
@@ -487,7 +509,9 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 	windowed_mode_set = true;
     }
 
-    VID_DestroyWindow();
+    VID_ShutdownDIB();
+    if (modestate == MS_FULLSCREEN)
+	VID_SetDisplayMode(NULL);
 
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
@@ -544,7 +568,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 	ShowWindow(mainwindow, SW_SHOWDEFAULT);
 
     UpdateWindow(mainwindow);
-    modestate = MS_WINDOWED;
     vid_fulldib_on_focus_mode = 0;
 
     vid.numpages = 1;
@@ -564,24 +587,11 @@ static qboolean
 VID_SetFullDIBMode(const qvidmode_t *mode)
 {
     DWORD WindowStyle, ExWindowStyle;
-    LONG result;
 
-    VID_DestroyWindow();
+    VID_ShutdownDIB();
+    VID_SetDisplayMode(mode);
 
-    gdevmode.dmFields =
-	DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-    gdevmode.dmPelsWidth = mode->width;
-    gdevmode.dmPelsHeight = mode->height;
-    gdevmode.dmSize = sizeof(gdevmode);
-
-    result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
-    if (result != DISP_CHANGE_SUCCESSFUL)
-	Sys_Error("Couldn't set fullscreen DIB mode");
-
-    modestate = MS_FULLDIB;
-    vid_fulldib_on_focus_mode = mode - modelist;
     WindowRect.top = WindowRect.left = 0;
-
     WindowRect.right = mode->width;
     WindowRect.bottom =	mode->height;
 
@@ -602,7 +612,7 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 	Sys_Error("Couldn't resize DIB window");
     }
 
-    /* position and show the DIB window */
+    /* Raise to top and show the DIB window */
     SetWindowPos(mainwindow, HWND_TOPMOST, 0, 0, 0, 0,
 		 SWP_NOSIZE | SWP_SHOWWINDOW | SWP_DRAWFRAME);
     ShowWindow(mainwindow, SW_SHOWDEFAULT);
@@ -1014,7 +1024,7 @@ VID_Shutdown(void)
 	PostMessage(HWND_BROADCAST, WM_SYSCOLORCHANGE, (WPARAM)0, (LPARAM)0);
 
 	AppActivate(false, false);
-	VID_DestroyWindow();
+	VID_ShutdownDIB();
 
 	if (hwnd_dialog)
 	    DestroyWindow(hwnd_dialog);

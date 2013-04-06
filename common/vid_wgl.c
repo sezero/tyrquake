@@ -218,12 +218,45 @@ VID_DestroyWindow(void)
     wglDeleteContext(hrc);
 }
 
+/*
+ * VID_SetDisplayMode
+ * Pass NULL to restore desktop resolution
+ */
+static void
+VID_SetDisplayMode(const qvidmode_t *mode)
+{
+    LONG result;
+
+    if (!mode) {
+	ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
+	modestate = MS_WINDOWED;
+	return;
+    }
+
+    gdevmode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
+    gdevmode.dmFields |= DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
+    gdevmode.dmPelsWidth = mode->width;
+    gdevmode.dmPelsHeight = mode->height;
+    gdevmode.dmBitsPerPel = mode->bpp;
+    gdevmode.dmDisplayFrequency = mode->refresh;
+    gdevmode.dmSize = sizeof(gdevmode);
+
+    result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
+    if (result != DISP_CHANGE_SUCCESSFUL)
+	Sys_Error("Couldn't set fullscreen DIB mode");
+
+    modestate = MS_FULLDIB;
+    //vid_fulldib_on_focus_mode = mode - modelist;
+}
+
 static qboolean
 VID_SetWindowedMode(const qvidmode_t *mode)
 {
     HDC hdc;
     DWORD WindowStyle, ExWindowStyle;
 
+    if (modestate == MS_FULLSCREEN)
+	VID_SetDisplayMode(NULL);
     VID_DestroyWindow();
 
     WindowRect.top = WindowRect.left = 0;
@@ -256,8 +289,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 
     ShowWindow(dibwindow, SW_SHOWDEFAULT);
     UpdateWindow(dibwindow);
-
-    modestate = MS_WINDOWED;
 
 // because we have set the background brush for the window to NULL
 // (to avoid flickering when re-sizing the window on the desktop),
@@ -302,20 +333,9 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 {
     HDC hdc;
     DWORD WindowStyle, ExWindowStyle;
-    LONG result;
 
-    gdevmode.dmFields =
-	DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-    gdevmode.dmBitsPerPel = mode->bpp;
-    gdevmode.dmPelsWidth = mode->width;
-    gdevmode.dmPelsHeight = mode->height;
-    gdevmode.dmSize = sizeof(gdevmode);
-
-    result = ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
-    if (result != DISP_CHANGE_SUCCESSFUL)
-	Sys_Error("Couldn't set fullscreen DIB mode");
-
-    modestate = MS_FULLDIB;
+    VID_DestroyWindow();
+    VID_SetDisplayMode(mode);
 
     WindowRect.top = WindowRect.left = 0;
     WindowRect.right = mode->width;
@@ -340,6 +360,12 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     if (!dibwindow)
 	Sys_Error("Couldn't create DIB window");
 
+    SetWindowLong(dibwindow, GWL_STYLE, WindowStyle | WS_VISIBLE);
+    SetWindowLong(dibwindow, GWL_EXSTYLE, ExWindowStyle);
+
+    /* Raise to top and show the DIB window */
+    //SetWindowPos(dibwindow, HWND_TOPMOST, 0, 0, 0, 0,
+    //SWP_NOSIZE | SWP_SHOWWINDOW | SWP_DRAWFRAME);
     ShowWindow(dibwindow, SW_SHOWDEFAULT);
     UpdateWindow(dibwindow);
 
@@ -363,6 +389,19 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
+
+    maindc = GetDC(mainwindow);
+    bSetupPixelFormat(maindc);
+
+    baseRC = wglCreateContext(maindc);
+    if (!baseRC)
+	Sys_Error("Could not initialize GL (wglCreateContext failed).\n\n"
+		  "Make sure you in are 65535 color mode, "
+		  "and try running -window.");
+    if (!wglMakeCurrent(maindc, baseRC))
+	Sys_Error("wglMakeCurrent failed");
+
+    GL_Init();
 
     return true;
 }
