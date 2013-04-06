@@ -61,7 +61,6 @@ HWND mainwindow;
 qboolean DDActive;
 
 static RECT WindowRect;
-static DWORD WindowStyle, ExWindowStyle;
 
 int window_center_x, window_center_y;
 
@@ -478,6 +477,8 @@ VID_DestroyWindow(void)
 static qboolean
 VID_SetWindowedMode(const qvidmode_t *mode)
 {
+    DWORD WindowStyle, ExWindowStyle;
+
     if (!windowed_mode_set) {
 	if (COM_CheckParm("-resetwinpos")) {
 	    Cvar_SetValue("vid_window_x", 0.0);
@@ -562,6 +563,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 static qboolean
 VID_SetFullDIBMode(const qvidmode_t *mode)
 {
+    DWORD WindowStyle, ExWindowStyle;
     LONG result;
 
     VID_DestroyWindow();

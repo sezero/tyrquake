@@ -80,7 +80,6 @@ static int windowed_mouse;
 
 static HICON hIcon;
 static RECT WindowRect;
-static DWORD WindowStyle, ExWindowStyle;
 
 HWND mainwindow;
 static HWND dibwindow;
@@ -225,6 +224,7 @@ static qboolean
 VID_SetWindowedMode(const qvidmode_t *mode)
 {
     HDC hdc;
+    DWORD WindowStyle, ExWindowStyle;
     int width, height;
     RECT rect;
 
@@ -307,9 +307,10 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 static qboolean
 VID_SetFullDIBMode(const qvidmode_t *mode)
 {
-    LONG result;
     RECT rect;
     HDC hdc;
+    DWORD WindowStyle, ExWindowStyle;
+    LONG result;
     int width, height;
 
     if (!leavecurrentmode) {
