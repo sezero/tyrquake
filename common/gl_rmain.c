@@ -1382,10 +1382,12 @@ R_Clear(void)
 
     glDepthRange(gldepthmin, gldepthmax);
 
-    if (gldepthmax > gldepthmin)
-	glPolygonOffset(1, 1);
-    else
-	glPolygonOffset(-1, -1);
+    if (gl_zfix.value) {
+	if (gldepthmax > gldepthmin)
+	    glPolygonOffset(1, 1);
+	else
+	    glPolygonOffset(-1, -1);
+    }
 }
 
 #ifdef NQ_HACK /* Mirrors disabled for now in QW */
