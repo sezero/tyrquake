@@ -154,6 +154,12 @@ VID_CenterWindow(HWND window)
 
     flags = SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME;
     SetWindowPos(window, NULL, x, y, 0, 0, flags);
+
+    /* Update the input rect */
+    GetWindowRect(window, &WindowRect);
+    wr_width = WindowRect.right - WindowRect.left;
+    wr_height = WindowRect.bottom - WindowRect.top;
+    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, wr_width, wr_height);
 }
 
 static void
