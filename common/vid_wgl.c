@@ -418,16 +418,19 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     CDAudio_Resume();
     scr_disabled_for_loading = scr_disabled_for_loading_save;
 
-    if (!stat) {
+    if (!stat)
 	Sys_Error("Couldn't set video mode");
-    }
-// now we try to make sure we get the focus on the mode switch, because
-// sometimes in some systems we don't.  We grab the foreground, then
-// finish setting up, pump all our messages, and sleep for a little while
-// to let messages finish bouncing around the system, then we put
-// ourselves at the top of the z order, then grab the foreground again,
-// Who knows if it helps, but it probably doesn't hurt
+
+    /*
+     * now we try to make sure we get the focus on the mode switch, because
+     * sometimes in some systems we don't.  We grab the foreground, then
+     * finish setting up, pump all our messages, and sleep for a little while
+     * to let messages finish bouncing around the system, then we put
+     * ourselves at the top of the z order, then grab the foreground again,
+     * Who knows if it helps, but it probably doesn't hurt
+     */
     SetForegroundWindow(mainwindow);
+
     VID_SetPalette(palette);
     vid_modenum = modenum;
     Cvar_SetValue("vid_mode", (float)vid_modenum);
