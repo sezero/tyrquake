@@ -243,7 +243,7 @@ Draw_PicFromWad(const char *name)
     glpic_t *gl;
     scrap_t *scrap;
 
-    p = W_GetLumpName(name);
+    p = W_GetLumpName(&host_gfx, name);
     gl = (glpic_t *)p->data;
 
     // load little ones into the scrap
@@ -493,7 +493,7 @@ Draw_Init(void)
     // by hand, because we need to write the version
     // string into the background before turning
     // it into a texture
-    draw_chars = W_GetLumpName("conchars");
+    draw_chars = W_GetLumpName(&host_gfx, "conchars");
     for (i = 0; i < 256 * 64; i++)
 	if (draw_chars[i] == 0)
 	    draw_chars[i] = 255;	// proper transparent color

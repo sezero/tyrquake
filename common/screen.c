@@ -44,6 +44,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef NQ_HACK
 #include "host.h"
 #endif
+#ifdef QW_HACK
+#include "client.h"
+#endif
 
 /*
 
@@ -1498,9 +1501,9 @@ SCR_Init(void)
     scr_turtle = Draw_PicFromWad("turtle");
 #endif
 #ifdef QW_HACK
-    scr_ram = W_GetLumpName("ram");
-    scr_net = W_GetLumpName("net");
-    scr_turtle = W_GetLumpName("turtle");
+    scr_ram = W_GetLumpName(&host_gfx, "ram");
+    scr_net = W_GetLumpName(&host_gfx, "net");
+    scr_turtle = W_GetLumpName(&host_gfx, "turtle");
 
     Cvar_RegisterVariable(&scr_allowsnap);
     Cmd_AddCommand("snap", SCR_RSShot_f);

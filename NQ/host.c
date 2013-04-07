@@ -56,6 +56,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  * end.
  */
 
+wad_t host_gfx; /* "gfx.wad" */
+
 quakeparms_t host_parms;
 
 qboolean host_initialized;	// true if into command execution
@@ -813,7 +815,7 @@ Host_Init(quakeparms_t *parms)
     Chase_Init();
     COM_Init();
     Host_InitLocal();
-    W_LoadWadFile("gfx.wad");
+    W_LoadWadFile(&host_gfx, "gfx.wad");
     Key_Init();
     Con_Init();
     M_Init();

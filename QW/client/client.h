@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "render.h"
 #include "sound.h"
 #include "vid.h"
+#include "wad.h"
 #include "zone.h"
 
 //
@@ -348,6 +349,8 @@ extern dlight_t cl_dlights[MAX_DLIGHTS];
 //
 // cl_main
 //
+extern wad_t host_gfx; /* "gfx.wad" */
+
 dlight_t *CL_AllocDlight(int key);
 
 /* The standard dynamic light colors */

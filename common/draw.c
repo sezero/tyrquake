@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "zone.h"
 
 #ifdef NQ_HACK
+#include "host.h"
 #include "sound.h"
 #endif
 #ifdef QW_HACK
@@ -70,7 +71,7 @@ static int menu_numcachepics;
 const qpic_t *
 Draw_PicFromWad(const char *name)
 {
-    return W_GetLumpName(name);
+    return W_GetLumpName(&host_gfx, name);
 }
 
 /*
@@ -126,9 +127,9 @@ Draw_Init
 void
 Draw_Init(void)
 {
-    draw_chars = W_GetLumpName("conchars");
-    draw_disc = W_GetLumpName("disc");
-    draw_backtile = W_GetLumpName("backtile");
+    draw_chars = W_GetLumpName(&host_gfx, "conchars");
+    draw_disc = W_GetLumpName(&host_gfx, "disc");
+    draw_backtile = W_GetLumpName(&host_gfx, "backtile");
 
     r_rectdesc.width = draw_backtile->width;
     r_rectdesc.height = draw_backtile->height;

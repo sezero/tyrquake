@@ -23,8 +23,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "qtypes.h"
 #include "quakedef.h"
 #include "server.h"
+#include "wad.h"
 
 // FIXME - some of this is out of place or badly named...
+
+extern wad_t host_gfx; /* "gfx.wad" */
 
 extern quakeparms_t host_parms;
 
