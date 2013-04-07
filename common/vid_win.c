@@ -113,6 +113,40 @@ static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 			       LPARAM lParam);
 
 static void
+VID_CenterWindow(HWND window)
+{
+    RECT workarea, rect;
+    BOOL ret;
+    UINT flags;
+    int x, y, wa_width, wr_width, wa_height, wr_height;
+
+    ret = SystemParametersInfo(SPI_GETWORKAREA, 0, &workarea, 0);
+    if (!ret)
+	Sys_Error("%s: SPI_GETWORKAREA failed", __func__);
+    ret = GetWindowRect(window, &rect);
+    if (!ret)
+	Sys_Error("%s: GetWindowRect() failed", __func__);
+
+    wa_width = workarea.right - workarea.left;
+    wa_height = workarea.bottom - workarea.top;
+    wr_width = rect.right - rect.left;
+    wr_height = rect.bottom - rect.top;
+
+    /* Center within the workarea. If too large, justify top left. */
+    x = qmax(workarea.left + (wa_width - wr_width) / 2, 0L);
+    y = qmax(workarea.top + (wa_height - wr_height) / 2, 0L);
+
+    flags = SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME;
+    SetWindowPos(window, NULL, x, y, 0, 0, flags);
+
+    /* Update the input rect */
+    GetWindowRect(window, &WindowRect);
+    wr_width = WindowRect.right - WindowRect.left;
+    wr_height = WindowRect.bottom - WindowRect.top;
+    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, wr_width, wr_height);
+}
+
+static void
 VID_ShutdownDIB(void)
 {
     if (hdcDIBSection) {
@@ -208,11 +242,11 @@ VID_RememberWindowPos
 ================
 */
 static void
-VID_RememberWindowPos(void)
+VID_RememberWindowPos(HWND window)
 {
     RECT rect;
 
-    if (GetWindowRect(mainwindow, &rect)) {
+    if (GetWindowRect(window, &rect)) {
 	if ((rect.left < GetSystemMetrics(SM_CXSCREEN)) &&
 	    (rect.top < GetSystemMetrics(SM_CYSCREEN)) &&
 	    (rect.right > 0) && (rect.bottom > 0)) {
@@ -496,11 +530,10 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     if (hide_window)
 	return true;
 
-    /* position and show the DIB window */
-    VID_CheckWindowXY();
-    SetWindowPos(mainwindow, NULL, (int)vid_window_x.value,
-		 (int)vid_window_y.value, 0, 0,
-		 SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME);
+    /* Center and show the window */
+    VID_CenterWindow(mainwindow);
+    /* FIXME - this breaks setting position via cvars */
+    VID_RememberWindowPos(mainwindow);
 
     if (force_minimized)
 	ShowWindow(mainwindow, SW_MINIMIZE);
@@ -1380,7 +1413,7 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	IN_UpdateWindowRect(window_x, window_y, mode->width, mode->height);
 
 	if ((modestate == MS_WINDOWED) && !in_mode_set && !Minimized)
-	    VID_RememberWindowPos();
+	    VID_RememberWindowPos(mainwindow);
 
 	break;
 
