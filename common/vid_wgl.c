@@ -126,19 +126,6 @@ static PROC glVertexPointerEXT;
 
 qboolean gl_mtexable = false;
 
-//====================================
-// direct draw software compatability stuff
-
-void
-D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height)
-{
-}
-
-void
-D_EndDirectRect(int x, int y, int width, int height)
-{
-}
-
 static BOOL bSetupPixelFormat(HDC hDC);
 
 static void
@@ -1214,3 +1201,5 @@ VID_IsFullScreen()
 
 void VID_LockBuffer(void) {}
 void VID_UnlockBuffer(void) {}
+void D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height) {}
+void D_EndDirectRect(int x, int y, int width, int height) {}
