@@ -142,16 +142,31 @@ D_EndDirectRect(int x, int y, int width, int height)
 static BOOL bSetupPixelFormat(HDC hDC);
 
 static void
-CenterWindow(HWND hWndCenter, int width, int height, BOOL lefttopjustify)
+VID_CenterWindow(HWND window)
 {
-    int CenterX, CenterY;
+    RECT workarea, rect;
+    BOOL ret;
+    UINT flags;
+    int x, y, wa_width, wr_width, wa_height, wr_height;
 
-    CenterX = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
-    CenterY = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
-    CenterX = qmax(CenterX, 0);
-    CenterY = qmax(CenterY, 0);
-    SetWindowPos(hWndCenter, NULL, CenterX, CenterY, 0, 0,
-		 SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME);
+    ret = SystemParametersInfo(SPI_GETWORKAREA, 0, &workarea, 0);
+    if (!ret)
+	Sys_Error("%s: SPI_GETWORKAREA failed", __func__);
+    ret = GetWindowRect(window, &rect);
+    if (!ret)
+	Sys_Error("%s: GetWindowRect() failed", __func__);
+
+    wa_width = workarea.right - workarea.left;
+    wa_height = workarea.bottom - workarea.top;
+    wr_width = rect.right - rect.left;
+    wr_height = rect.bottom - rect.top;
+
+    /* Center within the workarea. If too large, justify top left. */
+    x = qmax(workarea.left + (wa_width - wr_width) / 2, 0L);
+    y = qmax(workarea.top + (wa_height - wr_height) / 2, 0L);
+
+    flags = SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME;
+    SetWindowPos(window, NULL, x, y, 0, 0, flags);
 }
 
 static void
@@ -242,12 +257,10 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 			       NULL, NULL, global_hInstance, NULL);
 
     if (!mainwindow)
-	Sys_Error("Couldn't create DIB window");
+	Sys_Error("Couldn't create window");
 
-    // Center and show the DIB window
-    CenterWindow(mainwindow, WindowRect.right - WindowRect.left,
-		 WindowRect.bottom - WindowRect.top, false);
-
+    /* Center and show the window */
+    VID_CenterWindow(mainwindow);
     ShowWindow(mainwindow, SW_SHOWDEFAULT);
     UpdateWindow(mainwindow);
 
