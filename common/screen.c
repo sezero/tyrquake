@@ -1495,16 +1495,11 @@ SCR_Init(void)
     Cmd_AddCommand("sizeup", SCR_SizeUp_f);
     Cmd_AddCommand("sizedown", SCR_SizeDown_f);
 
-#ifdef NQ_HACK
     scr_ram = Draw_PicFromWad("ram");
     scr_net = Draw_PicFromWad("net");
     scr_turtle = Draw_PicFromWad("turtle");
-#endif
-#ifdef QW_HACK
-    scr_ram = W_GetLumpName(&host_gfx, "ram");
-    scr_net = W_GetLumpName(&host_gfx, "net");
-    scr_turtle = W_GetLumpName(&host_gfx, "turtle");
 
+#ifdef QW_HACK
     Cvar_RegisterVariable(&scr_allowsnap);
     Cmd_AddCommand("snap", SCR_RSShot_f);
 #endif
