@@ -60,6 +60,7 @@ static const qpic_t *draw_backtile;
 
 typedef struct cachepic_s {
     char name[MAX_QPATH];
+    qpic_t pic;
     cache_user_t cache;
 } cachepic_t;
 
@@ -67,11 +68,18 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-
 const qpic_t *
 Draw_PicFromWad(const char *name)
 {
-    return W_GetLumpName(&host_gfx, name);
+    qpic_t *pic, *picdata;
+
+    picdata = W_GetLumpName(&host_gfx, name);
+    pic = Hunk_AllocName(sizeof(*pic), "qpic_t");
+    pic->width = picdata->width;
+    pic->height = picdata->height;
+    pic->data = (byte *)&picdata->data;
+
+    return pic;
 }
 
 /*
@@ -82,42 +90,42 @@ Draw_CachePic
 qpic_t *
 Draw_CachePic(const char *path)
 {
-    cachepic_t *pic;
+    cachepic_t *cachepic;
+    qpic_t *pic;
     int i;
-    qpic_t *dat;
 
-    for (pic = menu_cachepics, i = 0; i < menu_numcachepics; pic++, i++)
-	if (!strcmp(path, pic->name))
+    cachepic = menu_cachepics;
+    for (i = 0; i < menu_numcachepics; i++, cachepic++)
+	if (!strcmp(path, cachepic->name))
 	    break;
 
     if (i == menu_numcachepics) {
 	if (menu_numcachepics == MAX_CACHED_PICS)
 	    Sys_Error("menu_numcachepics == MAX_CACHED_PICS");
 	menu_numcachepics++;
-	strcpy(pic->name, path);
+	snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
     }
 
-    dat = Cache_Check(&pic->cache);
+    pic = Cache_Check(&cachepic->cache);
+    if (pic) {
+	/* Cache data may have been moved */
+	cachepic->pic.data = (byte *)&pic->data;
+	return &cachepic->pic;
+    }
 
-    if (dat)
-	return dat;
-
-//
-// load the pic from disk
-//
-    COM_LoadCacheFile(path, &pic->cache);
-
-    dat = (qpic_t *)pic->cache.data;
-    if (!dat) {
+    /* load the pic from disk */
+    COM_LoadCacheFile(path, &cachepic->cache);
+    pic = cachepic->cache.data;
+    if (!pic)
 	Sys_Error("%s: failed to load %s", __func__, path);
-    }
 
-    SwapPic(dat);
+    SwapPic(pic);
+    cachepic->pic.width = pic->width;
+    cachepic->pic.height = pic->height;
+    cachepic->pic.data = (byte *)&pic->data;
 
-    return dat;
+    return &cachepic->pic;
 }
-
-
 
 /*
 ===============
@@ -127,9 +135,22 @@ Draw_Init
 void
 Draw_Init(void)
 {
+    static qpic_t draw_disc_pic;
+    static qpic_t draw_backtile_pic;
+
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
+
     draw_disc = W_GetLumpName(&host_gfx, "disc");
+    draw_disc_pic.width = draw_disc->width;
+    draw_disc_pic.height = draw_disc->height;
+    draw_disc_pic.data = (byte *)&draw_disc->data;
+    draw_disc = &draw_disc_pic;
+
     draw_backtile = W_GetLumpName(&host_gfx, "backtile");
+    draw_backtile_pic.width = draw_backtile->width;
+    draw_backtile_pic.height = draw_backtile->height;
+    draw_backtile_pic.data = (byte *)&draw_backtile->data;
+    draw_backtile = &draw_backtile_pic;
 
     r_rectdesc.width = draw_backtile->width;
     r_rectdesc.height = draw_backtile->height;
@@ -925,6 +946,10 @@ Call before beginning any disc IO.
 void
 Draw_BeginDisc(void)
 {
+    /* May not have loaded the draw disc yet... */
+    if (!draw_disc)
+	return;
+
     D_BeginDirectRect(vid.width - 24, 0, draw_disc->data, 24, 24);
 }
 
