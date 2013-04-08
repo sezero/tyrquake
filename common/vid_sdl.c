@@ -199,7 +199,7 @@ VID_InitModeList(void)
 	printf("%s: checking mode %i: %dx%d, %s\n", __func__,
 	       i, sdlmode.w, sdlmode.h, SDL_GetPixelFormatName(sdlmode.format));
 
-	if (sdlmode.h > MAXHEIGHT)
+	if (sdlmode.h > MAXHEIGHT || sdlmode.w > MAXWIDTH)
 	    continue;
 
 	if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED32)
