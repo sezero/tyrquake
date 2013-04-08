@@ -201,7 +201,8 @@ Expands the PVS and calculates the PHS
 void
 SV_CalcPHS(void)
 {
-    int numleafs, leafmem;
+    int numleafs;
+    size_t leafmem, pvsmem, phsmem;
     int i, leafnum;
     int vcount, hcount;
     const leafbits_t *leafbits;
@@ -214,18 +215,24 @@ SV_CalcPHS(void)
     leafmem = Mod_LeafbitsSize(sv.worldmodel->numleafs);
 
     /*
-     * Allocate space for an array of pointers, followed by the data
+     * Allocate space for an array of pointers, followed by the data.
+     * PVS is 1 based, so allocate one extra row
      */
-    sv.pvs = Hunk_AllocName((sizeof(leafbits_t *) + leafmem) * numleafs, "pvs");
-    sv.phs = Hunk_AllocName((sizeof(leafbits_t *) + leafmem) * numleafs, "phs");
+    pvsmem = (sizeof(leafbits_t *) + leafmem) * (numleafs + 1);
+    phsmem = (sizeof(leafbits_t *) + leafmem) * numleafs;
+    sv.pvs = Hunk_AllocName(pvsmem, "pvs");
+    sv.phs = Hunk_AllocName(phsmem, "phs");
+    for (i = 0; i < numleafs + 1; i++) {
+	int offset = sizeof(leafbits_t *) * (numleafs + 1) + leafmem * i;
+	sv.pvs[i] = (leafbits_t *)((byte *)sv.pvs + offset);
+    }
     for (i = 0; i < numleafs; i++) {
 	int offset = sizeof(leafbits_t *) * numleafs + leafmem * i;
-	sv.pvs[i] = (leafbits_t *)((byte *)sv.pvs + offset);
 	sv.phs[i] = (leafbits_t *)((byte *)sv.phs + offset);
     }
 
     vcount = 0;
-    for (i = 0; i < numleafs; i++) {
+    for (i = 0; i < numleafs + 1; i++) {
 	pvs = sv.pvs[i];
 	leafbits = Mod_LeafPVS(sv.worldmodel, sv.worldmodel->leafs + i);
 	memcpy(pvs, leafbits, leafmem);

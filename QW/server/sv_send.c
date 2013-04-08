@@ -263,17 +263,12 @@ SV_Multicast(vec3_t origin, int to)
     client_t *client;
     const leafbits_t *mask;
     mleaf_t *leaf;
-    int leafnum;
-    int j;
-    qboolean reliable;
+    int i, leafnum;
+    qboolean reliable = false;
 
     leaf = Mod_PointInLeaf(sv.worldmodel, origin);
-    if (!leaf)
-	leafnum = 0;
-    else
-	leafnum = leaf - sv.worldmodel->leafs;
-
-    reliable = false;
+    if (!leaf && to != MULTICAST_ALL_R && to != MULTICAST_ALL)
+	return;
 
     switch (to) {
     case MULTICAST_ALL_R:
@@ -285,13 +280,13 @@ SV_Multicast(vec3_t origin, int to)
     case MULTICAST_PHS_R:
 	reliable = true;	// intentional fallthrough
     case MULTICAST_PHS:
-	mask = sv.phs[leafnum];
+	mask = sv.phs[leaf - sv.worldmodel->leafs - 1];
 	break;
 
     case MULTICAST_PVS_R:
 	reliable = true;	// intentional fallthrough
     case MULTICAST_PVS:
-	mask = sv.pvs[leafnum];
+	mask = sv.pvs[leaf - sv.worldmodel->leafs];
 	break;
 
     default:
@@ -300,13 +295,13 @@ SV_Multicast(vec3_t origin, int to)
     }
 
     // send the data to all relevent clients
-    for (j = 0, client = svs.clients; j < MAX_CLIENTS; j++, client++) {
+    client = svs.clients;
+    for (i = 0; i < MAX_CLIENTS; i++, client++) {
 	if (client->state != cs_spawned)
 	    continue;
 
 	if (to == MULTICAST_PHS_R || to == MULTICAST_PHS) {
 	    vec3_t delta;
-
 	    VectorSubtract(origin, client->edict->v.origin, delta);
 	    if (Length(delta) <= 1024)
 		goto inrange;
