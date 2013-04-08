@@ -280,6 +280,8 @@ SV_Multicast(vec3_t origin, int to)
     case MULTICAST_PHS_R:
 	reliable = true;	// intentional fallthrough
     case MULTICAST_PHS:
+	if (leaf == sv.worldmodel->leafs)
+	    return;		/* should never happen */
 	mask = sv.phs[leaf - sv.worldmodel->leafs - 1];
 	break;
 
