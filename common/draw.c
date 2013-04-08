@@ -642,11 +642,13 @@ Draw_ConsoleBackground(int lines)
     unsigned short *pusdest;
     int f, fstep;
     qpic_t *conback;
+    char version[5];
 
     conback = Draw_CachePic("gfx/conback.lmp");
 
     /* hack the version number directly into the pic */
-    Draw_ConbackString(conback, stringify(TYR_VERSION));
+    snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    Draw_ConbackString(conback, version);
 
     /* draw the pic */
     if (r_pixbytes == 1) {

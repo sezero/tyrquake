@@ -476,6 +476,7 @@ Draw_Init(void)
 {
     int i;
     qpic_t *pic;
+    char version[5];
 
     Cvar_RegisterVariable(&gl_nobind);
     Cvar_RegisterVariable(&gl_max_size);
@@ -518,7 +519,8 @@ Draw_Init(void)
     pic = &conback->pic;
 
     /* hack the version number directly into the pic */
-    Draw_ConbackString(pic, stringify(TYR_VERSION));
+    snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    Draw_ConbackString(pic, version);
 
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
