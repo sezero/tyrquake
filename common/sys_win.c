@@ -574,9 +574,7 @@ Sys_DebugLog(const char *file, const char *fmt, ...)
 void
 Sys_Sleep(void)
 {
-#ifdef NQ_HACK
     Sleep(1);
-#endif
 }
 
 void

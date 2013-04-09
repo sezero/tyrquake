@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 #ifndef SERVERONLY
@@ -246,6 +247,19 @@ Sys_ConsoleInput(void)
 #endif /* NQ_HACK || SERVERONLY */
 
 #ifndef SERVERONLY
+void
+Sys_Sleep(void)
+{
+    struct timespec ts;
+
+    ts.tv_sec = 0;
+    ts.tv_nsec = 1000000;
+
+    while (nanosleep(&ts, &ts) == -1)
+	if (errno != EINTR)
+	    break;
+}
+
 void
 Sys_DebugLog(const char *file, const char *fmt, ...)
 {
