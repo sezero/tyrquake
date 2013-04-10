@@ -496,7 +496,7 @@ Mod_LoadTextures
 =================
 */
 static void
-Mod_LoadTextures(lump_t *l)
+Mod_LoadTextures(model_t *model, const lump_t *l)
 {
     int i, j, pixels, num, max, altmax;
     miptex_t *mt;
@@ -506,16 +506,16 @@ Mod_LoadTextures(lump_t *l)
     dmiptexlump_t *m;
 
     if (!l->filelen) {
-	loadmodel->textures = NULL;
+	model->textures = NULL;
 	return;
     }
     m = (dmiptexlump_t *)(mod_base + l->fileofs);
 
     m->nummiptex = LittleLong(m->nummiptex);
 
-    loadmodel->numtextures = m->nummiptex;
-    loadmodel->textures =
-	Hunk_AllocName(m->nummiptex * sizeof(*loadmodel->textures), loadname);
+    model->numtextures = m->nummiptex;
+    model->textures =
+	Hunk_AllocName(m->nummiptex * sizeof(*model->textures), loadname);
 
     for (i = 0; i < m->nummiptex; i++) {
 	m->dataofs[i] = LittleLong(m->dataofs[i]);
@@ -531,7 +531,7 @@ Mod_LoadTextures(lump_t *l)
 	    SV_Error("Texture %s is not 16 aligned", mt->name);
 	pixels = mt->width * mt->height / 64 * 85;
 	tx = Hunk_AllocName(sizeof(texture_t) + pixels, loadname);
-	loadmodel->textures[i] = tx;
+	model->textures[i] = tx;
 
 	memcpy(tx->name, mt->name, sizeof(tx->name));
 	tx->width = mt->width;
@@ -557,7 +557,7 @@ Mod_LoadTextures(lump_t *l)
 // sequence the animations
 //
     for (i = 0; i < m->nummiptex; i++) {
-	tx = loadmodel->textures[i];
+	tx = model->textures[i];
 	if (!tx || tx->name[0] != '+')
 	    continue;
 	if (tx->anim_next)
@@ -584,7 +584,7 @@ Mod_LoadTextures(lump_t *l)
 	    SV_Error("Bad animating texture %s", tx->name);
 
 	for (j = i + 1; j < m->nummiptex; j++) {
-	    tx2 = loadmodel->textures[j];
+	    tx2 = model->textures[j];
 	    if (!tx2 || tx2->name[0] != '+')
 		continue;
 	    if (strcmp(tx2->name + 2, tx->name + 2))
@@ -1601,13 +1601,12 @@ Mod_LoadBrushModel
 =================
 */
 static void
-Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
+Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 {
     int i, j;
     dheader_t *header;
-    dmodel_t *bm;
 
-    loadmodel->type = mod_brush;
+    model->type = mod_brush;
     header = (dheader_t *)buffer;
 
     /* swap all the header entries */
@@ -1619,7 +1618,8 @@ Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 
     if (header->version != BSPVERSION && header->version != BSP2VERSION)
 	SV_Error("%s: %s has wrong version number (%i should be %i or %i)",
-		 __func__, mod->name, header->version, BSPVERSION, BSP2VERSION);
+		 __func__, model->name, header->version,
+		 BSPVERSION, BSP2VERSION);
 
     mod_base = (byte *)header;
 
@@ -1638,8 +1638,7 @@ Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 	 * - end < size of file.
 	 */
 	if (b1 > e1 || e1 > size || b1 < 0 || e1 < 0)
-	    SV_Error("%s: bad lump extents in %s", __func__,
-		     loadmodel->name);
+	    SV_Error("%s: bad lump extents in %s", __func__, model->name);
 
 	/* Now, check that it doesn't overlap any other lumps */
 	for (j = 0; j < HEADER_LUMPS; ++j) {
@@ -1647,14 +1646,13 @@ Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 	    int e2 = b2 + header->lumps[j].filelen;
 
 	    if ((b1 < b2 && e1 > b2) || (b2 < b1 && e2 > b1))
-		SV_Error("%s: overlapping lumps in %s", __func__,
-			 loadmodel->name);
+		SV_Error("%s: overlapping lumps in %s", __func__, model->name);
 	}
     }
 
 #ifdef QW_HACK
-    mod->checksum = 0;
-    mod->checksum2 = 0;
+    model->checksum = 0;
+    model->checksum2 = 0;
 
 // checksum all of the map, except for entities
     for (i = 0; i < HEADER_LUMPS; i++) {
@@ -1664,13 +1662,13 @@ Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 	if (i == LUMP_ENTITIES)
 	    continue;
 	checksum = Com_BlockChecksum(mod_base + l->fileofs, l->filelen);
-	mod->checksum ^= checksum;
+	model->checksum ^= checksum;
 	if (i == LUMP_VISIBILITY || i == LUMP_LEAFS || i == LUMP_NODES)
 	    continue;
-	mod->checksum2 ^= checksum;
+	model->checksum2 ^= checksum;
     }
-    mod->checksum = LittleLong(mod->checksum);
-    mod->checksum2 = LittleLong(mod->checksum2);
+    model->checksum = LittleLong(model->checksum);
+    model->checksum2 = LittleLong(model->checksum2);
 #endif
 
     /* load into heap */
@@ -1681,7 +1679,7 @@ Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 	Mod_LoadEdges_BSP2(&header->lumps[LUMP_EDGES]);
     }
     Mod_LoadSurfedges(&header->lumps[LUMP_SURFEDGES]);
-    Mod_LoadTextures(&header->lumps[LUMP_TEXTURES]);
+    Mod_LoadTextures(model, &header->lumps[LUMP_TEXTURES]);
     Mod_LoadLighting(&header->lumps[LUMP_LIGHTING]);
     Mod_LoadPlanes(&header->lumps[LUMP_PLANES]);
     Mod_LoadTexinfo(&header->lumps[LUMP_TEXINFO]);
@@ -1707,51 +1705,49 @@ Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 
     Mod_MakeHull0();
 
-    mod->numframes = 2;		// regular and alternate animation
-    mod->flags = 0;
+    model->numframes = 2;		// regular and alternate animation
+    model->flags = 0;
 
     /*
      * Create space for the decompressed vis data
      * - We assume the main map is the first BSP file loaded (should be)
      * - If any other model has more leafs, then we may be in trouble...
      */
-    if (mod->numleafs > pvscache_numleafs) {
+    if (model->numleafs > pvscache_numleafs) {
 	if (pvscache[0].leafbits)
 	    SV_Error("%s: %d allocated for visdata, but model %s has %d leafs",
-		     __func__, pvscache_numleafs, loadmodel->name, mod->numleafs);
-	Mod_InitPVSCache(mod->numleafs);
+		     __func__, pvscache_numleafs, model->name, model->numleafs);
+	Mod_InitPVSCache(model->numleafs);
     }
 
-//
-// set up the submodels (FIXME: this is confusing)
-//
-    for (i = 0; i < mod->numsubmodels; i++) {
-	bm = &mod->submodels[i];
+    /* Now that the main model has been set up, set up the submodels */
+    for (i = 0; i < model->numsubmodels; i++) {
+	const dmodel_t *submodel = &model->submodels[i];
 
-	mod->hulls[0].firstclipnode = bm->headnode[0];
+	model->hulls[0].firstclipnode = submodel->headnode[0];
 	for (j = 1; j < MAX_MAP_HULLS; j++) {
-	    mod->hulls[j].firstclipnode = bm->headnode[j];
-	    mod->hulls[j].lastclipnode = mod->numclipnodes - 1;
+	    model->hulls[j].firstclipnode = submodel->headnode[j];
+	    model->hulls[j].lastclipnode = model->numclipnodes - 1;
 	}
 
-	mod->firstmodelsurface = bm->firstface;
-	mod->nummodelsurfaces = bm->numfaces;
+	model->firstmodelsurface = submodel->firstface;
+	model->nummodelsurfaces = submodel->numfaces;
 
-	VectorCopy(bm->maxs, mod->maxs);
-	VectorCopy(bm->mins, mod->mins);
+	VectorCopy(submodel->maxs, model->maxs);
+	VectorCopy(submodel->mins, model->mins);
 
-	mod->radius = RadiusFromBounds(mod->mins, mod->maxs);
-	mod->numleafs = bm->visleafs;
+	model->radius = RadiusFromBounds(model->mins, model->maxs);
+	model->numleafs = submodel->visleafs;
 
-	/* duplicate the basic information */
-	if (i < mod->numsubmodels - 1) {
+	/* duplicate the base model fields, set submodel name */
+	if (i < model->numsubmodels - 1) {
+	    model_t *sub;
 	    char name[10];
 
 	    snprintf(name, sizeof(name), "*%i", i + 1);
-	    loadmodel = Mod_FindName(name);
-	    *loadmodel = *mod;
-	    strcpy(loadmodel->name, name);
-	    mod = loadmodel;
+	    sub = Mod_FindName(name);
+	    *sub = *model;
+	    snprintf(sub->name, sizeof(sub->name), "%s", name);
 	}
     }
 }
