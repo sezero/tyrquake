@@ -1704,7 +1704,7 @@ static byte *loadbuf;
 static int loadsize;
 
 static void *
-COM_LoadFile(const char *path, int usehunk, unsigned long *length)
+COM_LoadFile(const char *path, int usehunk, size_t *size)
 {
     FILE *f;
     byte *buf;
@@ -1718,8 +1718,8 @@ COM_LoadFile(const char *path, int usehunk, unsigned long *length)
     if (!f)
 	return NULL;
 
-    if (length)
-	*length = len;
+    if (size)
+	*size = len;
 
 // extract the filename base name for hunk tag
     COM_FileBase(path, base, sizeof(base));
@@ -1777,16 +1777,15 @@ COM_LoadCacheFile(const char *path, struct cache_user_s *cu)
 }
 
 // uses temp hunk if larger than bufsize
-// length is size of loaded file in bytes
+// size is size of loaded file in bytes
 void *
-COM_LoadStackFile(const char *path, void *buffer, int bufsize,
-		  unsigned long *length)
+COM_LoadStackFile(const char *path, void *buffer, int bufsize, size_t *size)
 {
     byte *buf;
 
     loadbuf = (byte *)buffer;
     loadsize = bufsize;
-    buf = COM_LoadFile(path, 4, length);
+    buf = COM_LoadFile(path, 4, size);
 
     return buf;
 }

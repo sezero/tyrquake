@@ -52,8 +52,8 @@ static texture_t r_notexture_mip_qwsv;
 static model_t *loadmodel;
 static char loadname[MAX_QPATH];	/* for hunk tags */
 
-static void Mod_LoadBrushModel(model_t *mod, void *buffer, unsigned long size);
-static model_t *Mod_LoadModel(model_t *mod, qboolean crash);
+static void Mod_LoadBrushModel(model_t *model, void *buffer, size_t size);
+static model_t *Mod_LoadModel(model_t *model, qboolean crash);
 
 #define MAX_MOD_KNOWN 512
 static model_t mod_known[MAX_MOD_KNOWN];
@@ -411,7 +411,7 @@ Mod_LoadModel(model_t *model, qboolean crash)
 {
     unsigned *buf;
     byte stackbuf[1024];	// avoid dirtying the cache heap
-    unsigned long size;
+    size_t size;
 
     if (!model->needload) {
 	if (model->type == mod_alias) {
@@ -1601,7 +1601,7 @@ Mod_LoadBrushModel
 =================
 */
 static void
-Mod_LoadBrushModel(model_t *mod, void *buffer, unsigned long size)
+Mod_LoadBrushModel(model_t *mod, void *buffer, size_t size)
 {
     int i, j;
     dheader_t *header;

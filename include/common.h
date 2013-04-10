@@ -206,7 +206,7 @@ void COM_ScanDir(struct stree_root *root, const char *path,
 		 const char *pfx, const char *ext, qboolean stripext);
 
 void *COM_LoadStackFile(const char *path, void *buffer, int bufsize,
-			unsigned long *length);
+			size_t *size);
 void *COM_LoadTempFile(const char *path);
 void *COM_LoadHunkFile(const char *path);
 void COM_LoadCacheFile(const char *path, struct cache_user_s *cu);
