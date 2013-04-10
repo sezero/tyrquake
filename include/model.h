@@ -469,8 +469,8 @@ typedef struct model_loader {
 void Mod_Init(const model_loader_t *loader);
 void Mod_ClearAll(void);
 model_t *Mod_ForName(const char *name, qboolean crash);
-void *Mod_Extradata(model_t *mod);	// handles caching
-void Mod_TouchModel(char *name);
+void *Mod_Extradata(model_t *model);	// handles caching
+void Mod_TouchModel(const char *name);
 void Mod_Print(void);
 
 /*
@@ -548,9 +548,9 @@ int Mod_CountLeafBits(const leafbits_t *leafbits);
 // FIXME - surely this doesn't belong here?
 texture_t *R_TextureAnimation(const struct entity_s *e, texture_t *base);
 
-void Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod,
+void Mod_LoadAliasModel(const model_loader_t *loader, model_t *model,
 			void *buffer, const char *loadname);
-void Mod_LoadSpriteModel(model_t *mod, void *buffer, const char *loadname);
+void Mod_LoadSpriteModel(model_t *model, void *buffer, const char *loadname);
 
 mspriteframe_t *Mod_GetSpriteFrame(const struct entity_s *e,
 				   msprite_t *psprite, float time);
