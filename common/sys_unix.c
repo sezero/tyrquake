@@ -49,9 +49,11 @@ qboolean isDedicated;
 static qboolean noconinput = false;
 static qboolean nostdout = false;
 
-// =======================================================================
-// General routines
-// =======================================================================
+/*
+ * ===========================================================================
+ * General Routines
+ * ===========================================================================
+ */
 
 void
 Sys_Printf(const char *fmt, ...)
@@ -136,21 +138,6 @@ Sys_mkdir(const char *path)
     mkdir(path, 0777);
 }
 
-void
-Sys_DebugLog(const char *file, const char *fmt, ...)
-{
-    va_list argptr;
-    static char data[MAX_PRINTMSG];
-    int fd;
-
-    va_start(argptr, fmt);
-    vsnprintf(data, sizeof(data), fmt, argptr);
-    va_end(argptr);
-    fd = open(file, O_WRONLY | O_CREAT | O_APPEND, 0666);
-    write(fd, data, strlen(data));
-    close(fd);
-}
-
 double
 Sys_DoubleTime(void)
 {
@@ -168,11 +155,15 @@ Sys_DoubleTime(void)
     return (tp.tv_sec - secbase) + tp.tv_usec / 1000000.0;
 }
 
-// =======================================================================
-// Sleeps for microseconds
-// =======================================================================
-
 #ifdef NQ_HACK
+/*
+================
+Sys_ConsoleInput
+
+Checks for a complete line of text typed in at the console, then forwards
+it to the host command processor
+================
+*/
 char *
 Sys_ConsoleInput(void)
 {
@@ -201,20 +192,52 @@ Sys_ConsoleInput(void)
 }
 #endif
 
-#ifndef USE_X86_ASM
 void
-Sys_HighFPPrecision(void)
+Sys_DebugLog(const char *file, const char *fmt, ...)
 {
+    va_list argptr;
+    static char data[MAX_PRINTMSG];
+    int fd;
+
+    va_start(argptr, fmt);
+    vsnprintf(data, sizeof(data), fmt, argptr);
+    va_end(argptr);
+    fd = open(file, O_WRONLY | O_CREAT | O_APPEND, 0666);
+    write(fd, data, strlen(data));
+    close(fd);
 }
 
-void
-Sys_LowFPPrecision(void)
-{
-}
+#ifndef USE_X86_ASM
+void Sys_HighFPPrecision(void) {}
+void Sys_LowFPPrecision(void) {}
 #endif
 
+/*
+================
+Sys_MakeCodeWriteable
+================
+*/
+void
+Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
+{
+#ifdef USE_X86_ASM
+    void *addr;
+    size_t length;
+    intptr_t pagesize;
+    int result;
+
+    pagesize = getpagesize();
+    addr = (void *)((intptr_t)start_addr & ~(pagesize - 1));
+    length = ((byte *)end_addr - (byte *)addr) + pagesize - 1;
+    length &= ~(pagesize - 1);
+    result = mprotect(addr, length, PROT_READ | PROT_WRITE | PROT_EXEC);
+    if (result < 0)
+	Sys_Error("Protection change failed");
+#endif
+}
+
 int
-main(int c, const char **v)
+main(int argc, const char *argv[])
 {
     double time, oldtime, newtime;
     quakeparms_t parms;
@@ -224,7 +247,7 @@ main(int c, const char **v)
 
     memset(&parms, 0, sizeof(parms));
 
-    COM_InitArgv(c, v);
+    COM_InitArgv(argc, argv);
     parms.argc = com_argc;
     parms.argv = com_argv;
 
@@ -289,27 +312,4 @@ main(int c, const char **v)
     }
 
     return 0;
-}
-
-
-/*
-================
-Sys_MakeCodeWriteable
-================
-*/
-void
-Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
-{
-    void *addr;
-    size_t length;
-    intptr_t pagesize;
-    int result;
-
-    pagesize = getpagesize();
-    addr = (void *)((intptr_t)start_addr & ~(pagesize - 1));
-    length = ((byte *)end_addr - (byte *)addr) + pagesize - 1;
-    length &= ~(pagesize - 1);
-    result = mprotect(addr, length, PROT_READ | PROT_WRITE | PROT_EXEC);
-    if (result < 0)
-	Sys_Error("Protection change failed");
 }

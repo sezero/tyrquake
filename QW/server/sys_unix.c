@@ -17,7 +17,12 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
+
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "cvar.h"
@@ -26,105 +31,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "server.h"
 #include "sys.h"
 
-#include <sys/stat.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <errno.h>
-
 static cvar_t sys_nostdout = { "sys_nostdout", "0" };
 static cvar_t sys_extrasleep = { "sys_extrasleep", "0" };
 
 static qboolean stdin_ready;
+static int do_stdin = 1;
 
 /*
-===============================================================================
+ * ===========================================================================
+ * General Routines
+ * ===========================================================================
+ */
 
-				REQUIRED SYS FUNCTIONS
-
-===============================================================================
-*/
-
-/*
-============
-Sys_FileTime
-
-returns -1 if not present
-============
-*/
-int
-Sys_FileTime(const char *path)
-{
-    struct stat buf;
-
-    if (stat(path, &buf) == -1)
-	return -1;
-
-    return buf.st_mtime;
-}
-
-
-/*
-============
-Sys_mkdir
-
-============
-*/
-void
-Sys_mkdir(const char *path)
-{
-    if (mkdir(path, 0777) != -1)
-	return;
-    if (errno != EEXIST)
-	Sys_Error("mkdir %s: %s", path, strerror(errno));
-}
-
-
-/*
-================
-Sys_DoubleTime
-================
-*/
-double
-Sys_DoubleTime(void)
-{
-    struct timeval tp;
-    struct timezone tzp;
-    static int secbase;
-
-    gettimeofday(&tp, &tzp);
-
-    if (!secbase) {
-	secbase = tp.tv_sec;
-	return tp.tv_usec / 1000000.0;
-    }
-
-    return (tp.tv_sec - secbase) + tp.tv_usec / 1000000.0;
-}
-
-/*
-================
-Sys_Error
-================
-*/
-void
-Sys_Error(const char *error, ...)
-{
-    va_list argptr;
-    char string[MAX_PRINTMSG];
-
-    va_start(argptr, error);
-    vsnprintf(string, sizeof(string), error, argptr);
-    va_end(argptr);
-    printf("Fatal error: %s\n", string);
-
-    exit(1);
-}
-
-/*
-================
-Sys_Printf
-================
-*/
 void
 Sys_Printf(const char *fmt, ...)
 {
@@ -149,19 +67,76 @@ Sys_Printf(const char *fmt, ...)
     fflush(stdout);
 }
 
-
-/*
-================
-Sys_Quit
-================
-*/
 void
 Sys_Quit(void)
 {
-    exit(0);			// appkit isn't running
+    exit(0);
 }
 
-static int do_stdin = 1;
+void
+Sys_Init(void)
+{
+    Cvar_RegisterVariable(&sys_nostdout);
+    Cvar_RegisterVariable(&sys_extrasleep);
+}
+
+void
+Sys_Error(const char *error, ...)
+{
+    va_list argptr;
+    char string[MAX_PRINTMSG];
+
+    va_start(argptr, error);
+    vsnprintf(string, sizeof(string), error, argptr);
+    va_end(argptr);
+    printf("Fatal error: %s\n", string);
+
+    exit(1);
+}
+
+/*
+============
+Sys_FileTime
+
+returns -1 if not present
+============
+*/
+int
+Sys_FileTime(const char *path)
+{
+    struct stat buf;
+
+    if (stat(path, &buf) == -1)
+	return -1;
+
+    return buf.st_mtime;
+}
+
+void
+Sys_mkdir(const char *path)
+{
+    if (mkdir(path, 0777) != -1)
+	return;
+    if (errno != EEXIST)
+	Sys_Error("mkdir %s: %s", path, strerror(errno));
+}
+
+double
+Sys_DoubleTime(void)
+{
+    struct timeval tp;
+    struct timezone tzp;
+    static int secbase;
+
+    gettimeofday(&tp, &tzp);
+
+    if (!secbase) {
+	secbase = tp.tv_sec;
+	return tp.tv_usec / 1000000.0;
+    }
+
+    return (tp.tv_sec - secbase) + tp.tv_usec / 1000000.0;
+}
 
 /*
 ================
@@ -192,21 +167,6 @@ Sys_ConsoleInput(void)
     text[len - 1] = 0;		// rip off the /n and terminate
 
     return text;
-}
-
-/*
-=============
-Sys_Init
-
-Quake calls this so the system can register variables before host_hunklevel
-is marked
-=============
-*/
-void
-Sys_Init(void)
-{
-    Cvar_RegisterVariable(&sys_nostdout);
-    Cvar_RegisterVariable(&sys_extrasleep);
 }
 
 /*
