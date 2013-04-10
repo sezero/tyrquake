@@ -57,8 +57,6 @@ extern unsigned char d_15to8table[65536];
 #define GL_MAX_TEXTURE_UNITS GL_MAX_TEXTURE_UNITS_ARB
 #endif
 
-extern int texture_mode;
-
 extern float gldepthmin, gldepthmax;
 
 void GL_Upload32(const unsigned *data, int width, int height,

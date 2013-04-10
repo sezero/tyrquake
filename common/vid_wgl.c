@@ -458,8 +458,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     return true;
 }
 
-int texture_mode = GL_LINEAR;
-
 static void
 CheckMultiTextureExtensions(void)
 {

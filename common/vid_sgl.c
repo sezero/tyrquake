@@ -163,8 +163,6 @@ VID_InitModeList(void)
     VID_SortModeList(modelist, nummodes);
 }
 
-int texture_mode = GL_LINEAR;
-
 static SDL_GLContext gl_context = NULL;
 
 const char *gl_vendor;

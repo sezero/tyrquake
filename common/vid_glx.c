@@ -95,14 +95,6 @@ static XVisualInfo *x_visinfo;
 
 /*-----------------------------------------------------------------------*/
 
-//int           texture_mode = GL_NEAREST;
-//int           texture_mode = GL_NEAREST_MIPMAP_NEAREST;
-//int           texture_mode = GL_NEAREST_MIPMAP_LINEAR;
-int texture_mode = GL_LINEAR;
-
-//int           texture_mode = GL_LINEAR_MIPMAP_NEAREST;
-//int           texture_mode = GL_LINEAR_MIPMAP_LINEAR;
-
 float gldepthmin, gldepthmax;
 
 cvar_t gl_ztrick = { "gl_ztrick", "1" };
