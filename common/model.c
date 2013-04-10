@@ -407,58 +407,58 @@ Loads a model into the cache
 ==================
 */
 static model_t *
-Mod_LoadModel(model_t *mod, qboolean crash)
+Mod_LoadModel(model_t *model, qboolean crash)
 {
     unsigned *buf;
     byte stackbuf[1024];	// avoid dirtying the cache heap
     unsigned long size;
 
-    if (!mod->needload) {
-	if (mod->type == mod_alias) {
-	    if (Cache_Check(&mod->cache))
-		return mod;
+    if (!model->needload) {
+	if (model->type == mod_alias) {
+	    if (Cache_Check(&model->cache))
+		return model;
 	} else
-	    return mod;		// not cached at all
+	    return model;		// not cached at all
     }
 //
 // load the file
 //
-    buf = COM_LoadStackFile(mod->name, stackbuf, sizeof(stackbuf), &size);
+    buf = COM_LoadStackFile(model->name, stackbuf, sizeof(stackbuf), &size);
     if (!buf) {
 	if (crash)
-	    SV_Error("%s: %s not found", __func__, mod->name);
+	    SV_Error("%s: %s not found", __func__, model->name);
 	return NULL;
     }
 //
 // allocate a new model
 //
-    COM_FileBase(mod->name, loadname, sizeof(loadname));
+    COM_FileBase(model->name, loadname, sizeof(loadname));
 
-    loadmodel = mod;
+    loadmodel = model;
 
 //
 // fill it in
 //
 
 // call the apropriate loader
-    mod->needload = false;
+    model->needload = false;
 
     switch (LittleLong(*(unsigned *)buf)) {
 #ifndef SERVERONLY
     case IDPOLYHEADER:
-	Mod_LoadAliasModel(mod_loader, mod, buf, loadmodel, loadname);
+	Mod_LoadAliasModel(mod_loader, model, buf, loadname);
 	break;
 
     case IDSPRITEHEADER:
-	Mod_LoadSpriteModel(mod, buf, loadname);
+	Mod_LoadSpriteModel(model, buf, loadname);
 	break;
 #endif
     default:
-	Mod_LoadBrushModel(mod, buf, size);
+	Mod_LoadBrushModel(model, buf, size);
 	break;
     }
 
-    return mod;
+    return model;
 }
 
 /*

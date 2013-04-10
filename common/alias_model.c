@@ -215,8 +215,8 @@ Mod_LoadAliasModel
 =================
 */
 void
-Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
-		   const model_t *loadmodel, const char *loadname)
+Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer,
+		   const char *loadname)
 {
     byte *container;
     int i, j, pad;
@@ -235,9 +235,9 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
 #ifdef QW_HACK
     unsigned short crc;
     const char *crcmodel = NULL;
-    if (!strcmp(loadmodel->name, "progs/player.mdl"))
+    if (!strcmp(model->name, "progs/player.mdl"))
 	crcmodel = "pmodel";
-    if (!strcmp(loadmodel->name, "progs/eyes.mdl"))
+    if (!strcmp(model->name, "progs/eyes.mdl"))
 	crcmodel = "emodel";
 
     if (crcmodel) {
@@ -259,7 +259,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
     version = LittleLong(pinmodel->version);
     if (version != ALIAS_VERSION)
 	Sys_Error("%s has wrong version number (%i should be %i)",
-		  mod->name, version, ALIAS_VERSION);
+		  model->name, version, ALIAS_VERSION);
 
 //
 // allocate space for a working header, plus all the data except the frames,
@@ -272,7 +272,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
     container = Hunk_AllocName(size, loadname);
     pheader = (aliashdr_t *)(container + pad);
 
-    mod->flags = LittleLong(pinmodel->flags);
+    model->flags = LittleLong(pinmodel->flags);
 
 //
 // endian-adjust and copy the data, starting with the alias model header
@@ -282,26 +282,26 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
     pheader->skinheight = LittleLong(pinmodel->skinheight);
 
     if (pheader->skinheight > MAX_LBM_HEIGHT)
-	Sys_Error("model %s has a skin taller than %d", mod->name,
+	Sys_Error("model %s has a skin taller than %d", model->name,
 		  MAX_LBM_HEIGHT);
 
     pheader->numverts = LittleLong(pinmodel->numverts);
 
     if (pheader->numverts <= 0)
-	Sys_Error("model %s has no vertices", mod->name);
+	Sys_Error("model %s has no vertices", model->name);
 
     if (pheader->numverts > MAXALIASVERTS)
-	Sys_Error("model %s has too many vertices", mod->name);
+	Sys_Error("model %s has too many vertices", model->name);
 
     pheader->numtris = LittleLong(pinmodel->numtris);
 
     if (pheader->numtris <= 0)
-	Sys_Error("model %s has no triangles", mod->name);
+	Sys_Error("model %s has no triangles", model->name);
 
     pheader->numframes = LittleLong(pinmodel->numframes);
     pheader->size = LittleFloat(pinmodel->size) * ALIAS_BASE_SIZE_RATIO;
-    mod->synctype = LittleLong(pinmodel->synctype);
-    mod->numframes = pheader->numframes;
+    model->synctype = LittleLong(pinmodel->synctype);
+    model->numframes = pheader->numframes;
 
     for (i = 0; i < 3; i++) {
 	pheader->scale[i] = LittleFloat(pinmodel->scale[i]);
@@ -312,7 +312,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
 // load the skins
 //
     pskintype = (daliasskintype_t *)&pinmodel[1];
-    pskintype = Mod_LoadAllSkins(loader, loadmodel, pheader->numskins,
+    pskintype = Mod_LoadAllSkins(loader, model, pheader->numskins,
 				 pskintype, loadname);
 
 //
@@ -337,7 +337,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
 		triangles[i].vertindex[j] >= pheader->numverts)
 		Sys_Error("%s: invalid vertex index (%d of %d) in %s\n",
 			  __func__, triangles[i].vertindex[j],
-			  pheader->numverts, mod->name);
+			  pheader->numverts, model->name);
 	}
     }
 
@@ -363,11 +363,11 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
 	}
     }
     pheader->numposes = posenum;
-    mod->type = mod_alias;
+    model->type = mod_alias;
 
 // FIXME: do this right
-    mod->mins[0] = mod->mins[1] = mod->mins[2] = -16;
-    mod->maxs[0] = mod->maxs[1] = mod->maxs[2] = 16;
+    model->mins[0] = model->mins[1] = model->mins[2] = -16;
+    model->maxs[0] = model->maxs[1] = model->maxs[2] = 16;
 
     /*
      * Save the frame intervals
@@ -380,7 +380,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
     /*
      * Save the mesh data (verts, stverts, triangles)
      */
-    loader->LoadMeshData(loadmodel, pheader, triangles, stverts, poseverts);
+    loader->LoadMeshData(model, pheader, triangles, stverts, poseverts);
 
 //
 // move the complete, relocatable alias model to the cache
@@ -388,11 +388,11 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *mod, void *buffer,
     end = Hunk_LowMark();
     total = end - start;
 
-    Cache_AllocPadded(&mod->cache, pad, total - pad, loadname);
-    if (!mod->cache.data)
+    Cache_AllocPadded(&model->cache, pad, total - pad, loadname);
+    if (!model->cache.data)
 	return;
 
-    memcpy((byte *)mod->cache.data - pad, container, total);
+    memcpy((byte *)model->cache.data - pad, container, total);
 
     Hunk_FreeToLowMark(start);
 }
