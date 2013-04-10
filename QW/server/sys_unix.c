@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "common.h"
 #include "cvar.h"
+#include "net.h"
 #include "qwsvdef.h"
 #include "server.h"
 #include "sys.h"
@@ -29,9 +30,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <unistd.h>
 #include <sys/time.h>
 #include <errno.h>
-
-// FIXME - header hacks
-extern int net_socket;
 
 static cvar_t sys_nostdout = { "sys_nostdout", "0" };
 static cvar_t sys_extrasleep = { "sys_extrasleep", "0" };
