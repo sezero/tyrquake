@@ -90,9 +90,7 @@ Sys_Quit(void)
 void
 Sys_Init(void)
 {
-#ifdef USE_X86_ASM
     Sys_SetFPCW();
-#endif
 }
 
 void
@@ -210,6 +208,7 @@ Sys_DebugLog(const char *file, const char *fmt, ...)
 #ifndef USE_X86_ASM
 void Sys_HighFPPrecision(void) {}
 void Sys_LowFPPrecision(void) {}
+void Sys_SetFPCW(void) {}
 #endif
 
 /*
