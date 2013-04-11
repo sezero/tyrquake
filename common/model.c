@@ -676,17 +676,20 @@ Mod_LoadEntities
 =================
 */
 static void
-Mod_LoadEntities(model_t *model, const lump_t *l)
+Mod_LoadEntities(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_ENTITIES];
     char hunkname[HUNK_NAMELEN];
+    const byte *entities;
 
-    if (!l->filelen) {
+    if (!headerlump->filelen) {
 	model->entities = NULL;
 	return;
     }
+    entities = (byte *)header + headerlump->fileofs;
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
-    model->entities = Hunk_AllocName(l->filelen, hunkname);
-    memcpy(model->entities, mod_base + l->fileofs, l->filelen);
+    model->entities = Hunk_AllocName(headerlump->filelen, hunkname);
+    memcpy(model->entities, entities, headerlump->filelen);
 }
 
 
@@ -1778,7 +1781,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 	Mod_LoadNodes_BSP2(model, &header->lumps[LUMP_NODES]);
 	Mod_LoadClipnodes_BSP2(model, &header->lumps[LUMP_CLIPNODES]);
     }
-    Mod_LoadEntities(model, &header->lumps[LUMP_ENTITIES]);
+    Mod_LoadEntities(model, header);
     Mod_LoadSubmodels(model, &header->lumps[LUMP_MODELS]);
 
     Mod_MakeHull0(model);
