@@ -699,17 +699,18 @@ Mod_LoadVertexes
 =================
 */
 static void
-Mod_LoadVertexes(model_t *model, const lump_t *l)
+Mod_LoadVertexes(model_t *model, const dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_VERTEXES];
     char hunkname[HUNK_NAMELEN];
-    dvertex_t *in;
+    const dvertex_t *in;
     mvertex_t *out;
     int i, count;
 
-    in = (void *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (dvertex_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1753,7 +1754,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 #endif
 
     /* load into heap */
-    Mod_LoadVertexes(model, &header->lumps[LUMP_VERTEXES]);
+    Mod_LoadVertexes(model, header);
     if (header->version == BSPVERSION) {
 	Mod_LoadEdges_BSP29(model, &header->lumps[LUMP_EDGES]);
     } else {
