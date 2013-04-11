@@ -466,15 +466,10 @@ Mod_ForName(const char *name, qboolean crash)
 
 
 /*
-===============================================================================
-
-					BRUSHMODEL LOADING
-
-===============================================================================
-*/
-
-static byte *mod_base;
-
+ * ===========================================================================
+ *				BRUSHMODEL LOADING
+ * ===========================================================================
+ */
 
 /*
 =================
@@ -1719,8 +1714,6 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 		 __func__, model->name, header->version,
 		 BSPVERSION, BSP2VERSION);
 
-    mod_base = (byte *)header;
-
     /*
      * Check the lump extents
      * FIXME - do this more generally... cleanly...?
@@ -1752,15 +1745,19 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     model->checksum = 0;
     model->checksum2 = 0;
 
-// checksum all of the map, except for entities
+    /* checksum the map */
     for (i = 0; i < HEADER_LUMPS; i++) {
-	const lump_t *l = &header->lumps[i];
 	unsigned int checksum;
+	const lump_t *headerlump = &header->lumps[i];
+	const byte *data = (byte *)header + headerlump->fileofs;
 
+	/* exclude entities from both checksums */
 	if (i == LUMP_ENTITIES)
 	    continue;
-	checksum = Com_BlockChecksum(mod_base + l->fileofs, l->filelen);
+	checksum = Com_BlockChecksum(data, headerlump->filelen);
 	model->checksum ^= checksum;
+
+	/* Exclude visibility, leafs and nodes from checksum2 */
 	if (i == LUMP_VISIBILITY || i == LUMP_LEAFS || i == LUMP_NODES)
 	    continue;
 	model->checksum2 ^= checksum;
