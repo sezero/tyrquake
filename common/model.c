@@ -973,18 +973,19 @@ Mod_LoadFaces
 =================
 */
 static void
-Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
+Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_FACES];
     char hunkname[HUNK_NAMELEN];
     bsp29_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
     int planenum, side;
 
-    in = (bsp29_dface_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (bsp29_dface_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1042,18 +1043,19 @@ Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
 }
 
 static void
-Mod_LoadFaces_BSP2(model_t *model, const lump_t *l)
+Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_FACES];
     char hunkname[HUNK_NAMELEN];
     bsp2_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
     int planenum, side;
 
-    in = (bsp2_dface_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (bsp2_dface_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1770,10 +1772,10 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     Mod_LoadPlanes(model, &header->lumps[LUMP_PLANES]);
     Mod_LoadTexinfo(model, header);
     if (header->version == BSPVERSION) {
-	Mod_LoadFaces_BSP29(model, &header->lumps[LUMP_FACES]);
+	Mod_LoadFaces_BSP29(model, header);
 	Mod_LoadMarksurfaces_BSP29(model, &header->lumps[LUMP_MARKSURFACES]);
     } else {
-	Mod_LoadFaces_BSP2(model, &header->lumps[LUMP_FACES]);
+	Mod_LoadFaces_BSP2(model, header);
 	Mod_LoadMarksurfaces_BSP2(model, &header->lumps[LUMP_MARKSURFACES]);
     }
     Mod_LoadVisibility(model, header);
