@@ -653,17 +653,20 @@ Mod_LoadVisibility
 =================
 */
 static void
-Mod_LoadVisibility(model_t *model, const lump_t *l)
+Mod_LoadVisibility(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_VISIBILITY];
     char hunkname[HUNK_NAMELEN];
+    const byte *visdata;
 
-    if (!l->filelen) {
+    if (!headerlump->filelen) {
 	model->visdata = NULL;
 	return;
     }
+    visdata = (byte *)header + headerlump->fileofs;
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
-    model->visdata = Hunk_AllocName(l->filelen, hunkname);
-    memcpy(model->visdata, mod_base + l->fileofs, l->filelen);
+    model->visdata = Hunk_AllocName(headerlump->filelen, hunkname);
+    memcpy(model->visdata, visdata, headerlump->filelen);
 }
 
 
@@ -1765,7 +1768,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 	Mod_LoadFaces_BSP2(model, &header->lumps[LUMP_FACES]);
 	Mod_LoadMarksurfaces_BSP2(model, &header->lumps[LUMP_MARKSURFACES]);
     }
-    Mod_LoadVisibility(model, &header->lumps[LUMP_VISIBILITY]);
+    Mod_LoadVisibility(model, header);
     if (header->version == BSPVERSION) {
 	Mod_LoadLeafs_BSP29(model, &header->lumps[LUMP_LEAFS]);
 	Mod_LoadNodes_BSP29(model, &header->lumps[LUMP_NODES]);
