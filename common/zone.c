@@ -305,8 +305,7 @@ Z_Print(memzone_t * zone)
 
 /* ======================================================================= */
 
-#define	HUNK_SENTINAL	0x1df001ed
-#define HUNK_NAMELEN	8
+#define HUNK_SENTINAL 0x1df001ed
 
 typedef struct {
     int sentinal;

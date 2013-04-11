@@ -93,6 +93,7 @@ void Z_Free(const void *ptr);
 void *Z_Malloc(int size);	// returns 0 filled memory
 void *Z_Realloc(const void *ptr, int size);
 
+#define HUNK_NAMELEN 8
 void *Hunk_Alloc(int size);	// returns 0 filled memory
 void *Hunk_AllocName(int size, const char *name);
 
