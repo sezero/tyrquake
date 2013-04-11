@@ -730,17 +730,18 @@ Mod_LoadSubmodels
 =================
 */
 static void
-Mod_LoadSubmodels(model_t *model, const lump_t *l)
+Mod_LoadSubmodels(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_MODELS];
     char hunkname[HUNK_NAMELEN];
     dmodel_t *in;
     dmodel_t *out;
     int i, j, count;
 
-    in = (void *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (dmodel_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1783,7 +1784,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 	Mod_LoadClipnodes_BSP2(model, &header->lumps[LUMP_CLIPNODES]);
     }
     Mod_LoadEntities(model, header);
-    Mod_LoadSubmodels(model, &header->lumps[LUMP_MODELS]);
+    Mod_LoadSubmodels(model, header);
 
     Mod_MakeHull0(model);
 
