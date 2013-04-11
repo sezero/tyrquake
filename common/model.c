@@ -1591,6 +1591,43 @@ RadiusFromBounds(vec3_t mins, vec3_t maxs)
     return Length(corner);
 }
 
+static void
+Mod_SetupSubmodels(model_t *world)
+{
+    const dmodel_t *dmodel;
+    model_t *submodel;
+    int i, j;
+
+    /* Set up the extra submodel fields, starting with the world */
+    submodel = world;
+    for (i = 0; i < world->numsubmodels; i++) {
+	if (i > 0) {
+	    /* Find next submodel and copy base fields from world */
+	    char name[10];
+	    snprintf(name, sizeof(name), "*%d", i);
+	    submodel = Mod_FindName(name);
+	    *submodel = *world;
+	    snprintf(submodel->name, sizeof(submodel->name), "%s", name);
+	}
+
+	dmodel = &world->submodels[i];
+	submodel->hulls[0].firstclipnode = dmodel->headnode[0];
+	for (j = 1; j < MAX_MAP_HULLS; j++) {
+	    submodel->hulls[j].firstclipnode = dmodel->headnode[j];
+	    submodel->hulls[j].lastclipnode = submodel->numclipnodes - 1;
+	}
+
+	submodel->firstmodelsurface = dmodel->firstface;
+	submodel->nummodelsurfaces = dmodel->numfaces;
+
+	VectorCopy(dmodel->maxs, submodel->maxs);
+	VectorCopy(dmodel->mins, submodel->mins);
+
+	submodel->radius = RadiusFromBounds(submodel->mins, submodel->maxs);
+	submodel->numleafs = dmodel->visleafs;
+    }
+}
+
 /*
 =================
 Mod_LoadBrushModel
@@ -1716,36 +1753,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 	Mod_InitPVSCache(model->numleafs);
     }
 
-    /* Now that the main model has been set up, set up the submodels */
-    for (i = 0; i < model->numsubmodels; i++) {
-	const dmodel_t *submodel = &model->submodels[i];
-
-	model->hulls[0].firstclipnode = submodel->headnode[0];
-	for (j = 1; j < MAX_MAP_HULLS; j++) {
-	    model->hulls[j].firstclipnode = submodel->headnode[j];
-	    model->hulls[j].lastclipnode = model->numclipnodes - 1;
-	}
-
-	model->firstmodelsurface = submodel->firstface;
-	model->nummodelsurfaces = submodel->numfaces;
-
-	VectorCopy(submodel->maxs, model->maxs);
-	VectorCopy(submodel->mins, model->mins);
-
-	model->radius = RadiusFromBounds(model->mins, model->maxs);
-	model->numleafs = submodel->visleafs;
-
-	/* duplicate the base model fields, set submodel name */
-	if (i < model->numsubmodels - 1) {
-	    model_t *sub;
-	    char name[10];
-
-	    snprintf(name, sizeof(name), "*%i", i + 1);
-	    sub = Mod_FindName(name);
-	    *sub = *model;
-	    snprintf(sub->name, sizeof(sub->name), "%s", name);
-	}
-    }
+    Mod_SetupSubmodels(model);
 }
 
 /*
