@@ -769,17 +769,18 @@ Mod_LoadEdges
 =================
 */
 static void
-Mod_LoadEdges_BSP29(model_t *model, const lump_t *l)
+Mod_LoadEdges_BSP29(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_EDGES];
     char hunkname[HUNK_NAMELEN];
     bsp29_dedge_t *in;
     medge_t *out;
     int i, count;
 
-    in = (bsp29_dedge_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (bsp29_dedge_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName((count + 1) * sizeof(*out), hunkname);
 
@@ -793,17 +794,18 @@ Mod_LoadEdges_BSP29(model_t *model, const lump_t *l)
 }
 
 static void
-Mod_LoadEdges_BSP2(model_t *model, const lump_t *l)
+Mod_LoadEdges_BSP2(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_EDGES];
     char hunkname[HUNK_NAMELEN];
     bsp2_dedge_t *in;
     medge_t *out;
     int i, count;
 
-    in = (bsp2_dedge_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (bsp2_dedge_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName((count + 1) * sizeof(*out), hunkname);
 
@@ -1757,9 +1759,9 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     /* load into heap */
     Mod_LoadVertexes(model, header);
     if (header->version == BSPVERSION) {
-	Mod_LoadEdges_BSP29(model, &header->lumps[LUMP_EDGES]);
+	Mod_LoadEdges_BSP29(model, header);
     } else {
-	Mod_LoadEdges_BSP2(model, &header->lumps[LUMP_EDGES]);
+	Mod_LoadEdges_BSP2(model, header);
     }
     Mod_LoadSurfedges(model, &header->lumps[LUMP_SURFEDGES]);
     Mod_LoadTextures(model, header);
