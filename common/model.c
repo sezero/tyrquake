@@ -1129,17 +1129,18 @@ Mod_LoadNodes
 =================
 */
 static void
-Mod_LoadNodes_BSP29(model_t *model, const lump_t *l)
+Mod_LoadNodes_BSP29(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_NODES];
     char hunkname[HUNK_NAMELEN];
     int i, j, count, p;
     bsp29_dnode_t *in;
     mnode_t *out;
 
-    in = (bsp29_dnode_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (bsp29_dnode_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1171,17 +1172,18 @@ Mod_LoadNodes_BSP29(model_t *model, const lump_t *l)
 }
 
 static void
-Mod_LoadNodes_BSP2(model_t *model, const lump_t *l)
+Mod_LoadNodes_BSP2(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_NODES];
     char hunkname[HUNK_NAMELEN];
     int i, j, count, p;
     bsp2_dnode_t *in;
     mnode_t *out;
 
-    in = (bsp2_dnode_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (bsp2_dnode_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1781,11 +1783,11 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     Mod_LoadVisibility(model, header);
     if (header->version == BSPVERSION) {
 	Mod_LoadLeafs_BSP29(model, &header->lumps[LUMP_LEAFS]);
-	Mod_LoadNodes_BSP29(model, &header->lumps[LUMP_NODES]);
+	Mod_LoadNodes_BSP29(model, header);
 	Mod_LoadClipnodes_BSP29(model, &header->lumps[LUMP_CLIPNODES]);
     } else {
 	Mod_LoadLeafs_BSP2(model, &header->lumps[LUMP_LEAFS]);
-	Mod_LoadNodes_BSP2(model, &header->lumps[LUMP_NODES]);
+	Mod_LoadNodes_BSP2(model, header);
 	Mod_LoadClipnodes_BSP2(model, &header->lumps[LUMP_CLIPNODES]);
     }
     Mod_LoadEntities(model, header);
