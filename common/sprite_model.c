@@ -129,8 +129,9 @@ Mod_LoadSpriteModel
 =================
 */
 void
-Mod_LoadSpriteModel(model_t *mod, void *buffer, const char *loadname)
+Mod_LoadSpriteModel(model_t *model, void *buffer)
 {
+    char hunkname[HUNK_NAMELEN];
     int i;
     int version;
     dsprite_t *pin;
@@ -144,24 +145,25 @@ Mod_LoadSpriteModel(model_t *mod, void *buffer, const char *loadname)
     version = LittleLong(pin->version);
     if (version != SPRITE_VERSION)
 	Sys_Error("%s: %s has wrong version number (%i should be %i)",
-		  __func__, mod->name, version, SPRITE_VERSION);
+		  __func__, model->name, version, SPRITE_VERSION);
 
     numframes = LittleLong(pin->numframes);
     size = sizeof(*psprite) + numframes * sizeof(psprite->frames[0]);
-    psprite = Hunk_AllocName(size, loadname);
-    mod->cache.data = psprite;
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    psprite = Hunk_AllocName(size, hunkname);
+    model->cache.data = psprite;
 
     psprite->type = LittleLong(pin->type);
     psprite->maxwidth = LittleLong(pin->width);
     psprite->maxheight = LittleLong(pin->height);
     psprite->beamlength = LittleFloat(pin->beamlength);
-    mod->synctype = LittleLong(pin->synctype);
+    model->synctype = LittleLong(pin->synctype);
     psprite->numframes = numframes;
 
-    mod->mins[0] = mod->mins[1] = -psprite->maxwidth / 2;
-    mod->maxs[0] = mod->maxs[1] = psprite->maxwidth / 2;
-    mod->mins[2] = -psprite->maxheight / 2;
-    mod->maxs[2] = psprite->maxheight / 2;
+    model->mins[0] = model->mins[1] = -psprite->maxwidth / 2;
+    model->maxs[0] = model->maxs[1] = psprite->maxwidth / 2;
+    model->mins[2] = -psprite->maxheight / 2;
+    model->maxs[2] = psprite->maxheight / 2;
 
 //
 // load the frames
@@ -169,8 +171,8 @@ Mod_LoadSpriteModel(model_t *mod, void *buffer, const char *loadname)
     if (numframes < 1)
 	Sys_Error("%s: Invalid # of frames: %d", __func__, numframes);
 
-    mod->numframes = numframes;
-    mod->flags = 0;
+    model->numframes = numframes;
+    model->flags = 0;
 
     pframetype = (dspriteframetype_t *)(pin + 1);
 
@@ -183,15 +185,15 @@ Mod_LoadSpriteModel(model_t *mod, void *buffer, const char *loadname)
 	if (frametype == SPR_SINGLE) {
 	    pframetype = (dspriteframetype_t *)
 		Mod_LoadSpriteFrame(pframetype + 1,
-				    &psprite->frames[i].frameptr, loadname, i);
+				    &psprite->frames[i].frameptr, hunkname, i);
 	} else {
 	    pframetype = (dspriteframetype_t *)
 		Mod_LoadSpriteGroup(pframetype + 1,
-				    &psprite->frames[i].frameptr, loadname, i);
+				    &psprite->frames[i].frameptr, hunkname, i);
 	}
     }
 
-    mod->type = mod_sprite;
+    model->type = mod_sprite;
 }
 
 /*

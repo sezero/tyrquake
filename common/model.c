@@ -49,8 +49,6 @@ static texture_t r_notexture_mip_qwsv;
 #define SV_Error Sys_Error
 #endif
 
-static char loadname[MAX_QPATH];	/* for hunk tags */
-
 static void Mod_LoadBrushModel(model_t *model, void *buffer, size_t size);
 static model_t *Mod_LoadModel(model_t *model, qboolean crash);
 
@@ -407,46 +405,38 @@ Loads a model into the cache
 static model_t *
 Mod_LoadModel(model_t *model, qboolean crash)
 {
+    byte stackbuf[1024];
     unsigned *buf;
-    byte stackbuf[1024];	// avoid dirtying the cache heap
     size_t size;
 
     if (!model->needload) {
 	if (model->type == mod_alias) {
 	    if (Cache_Check(&model->cache))
 		return model;
-	} else
-	    return model;		// not cached at all
+	} else {
+	    /* not cached at all */
+	    return model;
+	}
     }
-//
-// load the file
-//
+
+    /* Load the file - use stack for tiny models to avoid dirtying heap */
     buf = COM_LoadStackFile(model->name, stackbuf, sizeof(stackbuf), &size);
     if (!buf) {
 	if (crash)
 	    SV_Error("%s: %s not found", __func__, model->name);
 	return NULL;
     }
-//
-// allocate a new model
-//
-    COM_FileBase(model->name, loadname, sizeof(loadname));
 
-//
-// fill it in
-//
-
-// call the apropriate loader
+    /* call the apropriate loader */
     model->needload = false;
-
     switch (LittleLong(*(unsigned *)buf)) {
 #ifndef SERVERONLY
     case IDPOLYHEADER:
-	Mod_LoadAliasModel(mod_loader, model, buf, loadname);
+	Mod_LoadAliasModel(mod_loader, model, buf);
 	break;
 
     case IDSPRITEHEADER:
-	Mod_LoadSpriteModel(model, buf, loadname);
+	Mod_LoadSpriteModel(model, buf);
 	break;
 #endif
     default:
@@ -494,7 +484,8 @@ Mod_LoadTextures
 static void
 Mod_LoadTextures(model_t *model, const lump_t *l)
 {
-    int i, j, pixels, num, max, altmax;
+    char hunkname[HUNK_NAMELEN];
+    int i, j, pixels, num, max, altmax, memsize;
     miptex_t *mt;
     texture_t *tx, *tx2;
     texture_t *anims[10];
@@ -505,13 +496,15 @@ Mod_LoadTextures(model_t *model, const lump_t *l)
 	model->textures = NULL;
 	return;
     }
-    m = (dmiptexlump_t *)(mod_base + l->fileofs);
 
+    m = (dmiptexlump_t *)(mod_base + l->fileofs);
     m->nummiptex = LittleLong(m->nummiptex);
 
     model->numtextures = m->nummiptex;
-    model->textures =
-	Hunk_AllocName(m->nummiptex * sizeof(*model->textures), loadname);
+
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    memsize = model->numtextures * sizeof(*model->textures);
+    model->textures = Hunk_AllocName(memsize, hunkname);
 
     for (i = 0; i < m->nummiptex; i++) {
 	m->dataofs[i] = LittleLong(m->dataofs[i]);
@@ -526,7 +519,7 @@ Mod_LoadTextures(model_t *model, const lump_t *l)
 	if ((mt->width & 15) || (mt->height & 15))
 	    SV_Error("Texture %s is not 16 aligned", mt->name);
 	pixels = mt->width * mt->height / 64 * 85;
-	tx = Hunk_AllocName(sizeof(texture_t) + pixels, loadname);
+	tx = Hunk_AllocName(sizeof(texture_t) + pixels, hunkname);
 	model->textures[i] = tx;
 
 	memcpy(tx->name, mt->name, sizeof(tx->name));
@@ -638,11 +631,14 @@ Mod_LoadLighting
 static void
 Mod_LoadLighting(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
+
     if (!l->filelen) {
 	model->lightdata = NULL;
 	return;
     }
-    model->lightdata = Hunk_AllocName(l->filelen, loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    model->lightdata = Hunk_AllocName(l->filelen, hunkname);
     memcpy(model->lightdata, mod_base + l->fileofs, l->filelen);
 }
 
@@ -655,11 +651,14 @@ Mod_LoadVisibility
 static void
 Mod_LoadVisibility(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
+
     if (!l->filelen) {
 	model->visdata = NULL;
 	return;
     }
-    model->visdata = Hunk_AllocName(l->filelen, loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    model->visdata = Hunk_AllocName(l->filelen, hunkname);
     memcpy(model->visdata, mod_base + l->fileofs, l->filelen);
 }
 
@@ -672,11 +671,14 @@ Mod_LoadEntities
 static void
 Mod_LoadEntities(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
+
     if (!l->filelen) {
 	model->entities = NULL;
 	return;
     }
-    model->entities = Hunk_AllocName(l->filelen, loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    model->entities = Hunk_AllocName(l->filelen, hunkname);
     memcpy(model->entities, mod_base + l->fileofs, l->filelen);
 }
 
@@ -689,6 +691,7 @@ Mod_LoadVertexes
 static void
 Mod_LoadVertexes(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     dvertex_t *in;
     mvertex_t *out;
     int i, count;
@@ -697,7 +700,8 @@ Mod_LoadVertexes(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->vertexes = out;
     model->numvertexes = count;
@@ -717,6 +721,7 @@ Mod_LoadSubmodels
 static void
 Mod_LoadSubmodels(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     dmodel_t *in;
     dmodel_t *out;
     int i, j, count;
@@ -725,7 +730,8 @@ Mod_LoadSubmodels(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->submodels = out;
     model->numsubmodels = count;
@@ -753,6 +759,7 @@ Mod_LoadEdges
 static void
 Mod_LoadEdges_BSP29(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp29_dedge_t *in;
     medge_t *out;
     int i, count;
@@ -761,7 +768,8 @@ Mod_LoadEdges_BSP29(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName((count + 1) * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName((count + 1) * sizeof(*out), hunkname);
 
     model->edges = out;
     model->numedges = count;
@@ -775,6 +783,7 @@ Mod_LoadEdges_BSP29(model_t *model, const lump_t *l)
 static void
 Mod_LoadEdges_BSP2(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp2_dedge_t *in;
     medge_t *out;
     int i, count;
@@ -783,7 +792,8 @@ Mod_LoadEdges_BSP2(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName((count + 1) * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName((count + 1) * sizeof(*out), hunkname);
 
     model->edges = out;
     model->numedges = count;
@@ -802,6 +812,7 @@ Mod_LoadTexinfo
 static void
 Mod_LoadTexinfo(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     texinfo_t *in;
     mtexinfo_t *out;
     int i, j, count;
@@ -812,7 +823,8 @@ Mod_LoadTexinfo(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->texinfo = out;
     model->numtexinfo = count;
@@ -948,6 +960,7 @@ Mod_LoadFaces
 static void
 Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp29_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
@@ -957,7 +970,8 @@ Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->surfaces = out;
     model->numsurfaces = count;
@@ -997,7 +1011,7 @@ Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
 	if (!strncmp(out->texinfo->texture->name, "sky", 3)) {
 	    out->flags |= (SURF_DRAWSKY | SURF_DRAWTILED);
 #ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, loadname);
+	    GL_SubdivideSurface(model, out, hunkname);
 #endif
 	} else if (!strncmp(out->texinfo->texture->name, "*", 1)) {
 	    out->flags |= (SURF_DRAWTURB | SURF_DRAWTILED);
@@ -1006,7 +1020,7 @@ Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
 		out->texturemins[i] = -8192;
 	    }
 #ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, loadname);
+	    GL_SubdivideSurface(model, out, hunkname);
 #endif
 	}
     }
@@ -1015,6 +1029,7 @@ Mod_LoadFaces_BSP29(model_t *model, const lump_t *l)
 static void
 Mod_LoadFaces_BSP2(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp2_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
@@ -1024,7 +1039,8 @@ Mod_LoadFaces_BSP2(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->surfaces = out;
     model->numsurfaces = count;
@@ -1059,7 +1075,7 @@ Mod_LoadFaces_BSP2(model_t *model, const lump_t *l)
 	if (!strncmp(out->texinfo->texture->name, "sky", 3)) {
 	    out->flags |= (SURF_DRAWSKY | SURF_DRAWTILED);
 #ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, loadname);
+	    GL_SubdivideSurface(model, out, hunkname);
 #endif
 	} else if (!strncmp(out->texinfo->texture->name, "*", 1)) {
 	    out->flags |= (SURF_DRAWTURB | SURF_DRAWTILED);
@@ -1068,7 +1084,7 @@ Mod_LoadFaces_BSP2(model_t *model, const lump_t *l)
 		out->texturemins[i] = -8192;
 	    }
 #ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, loadname);
+	    GL_SubdivideSurface(model, out, hunkname);
 #endif
 	}
     }
@@ -1098,6 +1114,7 @@ Mod_LoadNodes
 static void
 Mod_LoadNodes_BSP29(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, j, count, p;
     bsp29_dnode_t *in;
     mnode_t *out;
@@ -1106,7 +1123,8 @@ Mod_LoadNodes_BSP29(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->nodes = out;
     model->numnodes = count;
@@ -1138,6 +1156,7 @@ Mod_LoadNodes_BSP29(model_t *model, const lump_t *l)
 static void
 Mod_LoadNodes_BSP2(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, j, count, p;
     bsp2_dnode_t *in;
     mnode_t *out;
@@ -1146,7 +1165,8 @@ Mod_LoadNodes_BSP2(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->nodes = out;
     model->numnodes = count;
@@ -1184,6 +1204,7 @@ Mod_LoadLeafs
 static void
 Mod_LoadLeafs_BSP29(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp29_dleaf_t *in;
     mleaf_t *out;
     int i, j, count, p;
@@ -1192,7 +1213,8 @@ Mod_LoadLeafs_BSP29(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->leafs = out;
     model->numleafs = count;
@@ -1249,6 +1271,7 @@ Mod_LoadLeafs_BSP29(model_t *model, const lump_t *l)
 static void
 Mod_LoadLeafs_BSP2(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp2_dleaf_t *in;
     mleaf_t *out;
     int i, j, count, p;
@@ -1257,7 +1280,8 @@ Mod_LoadLeafs_BSP2(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->leafs = out;
     model->numleafs = count;
@@ -1320,6 +1344,7 @@ Mod_LoadClipnodes
 static void
 Mod_LoadClipnodes_BSP29(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp29_dclipnode_t *in;
     mclipnode_t *out;
     int i, j, count;
@@ -1329,7 +1354,8 @@ Mod_LoadClipnodes_BSP29(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->clipnodes = out;
     model->numclipnodes = count;
@@ -1373,6 +1399,7 @@ Mod_LoadClipnodes_BSP29(model_t *model, const lump_t *l)
 static void
 Mod_LoadClipnodes_BSP2(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     bsp2_dclipnode_t *in;
     mclipnode_t *out;
     int i, j, count;
@@ -1382,7 +1409,8 @@ Mod_LoadClipnodes_BSP2(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->clipnodes = out;
     model->numclipnodes = count;
@@ -1431,6 +1459,7 @@ Duplicate the drawing hull structure as a clipping hull
 static void
 Mod_MakeHull0(model_t *model)
 {
+    char hunkname[HUNK_NAMELEN];
     mnode_t *in, *child;
     mclipnode_t *out;
     int i, j, count;
@@ -1440,7 +1469,8 @@ Mod_MakeHull0(model_t *model)
 
     in = model->nodes;
     count = model->numnodes;
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     hull->clipnodes = out;
     hull->firstclipnode = 0;
@@ -1468,6 +1498,7 @@ Mod_LoadMarksurfaces
 static void
 Mod_LoadMarksurfaces_BSP29(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, j, count;
     uint16_t *in;
     msurface_t **out;
@@ -1476,7 +1507,8 @@ Mod_LoadMarksurfaces_BSP29(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->marksurfaces = out;
     model->nummarksurfaces = count;
@@ -1492,6 +1524,7 @@ Mod_LoadMarksurfaces_BSP29(model_t *model, const lump_t *l)
 static void
 Mod_LoadMarksurfaces_BSP2(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, j, count;
     uint32_t *in;
     msurface_t **out;
@@ -1500,7 +1533,8 @@ Mod_LoadMarksurfaces_BSP2(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->marksurfaces = out;
     model->nummarksurfaces = count;
@@ -1521,6 +1555,7 @@ Mod_LoadSurfedges
 static void
 Mod_LoadSurfedges(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, count;
     int *in, *out;
 
@@ -1528,7 +1563,8 @@ Mod_LoadSurfedges(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
     model->surfedges = out;
     model->numsurfedges = count;
@@ -1545,6 +1581,7 @@ Mod_LoadPlanes
 static void
 Mod_LoadPlanes(model_t *model, const lump_t *l)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, j;
     mplane_t *out;
     dplane_t *in;
@@ -1555,7 +1592,8 @@ Mod_LoadPlanes(model_t *model, const lump_t *l)
     if (l->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = l->filelen / sizeof(*in);
-    out = Hunk_AllocName(count * 2 * sizeof(*out), loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    out = Hunk_AllocName(count * 2 * sizeof(*out), hunkname);
 
     model->planes = out;
     model->numplanes = count;

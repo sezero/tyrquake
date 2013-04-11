@@ -215,9 +215,9 @@ Mod_LoadAliasModel
 =================
 */
 void
-Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer,
-		   const char *loadname)
+Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 {
+    char hunkname[HUNK_NAMELEN];
     byte *container;
     int i, j, pad;
     mdl_t *pinmodel;
@@ -269,7 +269,8 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer,
     size = pad + sizeof(aliashdr_t) +
 	LittleLong(pinmodel->numframes) * sizeof(pheader->frames[0]);
 
-    container = Hunk_AllocName(size, loadname);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    container = Hunk_AllocName(size, hunkname);
     pheader = (aliashdr_t *)(container + pad);
 
     model->flags = LittleLong(pinmodel->flags);
@@ -313,7 +314,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer,
 //
     pskintype = (daliasskintype_t *)&pinmodel[1];
     pskintype = Mod_LoadAllSkins(loader, model, pheader->numskins,
-				 pskintype, loadname);
+				 pskintype, hunkname);
 
 //
 // set base s and t vertices
@@ -359,7 +360,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer,
 	} else {
 	    group = (daliasgroup_t *)(pframetype + 1);
 	    pframetype = Mod_LoadAliasGroup(group, &pheader->frames[i],
-					    loadname);
+					    hunkname);
 	}
     }
     pheader->numposes = posenum;
@@ -388,7 +389,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer,
     end = Hunk_LowMark();
     total = end - start;
 
-    Cache_AllocPadded(&model->cache, pad, total - pad, loadname);
+    Cache_AllocPadded(&model->cache, pad, total - pad, hunkname);
     if (!model->cache.data)
 	return;
 
