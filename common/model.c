@@ -1031,7 +1031,7 @@ Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
 		out->texturemins[i] = -8192;
 	    }
 #ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, hunkname);
+	    GL_SubdivideSurface(model, out);
 #endif
 	}
     }
@@ -1096,7 +1096,7 @@ Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
 		out->texturemins[i] = -8192;
 	    }
 #ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, hunkname);
+	    GL_SubdivideSurface(model, out);
 #endif
 	}
     }

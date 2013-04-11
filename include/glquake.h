@@ -241,7 +241,7 @@ void GL_EnableMultitexture(void);
 //
 // gl_warp.c
 //
-void GL_SubdivideSurface(model_t *m, msurface_t *fa, const char *loadname);
+void GL_SubdivideSurface(model_t *model, msurface_t *surf);
 void EmitBothSkyLayers(msurface_t *fa);
 void EmitWaterPolys(msurface_t *fa);
 void EmitSkyPolys(msurface_t *fa);

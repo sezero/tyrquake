@@ -34,8 +34,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static float speedscale;	// for top sky and bottom sky
 static float speedscale2;	// for sky alpha layer using multitexture
 
-static msurface_t *warpface;
-
 static void
 BoundPoly(int numverts, float *verts, vec3_t mins, vec3_t maxs)
 {
@@ -55,14 +53,15 @@ BoundPoly(int numverts, float *verts, vec3_t mins, vec3_t maxs)
 }
 
 static void
-SubdividePolygon(int numverts, float *verts, const char *loadname)
+SubdividePolygon(msurface_t *surf, int numverts, vec_t *verts,
+		 const char *hunkname)
 {
     int i, j, k, memsize;
     vec3_t mins, maxs;
     float m;
     float *v;
     vec3_t front[64], back[64];
-    int f, b;
+    int front_count, back_count;
     float dist[64];
     float frac;
     glpoly_t *poly;
@@ -92,16 +91,16 @@ SubdividePolygon(int numverts, float *verts, const char *loadname)
 	v -= i;
 	VectorCopy(verts, v);
 
-	f = b = 0;
+	front_count = back_count = 0;
 	v = verts;
 	for (j = 0; j < numverts; j++, v += 3) {
 	    if (dist[j] >= 0) {
-		VectorCopy(v, front[f]);
-		f++;
+		VectorCopy(v, front[front_count]);
+		front_count++;
 	    }
 	    if (dist[j] <= 0) {
-		VectorCopy(v, back[b]);
-		b++;
+		VectorCopy(v, back[back_count]);
+		back_count++;
 	    }
 	    if (dist[j] == 0 || dist[j + 1] == 0)
 		continue;
@@ -109,27 +108,27 @@ SubdividePolygon(int numverts, float *verts, const char *loadname)
 		// clip point
 		frac = dist[j] / (dist[j] - dist[j + 1]);
 		for (k = 0; k < 3; k++)
-		    front[f][k] = back[b][k] =
+		    front[front_count][k] = back[back_count][k] =
 			v[k] + frac * (v[3 + k] - v[k]);
-		f++;
-		b++;
+		front_count++;
+		back_count++;
 	    }
 	}
 
-	SubdividePolygon(f, front[0], loadname);
-	SubdividePolygon(b, back[0], loadname);
+	SubdividePolygon(surf, front_count, front[0], hunkname);
+	SubdividePolygon(surf, back_count, back[0], hunkname);
 	return;
     }
 
-    memsize = sizeof(glpoly_t) + numverts * VERTEXSIZE * sizeof(float);
-    poly = Hunk_AllocName(memsize, loadname);
-    poly->next = warpface->polys;
-    warpface->polys = poly;
+    memsize = sizeof(*poly) + numverts * sizeof(poly->verts[0]);
+    poly = Hunk_AllocName(memsize, hunkname);
+    poly->next = surf->polys;
+    surf->polys = poly;
     poly->numverts = numverts;
     for (i = 0; i < numverts; i++, verts += 3) {
 	VectorCopy(verts, poly->verts[i]);
-	s = DotProduct(verts, warpface->texinfo->vecs[0]);
-	t = DotProduct(verts, warpface->texinfo->vecs[1]);
+	s = DotProduct(verts, surf->texinfo->vecs[0]);
+	t = DotProduct(verts, surf->texinfo->vecs[1]);
 	poly->verts[i][3] = s;
 	poly->verts[i][4] = t;
     }
@@ -145,30 +144,29 @@ can be done reasonably.
 ================
 */
 void
-GL_SubdivideSurface(model_t *m, msurface_t *fa, const char *loadname)
+GL_SubdivideSurface(model_t *model, msurface_t *surf)
 {
+    char hunkname[HUNK_NAMELEN];
     vec3_t verts[64];
-    int numverts;
-    int i;
-    int lindex;
-    float *vec;
+    int i, edge, numverts;
+    vec_t *vert;
 
-    warpface = fa;
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
 
     //
     // convert edges back to a normal polygon
     //
     numverts = 0;
-    for (i = 0; i < fa->numedges; i++) {
-	lindex = m->surfedges[fa->firstedge + i];
-	if (lindex > 0)
-	    vec = m->vertexes[m->edges[lindex].v[0]].position;
+    for (i = 0; i < surf->numedges; i++) {
+	edge = model->surfedges[surf->firstedge + i];
+	if (edge > 0)
+	    vert = model->vertexes[model->edges[edge].v[0]].position;
 	else
-	    vec = m->vertexes[m->edges[-lindex].v[1]].position;
-	VectorCopy(vec, verts[numverts]);
+	    vert = model->vertexes[model->edges[-edge].v[1]].position;
+	VectorCopy(vert, verts[numverts]);
 	numverts++;
     }
-    SubdividePolygon(numverts, verts[0], loadname);
+    SubdividePolygon(surf, numverts, verts[0], hunkname);
 }
 
 //=========================================================
