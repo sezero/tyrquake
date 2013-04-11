@@ -482,35 +482,36 @@ Mod_LoadTextures
 =================
 */
 static void
-Mod_LoadTextures(model_t *model, const lump_t *l)
+Mod_LoadTextures(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_TEXTURES];
+    dmiptexlump_t *lump;
     char hunkname[HUNK_NAMELEN];
     int i, j, pixels, num, max, altmax, memsize;
     miptex_t *mt;
     texture_t *tx, *tx2;
     texture_t *anims[10];
     texture_t *altanims[10];
-    dmiptexlump_t *m;
 
-    if (!l->filelen) {
+    if (!headerlump->filelen) {
 	model->textures = NULL;
 	return;
     }
 
-    m = (dmiptexlump_t *)(mod_base + l->fileofs);
-    m->nummiptex = LittleLong(m->nummiptex);
+    lump = (dmiptexlump_t *)((byte *)header + headerlump->fileofs);
+    lump->nummiptex = LittleLong(lump->nummiptex);
 
-    model->numtextures = m->nummiptex;
+    model->numtextures = lump->nummiptex;
 
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     memsize = model->numtextures * sizeof(*model->textures);
     model->textures = Hunk_AllocName(memsize, hunkname);
 
-    for (i = 0; i < m->nummiptex; i++) {
-	m->dataofs[i] = LittleLong(m->dataofs[i]);
-	if (m->dataofs[i] == -1)
+    for (i = 0; i < lump->nummiptex; i++) {
+	lump->dataofs[i] = LittleLong(lump->dataofs[i]);
+	if (lump->dataofs[i] == -1)
 	    continue;
-	mt = (miptex_t *)((byte *)m + m->dataofs[i]);
+	mt = (miptex_t *)((byte *)lump + lump->dataofs[i]);
 	mt->width = (uint32_t)LittleLong(mt->width);
 	mt->height = (uint32_t)LittleLong(mt->height);
 	for (j = 0; j < MIPLEVELS; j++)
@@ -545,7 +546,7 @@ Mod_LoadTextures(model_t *model, const lump_t *l)
 //
 // sequence the animations
 //
-    for (i = 0; i < m->nummiptex; i++) {
+    for (i = 0; i < lump->nummiptex; i++) {
 	tx = model->textures[i];
 	if (!tx || tx->name[0] != '+')
 	    continue;
@@ -572,7 +573,7 @@ Mod_LoadTextures(model_t *model, const lump_t *l)
 	} else
 	    SV_Error("Bad animating texture %s", tx->name);
 
-	for (j = i + 1; j < m->nummiptex; j++) {
+	for (j = i + 1; j < lump->nummiptex; j++) {
 	    tx2 = model->textures[j];
 	    if (!tx2 || tx2->name[0] != '+')
 		continue;
@@ -1750,7 +1751,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 	Mod_LoadEdges_BSP2(model, &header->lumps[LUMP_EDGES]);
     }
     Mod_LoadSurfedges(model, &header->lumps[LUMP_SURFEDGES]);
-    Mod_LoadTextures(model, &header->lumps[LUMP_TEXTURES]);
+    Mod_LoadTextures(model, header);
     Mod_LoadLighting(model, &header->lumps[LUMP_LIGHTING]);
     Mod_LoadPlanes(model, &header->lumps[LUMP_PLANES]);
     Mod_LoadTexinfo(model, &header->lumps[LUMP_TEXINFO]);
