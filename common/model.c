@@ -824,8 +824,9 @@ Mod_LoadTexinfo
 =================
 */
 static void
-Mod_LoadTexinfo(model_t *model, const lump_t *l)
+Mod_LoadTexinfo(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_TEXINFO];
     char hunkname[HUNK_NAMELEN];
     texinfo_t *in;
     mtexinfo_t *out;
@@ -833,10 +834,10 @@ Mod_LoadTexinfo(model_t *model, const lump_t *l)
     int miptex;
     float len1, len2;
 
-    in = (void *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (texinfo_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1767,7 +1768,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     Mod_LoadTextures(model, header);
     Mod_LoadLighting(model, header);
     Mod_LoadPlanes(model, &header->lumps[LUMP_PLANES]);
-    Mod_LoadTexinfo(model, &header->lumps[LUMP_TEXINFO]);
+    Mod_LoadTexinfo(model, header);
     if (header->version == BSPVERSION) {
 	Mod_LoadFaces_BSP29(model, &header->lumps[LUMP_FACES]);
 	Mod_LoadMarksurfaces_BSP29(model, &header->lumps[LUMP_MARKSURFACES]);
