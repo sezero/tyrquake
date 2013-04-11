@@ -961,6 +961,29 @@ CalcSurfaceBounds(const model_t *model, msurface_t *surf)
     }
 }
 
+static void
+Mod_ProcessSurface(model_t *model, msurface_t *surf)
+{
+    int i;
+
+    /* set the surface drawing flags */
+    if (!strncmp(surf->texinfo->texture->name, "sky", 3)) {
+	surf->flags |= SURF_DRAWSKY | SURF_DRAWTILED;
+#ifdef GLQUAKE
+	GL_SubdivideSurface(model, surf);
+#endif
+    } else if (!strncmp(surf->texinfo->texture->name, "*", 1)) {
+	surf->flags |= SURF_DRAWTURB | SURF_DRAWTILED;
+	for (i = 0; i < 2; i++) {
+	    surf->extents[i] = 16384;
+	    surf->texturemins[i] = -8192;
+	}
+#ifdef GLQUAKE
+	GL_SubdivideSurface(model, surf);
+#endif
+    }
+}
+
 /*
 =================
 Mod_LoadFaces
@@ -1018,22 +1041,7 @@ Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
 	else
 	    out->samples = model->lightdata + i;
 
-	/* set the surface drawing flags */
-	if (!strncmp(out->texinfo->texture->name, "sky", 3)) {
-	    out->flags |= (SURF_DRAWSKY | SURF_DRAWTILED);
-#ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, hunkname);
-#endif
-	} else if (!strncmp(out->texinfo->texture->name, "*", 1)) {
-	    out->flags |= (SURF_DRAWTURB | SURF_DRAWTILED);
-	    for (i = 0; i < 2; i++) {
-		out->extents[i] = 16384;
-		out->texturemins[i] = -8192;
-	    }
-#ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out);
-#endif
-	}
+	Mod_ProcessSurface(model, out);
     }
 }
 
@@ -1083,22 +1091,7 @@ Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
 	else
 	    out->samples = model->lightdata + i;
 
-	/* set the surface drawing flags */
-	if (!strncmp(out->texinfo->texture->name, "sky", 3)) {
-	    out->flags |= (SURF_DRAWSKY | SURF_DRAWTILED);
-#ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out, hunkname);
-#endif
-	} else if (!strncmp(out->texinfo->texture->name, "*", 1)) {
-	    out->flags |= (SURF_DRAWTURB | SURF_DRAWTILED);
-	    for (i = 0; i < 2; i++) {
-		out->extents[i] = 16384;
-		out->texturemins[i] = -8192;
-	    }
-#ifdef GLQUAKE
-	    GL_SubdivideSurface(model, out);
-#endif
-	}
+	Mod_ProcessSurface(model, out);
     }
 }
 
