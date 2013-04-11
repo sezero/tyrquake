@@ -630,17 +630,20 @@ Mod_LoadLighting
 =================
 */
 static void
-Mod_LoadLighting(model_t *model, const lump_t *l)
+Mod_LoadLighting(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_LIGHTING];
     char hunkname[HUNK_NAMELEN];
+    const byte *lightdata;
 
-    if (!l->filelen) {
+    if (!headerlump->filelen) {
 	model->lightdata = NULL;
 	return;
     }
+    lightdata = (byte *)header + headerlump->fileofs;
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
-    model->lightdata = Hunk_AllocName(l->filelen, hunkname);
-    memcpy(model->lightdata, mod_base + l->fileofs, l->filelen);
+    model->lightdata = Hunk_AllocName(headerlump->filelen, hunkname);
+    memcpy(model->lightdata, lightdata, headerlump->filelen);
 }
 
 
@@ -1752,7 +1755,7 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     }
     Mod_LoadSurfedges(model, &header->lumps[LUMP_SURFEDGES]);
     Mod_LoadTextures(model, header);
-    Mod_LoadLighting(model, &header->lumps[LUMP_LIGHTING]);
+    Mod_LoadLighting(model, header);
     Mod_LoadPlanes(model, &header->lumps[LUMP_PLANES]);
     Mod_LoadTexinfo(model, &header->lumps[LUMP_TEXINFO]);
     if (header->version == BSPVERSION) {
