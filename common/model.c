@@ -1519,17 +1519,18 @@ Mod_LoadMarksurfaces
 =================
 */
 static void
-Mod_LoadMarksurfaces_BSP29(model_t *model, const lump_t *l)
+Mod_LoadMarksurfaces_BSP29(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_MARKSURFACES];
     char hunkname[HUNK_NAMELEN];
     int i, j, count;
     uint16_t *in;
     msurface_t **out;
 
-    in = (uint16_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (uint16_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1545,17 +1546,18 @@ Mod_LoadMarksurfaces_BSP29(model_t *model, const lump_t *l)
 }
 
 static void
-Mod_LoadMarksurfaces_BSP2(model_t *model, const lump_t *l)
+Mod_LoadMarksurfaces_BSP2(model_t *model, dheader_t *header)
 {
+    const lump_t *headerlump = &header->lumps[LUMP_MARKSURFACES];
     char hunkname[HUNK_NAMELEN];
     int i, j, count;
     uint32_t *in;
     msurface_t **out;
 
-    in = (uint32_t *)(mod_base + l->fileofs);
-    if (l->filelen % sizeof(*in))
+    in = (uint32_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
-    count = l->filelen / sizeof(*in);
+    count = headerlump->filelen / sizeof(*in);
     COM_FileBase(model->name, hunkname, sizeof(hunkname));
     out = Hunk_AllocName(count * sizeof(*out), hunkname);
 
@@ -1779,10 +1781,10 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     Mod_LoadTexinfo(model, header);
     if (header->version == BSPVERSION) {
 	Mod_LoadFaces_BSP29(model, header);
-	Mod_LoadMarksurfaces_BSP29(model, &header->lumps[LUMP_MARKSURFACES]);
+	Mod_LoadMarksurfaces_BSP29(model, header);
     } else {
 	Mod_LoadFaces_BSP2(model, header);
-	Mod_LoadMarksurfaces_BSP2(model, &header->lumps[LUMP_MARKSURFACES]);
+	Mod_LoadMarksurfaces_BSP2(model, header);
     }
     Mod_LoadVisibility(model, header);
     if (header->version == BSPVERSION) {
