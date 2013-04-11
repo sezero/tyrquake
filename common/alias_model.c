@@ -161,9 +161,9 @@ Mod_LoadAllSkins
 */
 static void *
 Mod_LoadAllSkins(const model_loader_t *loader, const model_t *loadmodel,
-		 int numskins, daliasskintype_t *pskintype,
-		 const char *loadname)
+		 int numskins, daliasskintype_t *pskintype)
 {
+    char hunkname[HUNK_NAMELEN];
     int i, skinsize;
     maliasskindesc_t *pskindesc;
     float *pskinintervals;
@@ -179,7 +179,8 @@ Mod_LoadAllSkins(const model_loader_t *loader, const model_t *loadmodel,
 	Sys_Error("%s: skinwidth not multiple of 4", __func__);
 
     skinsize = pheader->skinwidth * pheader->skinheight;
-    pskindesc = Hunk_AllocName(numskins * sizeof(maliasskindesc_t), loadname);
+    COM_FileBase(loadmodel->name, hunkname, sizeof(hunkname));
+    pskindesc = Hunk_AllocName(numskins * sizeof(maliasskindesc_t), hunkname);
     pheader->skindesc = (byte *)pskindesc - (byte *)pheader;
 
     skinnum = 0;
@@ -313,8 +314,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 // load the skins
 //
     pskintype = (daliasskintype_t *)&pinmodel[1];
-    pskintype = Mod_LoadAllSkins(loader, model, pheader->numskins,
-				 pskintype, hunkname);
+    pskintype = Mod_LoadAllSkins(loader, model, pheader->numskins, pskintype);
 
 //
 // set base s and t vertices
