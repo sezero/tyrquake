@@ -272,6 +272,9 @@ SV_ClearWorld(void)
 }
 
 
+static link_t	**sv_link_next;
+static link_t	**sv_link_prev;
+
 /*
 ===============
 SV_UnlinkEdict
@@ -284,6 +287,10 @@ SV_UnlinkEdict(edict_t *ent)
     if (!ent->area.prev)
 	return;			// not linked in anywhere
     RemoveLink(&ent->area);
+    if (sv_link_next && *sv_link_next == &ent->area)
+	*sv_link_next = ent->area.next;
+    if (sv_link_prev && *sv_link_prev == &ent->area)
+	*sv_link_prev = ent->area.prev;
     ent->area.prev = ent->area.next = NULL;
 }
 
@@ -303,12 +310,15 @@ SV_TouchLinks(edict_t *ent, const areanode_t *node)
 
     /* touch linked edicts */
     for (link = triggers->next; link != triggers; link = next) {
+	sv_link_next = &next;
 	/*
 	 * FIXME - Just paranoia? Check if this can really happen...
 	 *         (I think it was related to the E2M2 drawbridge bug)
 	 */
-	if (!link || !link->next)
-	    Host_Error("%s: encountered NULL link", __func__);
+	if (!link) { /* my area got removed out from under me! */
+	    Con_Printf ("%s: encountered NULL link\n", __func__);
+	    break;
+	}
 
 	next = link->next;
 	touch = container_of(link, edict_t, area);
@@ -332,17 +342,11 @@ SV_TouchLinks(edict_t *ent, const areanode_t *node)
 	pr_global_struct->time = sv.time;
 	PR_ExecuteProgram(touch->v.touch);
 
-	/* the PR_ExecuteProgram above can alter the linked edicts */
-	/* FIXME:
-	 * - what if (touch->free == true && l->next == NULL) ? (etc.)
-	 */
-	if (next != link->next && link->next) {
-	    Con_DPrintf("Warning: fixed up link in %s\n", __func__);
-	    next = link->next;
-	}
 	pr_global_struct->self = old_self;
 	pr_global_struct->other = old_other;
     }
+
+    sv_link_next = NULL;
 
     /* recurse down both sides */
     if (node->axis == -1)
