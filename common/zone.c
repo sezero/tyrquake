@@ -315,6 +315,7 @@ typedef struct {
 
 static struct {
     byte *base;
+    void *lowbase;
     int size;
     int lowbytes;
     int highbytes;
@@ -500,8 +501,55 @@ Hunk_AllocName(int size, const char *name)
     memset(hunk->name, 0, HUNK_NAMELEN);
     memcpy(hunk->name, name, qmin((int)strlen(name), HUNK_NAMELEN));
 
+    /* Save a copy of the allocated address */
+    hunkstate.lowbase = hunk + 1;
 
-    return hunk + 1;
+    return hunkstate.lowbase;
+}
+
+/*
+ * Hunk_AllocExtend
+ *
+ * Extend the current hunk allocation, rather than allocating a new
+ * hunk_t header. Useful for sequencing lots of small allocations.
+ */
+void *
+Hunk_AllocExtend(const void *base, int size)
+{
+    hunk_t *hunk;
+    void *memptr;
+
+    if (base != hunkstate.lowbase)
+	Sys_Error("%s: base != current base", __func__);
+
+    if (size < 0)
+	Sys_Error("%s: bad size: %i", __func__, size);
+
+    size = (size + 15) & ~15;
+
+    if (hunkstate.size - hunkstate.lowbytes - hunkstate.highbytes < size) {
+	/* Sys_Error ("%s: failed on %i bytes", __func__, size); */
+#ifdef _WIN32
+	Sys_Error("Not enough RAM allocated.  Try starting using "
+		  "\"-heapsize 16000\" on the command line.");
+#else
+	Sys_Error("Not enough RAM allocated.  Try starting using "
+		  "\"-mem 16\" on the command line.");
+#endif
+    }
+
+    hunk = (hunk_t *)base - 1;
+    if (hunk->sentinal != HUNK_SENTINAL)
+	Sys_Error("%s: bad sentinal (%d)", __func__, hunk->sentinal);
+
+    hunkstate.lowbytes += size;
+    Cache_FreeLow(hunkstate.lowbytes);
+
+    memptr = (byte *)hunk + hunk->size;
+    memset(memptr, 0, size);
+    hunk->size += size;
+
+    return memptr;
 }
 
 /*

@@ -96,6 +96,7 @@ void *Z_Realloc(const void *ptr, int size);
 #define HUNK_NAMELEN 8
 void *Hunk_Alloc(int size);	// returns 0 filled memory
 void *Hunk_AllocName(int size, const char *name);
+void *Hunk_AllocExtend(const void *base, int size);
 
 void *Hunk_HighAllocName(int size, const char *name);
 
