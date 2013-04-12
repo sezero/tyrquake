@@ -487,11 +487,8 @@ main(int argc, const char **argv)
 {
     quakeparms_t parms;
     double newtime, time, oldtime;
-
-    // static char cwd[1024];
     struct timeval timeout;
     fd_set fdset;
-    int t;
 
     COM_InitArgv(argc, argv);
 
@@ -656,7 +653,6 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
     quakeparms_t parms;
     double time, oldtime, newtime;
     static char cwd[1024];
-    int t;
     RECT rect;
 
     /* previous instances do not exist in Win32 */
@@ -738,6 +734,8 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
 #ifdef NQ_HACK
     if (isDedicated) {
+	int parm;
+
 	if (!AllocConsole()) {
 	    DWORD err = GetLastError();
 
@@ -772,21 +770,18 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 	    fflush(stdout);
 	}
 	// give QHOST a chance to hook into the console
-	// FIXME - What is QHOST?
-	if ((t = COM_CheckParm("-HFILE")) > 0) {
-	    if (t < com_argc)
-		hFile = (HANDLE)(intptr_t)Q_atoi(com_argv[t + 1]);
-	}
+	// FIXME - Do we even care about QHOST?
+	parm = COM_CheckParm("-HFILE");
+	if (parm && com_argc > parm + 1)
+	    hFile = (HANDLE)(uintptr_t)strtoull(com_argv[parm + 1], NULL, 0);
 
-	if ((t = COM_CheckParm("-HPARENT")) > 0) {
-	    if (t < com_argc)
-		heventParent = (HANDLE)(intptr_t)Q_atoi(com_argv[t + 1]);
-	}
+	parm = COM_CheckParm("-HPARENT");
+	if (parm && com_argc > parm + 1)
+	    heventParent = (HANDLE)(uintptr_t)strtoull(com_argv[parm + 1], NULL, 0);
 
-	if ((t = COM_CheckParm("-HCHILD")) > 0) {
-	    if (t < com_argc)
-		heventChild = (HANDLE)(intptr_t)Q_atoi(com_argv[t + 1]);
-	}
+	parm = COM_CheckParm("-HCHILD");
+	if (parm && com_argc > parm + 1)
+	    heventChild = (HANDLE)(uintptr_t)strtoull(com_argv[parm + 1], NULL, 0);
 
 	InitConProc(hFile, heventParent, heventChild);
     }
