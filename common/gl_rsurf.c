@@ -1180,9 +1180,9 @@ BuildSurfaceDisplayList
 ================
 */
 static void
-BuildSurfaceDisplayList(msurface_t *fa)
+BuildSurfaceDisplayList(void *hunkbase, msurface_t *surf)
 {
-    int i, lindex, lnumverts;
+    int i, lindex, lnumverts, memsize;
     medge_t *pedges, *r_pedge;
     float *vec;
     float s, t;
@@ -1190,20 +1190,21 @@ BuildSurfaceDisplayList(msurface_t *fa)
 
 // reconstruct the polygon
     pedges = currentmodel->edges;
-    lnumverts = fa->numedges;
+    lnumverts = surf->numedges;
 
     //
     // draw texture
     //
-    poly =
-	Hunk_Alloc(sizeof(glpoly_t) + lnumverts * VERTEXSIZE * sizeof(float));
-    poly->next = fa->polys;
-    poly->flags = fa->flags;
-    fa->polys = poly;
+    memsize = sizeof(*poly) + lnumverts * sizeof(poly->verts[0]);
+    poly = Hunk_AllocExtend(hunkbase, memsize);
+    //poly = Hunk_Alloc(memsize);
+    poly->next = surf->polys;
+    poly->flags = surf->flags;
+    surf->polys = poly;
     poly->numverts = lnumverts;
 
     for (i = 0; i < lnumverts; i++) {
-	lindex = currentmodel->surfedges[fa->firstedge + i];
+	lindex = currentmodel->surfedges[surf->firstedge + i];
 
 	if (lindex > 0) {
 	    r_pedge = &pedges[lindex];
@@ -1212,11 +1213,11 @@ BuildSurfaceDisplayList(msurface_t *fa)
 	    r_pedge = &pedges[-lindex];
 	    vec = r_pcurrentvertbase[r_pedge->v[1]].position;
 	}
-	s = DotProduct(vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
-	s /= fa->texinfo->texture->width;
+	s = DotProduct(vec, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3];
+	s /= surf->texinfo->texture->width;
 
-	t = DotProduct(vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
-	t /= fa->texinfo->texture->height;
+	t = DotProduct(vec, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3];
+	t /= surf->texinfo->texture->height;
 
 	VectorCopy(vec, poly->verts[i]);
 	poly->verts[i][3] = s;
@@ -1225,17 +1226,17 @@ BuildSurfaceDisplayList(msurface_t *fa)
 	//
 	// lightmap texture coordinates
 	//
-	s = DotProduct(vec, fa->texinfo->vecs[0]) + fa->texinfo->vecs[0][3];
-	s -= fa->texturemins[0];
-	s += fa->light_s * 16;
+	s = DotProduct(vec, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3];
+	s -= surf->texturemins[0];
+	s += surf->light_s * 16;
 	s += 8;
-	s /= BLOCK_WIDTH * 16;	//fa->texinfo->texture->width;
+	s /= BLOCK_WIDTH * 16;	//surf->texinfo->texture->width;
 
-	t = DotProduct(vec, fa->texinfo->vecs[1]) + fa->texinfo->vecs[1][3];
-	t -= fa->texturemins[1];
-	t += fa->light_t * 16;
+	t = DotProduct(vec, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3];
+	t -= surf->texturemins[1];
+	t += surf->light_t * 16;
 	t += 8;
-	t /= BLOCK_HEIGHT * 16;	//fa->texinfo->texture->height;
+	t /= BLOCK_HEIGHT * 16;	//surf->texinfo->texture->height;
 
 	poly->verts[i][5] = s;
 	poly->verts[i][6] = t;
@@ -1276,7 +1277,7 @@ with all the surfaces from all brush models
 ==================
 */
 void
-GL_BuildLightmaps(void)
+GL_BuildLightmaps(void *hunkbase)
 {
     int i, j, cnt;
     float t1, t2;
@@ -1345,7 +1346,7 @@ GL_BuildLightmaps(void)
 		continue;
 	    if (m->surfaces[i].flags & SURF_DRAWSKY)
 		continue;
-	    BuildSurfaceDisplayList(m->surfaces + i);
+	    BuildSurfaceDisplayList(hunkbase, m->surfaces + i);
 	}
     }
 

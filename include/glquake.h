@@ -295,7 +295,7 @@ void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawWaterSurfaces(void);
 void R_RenderBrushPoly(const entity_t *e, msurface_t *fa);
-void GL_BuildLightmaps(void);
+void GL_BuildLightmaps(void *hunkbase);
 
 //
 // Used only for r_shadows 1 (remove?)
