@@ -314,8 +314,10 @@ Z_Print(const memzone_t *zone, qboolean detailed)
     }
 
     Con_Printf("zone size: %d  location: %p\n", zone->size, zone);
-    Con_Printf("  %7zd bytes used in %d blocks\n", used_size, used_blocks);
-    Con_Printf("  %7zd bytes available in %d blocks\n", free_size, free_blocks);
+    Con_Printf("  %7lu bytes used in %d blocks\n",
+	       (unsigned long)used_size, used_blocks);
+    Con_Printf("  %7lu bytes available in %d blocks\n",
+	       (unsigned long)free_size, free_blocks);
 }
 
 static void
