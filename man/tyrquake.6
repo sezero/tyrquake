@@ -230,7 +230,12 @@ to use this (and it probably doesn't even work anymore!)
 .IP "\fBvid_fullscreen\fP"
 .IP "\fBvid_minimize\fP"
 .IP "\fBflush\fP"
-.IP "\fBhunk\fP"
+.IP "\fBhunk print|printall\fP"
+Print information about internal memory allocations on the hunk.  If
+the argument \fIprint\fP is given, sequential allocations with the
+same hunk tag are totaled into one line.  If the \fIprintall\fP
+argument is given, details for every individual allocation are
+printed.
 .IP "\fBzone print|printall\fP"
 Print information about memory allocations in the zone allocator.  If
 the argument \fIprint\fP is given, only summary statistics are
