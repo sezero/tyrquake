@@ -86,6 +86,7 @@ Z_ClearZone(memzone_t *zone, int size)
     zone->blocklist.id = 0;
     zone->blocklist.size = 0;
     zone->rover = block;
+    zone->size = size;
 
     block->prev = block->next = &zone->blocklist;
     block->tag = 0;		/* free block */
@@ -273,23 +274,32 @@ Z_Realloc(const void *ptr, int size)
     return ret;
 }
 
-/* FIXME - unused; Make a console command? */
-#if 0
 /*
  * ========================
  * Z_Print
  * ========================
  */
 static void
-Z_Print(memzone_t * zone)
+Z_Print(const memzone_t *zone, qboolean detailed)
 {
-    memblock_t *block;
+    const memblock_t *block;
+    unsigned free_blocks = 0, used_blocks = 0;
+    size_t free_size = 0, used_size = 0;
 
-    Con_Printf("zone size: %i  location: %p\n", mainzone->size, mainzone);
+    block = zone->blocklist.next;
+    while (block) {
+	if (detailed)
+	    Con_Printf("block:%p    size:%7i    tag:%3i\n",
+		       block, block->size, block->tag);
 
-    for (block = zone->blocklist.next;; block = block->next) {
-	Con_Printf("block:%p    size:%7i    tag:%3i\n",
-		   block, block->size, block->tag);
+	/* Update totals */
+	if (!block->tag) {
+	    free_blocks++;
+	    free_size += block->size;
+	} else {
+	    used_blocks++;
+	    used_size += block->size;
+	}
 
 	if (block->next == &zone->blocklist)
 	    break;		/* all blocks have been hit */
@@ -299,9 +309,30 @@ Z_Print(memzone_t * zone)
 	    Con_Printf("ERROR: next block doesn't have proper back link\n");
 	if (!block->tag && !block->next->tag)
 	    Con_Printf("ERROR: two consecutive free blocks\n");
+
+	block = block->next;
     }
+
+    Con_Printf("zone size: %d  location: %p\n", zone->size, zone);
+    Con_Printf("  %7zd bytes used in %d blocks\n", used_size, used_blocks);
+    Con_Printf("  %7zd bytes available in %d blocks\n", free_size, free_blocks);
 }
-#endif
+
+static void
+Z_Zone_f(void)
+{
+    if (Cmd_Argc() == 2) {
+	if (!strcmp(Cmd_Argv(1), "print")) {
+	    Z_Print(mainzone, false);
+	    return;
+	}
+	if (!strcmp(Cmd_Argv(1), "printall")) {
+	    Z_Print(mainzone, true);
+	    return;
+	}
+    }
+    Con_Printf("Usage: zone print\n");
+}
 
 /* ======================================================================= */
 
@@ -1145,5 +1176,6 @@ Memory_Init(void *buf, int size)
     /* Needs to be added after the zone init... */
     Cmd_AddCommand("flush", Cache_Flush);
     Cmd_AddCommand("hunk", Hunk_f);
+    Cmd_AddCommand("zone", Z_Zone_f);
     Cmd_AddCommand("cache", Cache_f);
 }
