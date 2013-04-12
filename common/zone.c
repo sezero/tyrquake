@@ -145,6 +145,7 @@ Z_Free(const void *ptr)
 static void
 Z_CheckHeap(void)
 {
+#ifdef DEBUG
     memblock_t *block;
 
     for (block = mainzone->blocklist.next;; block = block->next) {
@@ -159,6 +160,7 @@ Z_CheckHeap(void)
 	if (!block->tag && !block->next->tag)
 	    Sys_Error("%s: two consecutive free blocks", __func__);
     }
+#endif
 }
 
 
