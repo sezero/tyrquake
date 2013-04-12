@@ -310,7 +310,7 @@ Z_Print(memzone_t * zone)
 typedef struct {
     int sentinal;
     int size; /* including sizeof(hunk_t) */
-    char name[HUNK_NAMELEN];
+    char name[HUNK_NAMELEN]; /* not necessarily NULL terminated */
 } hunk_t;
 
 static struct {
