@@ -317,7 +317,6 @@ main(int argc, const char *argv[])
 {
     double time, oldtime, newtime;
     quakeparms_t parms;
-    int j;
 #ifdef SERVERONLY
     fd_set fdset;
     struct timeval timeout;
@@ -332,14 +331,9 @@ main(int argc, const char *argv[])
     COM_InitArgv(argc, argv);
     parms.argc = com_argc;
     parms.argv = com_argv;
-
-    parms.memsize = 16 * 1024 * 1024;
-
-    j = COM_CheckParm("-mem");
-    if (j)
-	parms.memsize = (int)(Q_atof(com_argv[j + 1]) * 1024 * 1024);
-    parms.membase = malloc(parms.memsize);
     parms.basedir = stringify(QBASEDIR);
+    parms.memsize = Memory_GetSize();
+    parms.membase = malloc(parms.memsize);
     if (!parms.membase)
 	Sys_Error("Allocation of %d byte heap failed", parms.memsize);
 

@@ -1145,6 +1145,24 @@ Cache_f(void)
 
 /* ========================================================================= */
 
+size_t
+Memory_GetSize(void)
+{
+    int parm;
+
+    /* The -mem parameter gives heap size in megabytes */
+    parm = COM_CheckParm("-mem");
+    if (parm && com_argc > parm + 1)
+	return (size_t)atoi(com_argv[parm + 1]) << 20;
+
+    /* The -heapsize parameter gives the heap size in kilobytes */
+    parm = COM_CheckParm("-heapsize");
+    if (parm && com_argc > parm + 1)
+	return (size_t)atoi(com_argv[parm + 1]) << 10;
+
+    /* Default memory is now 128MB */
+    return (size_t)128 << 20;
+}
 
 /*
  * ========================

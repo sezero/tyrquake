@@ -87,6 +87,7 @@ Zone block
 
 */
 
+size_t Memory_GetSize(void);
 void Memory_Init(void *buf, int size);
 
 void Z_Free(const void *ptr);

@@ -61,9 +61,6 @@ void Sys_PopFPCW(void);
 #ifdef SERVERONLY
 static cvar_t sys_nostdout = { "sys_nostdout", "0" };
 #else
-#define MINIMUM_WIN_MEMORY 0x0c00000 /* 12MB */
-#define MAXIMUM_WIN_MEMORY 0x2000000 /* 32MB */
-
 #define PAUSE_SLEEP	50	// sleep time on pause or minimization
 #define NOT_FOCUS_SLEEP	20	// sleep time when not focus
 
@@ -500,20 +497,11 @@ main(int argc, const char **argv)
 
     parms.argc = com_argc;
     parms.argv = com_argv;
-
-    parms.memsize = 16 * 1024 * 1024;
-
-    if ((t = COM_CheckParm("-heapsize")) != 0 && t + 1 < com_argc)
-	parms.memsize = Q_atoi(com_argv[t + 1]) * 1024;
-
-    if ((t = COM_CheckParm("-mem")) != 0 && t + 1 < com_argc)
-	parms.memsize = Q_atoi(com_argv[t + 1]) * 1024 * 1024;
-
+    parms.basedir = ".";
+    parms.memsize = Memory_GetSize();
     parms.membase = malloc(parms.memsize);
     if (!parms.membase)
 	Sys_Error("Insufficient memory.");
-
-    parms.basedir = ".";
 
     SV_Init(&parms);
 
@@ -667,7 +655,6 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 {
     quakeparms_t parms;
     double time, oldtime, newtime;
-    MEMORYSTATUS lpBuffer;
     static char cwd[1024];
     int t;
     RECT rect;
@@ -678,9 +665,6 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     global_hInstance = hInstance;
     global_nCmdShow = nCmdShow;
-
-    lpBuffer.dwLength = sizeof(MEMORYSTATUS);
-    GlobalMemoryStatus(&lpBuffer);
 
     if (!GetCurrentDirectory(sizeof(cwd), cwd))
 	Sys_Error("Couldn't determine current directory");
@@ -743,31 +727,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
     }
 #endif
 
-    /*
-     * FIXME - size this more appropriately for modern systems & content
-     *
-     * Take the greater of all the available memory or half the total
-     * memory, but at least MINIMUM_WIN_MEMORY and no more than
-     * MAXIMUM_WIN_MEMORY, unless explicitly requested otherwise
-     */
-    parms.memsize = lpBuffer.dwAvailPhys;
-
-    if (parms.memsize < MINIMUM_WIN_MEMORY)
-	parms.memsize = MINIMUM_WIN_MEMORY;
-
-    if (parms.memsize < (lpBuffer.dwTotalPhys >> 1))
-	parms.memsize = lpBuffer.dwTotalPhys >> 1;
-
-    if (parms.memsize > MAXIMUM_WIN_MEMORY)
-	parms.memsize = MAXIMUM_WIN_MEMORY;
-
-    if (COM_CheckParm("-heapsize")) {
-	t = COM_CheckParm("-heapsize") + 1;
-
-	if (t < com_argc)
-	    parms.memsize = Q_atoi(com_argv[t]) * 1024;
-    }
-
+    parms.memsize = Memory_GetSize();
     parms.membase = malloc(parms.memsize);
     if (!parms.membase)
 	Sys_Error("Not enough memory free; check disk space");
