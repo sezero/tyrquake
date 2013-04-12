@@ -77,7 +77,7 @@ static HANDLE hFile;
 static HANDLE heventParent;
 static HANDLE heventChild;
 
-static void Print_Win32SystemError(DWORD err);
+static void Print_Win32SystemError(DWORD messageid);
 #define CONSOLE_ERROR_TIMEOUT	60.0	// # of seconds to wait on Sys_Error
 					// running dedicated before exiting
 #endif
@@ -864,20 +864,22 @@ void Sys_LowFPPrecision(void) {}
 
 #ifdef NQ_HACK
 /*
- * For debugging - Print a Win32 system error string to stdout
+ * For debugging - Print a Win32 system error string to stderr
  */
 static void
-Print_Win32SystemError(DWORD err)
+Print_Win32SystemError(DWORD messageid)
 {
-    static PVOID buf;
+    LPTSTR buffer;
+    DWORD flags, length;
 
-    if (FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER
-		      | FORMAT_MESSAGE_FROM_SYSTEM,
-		      NULL, err, 0, (LPTSTR)(&buf), 0, NULL)) {
-	printf("%s: %s\n", __func__, (LPTSTR)buf);
-	fflush(stdout);
-	LocalFree(buf);
-    }
+    flags = FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM;
+    length = FormatMessage(flags, NULL, messageid, 0, (LPTSTR)&buffer, 0, NULL);
+    if (!length)
+	return;
+
+    fprintf(stderr, "%s: %s\n", __func__, buffer);
+    fflush(stderr);
+    LocalFree(buffer);
 }
 #endif
 
