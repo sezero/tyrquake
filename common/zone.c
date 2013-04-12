@@ -167,7 +167,7 @@ Z_CheckHeap(void)
 static void *
 Z_TagMalloc(int size, int tag)
 {
-    int extra;
+    int extra, *marker;
     memblock_t *start, *rover, *new, *base;
 
     if (!tag)
@@ -178,7 +178,7 @@ Z_TagMalloc(int size, int tag)
      * sufficient size
      */
     size += sizeof(memblock_t);	/* account for size of block header */
-    size += 4;			/* space for memory trash tester */
+    size += sizeof(int);	/* space for memory trash tester */
     size = (size + 7) & ~7;	/* align to 8-byte boundary */
 
     base = rover = mainzone->rover;
@@ -216,9 +216,10 @@ Z_TagMalloc(int size, int tag)
     base->id = ZONEID;
 
     /* marker for memory trash testing */
-    *(int *)((byte *)base + base->size - 4) = ZONEID;
+    marker = (int *)((byte *)base + base->size - sizeof(int));
+    *marker = ZONEID;
 
-    return (void *)((byte *)base + sizeof(memblock_t));
+    return base + 1;
 }
 
 
