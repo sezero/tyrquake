@@ -1091,7 +1091,9 @@ COM_Parse_(const char *data, qboolean split_single_chars)
     if (c == '\"') {
 	data++;
 	while (1) {
-	    c = *data++;
+	    c = *data;
+	    if (c)
+		data++;
 	    if (c == '\"' || !c) {
 		com_token[len] = 0;
 		return data;
