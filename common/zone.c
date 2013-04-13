@@ -265,7 +265,7 @@ Z_Realloc(const void *ptr, int size)
 
     orig_size = block->size;
     orig_size -= sizeof(memblock_t);
-    orig_size -= 4;
+    orig_size -= sizeof(int); /* ZONEID marker */
 
     Z_Free(ptr);
     ret = Z_TagMalloc(size, 1);
