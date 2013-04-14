@@ -236,8 +236,11 @@ CL_Record_f(void)
 //
 // start the map up
 //
-    if (c > 2)
+    if (c > 2) {
 	Cmd_ExecuteString(va("map %s", Cmd_Argv(2)), src_command);
+	if (cls.state != ca_connected)
+	    return;
+    }
 
 //
 // open the demo file
