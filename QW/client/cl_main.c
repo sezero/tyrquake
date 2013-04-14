@@ -433,7 +433,6 @@ CL_Disconnect(void)
 	Netchan_Transmit(&cls.netchan, 6, final);
 
 	cls.state = ca_disconnected;
-
 	cls.demoplayback = cls.demorecording = cls.timedemo = false;
     }
     Cam_Reset();
@@ -444,7 +443,7 @@ CL_Disconnect(void)
     }
 
     CL_StopUpload();
-
+    cl.intermission = 0; /* FIXME - for SCR_UpdateScreen */
 }
 
 void

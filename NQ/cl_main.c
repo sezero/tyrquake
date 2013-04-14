@@ -172,6 +172,7 @@ CL_Disconnect(void)
     cls.demoplayback = false;
     cls.timedemo = false;
     cls.signon = 0;
+    cl.intermission = 0; /* FIXME - for SCR_UpdateScreen */
 }
 
 void
