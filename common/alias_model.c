@@ -397,3 +397,93 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 
     Hunk_FreeToLowMark(start);
 }
+
+/* Alias model cache */
+static struct {
+    model_t free;
+    model_t used;
+    model_t overflow;
+} mcache;
+
+void
+Mod_InitAliasCache(void)
+{
+#define MAX_MCACHE 512 /* TODO: cvar controlled */
+    int i;
+    model_t *model;
+
+    /*
+     * To be allocated below host_hunklevel, so as to persist across
+     * level loads. If it fills up, put extras on the overflow list...
+     */
+    mcache.used.next = mcache.overflow.next = NULL;
+    mcache.free.next = Hunk_AllocName(MAX_MCACHE * sizeof(model_t), "mcache");
+
+    model = mcache.free.next;
+    for (i = 0; i < MAX_MCACHE - 1; i++, model++)
+	model->next = model + 1;
+    model->next = NULL;
+}
+
+model_t *
+Mod_FindAliasName(const char *name)
+{
+    model_t *model;
+
+    for (model = mcache.used.next; model; model = model->next)
+	if (!strcmp(model->name, name))
+	    return model;
+
+    for (model = mcache.overflow.next; model; model = model->next)
+	if (!strcmp(model->name, name))
+	    return model;
+
+    return model;
+}
+
+model_t *
+Mod_NewAliasModel(void)
+{
+    model_t *model;
+
+    model = mcache.free.next;
+    if (model) {
+	mcache.free.next = model->next;
+	model->next = mcache.used.next;
+	mcache.used.next = model;
+    } else {
+	/* TODO: warn on overflow; maybe automatically resize somehow? */
+	model = Hunk_AllocName(sizeof(*model), "mcache+");
+	model->next = mcache.overflow.next;
+	mcache.overflow.next = model;
+    }
+
+    return model;
+}
+
+void
+Mod_ClearAlias(void)
+{
+    model_t *model;
+
+    /*
+     * For now, only need to worry about overflow above the host
+     * hunklevel which will disappear.
+     */
+    for (model = mcache.overflow.next; model; model = model->next)
+	if (model->cache.data)
+	    Cache_Free(&model->cache);
+    mcache.overflow.next = NULL;
+}
+
+const model_t *
+Mod_AliasCache(void)
+{
+    return mcache.used.next;
+}
+
+const model_t *
+Mod_AliasOverflow(void)
+{
+    return mcache.overflow.next;
+}

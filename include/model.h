@@ -384,7 +384,7 @@ typedef enum { mod_brush, mod_sprite, mod_alias } modtype_t;
 
 typedef struct model_s {
     char name[MAX_QPATH];
-    qboolean needload;		// bmodels and sprites don't cache normally
+    struct model_s *next;
 
     modtype_t type;
     int numframes;
@@ -467,6 +467,14 @@ typedef struct model_loader {
 //============================================================================
 
 void Mod_Init(const model_loader_t *loader);
+#ifndef SERVERONLY
+void Mod_InitAliasCache(void);
+void Mod_ClearAlias(void);
+model_t *Mod_NewAliasModel(void);
+model_t *Mod_FindAliasName(const char *name);
+const model_t *Mod_AliasCache(void);
+const model_t *Mod_AliasOverflow(void);
+#endif
 void Mod_ClearAll(void);
 model_t *Mod_ForName(const char *name, qboolean crash);
 void *Mod_Extradata(model_t *model);	// handles caching

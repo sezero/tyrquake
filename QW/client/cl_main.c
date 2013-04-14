@@ -1448,6 +1448,7 @@ Host_Init(quakeparms_t *parms)
     CDAudio_Init();
     CL_Init();
     IN_Init();
+    Mod_InitAliasCache();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();

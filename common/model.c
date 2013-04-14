@@ -50,11 +50,9 @@ static texture_t r_notexture_mip_qwsv;
 #endif
 
 static void Mod_LoadBrushModel(model_t *model, void *buffer, size_t size);
-static model_t *Mod_LoadModel(model_t *model, qboolean crash);
+static model_t *Mod_LoadModel(const char *name, qboolean crash);
 
-#define MAX_MOD_KNOWN 512
-static model_t mod_known[MAX_MOD_KNOWN];
-static int mod_numknown;
+static model_t *loaded_models;
 
 #ifdef GLQUAKE
 cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", true };
@@ -341,25 +339,15 @@ Mod_ClearAll
 void
 Mod_ClearAll(void)
 {
-    int i;
-    model_t *model;
-
-    for (i = 0, model = mod_known; i < mod_numknown; i++, model++) {
-	if (model->type != mod_alias)
-	    model->needload = true;
-	/*
-	 * FIXME: sprites use the cache data pointer for their own purposes,
-	 *        bypassing the Cache_Alloc/Free functions.
-	 */
-	if (model->type == mod_sprite)
-	    model->cache.data = NULL;
-    }
-
+    loaded_models = NULL;
     fatpvs = NULL;
     memset(pvscache, 0, sizeof(pvscache));
     pvscache_numleafs = 0;
     pvscache_bytes = pvscache_blocks = 0;
     c_cachehit = c_cachemiss = 0;
+#ifndef SERVERONLY
+    Mod_ClearAlias();
+#endif
 }
 
 /*
@@ -371,26 +359,21 @@ Mod_FindName
 static model_t *
 Mod_FindName(const char *name)
 {
-    int i;
     model_t *model;
 
     if (!name[0])
 	SV_Error("%s: NULL name", __func__);
 
-//
-// search the currently loaded models
-//
-    for (i = 0, model = mod_known; i < mod_numknown; i++, model++)
+    /* search the currently loaded models */
+    for (model = loaded_models; model; model = model->next)
 	if (!strcmp(model->name, name))
 	    break;
 
-    if (i == mod_numknown) {
-	if (mod_numknown == MAX_MOD_KNOWN)
-	    SV_Error("mod_numknown == MAX_MOD_KNOWN");
-	snprintf(model->name, sizeof(model->name), "%s", name);
-	model->needload = true;
-	mod_numknown++;
-    }
+#ifndef SERVERONLY
+    /* Otherwise, search the alias cache */
+    if (!model)
+	model = Mod_FindAliasName(name);
+#endif
 
     return model;
 }
@@ -403,43 +386,47 @@ Loads a model into the cache
 ==================
 */
 static model_t *
-Mod_LoadModel(model_t *model, qboolean crash)
+Mod_LoadModel(const char *name, qboolean crash)
 {
     byte stackbuf[1024];
-    unsigned *buf;
+    char hunkname[HUNK_NAMELEN + 1];
+    unsigned *buf, header;
+    model_t *model;
     size_t size;
 
-    if (!model->needload) {
-	if (model->type == mod_alias) {
-	    if (Cache_Check(&model->cache))
-		return model;
-	} else {
-	    /* not cached at all */
-	    return model;
-	}
-    }
-
     /* Load the file - use stack for tiny models to avoid dirtying heap */
-    buf = COM_LoadStackFile(model->name, stackbuf, sizeof(stackbuf), &size);
+    buf = COM_LoadStackFile(name, stackbuf, sizeof(stackbuf), &size);
     if (!buf) {
 	if (crash)
-	    SV_Error("%s: %s not found", __func__, model->name);
+	    SV_Error("%s: %s not found", __func__, name);
 	return NULL;
     }
 
     /* call the apropriate loader */
-    model->needload = false;
-    switch (LittleLong(*(unsigned *)buf)) {
+    header = LittleLong(*buf);
+    switch (header) {
 #ifndef SERVERONLY
     case IDPOLYHEADER:
+	model = Mod_NewAliasModel();
+	snprintf(model->name, sizeof(model->name), "%s", name);
 	Mod_LoadAliasModel(mod_loader, model, buf);
 	break;
 
     case IDSPRITEHEADER:
+	COM_FileBase(name, hunkname, sizeof(hunkname));
+	model = Hunk_AllocName(sizeof(*model), hunkname);
+	snprintf(model->name, sizeof(model->name), "%s", name);
+	model->next = loaded_models;
+	loaded_models = model;
 	Mod_LoadSpriteModel(model, buf);
 	break;
 #endif
     default:
+	COM_FileBase(name, hunkname, sizeof(hunkname));
+	model = Hunk_AllocName(sizeof(*model), hunkname);
+	snprintf(model->name, sizeof(model->name), "%s", name);
+	model->next = loaded_models;
+	loaded_models = model;
 	Mod_LoadBrushModel(model, buf, size);
 	break;
     }
@@ -460,8 +447,24 @@ Mod_ForName(const char *name, qboolean crash)
     model_t *model;
 
     model = Mod_FindName(name);
+    if (model) {
+#ifndef SERVERONLY
+	void *buffer;
 
-    return Mod_LoadModel(model, crash);
+	if (model->type != mod_alias)
+	    return model;
+	if (Cache_Check(&model->cache))
+	    return model;
+
+	buffer = COM_LoadTempFile(name);
+	model = Mod_NewAliasModel();
+	snprintf(model->name, sizeof(model->name), "%s", name);
+	Mod_LoadAliasModel(mod_loader, model, buffer);
+#endif
+	return model;
+    }
+
+    return Mod_LoadModel(name, crash);
 }
 
 
@@ -481,7 +484,7 @@ Mod_LoadTextures(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_TEXTURES];
     dmiptexlump_t *lump;
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, j, pixels, num, max, altmax, memsize;
     miptex_t *mt;
     texture_t *tx, *tx2;
@@ -628,7 +631,7 @@ static void
 Mod_LoadLighting(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_LIGHTING];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     const byte *lightdata;
 
     if (!headerlump->filelen) {
@@ -651,7 +654,7 @@ static void
 Mod_LoadVisibility(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_VISIBILITY];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     const byte *visdata;
 
     if (!headerlump->filelen) {
@@ -674,7 +677,7 @@ static void
 Mod_LoadEntities(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_ENTITIES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     const byte *entities;
 
     if (!headerlump->filelen) {
@@ -697,7 +700,7 @@ static void
 Mod_LoadVertexes(model_t *model, const dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_VERTEXES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     const dvertex_t *in;
     mvertex_t *out;
     int i, count;
@@ -728,7 +731,7 @@ static void
 Mod_LoadSubmodels(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_MODELS];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     dmodel_t *in;
     dmodel_t *out;
     int i, j, count;
@@ -767,7 +770,7 @@ static void
 Mod_LoadEdges_BSP29(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_EDGES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp29_dedge_t *in;
     medge_t *out;
     int i, count;
@@ -792,7 +795,7 @@ static void
 Mod_LoadEdges_BSP2(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_EDGES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp2_dedge_t *in;
     medge_t *out;
     int i, count;
@@ -822,7 +825,7 @@ static void
 Mod_LoadTexinfo(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_TEXINFO];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     texinfo_t *in;
     mtexinfo_t *out;
     int i, j, count;
@@ -994,7 +997,7 @@ static void
 Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_FACES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp29_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
@@ -1049,7 +1052,7 @@ static void
 Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_FACES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp2_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
@@ -1120,7 +1123,7 @@ static void
 Mod_LoadNodes_BSP29(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_NODES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, j, count, p;
     bsp29_dnode_t *in;
     mnode_t *out;
@@ -1163,7 +1166,7 @@ static void
 Mod_LoadNodes_BSP2(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_NODES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, j, count, p;
     bsp2_dnode_t *in;
     mnode_t *out;
@@ -1212,7 +1215,7 @@ static void
 Mod_LoadLeafs_BSP29(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_LEAFS];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp29_dleaf_t *in;
     mleaf_t *out;
     int i, j, count, p;
@@ -1280,7 +1283,7 @@ static void
 Mod_LoadLeafs_BSP2(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_LEAFS];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp2_dleaf_t *in;
     mleaf_t *out;
     int i, j, count, p;
@@ -1354,7 +1357,7 @@ static void
 Mod_LoadClipnodes_BSP29(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_CLIPNODES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp29_dclipnode_t *in;
     mclipnode_t *out;
     int i, j, count;
@@ -1410,7 +1413,7 @@ static void
 Mod_LoadClipnodes_BSP2(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_CLIPNODES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     bsp2_dclipnode_t *in;
     mclipnode_t *out;
     int i, j, count;
@@ -1470,7 +1473,7 @@ Duplicate the drawing hull structure as a clipping hull
 static void
 Mod_MakeHull0(model_t *model)
 {
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     mnode_t *in, *child;
     mclipnode_t *out;
     int i, j, count;
@@ -1510,7 +1513,7 @@ static void
 Mod_LoadMarksurfaces_BSP29(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_MARKSURFACES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, j, count;
     uint16_t *in;
     msurface_t **out;
@@ -1537,7 +1540,7 @@ static void
 Mod_LoadMarksurfaces_BSP2(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_MARKSURFACES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, j, count;
     uint32_t *in;
     msurface_t **out;
@@ -1569,7 +1572,7 @@ static void
 Mod_LoadSurfedges(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_SURFEDGES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, count;
     int32_t *in, *out;
 
@@ -1596,7 +1599,7 @@ static void
 Mod_LoadPlanes(model_t *model, dheader_t *header)
 {
     const lump_t *headerlump = &header->lumps[LUMP_PLANES];
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     int i, j;
     mplane_t *out;
     dplane_t *in;
@@ -1655,12 +1658,12 @@ Mod_SetupSubmodels(model_t *world)
     submodel = world;
     for (i = 0; i < world->numsubmodels; i++) {
 	if (i > 0) {
-	    /* Find next submodel and copy base fields from world */
-	    char name[10];
-	    snprintf(name, sizeof(name), "*%d", i);
-	    submodel = Mod_FindName(name);
-	    *submodel = *world;
-	    snprintf(submodel->name, sizeof(submodel->name), "%s", name);
+	    submodel = Hunk_Alloc(sizeof(*submodel));
+	    snprintf(submodel->name, sizeof(submodel->name), "*%d", i);
+	    submodel->next = loaded_models;
+	    loaded_models = submodel;
+	    //*submodel = *world;
+	    memcpy(&submodel->type, &world->type, sizeof(*submodel) - offsetof(model_t, type));
 	}
 
 	dmodel = &world->submodels[i];
@@ -1828,13 +1831,14 @@ Caches the data if needed
 void *
 Mod_Extradata(model_t *model)
 {
-    void *data;
+    void *buffer;
 
-    data = Cache_Check(&model->cache);
-    if (data)
-	return data;
+    buffer = Cache_Check(&model->cache);
+    if (buffer)
+	return buffer;
 
-    Mod_LoadModel(model, true);
+    buffer = COM_LoadTempFile(model->name);
+    Mod_LoadAliasModel(mod_loader, model, buffer);
     if (!model->cache.data)
 	Sys_Error("%s: caching failed", __func__);
 
@@ -1849,13 +1853,31 @@ Mod_Print
 void
 Mod_Print(void)
 {
-    int i;
-    model_t *model;
+    int alias = 0, bsp = 0, sprite = 0;
+    const model_t *model;
 
     Con_Printf("Cached models:\n");
-    for (i = 0, model = mod_known; i < mod_numknown; i++, model++)
+    for (model = Mod_AliasCache(); model; model = model->next) {
 	Con_Printf("%*p : %s\n", (int)sizeof(void *) * 2 + 2,
 		   model->cache.data, model->name);
+	alias++;
+    }
+    for (model = Mod_AliasOverflow(); model; model = model->next) {
+	Con_Printf("%*p : %s\n", (int)sizeof(void *) * 2 + 2,
+		   model->cache.data, model->name);
+	alias++;
+    }
+    for (model = loaded_models; model; model = model->next) {
+	Con_Printf("%*p : %s\n", (int)sizeof(void *) * 2 + 2,
+		   model->cache.data, model->name);
+	if (model->type == mod_sprite)
+	    sprite++;
+	else
+	    bsp++;
+    }
+
+    Con_Printf("%d models: %d alias, %d bsp, %d sprite\n",
+	       alias + bsp + sprite, alias, bsp, sprite);
 }
 
 /*
@@ -1869,12 +1891,10 @@ Mod_TouchModel(const char *name)
 {
     model_t *model;
 
-    model = Mod_FindName(name);
-
-    if (!model->needload) {
-	if (model->type == mod_alias)
-	    Cache_Check(&model->cache);
-    }
+    /* Move models we will need to the head of the LRU list (only alias) */
+    model = Mod_FindAliasName(name);
+    if (model)
+	Cache_Check(&model->cache);
 }
 
 #endif /* !SERVERONLY */

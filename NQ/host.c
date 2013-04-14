@@ -851,6 +851,7 @@ Host_Init(quakeparms_t *parms)
 
 	IN_Init();
     }
+    Mod_InitAliasCache();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();
