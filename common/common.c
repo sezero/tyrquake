@@ -73,10 +73,14 @@ static void COM_InitFilesystem(void);
 static void COM_Path_f(void);
 static void *SZ_GetSpace(sizebuf_t *buf, int length);
 
-// if a packfile directory differs from this, it is assumed to be hacked
-#define PAK0_COUNT		339
-#define NQ_PAK0_CRC		32981
-#define QW_PAK0_CRC		52883
+/* Checksums for the original id pak directory structures */
+#define ID1_PAK0_COUNT        339 /* id1/pak0.pak - v1.0x */
+#define ID1_PAK0_CRC_V100   13900 /* id1/pak0.pak - v1.00 */
+#define ID1_PAK0_CRC_V101   62751 /* id1/pak0.pak - v1.01 */
+#define ID1_PAK0_CRC_V106   32981 /* id1/pak0.pak - v1.06 */
+#define ID1_PAK0_COUNT_V091   308 /* id1/pak0.pak - v0.91/0.92, not supported */
+#define ID1_PAK0_CRC_V091   28804 /* id1/pak0.pak - v0.91/0.92, not supported */
+#define QW_PAK0_CRC         52883
 
 #ifdef NQ_HACK
 #define CMDLINE_LENGTH	256
@@ -1838,7 +1842,7 @@ COM_LoadPackFile(const char *packfile)
     if (numpackfiles > MAX_FILES_IN_PACK)
 	Sys_Error("%s has %i files", packfile, numpackfiles);
 
-    if (numpackfiles != PAK0_COUNT)
+    if (numpackfiles != ID1_PAK0_COUNT)
 	com_modified = true;	// not the original file
 
 #ifdef NQ_HACK
@@ -1853,14 +1857,21 @@ COM_LoadPackFile(const char *packfile)
 
 // crc the directory to check for modifications
     crc = CRC_Block((byte *)info, header.dirlen);
+    switch (crc) {
 #ifdef NQ_HACK
-    if (crc != NQ_PAK0_CRC)
-	com_modified = true;
+    case ID1_PAK0_CRC_V100:
+    case ID1_PAK0_CRC_V101:
+    case ID1_PAK0_CRC_V106:
 #endif
 #ifdef QW_HACK
-    if (crc != QW_PAK0_CRC)
-	com_modified = true;
+    case QW_PAK0_CRC:
 #endif
+	com_modified = false;
+	break;
+    default:
+	com_modified = true;
+	break;
+    }
 
 // parse the directory
     for (i = 0; i < numpackfiles; i++) {
