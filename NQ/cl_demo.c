@@ -18,6 +18,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include <ctype.h>
+#include <stdio.h>
+
 #include "client.h"
 #include "cmd.h"
 #include "console.h"
@@ -272,8 +275,8 @@ void
 CL_PlayDemo_f(void)
 {
     char name[256];
-    int c;
-    qboolean neg = false;
+    qboolean neg;
+    int i, c;
 
     if (cmd_source != src_command)
 	return;
@@ -305,12 +308,30 @@ CL_PlayDemo_f(void)
     cls.state = ca_connected;
     cls.forcetrack = 0;
 
-    while ((c = getc(cls.demofile)) != '\n')
-	if (c == '-')
-	    neg = true;
-	else
-	    cls.forcetrack = cls.forcetrack * 10 + (c - '0');
-
+    /*
+     * Parse an integer for the demo CD track. If we didn't find the
+     * '\n' within the first 13 chars, the demo is probably invalid.
+     * Unless you expect to have a billion track CD lying around...
+     */
+    neg = false;
+    c = getc(cls.demofile);
+    if (c == '-')
+	neg = true;
+    else
+	ungetc(c, cls.demofile);
+    for (i = 0; i < 13; i++) {
+	c = getc(cls.demofile);
+	if (!isdigit(c))
+	    break;
+	cls.forcetrack = cls.forcetrack * 10 + c - '0';
+    }
+    if (c != '\n') {
+	fclose(cls.demofile);
+	cls.demofile = NULL;
+	cls.demonum = -1;
+	Con_Printf("ERROR: demo \"%s\" is invalid\n", name);
+	return;
+    }
     if (neg)
 	cls.forcetrack = -cls.forcetrack;
 }
@@ -372,6 +393,8 @@ CL_TimeDemo_f(void)
     }
 
     CL_PlayDemo_f();
+    if (!cls.demofile)
+	return;
 
 // cls.td_starttime will be grabbed at the second frame of the demo, so
 // all the loading time doesn't get counted
