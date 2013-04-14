@@ -274,8 +274,7 @@ Z_Realloc(const void *ptr, int size)
     if (ret != ptr)
 	memmove(ret, ptr, qmin(orig_size, size));
     if (size > orig_size)
-	memset((byte *)ptr + orig_size, 0, size - orig_size);
-
+	memset((byte *)ret + orig_size, 0, size - orig_size);
     return ret;
 }
 
