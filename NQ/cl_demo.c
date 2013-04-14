@@ -304,15 +304,12 @@ CL_PlayDemo_f(void)
 	return;
     }
 
-    cls.demoplayback = true;
-    cls.state = ca_connected;
-    cls.forcetrack = 0;
-
     /*
      * Parse an integer for the demo CD track. If we didn't find the
      * '\n' within the first 13 chars, the demo is probably invalid.
      * Unless you expect to have a billion track CD lying around...
      */
+    cls.forcetrack = 0;
     neg = false;
     c = getc(cls.demofile);
     if (c == '-')
@@ -334,6 +331,9 @@ CL_PlayDemo_f(void)
     }
     if (neg)
 	cls.forcetrack = -cls.forcetrack;
+
+    cls.demoplayback = true;
+    cls.state = ca_connected;
 }
 
 struct stree_root *
