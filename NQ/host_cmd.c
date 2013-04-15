@@ -276,9 +276,9 @@ Host_Savegame_f
 static void
 Host_Savegame_f(void)
 {
-    char name[256];
+    char name[MAX_OSPATH];
     FILE *f;
-    int i;
+    int i, length, err;
     char comment[SAVEGAME_COMMENT_LENGTH + 1];
 
     if (cmd_source != src_command)
@@ -316,8 +316,12 @@ Host_Savegame_f(void)
 	}
     }
 
-    sprintf(name, "%s/%s", com_gamedir, Cmd_Argv(1));
-    COM_DefaultExtension(name, ".sav");
+    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    err = COM_DefaultExtension(name, ".sav", name, sizeof(name));
+    if (length >= sizeof(name) || err) {
+	Con_Printf("ERROR: couldn't save, filename too long.\n");
+	return;
+    }
 
     Con_Printf("Saving game to %s...\n", name);
     f = fopen(name, "w");
@@ -364,13 +368,13 @@ static void
 Host_Loadgame_f(void)
 {
     char name[MAX_OSPATH];
-    FILE *f;
     char mapname[MAX_QPATH];
+    FILE *f;
     float time, tfloat;
     char str[32768];
     char *lightstyle;
     const char *start;
-    int i, r;
+    int i, r, length, err;
     edict_t *ent;
     int entnum;
     int version;
@@ -386,8 +390,12 @@ Host_Loadgame_f(void)
 
     cls.demonum = -1;		// stop demo loop in case this fails
 
-    sprintf(name, "%s/%s", com_gamedir, Cmd_Argv(1));
-    COM_DefaultExtension(name, ".sav");
+    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    err = COM_DefaultExtension(name, ".sav", name, sizeof(name));
+    if (length >= sizeof(name) || err) {
+	Con_Printf("ERROR: couldn't open save game, filename too long.\n");
+	return;
+    }
 
 // we can't call SCR_BeginLoadingPlaque, because too much stack space has
 // been used.  The menu calls it before stuffing loadgame command

@@ -942,14 +942,22 @@ COM_StripExtension
 ============
 */
 void
-COM_StripExtension(char *filename)
+COM_StripExtension(const char *filename, char *out, size_t buflen)
 {
-    const char *start;
+    const char *start, *pos;
+    size_t copylen;
 
     start = COM_SkipPath(filename);
-    char *pos = strrchr(start, '.');
-    if (pos && *pos)
-	*pos = 0;
+    pos = strrchr(start, '.');
+    if (out == filename) {
+	if (pos && *pos)
+	    out[pos - filename] = 0;
+	return;
+    }
+
+    copylen = qmin((size_t)(pos - filename), buflen - 1);
+    memcpy(out, filename, copylen);
+    out[copylen] = 0;
 }
 
 /*
@@ -1005,24 +1013,21 @@ COM_FileBase(const char *in, char *out, size_t buflen)
 /*
 ==================
 COM_DefaultExtension
+Returns non-zero if the extension wouldn't fit in the output buffer
 ==================
 */
-void
-COM_DefaultExtension(char *path, const char *extension)
+int
+COM_DefaultExtension(const char *path, const char *extension, char *out,
+		     size_t buflen)
 {
-    const char *src;
+    COM_StripExtension(path, out, buflen);
+    if (strlen(out) + strlen(extension) + 1 > buflen)
+	return -1;
 
-//
-// if path doesn't have a .EXT, append extension
-// (extension should include the .)
-//
-    src = path + strlen(path) - 1;
-    while (*src != '/' && src != path) {
-	if (*src == '.')
-	    return;		// it has an extension
-	src--;
-    }
-    strcat(path, extension);
+    /* Copy extension, including terminating null */
+    memcpy(out + strlen(out), extension, strlen(extension) + 1);
+
+    return 0;
 }
 
 int

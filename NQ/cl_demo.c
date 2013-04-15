@@ -203,9 +203,8 @@ record <demoname> <map> [cd track]
 void
 CL_Record_f(void)
 {
-    int c;
+    int c, track, length, err;
     char name[MAX_OSPATH];
-    int track;
 
     if (cmd_source != src_command)
 	return;
@@ -234,22 +233,22 @@ CL_Record_f(void)
     } else
 	track = -1;
 
-    sprintf(name, "%s/%s", com_gamedir, Cmd_Argv(1));
+    /* Grab the filename before our cmd args disappear */
+    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    err = COM_DefaultExtension(name, ".dem", name, sizeof(name));
+    if (length >= sizeof(name) || err) {
+	Con_Printf("Error: demo path name too long.\n");
+	return;
+    }
 
-//
-// start the map up
-//
+    /* start the map up */
     if (c > 2) {
 	Cmd_ExecuteString(va("map %s", Cmd_Argv(2)), src_command);
 	if (cls.state != ca_connected)
 	    return;
     }
 
-//
-// open the demo file
-//
-    COM_DefaultExtension(name, ".dem");
-
+    /* open the demo file */
     Con_Printf("recording to %s.\n", name);
     cls.demofile = fopen(name, "wb");
     if (!cls.demofile) {
@@ -273,8 +272,8 @@ play [demoname]
 void
 CL_PlayDemo_f(void)
 {
-    char name[256], forcetrack[12];
-    int i, c;
+    char name[MAX_QPATH], forcetrack[12];
+    int i, c, err;
 
     if (cmd_source != src_command)
 	return;
@@ -291,14 +290,18 @@ CL_PlayDemo_f(void)
 //
 // open the demo file
 //
-    strcpy(name, Cmd_Argv(1));
-    COM_DefaultExtension(name, ".dem");
+    err = COM_DefaultExtension(Cmd_Argv(1), ".dem", name, sizeof(name));
+    if (err) {
+	Con_Printf("Error: demo filename too long\n");
+	cls.demonum = -1;	/* stop demo loop */
+	return;
+    }
 
     Con_Printf("Playing demo from %s.\n", name);
     COM_FOpenFile(name, &cls.demofile);
     if (!cls.demofile) {
 	Con_Printf("ERROR: couldn't open.\n");
-	cls.demonum = -1;	// stop demo loop
+	cls.demonum = -1;	/* stop demo loop */
 	return;
     }
 

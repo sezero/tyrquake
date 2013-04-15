@@ -171,7 +171,7 @@ qboolean
 CL_CheckOrDownloadFile(char *filename)
 {
     FILE *f;
-    int maxlen;
+    int err;
 
     if (strstr(filename, "..")) {
 	Con_Printf("Refusing to download a path with ..\n");
@@ -200,16 +200,12 @@ CL_CheckOrDownloadFile(char *filename)
      * download to a temp name, and only rename to the real name when
      * done, so if interrupted a runt file wont be left
      */
-    strcpy(cls.downloadtempname, cls.downloadname); /* same size */
-    COM_StripExtension(cls.downloadtempname);
-
-    /* make sure the .tmp extension fits... */
-    maxlen = sizeof(cls.downloadtempname);
-    if (strlen(cls.downloadtempname) + strlen(".tmp") > maxlen - 1) {
+    err = COM_DefaultExtension(cls.downloadname, ".tmp", cls.downloadtempname,
+			       sizeof(cls.downloadtempname));
+    if (err) {
 	Con_Printf("Refusing download, pathname too long\n");
 	return true;
     }
-    strcat(cls.downloadtempname, ".tmp");
 
     MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
     MSG_WriteStringf(&cls.netchan.message, "download %s", cls.downloadname);
@@ -897,15 +893,16 @@ CL_NewTranslation(int slot)
     int top, bottom;
     byte *dest, *source;
     player_info_t *player;
-    char *skin;
+    const char *skin_key;
+    char skin[MAX_QPATH];
 
     if (slot > MAX_CLIENTS)
 	Sys_Error("%s: slot > MAX_CLIENTS", __func__);
 
     player = &cl.players[slot];
 
-    skin = Info_ValueForKey(player->userinfo, "skin");
-    COM_StripExtension(skin);
+    skin_key = Info_ValueForKey(player->userinfo, "skin");
+    COM_StripExtension(skin_key, skin, sizeof(skin));
 
     if (player->skin && !strcasecmp(skin, player->skin->name))
 	player->skin = NULL;

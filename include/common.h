@@ -183,9 +183,10 @@ void COM_Init(void);
 void COM_InitArgv(int argc, const char **argv);
 
 const char *COM_SkipPath(const char *pathname);
-void COM_StripExtension(char *filename);
+void COM_StripExtension(const char *filename, char *out, size_t buflen);
 void COM_FileBase(const char *in, char *out, size_t buflen);
-void COM_DefaultExtension(char *path, const char *extension);
+int COM_DefaultExtension(const char *path, const char *extension,
+			 char *out, size_t buflen);
 int COM_CheckExtension(const char *path, const char *extn);
 
 char *va(const char *format, ...) __attribute__((format(printf,1,2)));

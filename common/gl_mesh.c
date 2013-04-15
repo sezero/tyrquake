@@ -328,7 +328,7 @@ void
 GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
 		const stvert_t *stverts, const trivertx_t **poseverts)
 {
-    int i, j, tmp;
+    int i, j, tmp, err;
     int *cmds;
     trivertx_t *verts;
     char cache[MAX_QPATH];
@@ -341,10 +341,9 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
     //
     name = COM_SkipPath(model->name);
     snprintf(cache, sizeof(cache), "%s/glquake/%s", com_gamedir, name);
-    COM_StripExtension(cache);
-    if (strlen(cache) + strlen(".ms2") + 1 > sizeof(cache))
+    err = COM_DefaultExtension(cache, ".ms2", cache, sizeof(cache));
+    if (err)
 	Sys_Error("%s: model pathname too long (%s)", __func__, model->name);
-    strncat(cache, ".ms2", 4);
 
     f = fopen(cache, "rb");
     if (f) {

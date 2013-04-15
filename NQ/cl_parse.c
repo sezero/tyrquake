@@ -346,8 +346,7 @@ CL_ParseServerInfo(void)
 
 // copy the naked name of the map file to the cl structure
     mapname = COM_SkipPath(model_precache[1]);
-    snprintf(cl.mapname, sizeof(cl.mapname), "%s", mapname);
-    COM_StripExtension(cl.mapname);
+    COM_StripExtension(mapname, cl.mapname, sizeof(cl.mapname));
 
 //
 // now we try to load everything else until a cache allocation fails

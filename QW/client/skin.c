@@ -48,7 +48,7 @@ Skin_Find(player_info_t * sc)
 {
     skin_t *skin;
     int i;
-    char name[128];
+    char name[MAX_QPATH];
     const char *skinname;
 
     skinname = allskins;
@@ -60,8 +60,7 @@ Skin_Find(player_info_t * sc)
     if (strstr(skinname, "..") || skinname[0] == '.')
 	skinname = "base";
 
-    snprintf(name, sizeof(name), "%s", skinname);
-    COM_StripExtension(name);
+    COM_StripExtension(skinname, name, sizeof(name));
 
     for (i = 0; i < numskins; i++) {
 	if (!strcmp(name, skins[i].name)) {
