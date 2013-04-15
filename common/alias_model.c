@@ -240,7 +240,6 @@ Mod_LoadAliasModel
 void
 Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 {
-    char hunkname[HUNK_NAMELEN + 1];
     byte *container;
     int i, j, pad;
     mdl_t *pinmodel;
@@ -276,8 +275,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     size = pad + sizeof(aliashdr_t) +
 	LittleLong(pinmodel->numframes) * sizeof(aliashdr->frames[0]);
 
-    COM_FileBase(model->name, hunkname, sizeof(hunkname));
-    container = Hunk_AllocName(size, hunkname);
+    container = Mod_AllocName(size, model->name);
     aliashdr = (aliashdr_t *)(container + pad);
 
     model->flags = LittleLong(pinmodel->flags);
@@ -395,7 +393,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     end = Hunk_LowMark();
     total = end - start;
 
-    Cache_AllocPadded(&model->cache, pad, total - pad, hunkname);
+    Cache_AllocPadded(&model->cache, pad, total - pad, model->name);
     if (!model->cache.data)
 	return;
 
