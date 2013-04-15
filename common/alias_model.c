@@ -240,18 +240,17 @@ Mod_LoadAliasModel
 void
 Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 {
-    byte *container;
+    byte *membase;
     int i, j, pad;
-    mdl_t *pinmodel;
+    mdl_t *inmodel;
     stvert_t *pinstverts;
     dtriangle_t *pintriangles;
     int version, numframes;
-    int size;
+    int start, end, memsize;
     daliasframetype_t *pframetype;
     daliasframe_t *frame;
     daliasgroup_t *group;
     daliasskintype_t *pskintype;
-    int start, end, total;
     float *intervals;
     aliashdr_t *aliashdr;
 
@@ -260,64 +259,55 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 
     start = Hunk_LowMark();
 
-    pinmodel = (mdl_t *)buffer;
+    inmodel = (mdl_t *)buffer;
+    model->type = mod_alias;
+    model->flags = LittleLong(inmodel->flags);
+    model->synctype = LittleLong(inmodel->synctype);
+    model->numframes = LittleLong(inmodel->numframes);
 
-    version = LittleLong(pinmodel->version);
+    version = LittleLong(inmodel->version);
     if (version != ALIAS_VERSION)
 	Sys_Error("%s has wrong version number (%i should be %i)",
 		  model->name, version, ALIAS_VERSION);
 
-//
-// allocate space for a working header, plus all the data except the frames,
-// skin and group info
-//
+    /*
+     * Allocate space for the alias header, plus frame data.
+     * Leave pad bytes above the header for driver specific data.
+     */
     pad = loader->Aliashdr_Padding();
-    size = pad + sizeof(aliashdr_t) +
-	LittleLong(pinmodel->numframes) * sizeof(aliashdr->frames[0]);
+    memsize = pad + sizeof(aliashdr_t);
+    memsize += LittleLong(inmodel->numframes) * sizeof(aliashdr->frames[0]);
+    membase = Mod_AllocName(memsize, model->name);
+    aliashdr = (aliashdr_t *)(membase + pad);
 
-    container = Mod_AllocName(size, model->name);
-    aliashdr = (aliashdr_t *)(container + pad);
+    /* Endian-adjust the header data */
+    aliashdr->numskins = LittleLong(inmodel->numskins);
+    aliashdr->skinwidth = LittleLong(inmodel->skinwidth);
+    aliashdr->skinheight = LittleLong(inmodel->skinheight);
+    aliashdr->numverts = LittleLong(inmodel->numverts);
+    aliashdr->numtris = LittleLong(inmodel->numtris);
+    aliashdr->numframes = LittleLong(inmodel->numframes);
+    aliashdr->size = LittleFloat(inmodel->size) * ALIAS_BASE_SIZE_RATIO;
+    for (i = 0; i < 3; i++) {
+	aliashdr->scale[i] = LittleFloat(inmodel->scale[i]);
+	aliashdr->scale_origin[i] = LittleFloat(inmodel->scale_origin[i]);
+    }
 
-    model->flags = LittleLong(pinmodel->flags);
-
-//
-// endian-adjust and copy the data, starting with the alias model header
-//
-    aliashdr->numskins = LittleLong(pinmodel->numskins);
-    aliashdr->skinwidth = LittleLong(pinmodel->skinwidth);
-    aliashdr->skinheight = LittleLong(pinmodel->skinheight);
-
+    /* Some sanity checks */
     if (aliashdr->skinheight > MAX_LBM_HEIGHT)
 	Sys_Error("model %s has a skin taller than %d", model->name,
 		  MAX_LBM_HEIGHT);
-
-    aliashdr->numverts = LittleLong(pinmodel->numverts);
-
     if (aliashdr->numverts <= 0)
 	Sys_Error("model %s has no vertices", model->name);
-
     if (aliashdr->numverts > MAXALIASVERTS)
 	Sys_Error("model %s has too many vertices", model->name);
-
-    aliashdr->numtris = LittleLong(pinmodel->numtris);
-
     if (aliashdr->numtris <= 0)
 	Sys_Error("model %s has no triangles", model->name);
-
-    aliashdr->numframes = LittleLong(pinmodel->numframes);
-    aliashdr->size = LittleFloat(pinmodel->size) * ALIAS_BASE_SIZE_RATIO;
-    model->synctype = LittleLong(pinmodel->synctype);
-    model->numframes = aliashdr->numframes;
-
-    for (i = 0; i < 3; i++) {
-	aliashdr->scale[i] = LittleFloat(pinmodel->scale[i]);
-	aliashdr->scale_origin[i] = LittleFloat(pinmodel->scale_origin[i]);
-    }
 
 //
 // load the skins
 //
-    pskintype = (daliasskintype_t *)&pinmodel[1];
+    pskintype = (daliasskintype_t *)&inmodel[1];
     pskintype = Mod_LoadAllSkins(aliashdr, loader, model, aliashdr->numskins, pskintype);
 
 //
@@ -368,7 +358,6 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 	}
     }
     aliashdr->numposes = posenum;
-    model->type = mod_alias;
 
 // FIXME: do this right
     model->mins[0] = model->mins[1] = model->mins[2] = -16;
@@ -391,13 +380,13 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 // move the complete, relocatable alias model to the cache
 //
     end = Hunk_LowMark();
-    total = end - start;
+    memsize = end - start;
 
-    Cache_AllocPadded(&model->cache, pad, total - pad, model->name);
+    Cache_AllocPadded(&model->cache, pad, memsize - pad, model->name);
     if (!model->cache.data)
 	return;
 
-    memcpy((byte *)model->cache.data - pad, container, total);
+    memcpy((byte *)model->cache.data - pad, membase, memsize);
 
     Hunk_FreeToLowMark(start);
 }
