@@ -154,16 +154,15 @@ Mod_LoadAliasSkinGroup(void *pin, maliasskindesc_t *pskindesc, int skinsize)
 
 /*
 ===============
-Mod_LoadAllSkins
+Mod_LoadAliasSkins
 ===============
 */
 static void *
-Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
-		 const model_t *model, int numskins,
-		 daliasskintype_t *pskintype)
+Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
+		   const model_t *model, int numskins, void *buffer)
 {
     int i, skinsize;
-    maliasskindesc_t *pskindesc;
+    maliasskindesc_t *skindesc;
     float *pskinintervals;
     byte *pskindata;
 
@@ -177,22 +176,23 @@ Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 	Sys_Error("%s: skinwidth not multiple of 4", __func__);
 
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
-    pskindesc = Mod_AllocName(numskins * sizeof(maliasskindesc_t), model->name);
-    aliashdr->skindesc = (byte *)pskindesc - (byte *)aliashdr;
+    skindesc = Mod_AllocName(numskins * sizeof(maliasskindesc_t), model->name);
+    aliashdr->skindesc = (byte *)skindesc - (byte *)aliashdr;
 
     skinnum = 0;
-    for (i = 0; i < numskins; i++) {
-	aliasskintype_t skintype = LittleLong(pskintype->type);
+    for (i = 0; i < numskins; i++, skindesc++) {
+	daliasskintype_t *dskintype = buffer;
+	aliasskintype_t skintype = LittleLong(dskintype->type);
+	buffer = (byte *)buffer + sizeof(daliasskintype_t);
 	if (skintype == ALIAS_SKIN_SINGLE) {
-	    pskindesc[i].firstframe = skinnum;
-	    pskindesc[i].numframes = 1;
-	    skindata[skinnum] = (byte *)(pskintype + 1);
+	    skindata[skinnum] = buffer;
+	    skindesc->firstframe = skinnum;
+	    skindesc->numframes = 1;
 	    skinintervals[skinnum] = 999.0f;
 	    skinnum++;
-	    pskintype = (daliasskintype_t *)((byte *)(pskintype + 1) + skinsize);
+	    buffer = (byte *)buffer + skinsize;
 	} else {
-	    pskintype = Mod_LoadAliasSkinGroup(pskintype + 1, pskindesc + i,
-					       skinsize);
+	    buffer = Mod_LoadAliasSkinGroup(buffer, skindesc, skinsize);
 	}
     }
 
@@ -204,7 +204,7 @@ Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
     pskindata = loader->LoadSkinData(model->name, aliashdr, skinnum, skindata);
     aliashdr->skindata = (byte *)pskindata - (byte *)aliashdr;
 
-    return pskintype;
+    return buffer;
 }
 
 static void
@@ -250,7 +250,6 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     daliasframetype_t *pframetype;
     daliasframe_t *frame;
     daliasgroup_t *group;
-    daliasskintype_t *pskintype;
     float *intervals;
     aliashdr_t *aliashdr;
 
@@ -304,16 +303,13 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     if (aliashdr->numtris <= 0)
 	Sys_Error("model %s has no triangles", model->name);
 
-//
-// load the skins
-//
-    pskintype = (daliasskintype_t *)&inmodel[1];
-    pskintype = Mod_LoadAllSkins(aliashdr, loader, model, aliashdr->numskins, pskintype);
+    /* Load the skins */
+    buffer = inmodel + 1;
+    buffer = Mod_LoadAliasSkins(aliashdr, loader, model, aliashdr->numskins,
+				buffer);
 
-//
-// set base s and t vertices
-//
-    pinstverts = (stvert_t *)pskintype;
+    /* Load base s and t vertices */
+    pinstverts = buffer;
     for (i = 0; i < aliashdr->numverts; i++) {
 	stverts[i].onseam = LittleLong(pinstverts[i].onseam);
 	stverts[i].s = LittleLong(pinstverts[i].s);
