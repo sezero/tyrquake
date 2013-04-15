@@ -86,7 +86,7 @@ returns a pointer to the memory location following this frame group
 */
 static daliasframetype_t *
 Mod_LoadAliasGroup(const aliashdr_t *aliashdr, const daliasgroup_t *in,
-		   maliasframedesc_t *frame, const char *loadname)
+		   maliasframedesc_t *frame)
 {
     int i, numframes;
     daliasframe_t *dframe;
@@ -357,8 +357,8 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 	    pframetype = (daliasframetype_t *)&frame->verts[aliashdr->numverts];
 	} else {
 	    group = (daliasgroup_t *)(pframetype + 1);
-	    pframetype = Mod_LoadAliasGroup(aliashdr, group, &aliashdr->frames[i],
-					    hunkname);
+	    pframetype = Mod_LoadAliasGroup(aliashdr, group,
+					    &aliashdr->frames[i]);
 	}
     }
     aliashdr->numposes = posenum;
