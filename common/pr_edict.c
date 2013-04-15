@@ -858,7 +858,8 @@ ED_ParseEdict(const char *data, edict_t *ent)
 {
     ddef_t *key;
     qboolean anglehack;
-    qboolean init;
+    qboolean init, ok;
+    const char *keysource;
     char keyname[256];
     int n;
 
@@ -877,26 +878,29 @@ ED_ParseEdict(const char *data, edict_t *ent)
 	if (!data)
 	    SV_Error("%s: EOF without closing brace", __func__);
 
-// anglehack is to allow QuakeEd to write single scalar angles
-// and allow them to be turned into vectors. (FIXME...)
+	anglehack = false;
 	if (!strcmp(com_token, "angle")) {
-	    strcpy(com_token, "angles");
+	    /*
+	     * anglehack is to allow QuakeEd to write single scalar angles
+	     * and allow them to be turned into vectors. (FIXME...)
+	     */
+	    keysource = "angles";
 	    anglehack = true;
-	} else
-	    anglehack = false;
-
-// FIXME: change light to _light to get rid of this hack
-	if (!strcmp(com_token, "light"))
-	    strcpy(com_token, "light_lev");	// hack for single light def
-
-	strcpy(keyname, com_token);
-
-	// another hack to fix keynames with trailing spaces
-	n = strlen(keyname);
-	while (n && keyname[n - 1] == ' ') {
-	    keyname[n - 1] = 0;
-	    n--;
+	} else if (!strcmp(com_token, "light")) {
+	    /*
+	     * hack for single light def
+	     * FIXME: change light to _light to get rid of this hack
+	     */
+	    keysource = "light_lev";
+	} else {
+	    keysource = com_token;
 	}
+	snprintf(keyname, sizeof(keyname), "%s", keysource);
+
+	/* another hack to fix keynames with trailing spaces */
+	n = strlen(keyname);
+	while (n && keyname[n - 1] == ' ')
+	    keyname[--n] = 0;
 
 	// parse value
 	data = COM_Parse(data);
@@ -921,12 +925,12 @@ ED_ParseEdict(const char *data, edict_t *ent)
 
 	if (anglehack) {
 	    char temp[32];
-
-	    strcpy(temp, com_token);
-	    sprintf(com_token, "0 %s 0", temp);
+	    snprintf(temp, sizeof(temp), "0 %s 0", com_token);
+	    ok = ED_ParseEpair((void *)&ent->v, key, temp);
+	} else {
+	    ok = ED_ParseEpair((void *)&ent->v, key, com_token);
 	}
-
-	if (!ED_ParseEpair((void *)&ent->v, key, com_token))
+	if (!ok)
 #ifdef NQ_HACK
 	    Host_Error("%s: parse error", __func__);
 #endif

@@ -166,7 +166,7 @@ float Q_atof(const char *str);
 
 //============================================================================
 
-extern char com_token[1024];
+extern const char *com_token;
 extern qboolean com_eof;
 
 const char *COM_Parse(const char *data);

@@ -1048,7 +1048,8 @@ COM_CheckExtension(const char *path, const char *extn)
 
 //============================================================================
 
-char com_token[1024];
+static char com_tokenbuf[1024];
+const char *com_token = com_tokenbuf;
 unsigned com_argc;
 const char **com_argv;
 
@@ -1068,7 +1069,7 @@ COM_Parse_(const char *data, qboolean split_single_chars)
     int len;
 
     len = 0;
-    com_token[0] = 0;
+    com_tokenbuf[0] = 0;
 
     if (!data)
 	return NULL;
@@ -1104,31 +1105,32 @@ COM_Parse_(const char *data, qboolean split_single_chars)
 	    if (c)
 		data++;
 	    if (c == '\"' || !c) {
-		com_token[len] = 0;
+		com_tokenbuf[len] = 0;
 		return data;
 	    }
-	    com_token[len] = c;
-	    len++;
+	    if (len < sizeof(com_tokenbuf) - 1)
+		com_tokenbuf[len++] = c;
 	}
     }
 // parse single characters
     if (split_single_chars && strchr(single_chars, c)) {
-	com_token[len] = c;
-	len++;
-	com_token[len] = 0;
+	if (len < sizeof(com_tokenbuf) - 1)
+	    com_tokenbuf[len++] = c;
+	com_tokenbuf[len] = 0;
 	return data + 1;
     }
 // parse a regular word
     do {
-	com_token[len] = c;
+	if (len < sizeof(com_tokenbuf) - 1)
+	    com_tokenbuf[len++] = c;
 	data++;
-	len++;
 	c = *data;
 	if (split_single_chars && strchr(single_chars, c))
 	    break;
     } while (c > 32);
 
-    com_token[len] = 0;
+    com_tokenbuf[len] = 0;
+
     return data;
 }
 
