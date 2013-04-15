@@ -263,7 +263,6 @@ CL_Record_f(void)
     cls.demorecording = true;
 }
 
-
 /*
 ====================
 CL_PlayDemo_f
@@ -274,8 +273,7 @@ play [demoname]
 void
 CL_PlayDemo_f(void)
 {
-    char name[256];
-    qboolean neg;
+    char name[256], forcetrack[12];
     int i, c;
 
     if (cmd_source != src_command)
@@ -305,35 +303,42 @@ CL_PlayDemo_f(void)
     }
 
     /*
-     * Parse an integer for the demo CD track. If we didn't find the
-     * '\n' within the first 13 chars, the demo is probably invalid.
-     * Unless you expect to have a billion track CD lying around...
+     * Parse an integer for the demo CD track.  Pull the string out
+     * manually because fscanf can chew up a space following '\n'
+     * which can mess up the rest of the demo playback.  If we didn't
+     * find a newline within the first 12 characters, assume the demo
+     * file is invalid.
      */
     cls.forcetrack = 0;
-    neg = false;
-    c = getc(cls.demofile);
-    if (c == '-')
-	neg = true;
-    else
-	ungetc(c, cls.demofile);
-    for (i = 0; i < 13; i++) {
+    for (i = 0; i < 12; i++) {
 	c = getc(cls.demofile);
-	if (!isdigit(c))
+	forcetrack[i] = c & 127;
+	if (c == '\n')
 	    break;
-	cls.forcetrack = cls.forcetrack * 10 + c - '0';
     }
     if (c != '\n') {
-	fclose(cls.demofile);
-	cls.demofile = NULL;
-	cls.demonum = -1;
 	Con_Printf("ERROR: demo \"%s\" is invalid\n", name);
-	return;
+	goto error_out;
     }
-    if (neg)
-	cls.forcetrack = -cls.forcetrack;
 
+    /* Terminate before the '\n' and parse the track number */
+    forcetrack[i] = 0;
+    i = sscanf(forcetrack, "%d", &cls.forcetrack);
+    if (i != 1) {
+	Con_Printf("Error: invalid cd track '%s' in demo %s\n",
+		   forcetrack, name);
+	goto error_out;
+    }
+
+    /* Continue with demo playback */
     cls.demoplayback = true;
     cls.state = ca_connected;
+    return;
+
+ error_out:
+    fclose(cls.demofile);
+    cls.demofile = NULL;
+    cls.demonum = -1;
 }
 
 struct stree_root *
