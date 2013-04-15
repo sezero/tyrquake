@@ -207,6 +207,31 @@ Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
     return pskintype;
 }
 
+static void
+Mod_AliasCRC(const model_t *model, const byte *buffer, int bufferlen)
+{
+#ifdef QW_HACK
+    unsigned short crc;
+    const char *crcmodel = NULL;
+
+    if (!strcmp(model->name, "progs/player.mdl"))
+	crcmodel = "pmodel";
+    if (!strcmp(model->name, "progs/eyes.mdl"))
+	crcmodel = "emodel";
+
+    if (crcmodel) {
+	crc = CRC_Block(buffer, bufferlen);
+	Info_SetValueForKey(cls.userinfo, crcmodel, va("%d", (int)crc),
+			    MAX_INFO_STRING);
+	if (cls.state >= ca_connected) {
+	    MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
+	    MSG_WriteStringf(&cls.netchan.message, "setinfo %s %d", crcmodel,
+			     (int)crc);
+	}
+    }
+#endif
+}
+
 /*
 =================
 Mod_LoadAliasModel
@@ -231,25 +256,8 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     float *intervals;
     aliashdr_t *aliashdr;
 
-#ifdef QW_HACK
-    unsigned short crc;
-    const char *crcmodel = NULL;
-    if (!strcmp(model->name, "progs/player.mdl"))
-	crcmodel = "pmodel";
-    if (!strcmp(model->name, "progs/eyes.mdl"))
-	crcmodel = "emodel";
-
-    if (crcmodel) {
-	crc = CRC_Block(buffer, com_filesize);
-	Info_SetValueForKey(cls.userinfo, crcmodel, va("%d", (int)crc),
-			    MAX_INFO_STRING);
-	if (cls.state >= ca_connected) {
-	    MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
-	    MSG_WriteStringf(&cls.netchan.message, "setinfo %s %d", crcmodel,
-			     (int)crc);
-	}
-    }
-#endif
+    /* QW sets CRC info for player/eyes models */
+    Mod_AliasCRC(model, buffer, com_filesize);
 
     start = Hunk_LowMark();
 
