@@ -162,7 +162,6 @@ Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 		 const model_t *model, int numskins,
 		 daliasskintype_t *pskintype)
 {
-    char hunkname[HUNK_NAMELEN];
     int i, skinsize;
     maliasskindesc_t *pskindesc;
     float *pskinintervals;
@@ -178,8 +177,7 @@ Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 	Sys_Error("%s: skinwidth not multiple of 4", __func__);
 
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
-    COM_FileBase(model->name, hunkname, sizeof(hunkname));
-    pskindesc = Hunk_AllocName(numskins * sizeof(maliasskindesc_t), hunkname);
+    pskindesc = Mod_AllocName(numskins * sizeof(maliasskindesc_t), model->name);
     aliashdr->skindesc = (byte *)pskindesc - (byte *)aliashdr;
 
     skinnum = 0;
@@ -198,7 +196,7 @@ Mod_LoadAllSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 	}
     }
 
-    pskinintervals = Hunk_Alloc(skinnum * sizeof(float));
+    pskinintervals = Mod_AllocName(skinnum * sizeof(float), model->name);
     aliashdr->skinintervals = (byte *)pskinintervals - (byte *)aliashdr;
     memcpy(pskinintervals, skinintervals, skinnum * sizeof(float));
 
@@ -217,7 +215,7 @@ Mod_LoadAliasModel
 void
 Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 {
-    char hunkname[HUNK_NAMELEN];
+    char hunkname[HUNK_NAMELEN + 1];
     byte *container;
     int i, j, pad;
     mdl_t *pinmodel;
@@ -373,7 +371,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     /*
      * Save the frame intervals
      */
-    intervals = Hunk_Alloc(aliashdr->numposes * sizeof(float));
+    intervals = Mod_AllocName(aliashdr->numposes * sizeof(float), model->name);
     aliashdr->poseintervals = (byte *)intervals - (byte *)aliashdr;
     for (i = 0; i < aliashdr->numposes; i++)
 	intervals[i] = poseintervals[i];

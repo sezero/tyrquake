@@ -467,6 +467,7 @@ typedef struct model_loader {
 //============================================================================
 
 void Mod_Init(const model_loader_t *loader);
+void *Mod_AllocName(int size, const char *name); /* Internal helper */
 #ifndef SERVERONLY
 void Mod_InitAliasCache(void);
 void Mod_ClearAlias(void);
