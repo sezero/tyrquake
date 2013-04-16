@@ -157,13 +157,14 @@ Mod_LoadAliasSkins
 */
 static void *
 Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
-		   const model_t *model, int numskins, void *buffer)
+		   const model_t *model, void *buffer)
 {
-    int i, skinsize;
+    int i, numskins, skinsize;
     maliasskindesc_t *skindesc;
     float *pskinintervals;
     byte *pskindata;
 
+    numskins = aliashdr->numskins;
     if (numskins < 1
 #if defined(GLQUAKE) && defined(NQ_HACK)
 	|| numskins > MAX_SKINS
@@ -174,7 +175,7 @@ Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 	Sys_Error("%s: skinwidth not multiple of 4", __func__);
 
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
-    skindesc = Mod_AllocName(numskins * sizeof(maliasskindesc_t), model->name);
+    skindesc = Mod_AllocName(numskins * sizeof(*skindesc), model->name);
     aliashdr->skindesc = (byte *)skindesc - (byte *)aliashdr;
 
     skinnum = 0;
@@ -374,8 +375,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 
     /* Load the skins */
     buffer = inmodel + 1;
-    buffer = Mod_LoadAliasSkins(aliashdr, loader, model, aliashdr->numskins,
-				buffer);
+    buffer = Mod_LoadAliasSkins(aliashdr, loader, model, buffer);
 
     /* Load base s and t vertices */
     pinstverts = buffer;
