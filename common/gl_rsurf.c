@@ -1175,15 +1175,14 @@ AllocBlock(int w, int h, int *x, int *y)
 
 mvertex_t *r_pcurrentvertbase;
 
-static brushmodel_t *currentmodel;
-
 /*
 ================
 BuildSurfaceDisplayList
 ================
 */
 static void
-BuildSurfaceDisplayList(void *hunkbase, msurface_t *surf)
+BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf,
+			void *hunkbase)
 {
     int i, lindex, lnumverts, memsize;
     medge_t *pedges, *r_pedge;
@@ -1192,7 +1191,7 @@ BuildSurfaceDisplayList(void *hunkbase, msurface_t *surf)
     glpoly_t *poly;
 
 // reconstruct the polygon
-    pedges = currentmodel->edges;
+    pedges = brushmodel->edges;
     lnumverts = surf->numedges;
 
     //
@@ -1207,7 +1206,7 @@ BuildSurfaceDisplayList(void *hunkbase, msurface_t *surf)
     poly->numverts = lnumverts;
 
     for (i = 0; i < lnumverts; i++) {
-	lindex = currentmodel->surfedges[surf->firstedge + i];
+	lindex = brushmodel->surfedges[surf->firstedge + i];
 
 	if (lindex > 0) {
 	    r_pedge = &pedges[lindex];
@@ -1286,6 +1285,7 @@ GL_BuildLightmaps(void *hunkbase)
     float t1, t2;
     model_t *model;
     brushmodel_t *brushmodel;
+    msurface_t *surf;
     lm_block_t *block;
 
     for (i = 0; i < MAX_LM_BLOCKS; i++)
@@ -1345,15 +1345,15 @@ GL_BuildLightmaps(void *hunkbase)
 
 	brushmodel = BrushModel(model);
 	r_pcurrentvertbase = brushmodel->vertexes;
-	currentmodel = brushmodel;
-	for (i = 0; i < brushmodel->numsurfaces; i++) {
+	surf = brushmodel->surfaces;
+	for (i = 0; i < brushmodel->numsurfaces; i++, surf++) {
 	    cnt++;
-	    GL_CreateSurfaceLightmap(brushmodel->surfaces + i);
-	    if (brushmodel->surfaces[i].flags & SURF_DRAWTURB)
+	    GL_CreateSurfaceLightmap(surf);
+	    if (surf->flags & SURF_DRAWTURB)
 		continue;
-	    if (brushmodel->surfaces[i].flags & SURF_DRAWSKY)
+	    if (surf->flags & SURF_DRAWSKY)
 		continue;
-	    BuildSurfaceDisplayList(hunkbase, brushmodel->surfaces + i);
+	    BuildSurfaceDisplayList(brushmodel, surf, hunkbase);
 	}
     }
 
