@@ -260,7 +260,7 @@ Model_NextDownload(void)
     }
 
     // all done
-    cl.worldmodel = cl.model_precache[1];
+    cl.worldmodel = BrushModel(cl.model_precache[1]);
     R_NewMap();
     Hunk_Check();		// make sure nothing is hurt
 

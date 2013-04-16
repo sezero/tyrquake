@@ -456,21 +456,15 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     model->mins[0] = model->mins[1] = model->mins[2] = -16;
     model->maxs[0] = model->maxs[1] = model->maxs[2] = 16;
 
-    /*
-     * Save the mesh data (verts, stverts, triangles)
-     */
+    /* Get the driver to save the mesh data */
     loader->LoadMeshData(model, aliashdr, &meshdata, &posedata);
 
-//
-// move the complete, relocatable alias model to the cache
-//
+    /* move the complete, relocatable alias model to the cache */
     end = Hunk_LowMark();
     memsize = end - start;
-
     Cache_AllocPadded(&model->cache, pad, memsize - pad, model->name);
     if (!model->cache.data)
 	return;
-
     memcpy((byte *)model->cache.data - pad, membase, memsize);
 
     Hunk_FreeToLowMark(lowmark);

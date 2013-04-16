@@ -74,7 +74,8 @@ static const hull_t *
 SV_HullForEntity(const edict_t *ent, const vec3_t mins, const vec3_t maxs,
 		 vec3_t offset, boxhull_t *boxhull)
 {
-    const model_t *model;
+    model_t *model;
+    const brushmodel_t *brushmodel;
     const hull_t *hull;
     vec3_t hullmins, hullmaxs, size;
 
@@ -88,13 +89,14 @@ SV_HullForEntity(const edict_t *ent, const vec3_t mins, const vec3_t maxs,
 	if (!model || model->type != mod_brush)
 	    SV_Error("MOVETYPE_PUSH with a non bsp model");
 
+	brushmodel = BrushModel(model);
 	VectorSubtract(maxs, mins, size);
 	if (size[0] < 3)
-	    hull = &model->hulls[0];
+	    hull = &brushmodel->hulls[0];
 	else if (size[0] <= 32)
-	    hull = &model->hulls[1];
+	    hull = &brushmodel->hulls[1];
 	else
-	    hull = &model->hulls[2];
+	    hull = &brushmodel->hulls[2];
 
 // calculate an offset value to center the origin
 	VectorSubtract(hull->clip_mins, mins, offset);
@@ -266,14 +268,15 @@ SV_ClearWorld
 void
 SV_ClearWorld(void)
 {
+    model_t *model = &sv.worldmodel->model;
+
     memset(sv_areanodes, 0, sizeof(sv_areanodes));
     sv_numareanodes = 0;
-    SV_CreateAreaNode(0, sv.worldmodel->mins, sv.worldmodel->maxs);
+    SV_CreateAreaNode(0, model->mins, model->maxs);
 }
 
-
-static link_t	**sv_link_next;
-static link_t	**sv_link_prev;
+static link_t **sv_link_next;
+static link_t **sv_link_prev;
 
 /*
 ===============

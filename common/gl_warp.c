@@ -144,10 +144,11 @@ can be done reasonably.
 ================
 */
 void
-GL_SubdivideSurface(model_t *model, msurface_t *surf)
+GL_SubdivideSurface(brushmodel_t *brushmodel, msurface_t *surf)
 {
-    char hunkname[HUNK_NAMELEN];
-    vec3_t verts[64];
+    const model_t *model = &brushmodel->model;
+    char hunkname[HUNK_NAMELEN + 1];
+    vec3_t verts[64]; /* FIXME!!! */
     int i, edge, numverts;
     vec_t *vert;
 
@@ -158,11 +159,11 @@ GL_SubdivideSurface(model_t *model, msurface_t *surf)
     //
     numverts = 0;
     for (i = 0; i < surf->numedges; i++) {
-	edge = model->surfedges[surf->firstedge + i];
+	edge = brushmodel->surfedges[surf->firstedge + i];
 	if (edge > 0)
-	    vert = model->vertexes[model->edges[edge].v[0]].position;
+	    vert = brushmodel->vertexes[brushmodel->edges[edge].v[0]].position;
 	else
-	    vert = model->vertexes[model->edges[-edge].v[1]].position;
+	    vert = brushmodel->vertexes[brushmodel->edges[-edge].v[1]].position;
 	VectorCopy(vert, verts[numverts]);
 	numverts++;
     }

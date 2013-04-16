@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef MODEL_H
 #define MODEL_H
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -399,9 +400,21 @@ typedef struct model_s {
     float radius;
 
 //
-// brush model
+// additional model data
 //
-    int firstmodelsurface, nummodelsurfaces;
+    cache_user_t cache;		// only access through Mod_Extradata
+
+} model_t;
+
+/*
+ * Brush (BSP) model
+ */
+typedef struct brushmodel_s {
+    struct brushmodel_s *next;
+    model_t model;
+
+    int firstmodelsurface;
+    int nummodelsurfaces;
 
     int numsubmodels;
     dmodel_t *submodels;
@@ -441,21 +454,22 @@ typedef struct model_s {
     int numtextures;
     texture_t **textures;
 
-    byte *visdata;
-    byte *lightdata;
-    char *entities;
-
 #ifdef QW_HACK
     unsigned checksum;		// for world models only
     unsigned checksum2;		// for world models only
 #endif
 
-//
-// additional model data
-//
-    cache_user_t cache;		// only access through Mod_Extradata
+    byte *visdata;
+    byte *lightdata;
+    char *entities;
+} brushmodel_t;
 
-} model_t;
+static inline brushmodel_t *
+BrushModel(model_t *model)
+{
+    assert(model && model->type == mod_brush);
+    return container_of(model, brushmodel_t, model);
+}
 
 /* Alias model loader structures */
 typedef struct {
@@ -507,9 +521,9 @@ typedef struct {
     leafblock_t bits[]; /* Variable Sized */
 } leafbits_t;
 
-mleaf_t *Mod_PointInLeaf(const model_t *model, const vec3_t point);
-const leafbits_t *Mod_LeafPVS(const model_t *model, const mleaf_t *leaf);
-const leafbits_t *Mod_FatPVS(const model_t *model, const vec3_t point);
+mleaf_t *Mod_PointInLeaf(const brushmodel_t *model, const vec3_t point);
+const leafbits_t *Mod_LeafPVS(const brushmodel_t *model, const mleaf_t *leaf);
+const leafbits_t *Mod_FatPVS(const brushmodel_t *model, const vec3_t point);
 
 int __ERRORLONGSIZE(void); /* to generate an error at link time */
 #define QBYTESHIFT(x) ((x) == 8 ? 6 : ((x) == 4 ? 5 : __ERRORLONGSIZE() ))

@@ -901,10 +901,12 @@ CL_SetSolidEntities(physent_stack_t *pestack)
     packet_entities_t *pak;
     entity_state_t *state;
     physent_t *physent;
+    model_t *model;
+    brushmodel_t *brushmodel;
 
     physent = pestack->physents;
 
-    physent->model = cl.worldmodel;
+    physent->model = &cl.worldmodel->model;
     VectorCopy(vec3_origin, physent->origin);
     physent++;
 
@@ -918,8 +920,10 @@ CL_SetSolidEntities(physent_stack_t *pestack)
 	    continue;
 	if (!cl.model_precache[state->modelindex])
 	    continue;
-	if (cl.model_precache[state->modelindex]->hulls[1].firstclipnode) {
-	    physent->model = cl.model_precache[state->modelindex];
+	model = cl.model_precache[state->modelindex];
+	brushmodel = BrushModel(model);
+	if (brushmodel->hulls[1].firstclipnode) {
+	    physent->model = model;
 	    VectorCopy(state->origin, physent->origin);
 	    physent++;
 	}

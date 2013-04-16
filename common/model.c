@@ -49,10 +49,11 @@ static texture_t r_notexture_mip_qwsv;
 #define SV_Error Sys_Error
 #endif
 
-static void Mod_LoadBrushModel(model_t *model, void *buffer, size_t size);
+static void Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size);
 static model_t *Mod_LoadModel(const char *name, qboolean crash);
 
-static model_t *loaded_models;
+static brushmodel_t *loaded_models;
+static model_t *loaded_sprites;
 
 #ifdef GLQUAKE
 cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", true };
@@ -85,7 +86,7 @@ Mod_PointInLeaf
 ===============
 */
 mleaf_t *
-Mod_PointInLeaf(const model_t *model, const vec3_t point)
+Mod_PointInLeaf(const brushmodel_t *model, const vec3_t point)
 {
     mplane_t *plane;
     mnode_t *node;
@@ -152,7 +153,7 @@ Mod_CountLeafBits(const leafbits_t *leafbits)
  * Simple LRU cache for decompressed vis data
  */
 typedef struct {
-    const model_t *model;
+    const brushmodel_t *model;
     const mleaf_t *leaf;
     leafbits_t *leafbits;
 } pvscache_t;
@@ -192,7 +193,7 @@ Mod_DecompressVis
 */
 
 static void
-Mod_DecompressVis(const byte *in, const model_t *model, leafbits_t *dest)
+Mod_DecompressVis(const byte *in, const brushmodel_t *model, leafbits_t *dest)
 {
     leafblock_t *out;
     int num_out;
@@ -237,7 +238,7 @@ Mod_DecompressVis(const byte *in, const model_t *model, leafbits_t *dest)
 }
 
 const leafbits_t *
-Mod_LeafPVS(const model_t *model, const mleaf_t *leaf)
+Mod_LeafPVS(const brushmodel_t *model, const mleaf_t *leaf)
 {
     int slot;
     pvscache_t tmp;
@@ -279,7 +280,8 @@ PVSCache_f(void)
 }
 
 static void
-Mod_AddToFatPVS(const model_t *model, const vec3_t point, const mnode_t *node)
+Mod_AddToFatPVS(const brushmodel_t *model, const vec3_t point,
+		const mnode_t *node)
 {
     const leafbits_t *pvs;
     mplane_t *plane;
@@ -322,7 +324,7 @@ crosses a waterline.
 =============
 */
 const leafbits_t *
-Mod_FatPVS(const model_t *model, const vec3_t point)
+Mod_FatPVS(const brushmodel_t *model, const vec3_t point)
 {
     fatpvs->numleafs = model->numleafs;
     memset(fatpvs->bits, 0, pvscache_bytes);
@@ -340,6 +342,7 @@ void
 Mod_ClearAll(void)
 {
     loaded_models = NULL;
+    loaded_sprites = NULL;
     fatpvs = NULL;
     memset(pvscache, 0, sizeof(pvscache));
     pvscache_numleafs = 0;
@@ -359,15 +362,20 @@ Mod_FindName
 static model_t *
 Mod_FindName(const char *name)
 {
+    brushmodel_t *brushmodel;
     model_t *model;
 
     if (!name[0])
 	SV_Error("%s: NULL name", __func__);
 
     /* search the currently loaded models */
-    for (model = loaded_models; model; model = model->next)
-	if (!strcmp(model->name, name))
+    brushmodel = loaded_models;
+    while (brushmodel) {
+	if (!strcmp(brushmodel->model.name, name))
 	    break;
+	brushmodel = brushmodel->next;
+    }
+    model = brushmodel ? &brushmodel->model : NULL;
 
 #ifndef SERVERONLY
     /* Otherwise, search the alias cache */
@@ -400,6 +408,7 @@ Mod_LoadModel(const char *name, qboolean crash)
 {
     byte stackbuf[1024];
     unsigned *buf, header;
+    brushmodel_t *brushmodel;
     model_t *model;
     size_t size;
 
@@ -424,17 +433,18 @@ Mod_LoadModel(const char *name, qboolean crash)
     case IDSPRITEHEADER:
 	model = Mod_AllocName(sizeof(*model), name);
 	snprintf(model->name, sizeof(model->name), "%s", name);
-	model->next = loaded_models;
-	loaded_models = model;
+	model->next = loaded_sprites;
+	loaded_sprites = model;
 	Mod_LoadSpriteModel(model, buf);
 	break;
 #endif
     default:
-	model = Mod_AllocName(sizeof(*model), name);
+	brushmodel = Mod_AllocName(sizeof(*brushmodel), name);
+	brushmodel->next = loaded_models;
+	loaded_models = brushmodel;
+	model = &brushmodel->model;
 	snprintf(model->name, sizeof(model->name), "%s", name);
-	model->next = loaded_models;
-	loaded_models = model;
-	Mod_LoadBrushModel(model, buf, size);
+	Mod_LoadBrushModel(brushmodel, buf, size);
 	break;
     }
 
@@ -487,8 +497,9 @@ Mod_LoadTextures
 =================
 */
 static void
-Mod_LoadTextures(model_t *model, dheader_t *header)
+Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_TEXTURES];
     dmiptexlump_t *lump;
     int i, j, pixels, num, max, altmax, memsize;
@@ -498,17 +509,16 @@ Mod_LoadTextures(model_t *model, dheader_t *header)
     texture_t *altanims[10];
 
     if (!headerlump->filelen) {
-	model->textures = NULL;
+	brushmodel->textures = NULL;
 	return;
     }
 
     lump = (dmiptexlump_t *)((byte *)header + headerlump->fileofs);
     lump->nummiptex = LittleLong(lump->nummiptex);
 
-    model->numtextures = lump->nummiptex;
-
-    memsize = model->numtextures * sizeof(*model->textures);
-    model->textures = Mod_AllocName(memsize, model->name);
+    brushmodel->numtextures = lump->nummiptex;
+    memsize = brushmodel->numtextures * sizeof(*brushmodel->textures);
+    brushmodel->textures = Mod_AllocName(memsize, model->name);
 
     for (i = 0; i < lump->nummiptex; i++) {
 	lump->dataofs[i] = LittleLong(lump->dataofs[i]);
@@ -524,7 +534,7 @@ Mod_LoadTextures(model_t *model, dheader_t *header)
 	    SV_Error("Texture %s is not 16 aligned", mt->name);
 	pixels = mt->width * mt->height / 64 * 85;
 	tx = Mod_AllocName(sizeof(texture_t) + pixels, model->name);
-	model->textures[i] = tx;
+	brushmodel->textures[i] = tx;
 
 	memcpy(tx->name, mt->name, sizeof(tx->name));
 	tx->width = mt->width;
@@ -550,7 +560,7 @@ Mod_LoadTextures(model_t *model, dheader_t *header)
 // sequence the animations
 //
     for (i = 0; i < lump->nummiptex; i++) {
-	tx = model->textures[i];
+	tx = brushmodel->textures[i];
 	if (!tx || tx->name[0] != '+')
 	    continue;
 	if (tx->anim_next)
@@ -577,7 +587,7 @@ Mod_LoadTextures(model_t *model, dheader_t *header)
 	    SV_Error("Bad animating texture %s", tx->name);
 
 	for (j = i + 1; j < lump->nummiptex; j++) {
-	    tx2 = model->textures[j];
+	    tx2 = brushmodel->textures[j];
 	    if (!tx2 || tx2->name[0] != '+')
 		continue;
 	    if (strcmp(tx2->name + 2, tx->name + 2))
@@ -633,18 +643,19 @@ Mod_LoadLighting
 =================
 */
 static void
-Mod_LoadLighting(model_t *model, dheader_t *header)
+Mod_LoadLighting(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_LIGHTING];
     const byte *lightdata;
 
     if (!headerlump->filelen) {
-	model->lightdata = NULL;
+	brushmodel->lightdata = NULL;
 	return;
     }
     lightdata = (byte *)header + headerlump->fileofs;
-    model->lightdata = Mod_AllocName(headerlump->filelen, model->name);
-    memcpy(model->lightdata, lightdata, headerlump->filelen);
+    brushmodel->lightdata = Mod_AllocName(headerlump->filelen, model->name);
+    memcpy(brushmodel->lightdata, lightdata, headerlump->filelen);
 }
 
 
@@ -654,18 +665,19 @@ Mod_LoadVisibility
 =================
 */
 static void
-Mod_LoadVisibility(model_t *model, dheader_t *header)
+Mod_LoadVisibility(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_VISIBILITY];
     const byte *visdata;
 
     if (!headerlump->filelen) {
-	model->visdata = NULL;
+	brushmodel->visdata = NULL;
 	return;
     }
     visdata = (byte *)header + headerlump->fileofs;
-    model->visdata = Mod_AllocName(headerlump->filelen, model->name);
-    memcpy(model->visdata, visdata, headerlump->filelen);
+    brushmodel->visdata = Mod_AllocName(headerlump->filelen, model->name);
+    memcpy(brushmodel->visdata, visdata, headerlump->filelen);
 }
 
 
@@ -675,18 +687,19 @@ Mod_LoadEntities
 =================
 */
 static void
-Mod_LoadEntities(model_t *model, dheader_t *header)
+Mod_LoadEntities(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_ENTITIES];
     const byte *entities;
 
     if (!headerlump->filelen) {
-	model->entities = NULL;
+	brushmodel->entities = NULL;
 	return;
     }
     entities = (byte *)header + headerlump->fileofs;
-    model->entities = Mod_AllocName(headerlump->filelen, model->name);
-    memcpy(model->entities, entities, headerlump->filelen);
+    brushmodel->entities = Mod_AllocName(headerlump->filelen, model->name);
+    memcpy(brushmodel->entities, entities, headerlump->filelen);
 }
 
 
@@ -696,8 +709,9 @@ Mod_LoadVertexes
 =================
 */
 static void
-Mod_LoadVertexes(model_t *model, const dheader_t *header)
+Mod_LoadVertexes(brushmodel_t *brushmodel, const dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_VERTEXES];
     const dvertex_t *in;
     mvertex_t *out;
@@ -709,8 +723,8 @@ Mod_LoadVertexes(model_t *model, const dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->vertexes = out;
-    model->numvertexes = count;
+    brushmodel->vertexes = out;
+    brushmodel->numvertexes = count;
 
     for (i = 0; i < count; i++, in++, out++) {
 	out->position[0] = LittleFloat(in->point[0]);
@@ -725,10 +739,11 @@ Mod_LoadSubmodels
 =================
 */
 static void
-Mod_LoadSubmodels(model_t *model, dheader_t *header)
+Mod_LoadSubmodels(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_MODELS];
-    dmodel_t *in;
+    const dmodel_t *in;
     dmodel_t *out;
     int i, j, count;
 
@@ -738,8 +753,8 @@ Mod_LoadSubmodels(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->submodels = out;
-    model->numsubmodels = count;
+    brushmodel->submodels = out;
+    brushmodel->numsubmodels = count;
 
     for (i = 0; i < count; i++, in++, out++) {
 	for (j = 0; j < 3; j++) {	// spread the mins / maxs by a pixel
@@ -762,10 +777,11 @@ Mod_LoadEdges
 =================
 */
 static void
-Mod_LoadEdges_BSP29(model_t *model, dheader_t *header)
+Mod_LoadEdges_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_EDGES];
-    bsp29_dedge_t *in;
+    const bsp29_dedge_t *in;
     medge_t *out;
     int i, count;
 
@@ -775,8 +791,8 @@ Mod_LoadEdges_BSP29(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName((count + 1) * sizeof(*out), model->name);
 
-    model->edges = out;
-    model->numedges = count;
+    brushmodel->edges = out;
+    brushmodel->numedges = count;
 
     for (i = 0; i < count; i++, in++, out++) {
 	out->v[0] = (uint16_t)LittleShort(in->v[0]);
@@ -785,10 +801,11 @@ Mod_LoadEdges_BSP29(model_t *model, dheader_t *header)
 }
 
 static void
-Mod_LoadEdges_BSP2(model_t *model, dheader_t *header)
+Mod_LoadEdges_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_EDGES];
-    bsp2_dedge_t *in;
+    const bsp2_dedge_t *in;
     medge_t *out;
     int i, count;
 
@@ -798,8 +815,8 @@ Mod_LoadEdges_BSP2(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName((count + 1) * sizeof(*out), model->name);
 
-    model->edges = out;
-    model->numedges = count;
+    brushmodel->edges = out;
+    brushmodel->numedges = count;
 
     for (i = 0; i < count; i++, in++, out++) {
 	out->v[0] = (uint32_t)LittleLong(in->v[0]);
@@ -813,10 +830,11 @@ Mod_LoadTexinfo
 =================
 */
 static void
-Mod_LoadTexinfo(model_t *model, dheader_t *header)
+Mod_LoadTexinfo(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_TEXINFO];
-    texinfo_t *in;
+    const texinfo_t *in;
     mtexinfo_t *out;
     int i, j, count;
     int miptex;
@@ -828,8 +846,8 @@ Mod_LoadTexinfo(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->texinfo = out;
-    model->numtexinfo = count;
+    brushmodel->texinfo = out;
+    brushmodel->numtexinfo = count;
 
     for (i = 0; i < count; i++, in++, out++) {
 	for (j = 0; j < 4; j++) {
@@ -851,7 +869,7 @@ Mod_LoadTexinfo(model_t *model, dheader_t *header)
 	miptex = LittleLong(in->miptex);
 	out->flags = LittleLong(in->flags);
 
-	if (!model->textures) {
+	if (!brushmodel->textures) {
 #ifndef SERVERONLY
 	    out->texture = r_notexture_mip;	// checkerboard texture
 #else
@@ -859,9 +877,9 @@ Mod_LoadTexinfo(model_t *model, dheader_t *header)
 #endif
 	    out->flags = 0;
 	} else {
-	    if (miptex >= model->numtextures)
-		SV_Error("miptex >= model->numtextures");
-	    out->texture = model->textures[miptex];
+	    if (miptex >= brushmodel->numtextures)
+		SV_Error("miptex >= brushmodel->numtextures");
+	    out->texture = brushmodel->textures[miptex];
 	    if (!out->texture) {
 #ifndef SERVERONLY
 		out->texture = r_notexture_mip;	// texture not found
@@ -882,30 +900,30 @@ Fills in s->texturemins[] and s->extents[]
 ================
 */
 static void
-CalcSurfaceExtents(const model_t *model, msurface_t *s)
+CalcSurfaceExtents(const brushmodel_t *brushmodel, msurface_t *surf)
 {
+    const mtexinfo_t *const texinfo = surf->texinfo;
+    const mvertex_t *vertex;
     float mins[2], maxs[2], val;
-    int i, j, e;
-    const mvertex_t *v;
-    const mtexinfo_t *tex;
     int bmins[2], bmaxs[2];
+    int i, j;
 
     mins[0] = mins[1] = FLT_MAX;
     maxs[0] = maxs[1] = -FLT_MAX;
 
-    tex = s->texinfo;
-
-    for (i = 0; i < s->numedges; i++) {
-	e = model->surfedges[s->firstedge + i];
-	if (e >= 0)
-	    v = &model->vertexes[model->edges[e].v[0]];
-	else
-	    v = &model->vertexes[model->edges[-e].v[1]];
-
+    for (i = 0; i < surf->numedges; i++) {
+	const int edgenum = brushmodel->surfedges[surf->firstedge + i];
+	if (edgenum >= 0) {
+	    const medge_t *const edge = &brushmodel->edges[edgenum];
+	    vertex = &brushmodel->vertexes[edge->v[0]];
+	} else {
+	    const medge_t *const edge = &brushmodel->edges[-edgenum];
+	    vertex = &brushmodel->vertexes[edge->v[1]];
+	}
 	for (j = 0; j < 2; j++) {
-	    val = v->position[0] * tex->vecs[j][0] +
-		v->position[1] * tex->vecs[j][1] +
-		v->position[2] * tex->vecs[j][2] + tex->vecs[j][3];
+	    val = vertex->position[0] * texinfo->vecs[j][0] +
+		vertex->position[1] * texinfo->vecs[j][1] +
+		vertex->position[2] * texinfo->vecs[j][2] + texinfo->vecs[j][3];
 	    if (val < mins[j])
 		mins[j] = val;
 	    if (val > maxs[j])
@@ -917,61 +935,60 @@ CalcSurfaceExtents(const model_t *model, msurface_t *s)
 	bmins[i] = floor(mins[i] / 16);
 	bmaxs[i] = ceil(maxs[i] / 16);
 
-	s->texturemins[i] = bmins[i] * 16;
-	s->extents[i] = (bmaxs[i] - bmins[i]) * 16;
-	if (!(tex->flags & TEX_SPECIAL) && s->extents[i] > 256)
+	surf->texturemins[i] = bmins[i] * 16;
+	surf->extents[i] = (bmaxs[i] - bmins[i]) * 16;
+	if (!(texinfo->flags & TEX_SPECIAL) && surf->extents[i] > 256)
 	    SV_Error("Bad surface extents");
     }
 }
 
 static void
-CalcSurfaceBounds(const model_t *model, msurface_t *surf)
+CalcSurfaceBounds(const brushmodel_t *brushmodel, msurface_t *surf)
 {
-    int i, j, edgenum;
-    const medge_t *edge;
-    const mvertex_t *v;
+    int i, j;
+    const mvertex_t *vertex;
 
     surf->mins[0] = surf->mins[1] = surf->mins[2] = FLT_MAX;
     surf->maxs[0] = surf->maxs[1] = surf->maxs[2] = -FLT_MAX;
 
     for (i = 0; i < surf->numedges; i++) {
-	edgenum = model->surfedges[surf->firstedge + i];
+	const int edgenum = brushmodel->surfedges[surf->firstedge + i];
 	if (edgenum >= 0) {
-	    edge = &model->edges[edgenum];
-	    v = &model->vertexes[edge->v[0]];
+	    const medge_t *const edge = &brushmodel->edges[edgenum];
+	    vertex = &brushmodel->vertexes[edge->v[0]];
 	} else {
-	    edge = &model->edges[-edgenum];
-	    v = &model->vertexes[edge->v[1]];
+	    const medge_t *const edge = &brushmodel->edges[-edgenum];
+	    vertex = &brushmodel->vertexes[edge->v[1]];
 	}
-
 	for (j = 0; j < 3; j++) {
-	    if (surf->mins[j] > v->position[j])
-		surf->mins[j] = v->position[j];
-	    if (surf->maxs[j] < v->position[j])
-		surf->maxs[j] = v->position[j];
+	    if (surf->mins[j] > vertex->position[j])
+		surf->mins[j] = vertex->position[j];
+	    if (surf->maxs[j] < vertex->position[j])
+		surf->maxs[j] = vertex->position[j];
 	}
     }
 }
 
 static void
-Mod_ProcessSurface(model_t *model, msurface_t *surf)
+Mod_ProcessSurface(brushmodel_t *brushmodel, msurface_t *surf)
 {
+    const char *const texturename = surf->texinfo->texture->name;
     int i;
 
     /* set the surface drawing flags */
-    if (!strncmp(surf->texinfo->texture->name, "sky", 3)) {
+    if (!strncmp(texturename, "sky", 3)) {
 	surf->flags |= SURF_DRAWSKY | SURF_DRAWTILED;
 #ifdef GLQUAKE
-	GL_SubdivideSurface(model, surf);
+	GL_SubdivideSurface(brushmodel, surf);
 #endif
-    } else if (!strncmp(surf->texinfo->texture->name, "*", 1)) {
+    } else if (!strncmp(texturename, "*", 1)) {
 	surf->flags |= SURF_DRAWTURB | SURF_DRAWTILED;
 	for (i = 0; i < 2; i++) {
 	    surf->extents[i] = 16384;
 	    surf->texturemins[i] = -8192;
 	}
 #ifdef GLQUAKE
-	GL_SubdivideSurface(model, surf);
+	GL_SubdivideSurface(brushmodel, surf);
 #endif
     }
 }
@@ -983,10 +1000,11 @@ Mod_LoadFaces
 =================
 */
 static void
-Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
+Mod_LoadFaces_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_FACES];
-    bsp29_dface_t *in;
+    const bsp29_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
     int planenum, side;
@@ -997,8 +1015,8 @@ Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->surfaces = out;
-    model->numsurfaces = count;
+    brushmodel->surfaces = out;
+    brushmodel->numsurfaces = count;
 
     for (surfnum = 0; surfnum < count; surfnum++, in++, out++) {
 	out->firstedge = LittleLong(in->firstedge);
@@ -1015,31 +1033,31 @@ Mod_LoadFaces_BSP29(model_t *model, dheader_t *header)
 	if (side)
 	    out->flags |= SURF_PLANEBACK;
 
-	out->plane = model->planes + planenum;
-	out->texinfo = model->texinfo + LittleShort(in->texinfo);
+	out->plane = brushmodel->planes + planenum;
+	out->texinfo = brushmodel->texinfo + LittleShort(in->texinfo);
 
-	CalcSurfaceExtents(model, out);
-	CalcSurfaceBounds(model, out);
+	CalcSurfaceExtents(brushmodel, out);
+	CalcSurfaceBounds(brushmodel, out);
 
-	// lighting info
-
+	/* lighting info */
 	for (i = 0; i < MAXLIGHTMAPS; i++)
 	    out->styles[i] = in->styles[i];
 	i = LittleLong(in->lightofs);
 	if (i == -1)
 	    out->samples = NULL;
 	else
-	    out->samples = model->lightdata + i;
+	    out->samples = brushmodel->lightdata + i;
 
-	Mod_ProcessSurface(model, out);
+	Mod_ProcessSurface(brushmodel, out);
     }
 }
 
 static void
-Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
+Mod_LoadFaces_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_FACES];
-    bsp2_dface_t *in;
+    const bsp2_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
     int planenum, side;
@@ -1050,8 +1068,8 @@ Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->surfaces = out;
-    model->numsurfaces = count;
+    brushmodel->surfaces = out;
+    brushmodel->numsurfaces = count;
 
     for (surfnum = 0; surfnum < count; surfnum++, in++, out++) {
 	out->firstedge = LittleLong(in->firstedge);
@@ -1063,23 +1081,22 @@ Mod_LoadFaces_BSP2(model_t *model, dheader_t *header)
 	if (side)
 	    out->flags |= SURF_PLANEBACK;
 
-	out->plane = model->planes + planenum;
-	out->texinfo = model->texinfo + LittleLong(in->texinfo);
+	out->plane = brushmodel->planes + planenum;
+	out->texinfo = brushmodel->texinfo + LittleLong(in->texinfo);
 
-	CalcSurfaceExtents(model, out);
-	CalcSurfaceBounds(model, out);
+	CalcSurfaceExtents(brushmodel, out);
+	CalcSurfaceBounds(brushmodel, out);
 
-	// lighting info
-
+	/* lighting info */
 	for (i = 0; i < MAXLIGHTMAPS; i++)
 	    out->styles[i] = in->styles[i];
 	i = LittleLong(in->lightofs);
 	if (i == -1)
 	    out->samples = NULL;
 	else
-	    out->samples = model->lightdata + i;
+	    out->samples = brushmodel->lightdata + i;
 
-	Mod_ProcessSurface(model, out);
+	Mod_ProcessSurface(brushmodel, out);
     }
 }
 
@@ -1105,12 +1122,13 @@ Mod_LoadNodes
 =================
 */
 static void
-Mod_LoadNodes_BSP29(model_t *model, dheader_t *header)
+Mod_LoadNodes_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_NODES];
-    int i, j, count, p;
-    bsp29_dnode_t *in;
+    const bsp29_dnode_t *in;
     mnode_t *out;
+    int i, j, count;
 
     in = (bsp29_dnode_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1118,40 +1136,37 @@ Mod_LoadNodes_BSP29(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->nodes = out;
-    model->numnodes = count;
+    brushmodel->nodes = out;
+    brushmodel->numnodes = count;
 
     for (i = 0; i < count; i++, in++, out++) {
+	out->plane = brushmodel->planes + LittleLong(in->planenum);
+	out->firstsurface = (uint16_t)LittleShort(in->firstface);
+	out->numsurfaces = (uint16_t)LittleShort(in->numfaces);
 	for (j = 0; j < 3; j++) {
 	    out->mins[j] = LittleShort(in->mins[j]);
 	    out->maxs[j] = LittleShort(in->maxs[j]);
 	}
-
-	p = LittleLong(in->planenum);
-	out->plane = model->planes + p;
-
-	out->firstsurface = (uint16_t)LittleShort(in->firstface);
-	out->numsurfaces = (uint16_t)LittleShort(in->numfaces);
-
 	for (j = 0; j < 2; j++) {
-	    p = LittleShort(in->children[j]);
-	    if (p >= 0)
-		out->children[j] = model->nodes + p;
+	    const int nodenum = LittleShort(in->children[j]);
+	    if (nodenum >= 0)
+		out->children[j] = brushmodel->nodes + nodenum;
 	    else
-		out->children[j] = (mnode_t *)(model->leafs + (-1 - p));
+		out->children[j] = (mnode_t *)(brushmodel->leafs - nodenum - 1);
 	}
     }
 
-    Mod_SetParent(model->nodes, NULL);	// sets nodes and leafs
+    Mod_SetParent(brushmodel->nodes, NULL);
 }
 
 static void
-Mod_LoadNodes_BSP2(model_t *model, dheader_t *header)
+Mod_LoadNodes_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_NODES];
-    int i, j, count, p;
-    bsp2_dnode_t *in;
+    const bsp2_dnode_t *in;
     mnode_t *out;
+    int i, j, count;
 
     in = (bsp2_dnode_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1159,31 +1174,27 @@ Mod_LoadNodes_BSP2(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->nodes = out;
-    model->numnodes = count;
+    brushmodel->nodes = out;
+    brushmodel->numnodes = count;
 
     for (i = 0; i < count; i++, in++, out++) {
+	out->plane = brushmodel->planes + LittleLong(in->planenum);
+	out->firstsurface = (uint32_t)LittleLong(in->firstface);
+	out->numsurfaces = (uint32_t)LittleLong(in->numfaces);
 	for (j = 0; j < 3; j++) {
 	    out->mins[j] = LittleShort(in->mins[j]);
 	    out->maxs[j] = LittleShort(in->maxs[j]);
 	}
-
-	p = LittleLong(in->planenum);
-	out->plane = model->planes + p;
-
-	out->firstsurface = (uint32_t)LittleLong(in->firstface);
-	out->numsurfaces = (uint32_t)LittleLong(in->numfaces);
-
 	for (j = 0; j < 2; j++) {
-	    p = LittleLong(in->children[j]);
-	    if (p >= 0)
-		out->children[j] = model->nodes + p;
+	    const int nodenum = LittleLong(in->children[j]);
+	    if (nodenum >= 0)
+		out->children[j] = brushmodel->nodes + nodenum;
 	    else
-		out->children[j] = (mnode_t *)(model->leafs + (-1 - p));
+		out->children[j] = (mnode_t *)(brushmodel->leafs - nodenum - 1);
 	}
     }
 
-    Mod_SetParent(model->nodes, NULL);	// sets nodes and leafs
+    Mod_SetParent(brushmodel->nodes, NULL);
 }
 
 /*
@@ -1193,12 +1204,13 @@ Mod_LoadLeafs
 =================
 */
 static void
-Mod_LoadLeafs_BSP29(model_t *model, dheader_t *header)
+Mod_LoadLeafs_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_LEAFS];
-    bsp29_dleaf_t *in;
+    const bsp29_dleaf_t *in;
     mleaf_t *out;
-    int i, j, count, p;
+    int i, j, count, visofs;
 
     in = (bsp29_dleaf_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1206,29 +1218,26 @@ Mod_LoadLeafs_BSP29(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->leafs = out;
-    model->numleafs = count;
+    brushmodel->leafs = out;
+    brushmodel->numleafs = count;
 
     for (i = 0; i < count; i++, in++, out++) {
+	out->efrags = NULL;
+	out->contents = LittleLong(in->contents);
+	out->firstmarksurface = brushmodel->marksurfaces +
+	    (uint16_t)LittleShort(in->firstmarksurface);
+	out->nummarksurfaces = (uint16_t)LittleShort(in->nummarksurfaces);
+
+	visofs = LittleLong(in->visofs);
+	if (visofs == -1)
+	    out->compressed_vis = NULL;
+	else
+	    out->compressed_vis = brushmodel->visdata + visofs;
+
 	for (j = 0; j < 3; j++) {
 	    out->mins[j] = LittleShort(in->mins[j]);
 	    out->maxs[j] = LittleShort(in->maxs[j]);
 	}
-
-	p = LittleLong(in->contents);
-	out->contents = p;
-
-	out->firstmarksurface = model->marksurfaces +
-	    (uint16_t)LittleShort(in->firstmarksurface);
-	out->nummarksurfaces = (uint16_t)LittleShort(in->nummarksurfaces);
-
-	p = LittleLong(in->visofs);
-	if (p == -1)
-	    out->compressed_vis = NULL;
-	else
-	    out->compressed_vis = model->visdata + p;
-	out->efrags = NULL;
-
 	for (j = 0; j < 4; j++)
 	    out->ambient_sound_level[j] = in->ambient_level[j];
 
@@ -1242,11 +1251,10 @@ Mod_LoadLeafs_BSP29(model_t *model, dheader_t *header)
 
 #ifdef QW_HACK
 	{
-	    char s[80];
-	    snprintf(s, sizeof(s), "maps/%s.bsp",
+	    char mapmodel[MAX_QPATH];
+	    snprintf(mapmodel, sizeof(mapmodel), "maps/%s.bsp",
 		     Info_ValueForKey(cl.serverinfo, "map"));
-	    s[sizeof(s) - 1] = 0;
-	    if (strcmp(s, model->name)) {
+	    if (strcmp(mapmodel, model->name)) {
 #endif
 		for (j = 0; j < out->nummarksurfaces; j++)
 		    out->firstmarksurface[j]->flags |= SURF_DONTWARP;
@@ -1259,12 +1267,13 @@ Mod_LoadLeafs_BSP29(model_t *model, dheader_t *header)
 }
 
 static void
-Mod_LoadLeafs_BSP2(model_t *model, dheader_t *header)
+Mod_LoadLeafs_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_LEAFS];
-    bsp2_dleaf_t *in;
+    const bsp2_dleaf_t *in;
     mleaf_t *out;
-    int i, j, count, p;
+    int i, j, count, visofs;
 
     in = (bsp2_dleaf_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1272,29 +1281,26 @@ Mod_LoadLeafs_BSP2(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->leafs = out;
-    model->numleafs = count;
+    brushmodel->leafs = out;
+    brushmodel->numleafs = count;
 
     for (i = 0; i < count; i++, in++, out++) {
+	out->efrags = NULL;
+	out->contents = LittleLong(in->contents);
+	out->firstmarksurface = brushmodel->marksurfaces +
+	    (uint32_t)LittleLong(in->firstmarksurface);
+	out->nummarksurfaces = (uint32_t)LittleLong(in->nummarksurfaces);
+
+	visofs = LittleLong(in->visofs);
+	if (visofs == -1)
+	    out->compressed_vis = NULL;
+	else
+	    out->compressed_vis = brushmodel->visdata + visofs;
+
 	for (j = 0; j < 3; j++) {
 	    out->mins[j] = LittleShort(in->mins[j]);
 	    out->maxs[j] = LittleShort(in->maxs[j]);
 	}
-
-	p = LittleLong(in->contents);
-	out->contents = p;
-
-	out->firstmarksurface = model->marksurfaces +
-	    (uint32_t)LittleLong(in->firstmarksurface);
-	out->nummarksurfaces = (uint32_t)LittleLong(in->nummarksurfaces);
-
-	p = LittleLong(in->visofs);
-	if (p == -1)
-	    out->compressed_vis = NULL;
-	else
-	    out->compressed_vis = model->visdata + p;
-	out->efrags = NULL;
-
 	for (j = 0; j < 4; j++)
 	    out->ambient_sound_level[j] = in->ambient_level[j];
 
@@ -1308,11 +1314,10 @@ Mod_LoadLeafs_BSP2(model_t *model, dheader_t *header)
 
 #ifdef QW_HACK
 	{
-	    char s[80];
-	    snprintf(s, sizeof(s), "maps/%s.bsp",
+	    char mapmodel[MAX_QPATH];
+	    snprintf(mapmodel, sizeof(mapmodel), "maps/%s.bsp",
 		     Info_ValueForKey(cl.serverinfo, "map"));
-	    s[sizeof(s) - 1] = 0;
-	    if (strcmp(s, model->name)) {
+	    if (strcmp(mapmodel, model->name)) {
 #endif
 		for (j = 0; j < out->nummarksurfaces; j++)
 		    out->firstmarksurface[j]->flags |= SURF_DONTWARP;
@@ -1322,6 +1327,36 @@ Mod_LoadLeafs_BSP2(model_t *model, dheader_t *header)
 #endif
 #endif
     }
+}
+
+static void
+Mod_MakeClipHulls(brushmodel_t *brushmodel)
+{
+    hull_t *hull;
+
+    hull = &brushmodel->hulls[1];
+    hull->clipnodes = brushmodel->clipnodes;
+    hull->firstclipnode = 0;
+    hull->lastclipnode = brushmodel->numclipnodes - 1;
+    hull->planes = brushmodel->planes;
+    hull->clip_mins[0] = -16;
+    hull->clip_mins[1] = -16;
+    hull->clip_mins[2] = -24;
+    hull->clip_maxs[0] = 16;
+    hull->clip_maxs[1] = 16;
+    hull->clip_maxs[2] = 32;
+
+    hull = &brushmodel->hulls[2];
+    hull->clipnodes = brushmodel->clipnodes;
+    hull->firstclipnode = 0;
+    hull->lastclipnode = brushmodel->numclipnodes - 1;
+    hull->planes = brushmodel->planes;
+    hull->clip_mins[0] = -32;
+    hull->clip_mins[1] = -32;
+    hull->clip_mins[2] = -24;
+    hull->clip_maxs[0] = 32;
+    hull->clip_maxs[1] = 32;
+    hull->clip_maxs[2] = 64;
 }
 
 /*
@@ -1331,13 +1366,13 @@ Mod_LoadClipnodes
 =================
 */
 static void
-Mod_LoadClipnodes_BSP29(model_t *model, dheader_t *header)
+Mod_LoadClipnodes_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_CLIPNODES];
-    bsp29_dclipnode_t *in;
+    const bsp29_dclipnode_t *in;
     mclipnode_t *out;
     int i, j, count;
-    hull_t *hull;
 
     in = (bsp29_dclipnode_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1345,32 +1380,9 @@ Mod_LoadClipnodes_BSP29(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->clipnodes = out;
-    model->numclipnodes = count;
-
-    hull = &model->hulls[1];
-    hull->clipnodes = out;
-    hull->firstclipnode = 0;
-    hull->lastclipnode = count - 1;
-    hull->planes = model->planes;
-    hull->clip_mins[0] = -16;
-    hull->clip_mins[1] = -16;
-    hull->clip_mins[2] = -24;
-    hull->clip_maxs[0] = 16;
-    hull->clip_maxs[1] = 16;
-    hull->clip_maxs[2] = 32;
-
-    hull = &model->hulls[2];
-    hull->clipnodes = out;
-    hull->firstclipnode = 0;
-    hull->lastclipnode = count - 1;
-    hull->planes = model->planes;
-    hull->clip_mins[0] = -32;
-    hull->clip_mins[1] = -32;
-    hull->clip_mins[2] = -24;
-    hull->clip_maxs[0] = 32;
-    hull->clip_maxs[1] = 32;
-    hull->clip_maxs[2] = 64;
+    brushmodel->clipnodes = out;
+    brushmodel->numclipnodes = count;
+    Mod_MakeClipHulls(brushmodel);
 
     for (i = 0; i < count; i++, out++, in++) {
 	out->planenum = LittleLong(in->planenum);
@@ -1385,13 +1397,13 @@ Mod_LoadClipnodes_BSP29(model_t *model, dheader_t *header)
 }
 
 static void
-Mod_LoadClipnodes_BSP2(model_t *model, dheader_t *header)
+Mod_LoadClipnodes_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_CLIPNODES];
-    bsp2_dclipnode_t *in;
+    const bsp2_dclipnode_t *in;
     mclipnode_t *out;
     int i, j, count;
-    hull_t *hull;
 
     in = (bsp2_dclipnode_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1399,32 +1411,9 @@ Mod_LoadClipnodes_BSP2(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->clipnodes = out;
-    model->numclipnodes = count;
-
-    hull = &model->hulls[1];
-    hull->clipnodes = out;
-    hull->firstclipnode = 0;
-    hull->lastclipnode = count - 1;
-    hull->planes = model->planes;
-    hull->clip_mins[0] = -16;
-    hull->clip_mins[1] = -16;
-    hull->clip_mins[2] = -24;
-    hull->clip_maxs[0] = 16;
-    hull->clip_maxs[1] = 16;
-    hull->clip_maxs[2] = 32;
-
-    hull = &model->hulls[2];
-    hull->clipnodes = out;
-    hull->firstclipnode = 0;
-    hull->lastclipnode = count - 1;
-    hull->planes = model->planes;
-    hull->clip_mins[0] = -32;
-    hull->clip_mins[1] = -32;
-    hull->clip_mins[2] = -24;
-    hull->clip_maxs[0] = 32;
-    hull->clip_maxs[1] = 32;
-    hull->clip_maxs[2] = 64;
+    brushmodel->clipnodes = out;
+    brushmodel->numclipnodes = count;
+    Mod_MakeClipHulls(brushmodel);
 
     for (i = 0; i < count; i++, out++, in++) {
 	out->planenum = LittleLong(in->planenum);
@@ -1438,38 +1427,39 @@ Mod_LoadClipnodes_BSP2(model_t *model, dheader_t *header)
 
 /*
 =================
-Mod_MakeHull0
+Mod_MakeDrawHull
 
 Duplicate the drawing hull structure as a clipping hull
 =================
 */
 static void
-Mod_MakeHull0(model_t *model)
+Mod_MakeDrawHull(brushmodel_t *brushmodel)
 {
-    mnode_t *in, *child;
+    const model_t *model = &brushmodel->model;
+    const mnode_t *in, *child;
     mclipnode_t *out;
-    int i, j, count;
     hull_t *hull;
+    int i, j, count;
 
-    hull = &model->hulls[0];
+    hull = &brushmodel->hulls[0];
 
-    in = model->nodes;
-    count = model->numnodes;
+    in = brushmodel->nodes;
+    count = brushmodel->numnodes;
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
     hull->clipnodes = out;
     hull->firstclipnode = 0;
     hull->lastclipnode = count - 1;
-    hull->planes = model->planes;
+    hull->planes = brushmodel->planes;
 
     for (i = 0; i < count; i++, out++, in++) {
-	out->planenum = in->plane - model->planes;
+	out->planenum = in->plane - brushmodel->planes;
 	for (j = 0; j < 2; j++) {
 	    child = in->children[j];
 	    if (child->contents < 0)
 		out->children[j] = child->contents;
 	    else
-		out->children[j] = child - model->nodes;
+		out->children[j] = child - brushmodel->nodes;
 	}
     }
 }
@@ -1481,12 +1471,13 @@ Mod_LoadMarksurfaces
 =================
 */
 static void
-Mod_LoadMarksurfaces_BSP29(model_t *model, dheader_t *header)
+Mod_LoadMarksurfaces_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_MARKSURFACES];
-    int i, j, count;
-    uint16_t *in;
+    const uint16_t *in;
     msurface_t **out;
+    int i, count;
 
     in = (uint16_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1494,24 +1485,25 @@ Mod_LoadMarksurfaces_BSP29(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->marksurfaces = out;
-    model->nummarksurfaces = count;
+    brushmodel->marksurfaces = out;
+    brushmodel->nummarksurfaces = count;
 
     for (i = 0; i < count; i++) {
-	j = (uint16_t)LittleShort(in[i]);
-	if (j >= model->numsurfaces)
-	    SV_Error("%s: bad surface number", __func__);
-	out[i] = model->surfaces + j;
+	const int surfnum = (uint16_t)LittleShort(in[i]);
+	if (surfnum >= brushmodel->numsurfaces)
+	    SV_Error("%s: bad surface number (%d)", __func__, surfnum);
+	out[i] = brushmodel->surfaces + surfnum;
     }
 }
 
 static void
-Mod_LoadMarksurfaces_BSP2(model_t *model, dheader_t *header)
+Mod_LoadMarksurfaces_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_MARKSURFACES];
-    int i, j, count;
-    uint32_t *in;
+    const uint32_t *in;
     msurface_t **out;
+    int i, count;
 
     in = (uint32_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1519,14 +1511,14 @@ Mod_LoadMarksurfaces_BSP2(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->marksurfaces = out;
-    model->nummarksurfaces = count;
+    brushmodel->marksurfaces = out;
+    brushmodel->nummarksurfaces = count;
 
     for (i = 0; i < count; i++) {
-	j = (uint32_t)LittleLong(in[i]);
-	if (j >= model->numsurfaces)
-	    SV_Error("%s: bad surface number", __func__);
-	out[i] = model->surfaces + j;
+	const int surfnum = (uint32_t)LittleLong(in[i]);
+	if (surfnum < 0 || surfnum >= brushmodel->numsurfaces)
+	    SV_Error("%s: bad surface number (%d)", __func__, surfnum);
+	out[i] = brushmodel->surfaces + surfnum;
     }
 }
 
@@ -1536,11 +1528,13 @@ Mod_LoadSurfedges
 =================
 */
 static void
-Mod_LoadSurfedges(model_t *model, dheader_t *header)
+Mod_LoadSurfedges(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_SURFEDGES];
+    const int32_t *in;
+    int32_t *out;
     int i, count;
-    int32_t *in, *out;
 
     in = (int32_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1548,8 +1542,8 @@ Mod_LoadSurfedges(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * sizeof(*out), model->name);
 
-    model->surfedges = out;
-    model->numsurfedges = count;
+    brushmodel->surfedges = out;
+    brushmodel->numsurfedges = count;
 
     for (i = 0; i < count; i++)
 	out[i] = LittleLong(in[i]);
@@ -1561,14 +1555,13 @@ Mod_LoadPlanes
 =================
 */
 static void
-Mod_LoadPlanes(model_t *model, dheader_t *header)
+Mod_LoadPlanes(brushmodel_t *brushmodel, dheader_t *header)
 {
+    const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_PLANES];
-    int i, j;
+    const dplane_t *in;
     mplane_t *out;
-    dplane_t *in;
-    int count;
-    int bits;
+    int i, j, count;
 
     in = (dplane_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
@@ -1576,20 +1569,19 @@ Mod_LoadPlanes(model_t *model, dheader_t *header)
     count = headerlump->filelen / sizeof(*in);
     out = Mod_AllocName(count * 2 * sizeof(*out), model->name);
 
-    model->planes = out;
-    model->numplanes = count;
+    brushmodel->planes = out;
+    brushmodel->numplanes = count;
 
     for (i = 0; i < count; i++, in++, out++) {
-	bits = 0;
+	int signbits = 0;
 	for (j = 0; j < 3; j++) {
 	    out->normal[j] = LittleFloat(in->normal[j]);
 	    if (out->normal[j] < 0)
-		bits |= 1 << j;
+		signbits |= 1 << j;
 	}
-
 	out->dist = LittleFloat(in->dist);
 	out->type = LittleLong(in->type);
-	out->signbits = bits;
+	out->signbits = signbits;
     }
 }
 
@@ -1611,22 +1603,24 @@ RadiusFromBounds(vec3_t mins, vec3_t maxs)
 }
 
 static void
-Mod_SetupSubmodels(model_t *world)
+Mod_SetupSubmodels(brushmodel_t *world)
 {
     const dmodel_t *dmodel;
-    model_t *submodel;
+    brushmodel_t *submodel;
+    model_t *model;
     int i, j;
 
     /* Set up the extra submodel fields, starting with the world */
     submodel = world;
+    model = &submodel->model;
     for (i = 0; i < world->numsubmodels; i++) {
 	if (i > 0) {
 	    submodel = Hunk_AllocName(sizeof(*submodel), "submodel");
-	    snprintf(submodel->name, sizeof(submodel->name), "*%d", i);
+	    model = &submodel->model;
+	    *submodel = *world; /* start with world info */
+	    snprintf(model->name, sizeof(model->name), "*%d", i);
 	    submodel->next = loaded_models;
 	    loaded_models = submodel;
-	    //*submodel = *world;
-	    memcpy(&submodel->type, &world->type, sizeof(*submodel) - offsetof(model_t, type));
 	}
 
 	dmodel = &world->submodels[i];
@@ -1638,12 +1632,11 @@ Mod_SetupSubmodels(model_t *world)
 
 	submodel->firstmodelsurface = dmodel->firstface;
 	submodel->nummodelsurfaces = dmodel->numfaces;
-
-	VectorCopy(dmodel->maxs, submodel->maxs);
-	VectorCopy(dmodel->mins, submodel->mins);
-
-	submodel->radius = RadiusFromBounds(submodel->mins, submodel->maxs);
 	submodel->numleafs = dmodel->visleafs;
+
+	VectorCopy(dmodel->maxs, model->maxs);
+	VectorCopy(dmodel->mins, model->mins);
+	model->radius = RadiusFromBounds(model->mins, model->maxs);
     }
 }
 
@@ -1653,13 +1646,13 @@ Mod_LoadBrushModel
 =================
 */
 static void
-Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
+Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
 {
+    model_t *model = &brushmodel->model;
+    dheader_t *header = buffer;
     int i, j;
-    dheader_t *header;
 
     model->type = mod_brush;
-    header = (dheader_t *)buffer;
 
     /* swap all the header entries */
     header->version = LittleLong(header->version);
@@ -1701,8 +1694,8 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
     }
 
 #ifdef QW_HACK
-    model->checksum = 0;
-    model->checksum2 = 0;
+    brushmodel->checksum = 0;
+    brushmodel->checksum2 = 0;
 
     /* checksum the map */
     for (i = 0; i < HEADER_LUMPS; i++) {
@@ -1714,50 +1707,50 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
 	if (i == LUMP_ENTITIES)
 	    continue;
 	checksum = Com_BlockChecksum(data, headerlump->filelen);
-	model->checksum ^= checksum;
+	brushmodel->checksum ^= checksum;
 
 	/* Exclude visibility, leafs and nodes from checksum2 */
 	if (i == LUMP_VISIBILITY || i == LUMP_LEAFS || i == LUMP_NODES)
 	    continue;
-	model->checksum2 ^= checksum;
+	brushmodel->checksum2 ^= checksum;
     }
-    model->checksum = LittleLong(model->checksum);
-    model->checksum2 = LittleLong(model->checksum2);
+    brushmodel->checksum = LittleLong(brushmodel->checksum);
+    brushmodel->checksum2 = LittleLong(brushmodel->checksum2);
 #endif
 
     /* load into heap */
-    Mod_LoadVertexes(model, header);
+    Mod_LoadVertexes(brushmodel, header);
     if (header->version == BSPVERSION) {
-	Mod_LoadEdges_BSP29(model, header);
+	Mod_LoadEdges_BSP29(brushmodel, header);
     } else {
-	Mod_LoadEdges_BSP2(model, header);
+	Mod_LoadEdges_BSP2(brushmodel, header);
     }
-    Mod_LoadSurfedges(model, header);
-    Mod_LoadTextures(model, header);
-    Mod_LoadLighting(model, header);
-    Mod_LoadPlanes(model, header);
-    Mod_LoadTexinfo(model, header);
+    Mod_LoadSurfedges(brushmodel, header);
+    Mod_LoadTextures(brushmodel, header);
+    Mod_LoadLighting(brushmodel, header);
+    Mod_LoadPlanes(brushmodel, header);
+    Mod_LoadTexinfo(brushmodel, header);
     if (header->version == BSPVERSION) {
-	Mod_LoadFaces_BSP29(model, header);
-	Mod_LoadMarksurfaces_BSP29(model, header);
+	Mod_LoadFaces_BSP29(brushmodel, header);
+	Mod_LoadMarksurfaces_BSP29(brushmodel, header);
     } else {
-	Mod_LoadFaces_BSP2(model, header);
-	Mod_LoadMarksurfaces_BSP2(model, header);
+	Mod_LoadFaces_BSP2(brushmodel, header);
+	Mod_LoadMarksurfaces_BSP2(brushmodel, header);
     }
-    Mod_LoadVisibility(model, header);
+    Mod_LoadVisibility(brushmodel, header);
     if (header->version == BSPVERSION) {
-	Mod_LoadLeafs_BSP29(model, header);
-	Mod_LoadNodes_BSP29(model, header);
-	Mod_LoadClipnodes_BSP29(model, header);
+	Mod_LoadLeafs_BSP29(brushmodel, header);
+	Mod_LoadNodes_BSP29(brushmodel, header);
+	Mod_LoadClipnodes_BSP29(brushmodel, header);
     } else {
-	Mod_LoadLeafs_BSP2(model, header);
-	Mod_LoadNodes_BSP2(model, header);
-	Mod_LoadClipnodes_BSP2(model, header);
+	Mod_LoadLeafs_BSP2(brushmodel, header);
+	Mod_LoadNodes_BSP2(brushmodel, header);
+	Mod_LoadClipnodes_BSP2(brushmodel, header);
     }
-    Mod_LoadEntities(model, header);
-    Mod_LoadSubmodels(model, header);
+    Mod_LoadEntities(brushmodel, header);
+    Mod_LoadSubmodels(brushmodel, header);
 
-    Mod_MakeHull0(model);
+    Mod_MakeDrawHull(brushmodel);
 
     model->numframes = 2;		// regular and alternate animation
     model->flags = 0;
@@ -1767,14 +1760,15 @@ Mod_LoadBrushModel(model_t *model, void *buffer, size_t size)
      * - We assume the main map is the first BSP file loaded (should be)
      * - If any other model has more leafs, then we may be in trouble...
      */
-    if (model->numleafs > pvscache_numleafs) {
+    if (brushmodel->numleafs > pvscache_numleafs) {
 	if (pvscache[0].leafbits)
 	    SV_Error("%s: %d allocated for visdata, but model %s has %d leafs",
-		     __func__, pvscache_numleafs, model->name, model->numleafs);
-	Mod_InitPVSCache(model->numleafs);
+		     __func__, pvscache_numleafs, model->name,
+		     brushmodel->numleafs);
+	Mod_InitPVSCache(brushmodel->numleafs);
     }
 
-    Mod_SetupSubmodels(model);
+    Mod_SetupSubmodels(brushmodel);
 }
 
 /*
@@ -1817,6 +1811,7 @@ void
 Mod_Print(void)
 {
     int alias = 0, bsp = 0, sprite = 0;
+    const brushmodel_t *brushmodel;
     const model_t *model;
 
     Con_Printf("Cached models:\n");
@@ -1830,13 +1825,19 @@ Mod_Print(void)
 		   model->cache.data, model->name);
 	alias++;
     }
-    for (model = loaded_models; model; model = model->next) {
+    for (model = loaded_sprites; model; model = model->next) {
 	Con_Printf("%*p : %s\n", (int)sizeof(void *) * 2 + 2,
 		   model->cache.data, model->name);
-	if (model->type == mod_sprite)
-	    sprite++;
-	else
-	    bsp++;
+	sprite++;
+    }
+
+    brushmodel = loaded_models;
+    while (brushmodel) {
+	model = &brushmodel->model;
+	Con_Printf("%*p : %s\n", (int)sizeof(void *) * 2 + 2,
+		   model->cache.data, model->name);
+	bsp++;
+	brushmodel = brushmodel->next;
     }
 
     Con_Printf("%d models: %d alias, %d bsp, %d sprite\n",
@@ -1846,7 +1847,6 @@ Mod_Print(void)
 /*
 ==================
 Mod_TouchModel
-
 ==================
 */
 void

@@ -293,6 +293,7 @@ This is only called from the SV_Map_f() function.
 void
 SV_SpawnServer(const char *server)
 {
+    model_t *model;
     edict_t *ent;
     int i;
 
@@ -348,9 +349,10 @@ SV_SpawnServer(const char *server)
 
     sv.time = 1.0;
 
-    strcpy(sv.name, server);
-    sprintf(sv.modelname, "maps/%s.bsp", server);
-    sv.worldmodel = Mod_ForName(sv.modelname, true);
+    snprintf(sv.name, sizeof(sv.name), "%s", server);
+    snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", server);
+    model = Mod_ForName(sv.modelname, true);
+    sv.worldmodel = BrushModel(model);
     SV_CalcPHS();
 
     //
@@ -362,7 +364,7 @@ SV_SpawnServer(const char *server)
 
     sv.model_precache[0] = pr_strings;
     sv.model_precache[1] = sv.modelname;
-    sv.models[1] = sv.worldmodel;
+    sv.models[1] = &sv.worldmodel->model;
     for (i = 1; i < sv.worldmodel->numsubmodels; i++) {
 	sv.model_precache[1 + i] = localmodels[i];
 	sv.models[i + 1] = Mod_ForName(localmodels[i], false);
@@ -382,7 +384,7 @@ SV_SpawnServer(const char *server)
 
     ent = EDICT_NUM(0);
     ent->free = false;
-    ent->v.model = PR_SetString(sv.worldmodel->name);
+    ent->v.model = PR_SetString(sv.worldmodel->model.name);
     ent->v.modelindex = 1;	// world model
     ent->v.solid = SOLID_BSP;
     ent->v.movetype = MOVETYPE_PUSH;

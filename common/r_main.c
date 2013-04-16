@@ -284,7 +284,7 @@ R_NewMap(void)
     int i;
 
     memset(&r_worldentity, 0, sizeof(r_worldentity));
-    r_worldentity.model = cl.worldmodel;
+    r_worldentity.model = &cl.worldmodel->model;
 
 // clear out efrags in case the level hasn't been reloaded
 // FIXME: is this one short?
@@ -576,7 +576,7 @@ R_CullSurfaces
 =============
 */
 static void
-R_CullSurfaces(model_t *model, vec3_t vieworg)
+R_CullSurfaces(brushmodel_t *brushmodel, vec3_t vieworg)
 {
     int i, j;
     int side;
@@ -585,7 +585,7 @@ R_CullSurfaces(model_t *model, vec3_t vieworg)
     mplane_t *plane;
     vec_t dist;
 
-    node = model->nodes;
+    node = brushmodel->nodes;
     node->clipflags = 15;
 
     for (;;) {
@@ -611,7 +611,7 @@ R_CullSurfaces(model_t *model, vec3_t vieworg)
 	if (node->contents < 0)
 	    goto NodeUp;
 
-	surf = model->surfaces + node->firstsurface;
+	surf = brushmodel->surfaces + node->firstsurface;
 	for (i = 0; i < node->numsurfaces; i++, surf++) {
 	    /* Clip the surfaces against the frustum */
 	    surf->clipflags = node->clipflags;
@@ -690,7 +690,7 @@ R_CullSubmodelSurfaces
 =============
 */
 static void
-R_CullSubmodelSurfaces(const model_t *submodel, const vec3_t vieworg,
+R_CullSubmodelSurfaces(const brushmodel_t *submodel, const vec3_t vieworg,
 		       int clipflags)
 {
     int i, j, side;
@@ -905,27 +905,27 @@ R_DrawViewModel(void)
 
 /*
 =============
-R_BmodelCheckBBox
+R_ModelCheckBBox
 =============
 */
 static int
-R_BmodelCheckBBox(const entity_t *e, model_t *clmodel,
+R_ModelCheckBBox(const entity_t *e, model_t *model,
 		  const vec3_t mins, const vec3_t maxs)
 {
     int i, side, clipflags;
-    vec_t d;
+    vec_t dist;
 
     clipflags = 0;
 
     if (e->angles[0] || e->angles[1] || e->angles[2]) {
 	for (i = 0; i < 4; i++) {
-	    d = DotProduct(e->origin, view_clipplanes[i].plane.normal);
-	    d -= view_clipplanes[i].plane.dist;
+	    dist = DotProduct(e->origin, view_clipplanes[i].plane.normal);
+	    dist -= view_clipplanes[i].plane.dist;
 
-	    if (d <= -clmodel->radius)
+	    if (dist <= -model->radius)
 		return BMODEL_FULLY_CLIPPED;
 
-	    if (d <= clmodel->radius)
+	    if (dist <= model->radius)
 		clipflags |= (1 << i);
 	}
     } else {
@@ -954,6 +954,7 @@ R_DrawBEntitiesOnList(void)
     int i, j, clipflags;
     vec3_t oldorigin;
     model_t *model;
+    brushmodel_t *brushmodel;
     vec3_t mins, maxs;
 
     if (!r_drawentities.value)
@@ -969,31 +970,32 @@ R_DrawBEntitiesOnList(void)
 	    continue;
 
 	model = e->model;
+	brushmodel = BrushModel(model);
 
 	// see if the bounding box lets us trivially reject, also sets
 	// trivial accept status
 	VectorAdd(e->origin, model->mins, mins);
 	VectorAdd(e->origin, model->maxs, maxs);
-	clipflags = R_BmodelCheckBBox(e, model, mins, maxs);
+	clipflags = R_ModelCheckBBox(e, model, mins, maxs);
 
 	if (clipflags == BMODEL_FULLY_CLIPPED)
 	    continue;
 
 	VectorCopy(e->origin, r_entorigin);
 	VectorSubtract(r_origin, r_entorigin, modelorg);
-	r_pcurrentvertbase = model->vertexes;
+	r_pcurrentvertbase = brushmodel->vertexes;
 
 	// FIXME: stop transforming twice
 	R_RotateBmodel(e);
 
 	// calculate dynamic lighting for bmodel if it's not an
 	// instanced model
-	if (model->firstmodelsurface != 0) {
+	if (brushmodel->firstmodelsurface != 0) {
 	    for (j = 0; j < MAX_DLIGHTS; j++) {
 		if ((cl_dlights[j].die < cl.time) || (!cl_dlights[j].radius))
 		    continue;
 		R_MarkLights(&cl_dlights[j], 1 << j,
-			     model->nodes + model->hulls[0].firstclipnode);
+			     brushmodel->nodes + brushmodel->hulls[0].firstclipnode);
 	    }
 	}
 
@@ -1001,19 +1003,19 @@ R_DrawBEntitiesOnList(void)
 	VectorCopy(mins, r_emins);
 	VectorCopy(maxs, r_emaxs);
 	R_SplitEntityOnNode2(cl.worldmodel->nodes);
-	R_CullSubmodelSurfaces(model, modelorg, clipflags);
+	R_CullSubmodelSurfaces(brushmodel, modelorg, clipflags);
 
 	if (r_pefragtopnode) {
 	    e->topnode = r_pefragtopnode;
 
 	    if (r_pefragtopnode->contents >= 0) {
 		// not a leaf; has to be clipped to the world BSP
-		R_DrawSolidClippedSubmodelPolygons(e, model);
+		R_DrawSolidClippedSubmodelPolygons(e, brushmodel);
 	    } else {
 		// falls entirely in one leaf, so we just put all
 		// the edges in the edge list and let 1/z sorting
 		// handle drawing order
-		R_DrawSubmodelPolygons(e, model, clipflags);
+		R_DrawSubmodelPolygons(e, brushmodel, clipflags);
 	    }
 	    e->topnode = NULL;
 	}
@@ -1112,7 +1114,7 @@ R_RenderView_(void)
 
     R_SetupFrame();
     R_MarkSurfaces();		// done here so we know if we're in water
-    R_CullSurfaces(r_worldentity.model, r_refdef.vieworg);
+    R_CullSurfaces(BrushModel(r_worldentity.model), r_refdef.vieworg);
 
     // make FDIV fast. This reduces timing precision after we've been running
     // for a while, so we don't do it globally.  This also sets chop mode, and

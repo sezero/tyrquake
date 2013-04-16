@@ -308,7 +308,7 @@ R_DrawSolidClippedSubmodelPolygons
 ================
 */
 void
-R_DrawSolidClippedSubmodelPolygons(const entity_t *e, model_t *pmodel)
+R_DrawSolidClippedSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel)
 {
     int i, j, lindex;
     msurface_t *psurf;
@@ -317,9 +317,9 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *e, model_t *pmodel)
     bedge_t bedges[MAX_BMODEL_EDGES], *pbedge;
     medge_t *pedge, *pedges;
 
-    psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
-    numsurfaces = pmodel->nummodelsurfaces;
-    pedges = pmodel->edges;
+    psurf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+    numsurfaces = brushmodel->nummodelsurfaces;
+    pedges = brushmodel->edges;
 
     for (i = 0; i < numsurfaces; i++, psurf++) {
 	if (psurf->clipflags == BMODEL_FULLY_CLIPPED)
@@ -341,7 +341,7 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *e, model_t *pmodel)
 	numbedges += psurf->numedges;
 
 	for (j = 0; j < psurf->numedges; j++) {
-	    lindex = pmodel->surfedges[psurf->firstedge + j];
+	    lindex = brushmodel->surfedges[psurf->firstedge + j];
 
 	    if (lindex > 0) {
 		pedge = &pedges[lindex];
@@ -368,23 +368,23 @@ R_DrawSubmodelPolygons
 ================
 */
 void
-R_DrawSubmodelPolygons(const entity_t *e, model_t *pmodel, int clipflags)
+R_DrawSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel, int clipflags)
 {
     int i;
-    msurface_t *psurf;
+    msurface_t *surf;
     int numsurfaces;
 
 // FIXME: use bounding-box-based frustum clipping info?
 
-    psurf = &pmodel->surfaces[pmodel->firstmodelsurface];
-    numsurfaces = pmodel->nummodelsurfaces;
+    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+    numsurfaces = brushmodel->nummodelsurfaces;
 
-    for (i = 0; i < numsurfaces; i++, psurf++) {
-	if (psurf->clipflags == BMODEL_FULLY_CLIPPED)
+    for (i = 0; i < numsurfaces; i++, surf++) {
+	if (surf->clipflags == BMODEL_FULLY_CLIPPED)
 	    continue;
 
 	r_currentkey = ((mleaf_t *)e->topnode)->key;
-	R_RenderFace(e, psurf, clipflags);
+	R_RenderFace(e, surf, clipflags);
     }
 }
 
@@ -472,7 +472,9 @@ R_RenderWorld
 void
 R_RenderWorld(void)
 {
+    brushmodel_t *brushmodel = BrushModel(r_worldentity.model);
+
     VectorCopy(r_origin, modelorg);
-    r_pcurrentvertbase = r_worldentity.model->vertexes;
-    R_RecursiveWorldNode(&r_worldentity, r_worldentity.model->nodes);
+    r_pcurrentvertbase = brushmodel->vertexes;
+    R_RecursiveWorldNode(&r_worldentity, brushmodel->nodes);
 }

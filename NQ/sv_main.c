@@ -1236,6 +1236,7 @@ This is called at the start of each level
 void
 SV_SpawnServer(char *server)
 {
+    model_t *model;
     client_t *client;
     edict_t *ent;
     int i;
@@ -1311,13 +1312,15 @@ SV_SpawnServer(char *server)
 
     strcpy(sv.name, server);
     sprintf(sv.modelname, "maps/%s.bsp", server);
-    sv.worldmodel = Mod_ForName(sv.modelname, false);
-    if (!sv.worldmodel) {
+    model = Mod_ForName(sv.modelname, false);
+    if (!model) {
 	Con_Printf("Couldn't spawn server %s\n", sv.modelname);
+	sv.worldmodel = NULL;
 	sv.active = false;
 	return;
     }
-    sv.models[1] = sv.worldmodel;
+    sv.worldmodel = BrushModel(model);
+    sv.models[1] = model;
 
 //
 // clear world interaction links
@@ -1339,7 +1342,7 @@ SV_SpawnServer(char *server)
     ent = EDICT_NUM(0);
     memset(&ent->v, 0, progs->entityfields * 4);
     ent->free = false;
-    ent->v.model = PR_SetString(sv.worldmodel->name);
+    ent->v.model = PR_SetString(sv.worldmodel->model.name);
     ent->v.modelindex = 1;	// world model
     ent->v.solid = SOLID_BSP;
     ent->v.movetype = MOVETYPE_PUSH;

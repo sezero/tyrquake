@@ -835,26 +835,29 @@ R_DrawBrushModel(const entity_t *e)
 {
     int i, k;
     vec3_t mins, maxs, angles_bug;
-    msurface_t *psurf;
+    msurface_t *surf;
     float dot;
     mplane_t *pplane;
-    model_t *clmodel;
+    model_t *model;
+    brushmodel_t *brushmodel;
+
     qboolean rotated;
 
     currenttexture = -1;
 
-    clmodel = e->model;
+    model = e->model;
+    brushmodel = BrushModel(model);
 
     if (e->angles[0] || e->angles[1] || e->angles[2]) {
 	rotated = true;
 	for (i = 0; i < 3; i++) {
-	    mins[i] = e->origin[i] - clmodel->radius;
-	    maxs[i] = e->origin[i] + clmodel->radius;
+	    mins[i] = e->origin[i] - model->radius;
+	    maxs[i] = e->origin[i] + model->radius;
 	}
     } else {
 	rotated = false;
-	VectorAdd(e->origin, clmodel->mins, mins);
-	VectorAdd(e->origin, clmodel->maxs, maxs);
+	VectorAdd(e->origin, model->mins, mins);
+	VectorAdd(e->origin, model->maxs, maxs);
     }
 
     if (R_CullBox(mins, maxs))
@@ -872,7 +875,7 @@ R_DrawBrushModel(const entity_t *e)
 	bmodelorg[2] = DotProduct(temp, up);
     }
 
-    psurf = &clmodel->surfaces[clmodel->firstmodelsurface];
+    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
 
     if (gl_zfix.value)
 	glEnable(GL_POLYGON_OFFSET_FILL);
@@ -890,13 +893,13 @@ R_DrawBrushModel(const entity_t *e)
 	for (i = 0; i < MAX_LM_BLOCKS; i++)
 	    lm_blocks[i].polys = NULL;
 
-	if (clmodel->firstmodelsurface != 0 && !gl_flashblend.value) {
+	if (brushmodel->firstmodelsurface != 0 && !gl_flashblend.value) {
 	    for (k = 0; k < MAX_DLIGHTS; k++) {
 		if ((cl_dlights[k].die < cl.time) || (!cl_dlights[k].radius))
 		    continue;
 
 		R_MarkLights(&cl_dlights[k], 1 << k,
-			     clmodel->nodes + clmodel->hulls[0].firstclipnode);
+			     brushmodel->nodes + brushmodel->hulls[0].firstclipnode);
 	    }
 	}
     }
@@ -909,21 +912,21 @@ R_DrawBrushModel(const entity_t *e)
     else
 	glColor3f(1, 1, 1);
 
-    for (i = 0; i < clmodel->nummodelsurfaces; i++, psurf++) {
+    for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
 	/* find which side of the node we are on */
-	pplane = psurf->plane;
+	pplane = surf->plane;
 	dot = DotProduct(bmodelorg, pplane->normal) - pplane->dist;
 
 	/* draw the polygon */
-	if (((psurf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
-	    (!(psurf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON))) {
+	if (((surf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
+	    (!(surf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON))) {
 	    if (r_drawflat.value) {
-		DrawFlatGLPoly(psurf->polys);
+		DrawFlatGLPoly(surf->polys);
 	    } else {
 		/* FIXME - hack for dynamic lightmap updates... */
 		qboolean real_mtexable = gl_mtexable;
 		gl_mtexable = false;
-		R_RenderBrushPoly(e, psurf);
+		R_RenderBrushPoly(e, surf);
 		gl_mtexable = real_mtexable;
 	    }
 	}
@@ -1059,7 +1062,7 @@ R_DrawWorld(void)
     entity_t ent;
 
     memset(&ent, 0, sizeof(ent));
-    ent.model = cl.worldmodel;
+    ent.model = &cl.worldmodel->model;
 
     VectorCopy(r_refdef.vieworg, bmodelorg);
 
@@ -1172,7 +1175,7 @@ AllocBlock(int w, int h, int *x, int *y)
 
 mvertex_t *r_pcurrentvertbase;
 
-static model_t *currentmodel;
+static brushmodel_t *currentmodel;
 
 /*
 ================
@@ -1281,7 +1284,8 @@ GL_BuildLightmaps(void *hunkbase)
 {
     int i, j, cnt;
     float t1, t2;
-    model_t *m;
+    model_t *model;
+    brushmodel_t *brushmodel;
     lm_block_t *block;
 
     for (i = 0; i < MAX_LM_BLOCKS; i++)
@@ -1331,22 +1335,25 @@ GL_BuildLightmaps(void *hunkbase)
     cnt = 0;
 
     for (j = 1; j < MAX_MODELS; j++) {
-	m = cl.model_precache[j];
-	if (!m)
+	model = cl.model_precache[j];
+	if (!model)
 	    break;
-	if (m->name[0] == '*')
+	if (model->name[0] == '*')
+	    continue;
+	if (model->type != mod_brush)
 	    continue;
 
-	r_pcurrentvertbase = m->vertexes;
-	currentmodel = m;
-	for (i = 0; i < m->numsurfaces; i++) {
+	brushmodel = BrushModel(model);
+	r_pcurrentvertbase = brushmodel->vertexes;
+	currentmodel = brushmodel;
+	for (i = 0; i < brushmodel->numsurfaces; i++) {
 	    cnt++;
-	    GL_CreateSurfaceLightmap(m->surfaces + i);
-	    if (m->surfaces[i].flags & SURF_DRAWTURB)
+	    GL_CreateSurfaceLightmap(brushmodel->surfaces + i);
+	    if (brushmodel->surfaces[i].flags & SURF_DRAWTURB)
 		continue;
-	    if (m->surfaces[i].flags & SURF_DRAWSKY)
+	    if (brushmodel->surfaces[i].flags & SURF_DRAWSKY)
 		continue;
-	    BuildSurfaceDisplayList(hunkbase, m->surfaces + i);
+	    BuildSurfaceDisplayList(hunkbase, brushmodel->surfaces + i);
 	}
     }
 

@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "mathlib.h"
 #include "quakedef.h"
 #include "render.h"
+#include "sound.h"
 #include "vid.h"
 
 //
@@ -189,8 +190,8 @@ typedef struct {
 //
 // information that is static for the entire time connected to a server
 //
-    struct model_s *model_precache[MAX_MODELS];
-    struct sfx_s *sound_precache[MAX_SOUNDS];
+    model_t *model_precache[MAX_MODELS];
+    sfx_t *sound_precache[MAX_SOUNDS];
 
     char mapname[MAX_QPATH];
     char levelname[40];		// for display on solo scoreboard
@@ -199,7 +200,7 @@ typedef struct {
     int gametype;
 
 // refresh related state
-    struct model_s *worldmodel;	// cl_entitites[0].model
+    brushmodel_t *worldmodel;	// BrushModel(cl_entitites[0].model)
     struct efrag_s *free_efrags;
     int num_entities;		// held in cl_entities array
     int num_statics;		// held in cl_staticentities array

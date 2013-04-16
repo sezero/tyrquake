@@ -136,8 +136,10 @@ void R_GenSkyTile(void *pdest);
 void R_GenSkyTile16(void *pdest);
 void R_Surf8Patch(void);
 void R_Surf16Patch(void);
-void R_DrawSubmodelPolygons(const entity_t *e, model_t *pmodel, int clipflags);
-void R_DrawSolidClippedSubmodelPolygons(const entity_t *e, model_t *pmodel);
+void R_DrawSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel,
+			    int clipflags);
+void R_DrawSolidClippedSubmodelPolygons(const entity_t *e,
+					brushmodel_t *brushmodel);
 
 void R_AddPolygonEdges(emitpoint_t *pverts, int numverts, int miplevel);
 surf_t *R_GetSurf(void);

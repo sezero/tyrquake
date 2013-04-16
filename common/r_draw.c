@@ -358,6 +358,7 @@ R_RenderFace
 void
 R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
 {
+    brushmodel_t *brushmodel = BrushModel(e->model);
     int i, lindex;
     unsigned mask;
     mplane_t *pplane;
@@ -394,11 +395,11 @@ R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
     r_nearzi = 0;
     r_nearzionly = false;
     makeleftedge = makerightedge = false;
-    pedges = e->model->edges;
+    pedges = brushmodel->edges;
     r_lastvertvalid = false;
 
     for (i = 0; i < fa->numedges; i++) {
-	lindex = e->model->surfedges[fa->firstedge + i];
+	lindex = brushmodel->surfedges[fa->firstedge + i];
 
 	if (lindex > 0) {
 	    r_pedge = &pedges[lindex];

@@ -1346,7 +1346,7 @@ SV_PlayerMove(client_t *client, const usercmd_t *cmd)
 
     /* Init the world's physent */
     memset(&pestack.physents[0], 0, sizeof(pestack.physents[0]));
-    pestack.physents[0].model = sv.worldmodel;
+    pestack.physents[0].model = &sv.worldmodel->model;
     pestack.numphysent = 1;
 
     for (i = 0; i < 3; i++) {

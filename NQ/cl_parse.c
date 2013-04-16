@@ -370,7 +370,8 @@ CL_ParseServerInfo(void)
 
 
 // local state
-    cl_entities[0].model = cl.worldmodel = cl.model_precache[1];
+    cl_entities[0].model = cl.model_precache[1];
+    cl.worldmodel = BrushModel(cl_entities[0].model);
 
     R_NewMap();
 

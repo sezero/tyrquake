@@ -490,7 +490,7 @@ R_NewMap(void)
 	d_lightstylevalue[i] = 264;	// normal light value
 
     memset(&r_worldentity, 0, sizeof(r_worldentity));
-    r_worldentity.model = cl.worldmodel;
+    r_worldentity.model = &cl.worldmodel->model;
 
 // clear out efrags in case the level hasn't been reloaded
 // FIXME: is this one short?
