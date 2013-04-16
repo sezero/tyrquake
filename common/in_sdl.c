@@ -38,6 +38,8 @@ cvar_t in_snd_block = { "in_snd_block", "0" };
 
 static qboolean mouse_available;
 static int mouse_x, mouse_y;
+
+#if 0 /* FIXME! */
 static int have_focus = 1;
 
 static void
@@ -61,6 +63,7 @@ event_focusin(void)
 	CDAudio_Resume();
     }
 }
+#endif
 
 void
 IN_ProcessEvents(void)

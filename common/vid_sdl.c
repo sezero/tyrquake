@@ -67,16 +67,9 @@ static SDL_PixelFormat *sdl_desktop_format = NULL;
 
 /* ------------------------------------------------------------------------- */
 
-/*
- * Stuff adapted from vid_win.c below... refactor so SDL works for other
- * platforms...
- */
-
 static byte *vid_surfcache;
 static int vid_surfcachesize;
 static int VID_highhunkmark;
-static qboolean hide_window;
-//static int window_x, window_y;
 static int window_width, window_height;
 
 unsigned short d_8to16table[256];
@@ -87,9 +80,6 @@ viddef_t vid; /* global video state */
 static HICON hIcon;
 RECT window_rect;
 #endif
-
-int window_center_x, window_center_y;
-static int window_x, window_y;
 
 void VID_Shutdown(void)
 {
@@ -112,8 +102,6 @@ VID_ShiftPalette(const byte *palette)
 }
 
 void VID_SetDefaultMode(void) { }
-static qboolean VID_SetWindowedMode(int modenum) { return true; }
-static qboolean VID_FullScreenMode(int modenum) { return true; }
 
 static cvar_t vid_mode = {
     .name = "vid_mode",
@@ -148,8 +136,6 @@ static cvar_t block_switch = { "block_switch", "0", true };
 static cvar_t vid_window_x = { "vid_window_x", "0", true };
 static cvar_t vid_window_y = { "vid_window_y", "0", true };
 
-static int windowed_default;
-static int vid_default = VID_MODE_WINDOWED;
 int vid_modenum = VID_MODE_NONE;
 
 typedef struct {
@@ -157,7 +143,6 @@ typedef struct {
 } qvidformat_t;
 
 static qboolean Minimized;
-static qboolean force_mode_set;
 
 qboolean
 window_visible(void)
@@ -220,24 +205,6 @@ VID_InitModeList(void)
     }
 
     VID_SortModeList(modelist, nummodes);
-}
-
-/*
-================
-ClearAllStates
-================
-*/
-static void
-ClearAllStates(void)
-{
-    int i;
-
-    // send an up event for each key, to make sure the server clears them all
-    for (i = 0; i < 256; i++)
-	Key_Event(i, false);
-
-    Key_ClearStates();
-    //IN_ClearStates();
 }
 
 /*
@@ -466,11 +433,6 @@ VID_SetPalette(const byte *palette)
     }
 
     palette_changed = true;
-}
-
-static void
-do_screen_buffer(void)
-{
 }
 
 void
