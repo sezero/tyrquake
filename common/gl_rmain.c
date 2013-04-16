@@ -365,34 +365,36 @@ GL_FloodFillSkin(byte *skin, int skinwidth, int skinheight)
 }
 
 static void *
-GL_LoadSkinData(const char *modelname, aliashdr_t *ahdr, int skinnum,
-		byte **skindata)
+GL_LoadSkinData(const char *modelname, aliashdr_t *ahdr,
+		const alias_skindata_t *skindata)
 {
+    char hunkname[HUNK_NAMELEN + 1];
     int i, skinsize;
     GLuint *glt;
-    char loadname[MAX_QPATH];	/* for hunk tags */
 
-    COM_FileBase(modelname, loadname, sizeof(loadname));
     skinsize = ahdr->skinwidth * ahdr->skinheight;
-    glt = Hunk_AllocName(skinnum * sizeof(GLuint), loadname);
-    for (i = 0; i < skinnum; i++) {
-	GL_FloodFillSkin(skindata[i], ahdr->skinwidth, ahdr->skinheight);
+    glt = Mod_AllocName(skindata->numskins * sizeof(GLuint), modelname);
+    for (i = 0; i < skindata->numskins; i++) {
+	GL_FloodFillSkin(skindata->data[i], ahdr->skinwidth, ahdr->skinheight);
 
-	// save 8 bit texels for the player model to remap
+	/* save 8 bit texels for the player model to remap */
 	if (!strcmp(modelname, "progs/player.mdl")) {
 #ifdef NQ_HACK
-	    byte *texels = Hunk_AllocName(skinsize, loadname);
+	    byte *texels = Mod_AllocName(skinsize, modelname);
 	    GL_Aliashdr(ahdr)->texels[i] = texels - (byte *)ahdr;
-	    memcpy(texels, skindata[i], skinsize);
+	    memcpy(texels, skindata->data[i], skinsize);
 #endif
 #ifdef QW_HACK
 	    if (skinsize > sizeof(player_8bit_texels))
 		Sys_Error("Player skin too large");
-	    memcpy(player_8bit_texels, skindata[i], skinsize);
+	    memcpy(player_8bit_texels, skindata->data[i], skinsize);
 #endif
 	}
-	glt[i] = GL_LoadTexture(va("%s_%i", loadname, i), ahdr->skinwidth,
-				ahdr->skinheight, skindata[i], true, false);
+
+	COM_FileBase(modelname, hunkname, sizeof(hunkname));
+	glt[i] = GL_LoadTexture(va("%s_%i", hunkname, i),
+				ahdr->skinwidth, ahdr->skinheight,
+				skindata->data[i], true, false);
     }
 
     return glt;

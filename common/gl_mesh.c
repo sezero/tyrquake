@@ -325,8 +325,9 @@ GL_MakeAliasModelDisplayLists
 ================
 */
 void
-GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
-		const stvert_t *stverts, const trivertx_t **poseverts)
+GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
+		const alias_meshdata_t *meshdata,
+		const alias_posedata_t *posedata)
 {
     int i, j, tmp, err;
     int *cmds;
@@ -336,9 +337,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
     qboolean cached = false;
     const char *name;
 
-    //
-    // look for a cached version
-    //
+    /* look for a cached version */
     name = COM_SkipPath(model->name);
     snprintf(cache, sizeof(cache), "%s/glquake/%s", com_gamedir, name);
     err = COM_DefaultExtension(cache, ".ms2", cache, sizeof(cache));
@@ -368,20 +367,16 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
     }
 
     if (!cached) {
-	//
-	// build it from scratch
-	//
+	/* build it from scratch */
 	Con_DPrintf("meshing %s...\n", model->name);
-	BuildTris(hdr, tris, stverts);	/* trifans or lists */
+	BuildTris(hdr, meshdata->triangles, meshdata->stverts);
 
-	//
-	// save out the cached version
-	//
+	/* save out the cached version */
 	f = fopen(cache, "wb");
 	if (!f) {
-	    // Maybe the directory wasn't present, try again
 	    char gldir[MAX_OSPATH];
 
+	    /* Maybe the directory wasn't present, try again */
 	    snprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
 	    Sys_mkdir(gldir);
 	    f = fopen(cache, "wb");
@@ -400,7 +395,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
 	}
     }
 
-    // save the data out to the in-memory model
+    /* save the data out to the in-memory model */
     hdr->numverts = numorder;
 
     cmds = Hunk_Alloc(numcommands * 4);
@@ -411,5 +406,5 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
     hdr->posedata = (byte *)verts - (byte *)hdr;
     for (i = 0; i < hdr->numposes; i++)
 	for (j = 0; j < numorder; j++)
-	    *verts++ = poseverts[i][vertexorder[j]];
+	    *verts++ = posedata->verts[i][vertexorder[j]];
 }

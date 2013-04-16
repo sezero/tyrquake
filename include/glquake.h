@@ -279,8 +279,9 @@ void R_StoreEfrags(efrag_t **ppefrag);
 //
 // gl_mesh.c
 //
-void GL_LoadMeshData(const model_t *m, aliashdr_t *hdr, const mtriangle_t *tris,
-		     const stvert_t *stverts, const trivertx_t **poseverts);
+void GL_LoadMeshData(const model_t *m, aliashdr_t *hdr,
+		     const alias_meshdata_t *meshdata,
+		     const alias_posedata_t *posedata);
 
 //
 // gl_rmisc.c

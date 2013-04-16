@@ -457,11 +457,29 @@ typedef struct model_s {
 
 } model_t;
 
+/* Alias model loader structures */
+typedef struct {
+    mtriangle_t *triangles;
+    stvert_t *stverts;
+} alias_meshdata_t;
+
+typedef struct {
+    int numposes;
+    const trivertx_t **verts;
+    float *intervals;
+} alias_posedata_t;
+
+typedef struct {
+    int numskins;
+    byte **data;
+    float *intervals;
+} alias_skindata_t;
+
 typedef struct model_loader {
     int (*Aliashdr_Padding)(void);
-    void *(*LoadSkinData)(const char *, aliashdr_t *, int, byte **);
-    void (*LoadMeshData)(const model_t *, aliashdr_t *hdr, const mtriangle_t *,
-			 const stvert_t *, const trivertx_t **);
+    void *(*LoadSkinData)(const char *, aliashdr_t *, const alias_skindata_t *);
+    void (*LoadMeshData)(const model_t *, aliashdr_t *hdr,
+			 const alias_meshdata_t *, const alias_posedata_t *);
 } model_loader_t;
 
 //============================================================================

@@ -95,22 +95,22 @@ void R_AliasProjectFinalVert(finalvert_t *fv, auxvert_t *av);
 static int SW_Aliashdr_Padding(void) { return offsetof(sw_aliashdr_t, ahdr); }
 
 static void *
-SW_LoadSkinData(const char *modelname, aliashdr_t *ahdr, int skinnum,
-		byte **skindata)
+SW_LoadSkinData(const char *modelname, aliashdr_t *ahdr,
+		const alias_skindata_t *skindata)
 {
     int i, j, skinsize;
     byte *ret, *out;
 
     skinsize = ahdr->skinwidth * ahdr->skinheight;
-    ret = out = Hunk_Alloc(skinnum * skinsize * r_pixbytes);
+    ret = out = Hunk_Alloc(skindata->numskins * skinsize * r_pixbytes);
 
-    for (i = 0; i < skinnum; i++) {
+    for (i = 0; i < skindata->numskins; i++) {
 	if (r_pixbytes == 1) {
-	    memcpy(out, skindata[i], skinsize);
+	    memcpy(out, skindata->data[i], skinsize);
 	} else if (r_pixbytes == 2) {
 	    unsigned short *skin16 = (unsigned short *)out;
 	    for (j = 0; j < skinsize; j++)
-		skin16[j] = d_8to16table[skindata[i][j]];
+		skin16[j] = d_8to16table[skindata->data[i][j]];
 	} else {
 	    Sys_Error("%s: driver set invalid r_pixbytes: %d", __func__,
 		      r_pixbytes);
@@ -122,42 +122,43 @@ SW_LoadSkinData(const char *modelname, aliashdr_t *ahdr, int skinnum,
 }
 
 static void
-SW_LoadMeshData(const model_t *model, aliashdr_t *hdr, const mtriangle_t *tris,
-		const stvert_t *stverts, const trivertx_t **verts)
+SW_LoadMeshData(const model_t *model, aliashdr_t *hdr,
+		const alias_meshdata_t *meshdata,
+		const alias_posedata_t *posedata)
 {
     int i;
-    trivertx_t *pverts;
-    stvert_t *pstverts;
-    mtriangle_t *ptris;
+    trivertx_t *verts;
+    stvert_t *stverts;
+    mtriangle_t *triangles;
 
     /*
      * Save the pose vertex data
      */
-    pverts = Hunk_Alloc(hdr->numposes * hdr->numverts * sizeof(*pverts));
-    hdr->posedata = (byte *)pverts - (byte *)hdr;
+    verts = Hunk_Alloc(hdr->numposes * hdr->numverts * sizeof(*verts));
+    hdr->posedata = (byte *)verts - (byte *)hdr;
     for (i = 0; i < hdr->numposes; i++) {
-	memcpy(pverts, verts[i], hdr->numverts * sizeof(*pverts));
-	pverts += hdr->numverts;
+	memcpy(verts, posedata->verts[i], hdr->numverts * sizeof(*verts));
+	verts += hdr->numverts;
     }
 
     /*
      * Save the s/t verts
      * => put s and t in 16.16 format
      */
-    pstverts = Hunk_Alloc(hdr->numverts * sizeof(*pstverts));
-    SW_Aliashdr(hdr)->stverts = (byte *)pstverts - (byte *)hdr;
+    stverts = Hunk_Alloc(hdr->numverts * sizeof(*stverts));
+    SW_Aliashdr(hdr)->stverts = (byte *)stverts - (byte *)hdr;
     for (i = 0; i < hdr->numverts; i++) {
-	pstverts[i].onseam = stverts[i].onseam;
-	pstverts[i].s = stverts[i].s << 16;
-	pstverts[i].t = stverts[i].t << 16;
+	stverts[i].onseam = meshdata->stverts[i].onseam;
+	stverts[i].s = meshdata->stverts[i].s << 16;
+	stverts[i].t = meshdata->stverts[i].t << 16;
     }
 
     /*
      * Save the triangle data
      */
-    ptris = Hunk_Alloc(hdr->numtris * sizeof(*ptris));
-    SW_Aliashdr(hdr)->triangles = (byte *)ptris - (byte *)hdr;
-    memcpy(ptris, tris, hdr->numtris * sizeof(*ptris));
+    triangles = Hunk_Alloc(hdr->numtris * sizeof(*triangles));
+    SW_Aliashdr(hdr)->triangles = (byte *)triangles - (byte *)hdr;
+    memcpy(triangles, meshdata->triangles, hdr->numtris * sizeof(*triangles));
 }
 
 static model_loader_t SW_Model_Loader = {

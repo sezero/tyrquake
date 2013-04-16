@@ -31,89 +31,129 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_local.h"
 #endif
 
-static stvert_t *stverts;
-static mtriangle_t *triangles;
-
-/*
- * A pose is a single set of vertexes.
- * A frame may be an animating sequence of poses.
- */
-static const trivertx_t **poseverts;
-static float *poseintervals;
-static int posenum;
-
-/* An alias skin may be an animating set 1 or more textures */
-static float *skinintervals;
-static byte **skindata;
-static int skinnum;
-
 /*
 =================
 Mod_LoadAliasFrame
 =================
 */
-static void
-Mod_LoadAliasFrame(const daliasframe_t *in, maliasframedesc_t *frame)
+static void *
+Mod_LoadAliasFrame(const aliashdr_t *aliashdr, void *buffer,
+		   maliasframedesc_t *frame, alias_posedata_t *posedata)
 {
+    const daliasframe_t *dframe = buffer;
     int i;
 
-    strncpy(frame->name, in->name, sizeof(frame->name));
-    frame->name[sizeof(frame->name) - 1] = 0;
-    frame->firstpose = posenum;
+    snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
+    frame->firstpose = posedata->numposes;
     frame->numposes = 1;
 
     for (i = 0; i < 3; i++) {
-	// these are byte values, so we don't have to worry about
-	// endianness
-	frame->bboxmin.v[i] = in->bboxmin.v[i];
-	frame->bboxmax.v[i] = in->bboxmax.v[i];
+	/* byte values only, no endian swapping */
+	frame->bboxmin.v[i] = dframe->bboxmin.v[i];
+	frame->bboxmax.v[i] = dframe->bboxmax.v[i];
     }
 
-    poseverts[posenum] = in->verts;
-    poseintervals[posenum] = 999.0f; /* unused, but make problems obvious */
-    posenum++;
+    /* interval is actually unused, but 999 should make problems obvious */
+    posedata->verts[posedata->numposes] = dframe->verts;
+    posedata->intervals[posedata->numposes] = 999.0f;
+    posedata->numposes++;
+
+    return (byte *)buffer + offsetof(daliasframe_t, verts[aliashdr->numverts]);
 }
 
 
 /*
 =================
-Mod_LoadAliasGroup
-
-returns a pointer to the memory location following this frame group
+Mod_LoadAliasFrameGroup
 =================
 */
-static daliasframetype_t *
-Mod_LoadAliasGroup(const aliashdr_t *aliashdr, const daliasgroup_t *in,
-		   maliasframedesc_t *frame)
+static void *
+Mod_LoadAliasFrameGroup(const aliashdr_t *aliashdr, void *buffer,
+			maliasframedesc_t *frame, alias_posedata_t *posedata)
 {
-    int i, numframes;
-    daliasframe_t *dframe;
+    const daliasgroup_t *group = buffer;
+    const daliasframe_t *dframe;
+    const trivertx_t **vert;
+    float *interval;
+    int i;
 
-    numframes = LittleLong(in->numframes);
-    frame->firstpose = posenum;
-    frame->numposes = numframes;
+    frame->firstpose = posedata->numposes;
+    frame->numposes = LittleLong(group->numframes);
 
     for (i = 0; i < 3; i++) {
-	// these are byte values, so we don't have to worry about endianness
-	frame->bboxmin.v[i] = in->bboxmin.v[i];
-	frame->bboxmax.v[i] = in->bboxmax.v[i];
+	/* byte values only, no endian swapping */
+	frame->bboxmin.v[i] = group->bboxmin.v[i];
+	frame->bboxmax.v[i] = group->bboxmax.v[i];
     }
 
-    dframe = (daliasframe_t *)&in->intervals[numframes];
-    strncpy(frame->name, dframe->name, sizeof(frame->name));
-    frame->name[sizeof(frame->name) - 1] = 0;
-    for (i = 0; i < numframes; i++) {
-	poseverts[posenum] = dframe->verts;
-	poseintervals[posenum] = LittleFloat(in->intervals[i].interval);
-	if (poseintervals[posenum] <= 0)
+    /* Group frames start after the interval data */
+    dframe = (daliasframe_t *)&group->intervals[frame->numposes];
+    snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
+
+    vert = &posedata->verts[posedata->numposes];
+    interval = &posedata->intervals[posedata->numposes];
+    for (i = 0; i < frame->numposes; i++) {
+	*vert++ = dframe->verts;
+	*interval = LittleFloat(group->intervals[i].interval);
+	if (*interval++ <= 0)
 	    Sys_Error("%s: interval <= 0", __func__);
-	posenum++;
+	posedata->numposes++;
 	dframe = (daliasframe_t *)&dframe->verts[aliashdr->numverts];
     }
 
-    return (daliasframetype_t *)dframe;
+    return (void *)dframe;
 }
 
+/*
+=================
+Mod_LoadAliasFrames
+=================
+*/
+static void *
+Mod_LoadAliasFrames(aliashdr_t *aliashdr, void *buffer,
+		    alias_posedata_t *posedata)
+{
+    const int numframes = aliashdr->numframes;
+    maliasframedesc_t *frame;
+    int i;
+
+    if (numframes < 1)
+	Sys_Error("%s: Invalid # of frames: %d", __func__, numframes);
+
+    posedata->numposes = 0;
+    frame = aliashdr->frames;
+    for (i = 0; i < numframes; i++, frame++) {
+	const daliasframetype_t *const dframetype = buffer;
+	const aliasframetype_t frametype = LittleLong(dframetype->type);
+	buffer = (byte *)buffer + sizeof(daliasframetype_t);
+	if (frametype == ALIAS_SINGLE)
+	    buffer = Mod_LoadAliasFrame(aliashdr, buffer, frame, posedata);
+	else
+	    buffer = Mod_LoadAliasFrameGroup(aliashdr, buffer, frame, posedata);
+    }
+
+    return buffer;
+}
+
+/*
+=================
+Mod_LoadAliasSkin
+=================
+*/
+static void *
+Mod_LoadAliasSkin(const aliashdr_t *aliashdr, void *buffer,
+		  maliasskindesc_t *skin, alias_skindata_t *skindata)
+{
+    const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
+
+    skindata->data[skindata->numskins] = buffer;
+    skin->firstframe = skindata->numskins;
+    skin->numframes = 1;
+    skindata->intervals[skindata->numskins] = 999.0f;
+    skindata->numskins++;
+
+    return (byte *)buffer + skinsize;
+}
 
 /*
 =================
@@ -121,33 +161,35 @@ Mod_LoadAliasSkinGroup
 =================
 */
 static void *
-Mod_LoadAliasSkinGroup(void *pin, maliasskindesc_t *pskindesc, int skinsize)
+Mod_LoadAliasSkinGroup(const aliashdr_t *aliashdr, void *buffer,
+		       maliasskindesc_t *skin, alias_skindata_t *skindata)
 {
-    daliasskingroup_t *pinskingroup;
-    daliasskininterval_t *pinskinintervals;
-    byte *pdata;
+    const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
+    const daliasskingroup_t *group = buffer;
+    const daliasskininterval_t *dinterval;
+    float *interval;
+    byte *data;
     int i;
 
-    pinskingroup = pin;
-    pskindesc->firstframe = skinnum;
-    pskindesc->numframes = LittleLong(pinskingroup->numskins);
-    pinskinintervals = (daliasskininterval_t *)(pinskingroup + 1);
+    skin->firstframe = skindata->numskins;
+    skin->numframes = LittleLong(group->numskins);
 
-    for (i = 0; i < pskindesc->numframes; i++) {
-	skinintervals[skinnum] = LittleFloat(pinskinintervals->interval);
-	if (skinintervals[skinnum] <= 0)
+    dinterval = (daliasskininterval_t *)(group + 1);
+    interval = &skindata->intervals[skindata->numskins];
+    for (i = 0; i < skin->numframes; i++, interval++, dinterval++) {
+	*interval = LittleFloat(dinterval->interval);
+	if (*interval <= 0)
 	    Sys_Error("%s: interval <= 0", __func__);
-	skinnum++;
-	pinskinintervals++;
+	skindata->numskins++;
     }
 
-    pdata = (byte *)pinskinintervals;
-    for (i = 0; i < pskindesc->numframes; i++) {
-	skindata[pskindesc->firstframe + i] = pdata;
-	pdata += skinsize;
+    data = (byte *)intervals;
+    for (i = 0; i < skin->numframes; i++) {
+	skindata->data[skin->firstframe + i] = data;
+	data += skinsize;
     }
 
-    return pdata;
+    return data;
 }
 
 /*
@@ -157,53 +199,84 @@ Mod_LoadAliasSkins
 */
 static void *
 Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
-		   const model_t *model, void *buffer)
+		   const model_t *model, void *buffer,
+		   alias_skindata_t *skindata)
 {
-    int i, numskins, skinsize;
-    maliasskindesc_t *skindesc;
-    float *pskinintervals;
-    byte *pskindata;
+    maliasskindesc_t *skin;
+    float *intervals;
+    byte *data;
+    int i;
 
-    numskins = aliashdr->numskins;
-    if (numskins < 1
+    if (aliashdr->numskins < 1
 #if defined(GLQUAKE) && defined(NQ_HACK)
-	|| numskins > MAX_SKINS
+	|| aliashdr->numskins > MAX_SKINS
 #endif
 	)
-	Sys_Error("%s: Invalid # of skins: %d", __func__, numskins);
+	Sys_Error("%s: Invalid # of skins: %d", __func__, aliashdr->numskins);
     if (aliashdr->skinwidth & 0x03)
 	Sys_Error("%s: skinwidth not multiple of 4", __func__);
 
-    skinsize = aliashdr->skinwidth * aliashdr->skinheight;
-    skindesc = Mod_AllocName(numskins * sizeof(*skindesc), model->name);
-    aliashdr->skindesc = (byte *)skindesc - (byte *)aliashdr;
+    skin = Mod_AllocName(aliashdr->numskins * sizeof(*skin), model->name);
+    aliashdr->skindesc = (byte *)skin - (byte *)aliashdr;
 
-    skinnum = 0;
-    for (i = 0; i < numskins; i++, skindesc++) {
+    skindata->numskins = 0;
+    for (i = 0; i < aliashdr->numskins; i++, skin++) {
 	const daliasskintype_t *const dskintype = buffer;
 	const aliasskintype_t skintype = LittleLong(dskintype->type);
 	buffer = (byte *)buffer + sizeof(daliasskintype_t);
-	if (skintype == ALIAS_SKIN_SINGLE) {
-	    skindata[skinnum] = buffer;
-	    skindesc->firstframe = skinnum;
-	    skindesc->numframes = 1;
-	    skinintervals[skinnum] = 999.0f;
-	    skinnum++;
-	    buffer = (byte *)buffer + skinsize;
-	} else {
-	    buffer = Mod_LoadAliasSkinGroup(buffer, skindesc, skinsize);
+	if (skintype == ALIAS_SKIN_SINGLE)
+	    buffer = Mod_LoadAliasSkin(aliashdr, buffer, skin, skindata);
+	else
+	    buffer = Mod_LoadAliasSkinGroup(aliashdr, buffer, skin, skindata);
+    }
+
+    intervals = Mod_AllocName(skindata->numskins * sizeof(float), model->name);
+    aliashdr->skinintervals = (byte *)intervals - (byte *)aliashdr;
+    memcpy(intervals, skindata->intervals, skindata->numskins * sizeof(float));
+
+    /* Hand off saving the skin data to the loader */
+    data = loader->LoadSkinData(model->name, aliashdr, skindata);
+    aliashdr->skindata = (byte *)data - (byte *)aliashdr;
+
+    return buffer;
+}
+
+static void *
+Mod_LoadAliasSTVerts(const aliashdr_t *aliashdr, void *buffer,
+		     alias_meshdata_t *meshdata)
+{
+    const stvert_t *in = buffer;
+    stvert_t *out = meshdata->stverts;
+    int i;
+
+    for (i = 0; i < aliashdr->numverts; i++, in++, out++) {
+	out->onseam = LittleLong(in->onseam);
+	out->s = LittleLong(in->s);
+	out->t = LittleLong(in->t);
+    }
+
+    return (byte *)buffer + aliashdr->numverts * sizeof(*in);
+}
+
+static void *
+Mod_LoadAliasTriangles(const aliashdr_t *aliashdr, void *buffer,
+		       alias_meshdata_t *meshdata, const model_t *model)
+{
+    const dtriangle_t *in = buffer;
+    mtriangle_t *out = meshdata->triangles;
+    int i, j;
+
+    for (i = 0; i < aliashdr->numtris; i++, in++, out++) {
+	out->facesfront = LittleLong(in->facesfront);
+	for (j = 0; j < 3; j++) {
+	    const int index = out->vertindex[j] = LittleLong(in->vertindex[j]);
+	    if (index < 0 || index >= aliashdr->numverts)
+		Sys_Error("%s: invalid vertex index (%d of %d) in %s\n",
+			  __func__, index, aliashdr->numverts, model->name);
 	}
     }
 
-    pskinintervals = Mod_AllocName(skinnum * sizeof(float), model->name);
-    aliashdr->skinintervals = (byte *)pskinintervals - (byte *)aliashdr;
-    memcpy(pskinintervals, skinintervals, skinnum * sizeof(float));
-
-    /* Hand off saving the skin data to the loader */
-    pskindata = loader->LoadSkinData(model->name, aliashdr, skinnum, skindata);
-    aliashdr->skindata = (byte *)pskindata - (byte *)aliashdr;
-
-    return buffer;
+    return (byte *)buffer + aliashdr->numtris * sizeof(*in);
 }
 
 static void
@@ -236,7 +309,8 @@ Mod_AliasCRC(const model_t *model, const byte *buffer, int bufferlen)
  * data for later processing by the driver-specific loader.
  */
 void
-Mod_AliasLoaderAlloc(const mdl_t *mdl)
+Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
+		     alias_posedata_t *posedata, alias_skindata_t *skindata)
 {
     const void *buffer;
     int i, skinsize, numverts, numskins, numframes, count;
@@ -265,16 +339,17 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl)
 	    count += groupskins;
 	}
     }
-    skindata = Hunk_Alloc(count * sizeof(byte *));
-    skinintervals = Hunk_Alloc(count * sizeof(float));
+    skindata->numskins = 0; /* to be incremented as data is filled in */
+    skindata->data = Hunk_Alloc(count * sizeof(byte *));
+    skindata->intervals = Hunk_Alloc(count * sizeof(float));
 
     /* Verticies and triangles are simple */
     numverts = LittleLong(mdl->numverts);
-    stverts = Hunk_Alloc(numverts * sizeof(*stverts));
     buffer = (byte *)buffer + numverts * sizeof(stvert_t);
     count = LittleLong(mdl->numtris);
-    triangles = Hunk_Alloc(count * sizeof(*triangles));
     buffer = (byte *)buffer + count * sizeof(dtriangle_t);
+    meshdata->stverts = Hunk_Alloc(numverts * sizeof(*meshdata->stverts));
+    meshdata->triangles = Hunk_Alloc(count * sizeof(*meshdata->triangles));
 
     /* Expand frame groups to get total pose count */
     count = 0;
@@ -295,8 +370,9 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl)
 	    count += groupframes;
 	}
     }
-    poseverts = Hunk_Alloc(count * sizeof(trivertx_t *));
-    poseintervals = Hunk_Alloc(count * sizeof(float));
+    posedata->numposes = 0; /* to be incremented as data is filled in */
+    posedata->verts = Hunk_Alloc(count * sizeof(trivertx_t *));
+    posedata->intervals = Hunk_Alloc(count * sizeof(float));
 }
 
 /*
@@ -307,26 +383,21 @@ Mod_LoadAliasModel
 void
 Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 {
-    byte *membase;
-    int i, j, pad;
-    mdl_t *inmodel;
-    stvert_t *pinstverts;
-    dtriangle_t *pintriangles;
-    int version, numframes;
-    int lowmark, start, end, memsize;
-    daliasframetype_t *pframetype;
-    daliasframe_t *frame;
-    daliasgroup_t *group;
-    float *intervals;
+    const mdl_t *mdl = buffer;
     aliashdr_t *aliashdr;
-
-    inmodel = buffer;
+    byte *membase;
+    int i, version;
+    int lowmark, start, end, memsize, pad;
+    float *intervals;
+    alias_meshdata_t meshdata;
+    alias_posedata_t posedata;
+    alias_skindata_t skindata;
 
     model->type = mod_alias;
-    model->flags = LittleLong(inmodel->flags);
-    model->synctype = LittleLong(inmodel->synctype);
-    model->numframes = LittleLong(inmodel->numframes);
-    version = LittleLong(inmodel->version);
+    model->flags = LittleLong(mdl->flags);
+    model->synctype = LittleLong(mdl->synctype);
+    model->numframes = LittleLong(mdl->numframes);
+    version = LittleLong(mdl->version);
     if (version != ALIAS_VERSION)
 	Sys_Error("%s has wrong version number (%i should be %i)",
 		  model->name, version, ALIAS_VERSION);
@@ -336,7 +407,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 
     /* Allocate loader temporary space */
     lowmark = Hunk_LowMark();
-    Mod_AliasLoaderAlloc(inmodel);
+    Mod_AliasLoaderAlloc(mdl, &meshdata, &posedata, &skindata);
 
     /*
      * Allocate space for the alias header, plus frame data.
@@ -345,21 +416,21 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     start = Hunk_LowMark();
     pad = loader->Aliashdr_Padding();
     memsize = pad + sizeof(aliashdr_t);
-    memsize += LittleLong(inmodel->numframes) * sizeof(aliashdr->frames[0]);
+    memsize += LittleLong(mdl->numframes) * sizeof(aliashdr->frames[0]);
     membase = Mod_AllocName(memsize, model->name);
     aliashdr = (aliashdr_t *)(membase + pad);
 
-    /* Endian-adjust the header data */
-    aliashdr->numskins = LittleLong(inmodel->numskins);
-    aliashdr->skinwidth = LittleLong(inmodel->skinwidth);
-    aliashdr->skinheight = LittleLong(inmodel->skinheight);
-    aliashdr->numverts = LittleLong(inmodel->numverts);
-    aliashdr->numtris = LittleLong(inmodel->numtris);
-    aliashdr->numframes = LittleLong(inmodel->numframes);
-    aliashdr->size = LittleFloat(inmodel->size) * ALIAS_BASE_SIZE_RATIO;
+    /* Copy and byte swap the header data */
+    aliashdr->numskins = LittleLong(mdl->numskins);
+    aliashdr->skinwidth = LittleLong(mdl->skinwidth);
+    aliashdr->skinheight = LittleLong(mdl->skinheight);
+    aliashdr->numverts = LittleLong(mdl->numverts);
+    aliashdr->numtris = LittleLong(mdl->numtris);
+    aliashdr->numframes = LittleLong(mdl->numframes);
+    aliashdr->size = LittleFloat(mdl->size) * ALIAS_BASE_SIZE_RATIO;
     for (i = 0; i < 3; i++) {
-	aliashdr->scale[i] = LittleFloat(inmodel->scale[i]);
-	aliashdr->scale_origin[i] = LittleFloat(inmodel->scale_origin[i]);
+	aliashdr->scale[i] = LittleFloat(mdl->scale[i]);
+	aliashdr->scale_origin[i] = LittleFloat(mdl->scale_origin[i]);
     }
 
     /* Some sanity checks */
@@ -373,56 +444,14 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     if (aliashdr->numtris <= 0)
 	Sys_Error("model %s has no triangles", model->name);
 
-    /* Load the skins */
-    buffer = inmodel + 1;
-    buffer = Mod_LoadAliasSkins(aliashdr, loader, model, buffer);
+    /* Load the rest of the data */
+    buffer = (byte *)buffer + sizeof(*mdl);
+    buffer = Mod_LoadAliasSkins(aliashdr, loader, model, buffer, &skindata);
+    buffer = Mod_LoadAliasSTVerts(aliashdr, buffer, &meshdata);
+    buffer = Mod_LoadAliasTriangles(aliashdr, buffer, &meshdata, model);
+    buffer = Mod_LoadAliasFrames(aliashdr, buffer, &posedata);
 
-    /* Load base s and t vertices */
-    pinstverts = buffer;
-    for (i = 0; i < aliashdr->numverts; i++) {
-	stverts[i].onseam = LittleLong(pinstverts[i].onseam);
-	stverts[i].s = LittleLong(pinstverts[i].s);
-	stverts[i].t = LittleLong(pinstverts[i].t);
-    }
-
-//
-// set up the triangles
-//
-    pintriangles = (dtriangle_t *)&pinstverts[aliashdr->numverts];
-    for (i = 0; i < aliashdr->numtris; i++) {
-	triangles[i].facesfront = LittleLong(pintriangles[i].facesfront);
-	for (j = 0; j < 3; j++) {
-	    triangles[i].vertindex[j] = LittleLong(pintriangles[i].vertindex[j]);
-	    if (triangles[i].vertindex[j] < 0 ||
-		triangles[i].vertindex[j] >= aliashdr->numverts)
-		Sys_Error("%s: invalid vertex index (%d of %d) in %s\n",
-			  __func__, triangles[i].vertindex[j],
-			  aliashdr->numverts, model->name);
-	}
-    }
-
-//
-// load the frames
-//
-    numframes = aliashdr->numframes;
-    if (numframes < 1)
-	Sys_Error("%s: Invalid # of frames: %d", __func__, numframes);
-
-    posenum = 0;
-    pframetype = (daliasframetype_t *)&pintriangles[aliashdr->numtris];
-
-    for (i = 0; i < numframes; i++) {
-	if (LittleLong(pframetype->type) == ALIAS_SINGLE) {
-	    frame = (daliasframe_t *)(pframetype + 1);
-	    Mod_LoadAliasFrame(frame, &aliashdr->frames[i]);
-	    pframetype = (daliasframetype_t *)&frame->verts[aliashdr->numverts];
-	} else {
-	    group = (daliasgroup_t *)(pframetype + 1);
-	    pframetype = Mod_LoadAliasGroup(aliashdr, group,
-					    &aliashdr->frames[i]);
-	}
-    }
-    aliashdr->numposes = posenum;
+    aliashdr->numposes = posedata.numposes;
 
 // FIXME: do this right
     model->mins[0] = model->mins[1] = model->mins[2] = -16;
@@ -434,12 +463,12 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     intervals = Mod_AllocName(aliashdr->numposes * sizeof(float), model->name);
     aliashdr->poseintervals = (byte *)intervals - (byte *)aliashdr;
     for (i = 0; i < aliashdr->numposes; i++)
-	intervals[i] = poseintervals[i];
+	intervals[i] = posedata.intervals[i];
 
     /*
      * Save the mesh data (verts, stverts, triangles)
      */
-    loader->LoadMeshData(model, aliashdr, triangles, stverts, poseverts);
+    loader->LoadMeshData(model, aliashdr, &meshdata, &posedata);
 
 //
 // move the complete, relocatable alias model to the cache
