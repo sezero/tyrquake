@@ -183,7 +183,7 @@ Mod_LoadAliasSkinGroup(const aliashdr_t *aliashdr, void *buffer,
 	skindata->numskins++;
     }
 
-    data = (byte *)intervals;
+    data = (byte *)dinterval;
     for (i = 0; i < skin->numframes; i++) {
 	skindata->data[skin->firstframe + i] = data;
 	data += skinsize;
