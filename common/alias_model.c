@@ -31,22 +31,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_local.h"
 #endif
 
-/* FIXME - get rid of these static limits by doing two passes? */
+static stvert_t *stverts;
+static mtriangle_t *triangles;
 
-static stvert_t stverts[MAXALIASVERTS];
-static mtriangle_t triangles[MAXALIASTRIS];
-
-// a pose is a single set of vertexes.  a frame may be
-// an animating sequence of poses
-static const trivertx_t *poseverts[MAXALIASFRAMES];
-static float poseintervals[MAXALIASFRAMES];
+/*
+ * A pose is a single set of vertexes.
+ * A frame may be an animating sequence of poses.
+ */
+static const trivertx_t **poseverts;
+static float *poseintervals;
 static int posenum;
 
-#define MAXALIASSKINS 256
-
-// a skin may be an animating set 1 or more textures
-static float skinintervals[MAXALIASSKINS];
-static byte *skindata[MAXALIASSKINS];
+/* An alias skin may be an animating set 1 or more textures */
+static float *skinintervals;
+static byte **skindata;
 static int skinnum;
 
 /*
@@ -181,8 +179,8 @@ Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 
     skinnum = 0;
     for (i = 0; i < numskins; i++, skindesc++) {
-	daliasskintype_t *dskintype = buffer;
-	aliasskintype_t skintype = LittleLong(dskintype->type);
+	const daliasskintype_t *const dskintype = buffer;
+	const aliasskintype_t skintype = LittleLong(dskintype->type);
 	buffer = (byte *)buffer + sizeof(daliasskintype_t);
 	if (skintype == ALIAS_SKIN_SINGLE) {
 	    skindata[skinnum] = buffer;
@@ -233,6 +231,74 @@ Mod_AliasCRC(const model_t *model, const byte *buffer, int bufferlen)
 }
 
 /*
+ * Make temporary space on the low hunk to save away various model
+ * data for later processing by the driver-specific loader.
+ */
+void
+Mod_AliasLoaderAlloc(const mdl_t *mdl)
+{
+    const void *buffer;
+    int i, skinsize, numverts, numskins, numframes, count;
+
+    /* Skin data follows the header */
+    buffer = mdl + 1;
+
+    /* Expand skin groups for total skin count */
+    count = 0;
+    numskins = LittleLong(mdl->numskins);
+    skinsize = LittleLong(mdl->skinwidth) * LittleLong(mdl->skinheight);
+    for (i = 0; i < numskins; i++) {
+	const daliasskintype_t *const dskintype = buffer;
+	const aliasskintype_t skintype = LittleLong(dskintype->type);
+	buffer = (byte *)buffer + sizeof(daliasskintype_t);
+	if (skintype == ALIAS_SKIN_SINGLE) {
+	    buffer = (byte *)buffer + skinsize;
+	    count++;
+	} else {
+	    /* skin group */
+	    const daliasskingroup_t *const dskingroup = buffer;
+	    const int groupskins = LittleLong(dskingroup->numskins);
+	    buffer = (byte *)buffer + sizeof(daliasskingroup_t);
+	    buffer = (byte *)buffer + groupskins * sizeof(daliasskininterval_t);
+	    buffer = (byte *)buffer + groupskins * skinsize;
+	    count += groupskins;
+	}
+    }
+    skindata = Hunk_Alloc(count * sizeof(byte *));
+    skinintervals = Hunk_Alloc(count * sizeof(float));
+
+    /* Verticies and triangles are simple */
+    numverts = LittleLong(mdl->numverts);
+    stverts = Hunk_Alloc(numverts * sizeof(*stverts));
+    buffer = (byte *)buffer + numverts * sizeof(stvert_t);
+    count = LittleLong(mdl->numtris);
+    triangles = Hunk_Alloc(count * sizeof(*triangles));
+    buffer = (byte *)buffer + count * sizeof(dtriangle_t);
+
+    /* Expand frame groups to get total pose count */
+    count = 0;
+    numframes = LittleLong(mdl->numframes);
+    for (i = 0; i < numframes; i++) {
+	const daliasframetype_t *const dframetype = buffer;
+	const aliasframetype_t frametype = LittleLong(dframetype->type);
+	buffer = (byte *)buffer + sizeof(daliasframetype_t);
+	if (frametype == ALIAS_SINGLE) {
+	    buffer = &((daliasframe_t *)buffer)->verts[numverts];
+	    count++;
+	} else {
+	    const daliasgroup_t *const group = buffer;
+	    const int groupframes = LittleLong(group->numframes);
+	    const int framesize = offsetof(daliasframe_t, verts[numverts]);
+	    buffer = &group->intervals[groupframes];
+	    buffer = (byte *)buffer + groupframes * framesize;
+	    count += groupframes;
+	}
+    }
+    poseverts = Hunk_Alloc(count * sizeof(trivertx_t *));
+    poseintervals = Hunk_Alloc(count * sizeof(float));
+}
+
+/*
 =================
 Mod_LoadAliasModel
 =================
@@ -246,33 +312,36 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     stvert_t *pinstverts;
     dtriangle_t *pintriangles;
     int version, numframes;
-    int start, end, memsize;
+    int lowmark, start, end, memsize;
     daliasframetype_t *pframetype;
     daliasframe_t *frame;
     daliasgroup_t *group;
     float *intervals;
     aliashdr_t *aliashdr;
 
-    /* QW sets CRC info for player/eyes models */
-    Mod_AliasCRC(model, buffer, com_filesize);
+    inmodel = buffer;
 
-    start = Hunk_LowMark();
-
-    inmodel = (mdl_t *)buffer;
     model->type = mod_alias;
     model->flags = LittleLong(inmodel->flags);
     model->synctype = LittleLong(inmodel->synctype);
     model->numframes = LittleLong(inmodel->numframes);
-
     version = LittleLong(inmodel->version);
     if (version != ALIAS_VERSION)
 	Sys_Error("%s has wrong version number (%i should be %i)",
 		  model->name, version, ALIAS_VERSION);
 
+    /* Before any swapping, CRC models for QW client */
+    Mod_AliasCRC(model, buffer, com_filesize);
+
+    /* Allocate loader temporary space */
+    lowmark = Hunk_LowMark();
+    Mod_AliasLoaderAlloc(inmodel);
+
     /*
      * Allocate space for the alias header, plus frame data.
      * Leave pad bytes above the header for driver specific data.
      */
+    start = Hunk_LowMark();
     pad = loader->Aliashdr_Padding();
     memsize = pad + sizeof(aliashdr_t);
     memsize += LittleLong(inmodel->numframes) * sizeof(aliashdr->frames[0]);
@@ -384,7 +453,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 
     memcpy((byte *)model->cache.data - pad, membase, memsize);
 
-    Hunk_FreeToLowMark(start);
+    Hunk_FreeToLowMark(lowmark);
 }
 
 /* Alias model cache */
