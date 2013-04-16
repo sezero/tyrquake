@@ -37,26 +37,26 @@ Mod_LoadAliasFrame
 =================
 */
 static void *
-Mod_LoadAliasFrame(const aliashdr_t *aliashdr, void *buffer,
+Mod_LoadAliasFrame(aliashdr_t *aliashdr, void *buffer,
 		   maliasframedesc_t *frame, alias_posedata_t *posedata)
 {
     const daliasframe_t *dframe = buffer;
+    float *intervals = (float *)((byte *)aliashdr + aliashdr->poseintervals);
     int i;
 
     snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
     frame->firstpose = posedata->numposes;
     frame->numposes = 1;
-
     for (i = 0; i < 3; i++) {
 	/* byte values only, no endian swapping */
 	frame->bboxmin.v[i] = dframe->bboxmin.v[i];
 	frame->bboxmax.v[i] = dframe->bboxmax.v[i];
     }
-
-    /* interval is actually unused, but 999 should make problems obvious */
     posedata->verts[posedata->numposes] = dframe->verts;
-    posedata->intervals[posedata->numposes] = 999.0f;
     posedata->numposes++;
+
+    /* interval is unused, but 999 should make problems obvious */
+    intervals[posedata->numposes] = 999.0f;
 
     return (byte *)buffer + offsetof(daliasframe_t, verts[aliashdr->numverts]);
 }
@@ -68,13 +68,13 @@ Mod_LoadAliasFrameGroup
 =================
 */
 static void *
-Mod_LoadAliasFrameGroup(const aliashdr_t *aliashdr, void *buffer,
+Mod_LoadAliasFrameGroup(aliashdr_t *aliashdr, void *buffer,
 			maliasframedesc_t *frame, alias_posedata_t *posedata)
 {
+    float *interval = (float *)((byte *)aliashdr + aliashdr->poseintervals);
     const daliasgroup_t *group = buffer;
     const daliasframe_t *dframe;
     const trivertx_t **vert;
-    float *interval;
     int i;
 
     frame->firstpose = posedata->numposes;
@@ -91,7 +91,7 @@ Mod_LoadAliasFrameGroup(const aliashdr_t *aliashdr, void *buffer,
     snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
 
     vert = &posedata->verts[posedata->numposes];
-    interval = &posedata->intervals[posedata->numposes];
+    interval += posedata->numposes;
     for (i = 0; i < frame->numposes; i++) {
 	*vert++ = dframe->verts;
 	*interval = LittleFloat(group->intervals[i].interval);
@@ -141,15 +141,16 @@ Mod_LoadAliasSkin
 =================
 */
 static void *
-Mod_LoadAliasSkin(const aliashdr_t *aliashdr, void *buffer,
+Mod_LoadAliasSkin(aliashdr_t *aliashdr, void *buffer,
 		  maliasskindesc_t *skin, alias_skindata_t *skindata)
 {
+    float *intervals = (float *)((byte *)aliashdr + aliashdr->skinintervals);
     const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
 
     skindata->data[skindata->numskins] = buffer;
     skin->firstframe = skindata->numskins;
     skin->numframes = 1;
-    skindata->intervals[skindata->numskins] = 999.0f;
+    intervals[skindata->numskins] = 999.0f;
     skindata->numskins++;
 
     return (byte *)buffer + skinsize;
@@ -164,10 +165,10 @@ static void *
 Mod_LoadAliasSkinGroup(const aliashdr_t *aliashdr, void *buffer,
 		       maliasskindesc_t *skin, alias_skindata_t *skindata)
 {
+    float *interval = (float *)((byte *)aliashdr + aliashdr->skinintervals);
     const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
     const daliasskingroup_t *group = buffer;
     const daliasskininterval_t *dinterval;
-    float *interval;
     byte *data;
     int i;
 
@@ -175,7 +176,7 @@ Mod_LoadAliasSkinGroup(const aliashdr_t *aliashdr, void *buffer,
     skin->numframes = LittleLong(group->numskins);
 
     dinterval = (daliasskininterval_t *)(group + 1);
-    interval = &skindata->intervals[skindata->numskins];
+    interval += skindata->numskins;
     for (i = 0; i < skin->numframes; i++, interval++, dinterval++) {
 	*interval = LittleFloat(dinterval->interval);
 	if (*interval <= 0)
@@ -203,7 +204,6 @@ Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 		   alias_skindata_t *skindata)
 {
     maliasskindesc_t *skin;
-    float *intervals;
     byte *data;
     int i;
 
@@ -229,10 +229,6 @@ Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
 	else
 	    buffer = Mod_LoadAliasSkinGroup(aliashdr, buffer, skin, skindata);
     }
-
-    intervals = Mod_AllocName(skindata->numskins * sizeof(float), model->name);
-    aliashdr->skinintervals = (byte *)intervals - (byte *)aliashdr;
-    memcpy(intervals, skindata->intervals, skindata->numskins * sizeof(float));
 
     /* Hand off saving the skin data to the loader */
     data = loader->LoadSkinData(model->name, aliashdr, skindata);
@@ -339,9 +335,8 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
 	    count += groupskins;
 	}
     }
-    skindata->numskins = 0; /* to be incremented as data is filled in */
+    skindata->numskins = count; /* to be incremented as data is filled in */
     skindata->data = Hunk_Alloc(count * sizeof(byte *));
-    skindata->intervals = Hunk_Alloc(count * sizeof(float));
 
     /* Verticies and triangles are simple */
     numverts = LittleLong(mdl->numverts);
@@ -370,9 +365,8 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
 	    count += groupframes;
 	}
     }
-    posedata->numposes = 0; /* to be incremented as data is filled in */
+    posedata->numposes = count;
     posedata->verts = Hunk_Alloc(count * sizeof(trivertx_t *));
-    posedata->intervals = Hunk_Alloc(count * sizeof(float));
 }
 
 /*
@@ -420,7 +414,14 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     membase = Mod_AllocName(memsize, model->name);
     aliashdr = (aliashdr_t *)(membase + pad);
 
+    /* Space for the interval data can be allocated now */
+    intervals = Mod_AllocName(posedata.numposes * sizeof(float), model->name);
+    aliashdr->poseintervals = (byte *)intervals - (byte *)aliashdr;
+    intervals = Mod_AllocName(skindata.numskins * sizeof(float), model->name);
+    aliashdr->skinintervals = (byte *)intervals - (byte *)aliashdr;
+
     /* Copy and byte swap the header data */
+    aliashdr->numposes = posedata.numposes;
     aliashdr->numskins = LittleLong(mdl->numskins);
     aliashdr->skinwidth = LittleLong(mdl->skinwidth);
     aliashdr->skinheight = LittleLong(mdl->skinheight);
@@ -451,19 +452,9 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     buffer = Mod_LoadAliasTriangles(aliashdr, buffer, &meshdata, model);
     buffer = Mod_LoadAliasFrames(aliashdr, buffer, &posedata);
 
-    aliashdr->numposes = posedata.numposes;
-
 // FIXME: do this right
     model->mins[0] = model->mins[1] = model->mins[2] = -16;
     model->maxs[0] = model->maxs[1] = model->maxs[2] = 16;
-
-    /*
-     * Save the frame intervals
-     */
-    intervals = Mod_AllocName(aliashdr->numposes * sizeof(float), model->name);
-    aliashdr->poseintervals = (byte *)intervals - (byte *)aliashdr;
-    for (i = 0; i < aliashdr->numposes; i++)
-	intervals[i] = posedata.intervals[i];
 
     /*
      * Save the mesh data (verts, stverts, triangles)

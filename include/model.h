@@ -466,13 +466,11 @@ typedef struct {
 typedef struct {
     int numposes;
     const trivertx_t **verts;
-    float *intervals;
 } alias_posedata_t;
 
 typedef struct {
     int numskins;
     byte **data;
-    float *intervals;
 } alias_skindata_t;
 
 typedef struct model_loader {
