@@ -1173,8 +1173,6 @@ AllocBlock(int w, int h, int *x, int *y)
     Sys_Error("%s: full", __func__);
 }
 
-mvertex_t *r_pcurrentvertbase;
-
 /*
 ================
 BuildSurfaceDisplayList
@@ -1184,61 +1182,53 @@ static void
 BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf,
 			void *hunkbase)
 {
-    int i, lindex, lnumverts, memsize;
-    medge_t *pedges, *r_pedge;
-    float *vec;
-    float s, t;
+    const mtexinfo_t *const texinfo = surf->texinfo;
+    const float *vertex;
     glpoly_t *poly;
+    float s, t;
+    int i, memsize;
 
-// reconstruct the polygon
-    pedges = brushmodel->edges;
-    lnumverts = surf->numedges;
-
-    //
-    // draw texture
-    //
-    memsize = sizeof(*poly) + lnumverts * sizeof(poly->verts[0]);
+    /* reconstruct the polygon */
+    memsize = sizeof(*poly) + surf->numedges * sizeof(poly->verts[0]);
     poly = Hunk_AllocExtend(hunkbase, memsize);
-    //poly = Hunk_Alloc(memsize);
     poly->next = surf->polys;
-    poly->flags = surf->flags;
     surf->polys = poly;
-    poly->numverts = lnumverts;
+    poly->flags = surf->flags;
+    poly->numverts = surf->numedges;
 
-    for (i = 0; i < lnumverts; i++) {
-	lindex = brushmodel->surfedges[surf->firstedge + i];
-
-	if (lindex > 0) {
-	    r_pedge = &pedges[lindex];
-	    vec = r_pcurrentvertbase[r_pedge->v[0]].position;
+    for (i = 0; i < surf->numedges; i++) {
+	const int edgenum = brushmodel->surfedges[surf->firstedge + i];
+	if (edgenum >= 0) {
+	    const medge_t *const edge = &brushmodel->edges[edgenum];
+	    vertex = brushmodel->vertexes[edge->v[0]].position;
 	} else {
-	    r_pedge = &pedges[-lindex];
-	    vec = r_pcurrentvertbase[r_pedge->v[1]].position;
+	    const medge_t *const edge = &brushmodel->edges[-edgenum];
+	    vertex = brushmodel->vertexes[edge->v[1]].position;
 	}
-	s = DotProduct(vec, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3];
-	s /= surf->texinfo->texture->width;
+	VectorCopy(vertex, poly->verts[i]);
 
-	t = DotProduct(vec, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3];
-	t /= surf->texinfo->texture->height;
+	/* Texture coordinates */
+	s = DotProduct(vertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
+	s /= texinfo->texture->width;
 
-	VectorCopy(vec, poly->verts[i]);
+	t = DotProduct(vertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
+	t /= texinfo->texture->height;
+
 	poly->verts[i][3] = s;
 	poly->verts[i][4] = t;
 
-	//
-	// lightmap texture coordinates
-	//
-	s = DotProduct(vec, surf->texinfo->vecs[0]) + surf->texinfo->vecs[0][3];
+	/* Lightmap texture coordinates */
+	s = DotProduct(vertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
 	s -= surf->texturemins[0];
 	s += surf->light_s * 16;
 	s += 8;
-	s /= BLOCK_WIDTH * 16;	//surf->texinfo->texture->width;
+	s /= BLOCK_WIDTH * 16;	/* texinfo->texture->width */
 
-	t = DotProduct(vec, surf->texinfo->vecs[1]) + surf->texinfo->vecs[1][3];
+	t = DotProduct(vertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
 	t -= surf->texturemins[1];
 	t += surf->light_t * 16;
 	t += 8;
-	t /= BLOCK_HEIGHT * 16;	//surf->texinfo->texture->height;
+	t /= BLOCK_HEIGHT * 16;	/* texinfo->texture->height */
 
 	poly->verts[i][5] = s;
 	poly->verts[i][6] = t;
@@ -1344,7 +1334,6 @@ GL_BuildLightmaps(void *hunkbase)
 	    continue;
 
 	brushmodel = BrushModel(model);
-	r_pcurrentvertbase = brushmodel->vertexes;
 	surf = brushmodel->surfaces;
 	for (i = 0; i < brushmodel->numsurfaces; i++, surf++) {
 	    cnt++;
