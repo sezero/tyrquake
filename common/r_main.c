@@ -950,7 +950,7 @@ R_DrawBEntitiesOnList
 static void
 R_DrawBEntitiesOnList(void)
 {
-    entity_t *e;
+    entity_t *entity;
     int i, j, clipflags;
     vec3_t oldorigin;
     model_t *model;
@@ -965,28 +965,28 @@ R_DrawBEntitiesOnList(void)
     r_dlightframecount = r_framecount;
 
     for (i = 0; i < cl_numvisedicts; i++) {
-	e = &cl_visedicts[i];
-	if (e->model->type != mod_brush)
+	entity = &cl_visedicts[i];
+	if (entity->model->type != mod_brush)
 	    continue;
 
-	model = e->model;
+	model = entity->model;
 	brushmodel = BrushModel(model);
 
 	// see if the bounding box lets us trivially reject, also sets
 	// trivial accept status
-	VectorAdd(e->origin, model->mins, mins);
-	VectorAdd(e->origin, model->maxs, maxs);
-	clipflags = R_ModelCheckBBox(e, model, mins, maxs);
+	VectorAdd(entity->origin, model->mins, mins);
+	VectorAdd(entity->origin, model->maxs, maxs);
+	clipflags = R_ModelCheckBBox(entity, model, mins, maxs);
 
 	if (clipflags == BMODEL_FULLY_CLIPPED)
 	    continue;
 
-	VectorCopy(e->origin, r_entorigin);
+	VectorCopy(entity->origin, r_entorigin);
 	VectorSubtract(r_origin, r_entorigin, modelorg);
 	r_pcurrentvertbase = brushmodel->vertexes;
 
 	// FIXME: stop transforming twice
-	R_RotateBmodel(e);
+	R_RotateBmodel(entity);
 
 	// calculate dynamic lighting for bmodel if it's not an
 	// instanced model
@@ -1006,18 +1006,18 @@ R_DrawBEntitiesOnList(void)
 	R_CullSubmodelSurfaces(brushmodel, modelorg, clipflags);
 
 	if (r_pefragtopnode) {
-	    e->topnode = r_pefragtopnode;
+	    entity->topnode = r_pefragtopnode;
 
 	    if (r_pefragtopnode->contents >= 0) {
 		// not a leaf; has to be clipped to the world BSP
-		R_DrawSolidClippedSubmodelPolygons(e, brushmodel);
+		R_DrawSolidClippedSubmodelPolygons(entity, brushmodel);
 	    } else {
 		// falls entirely in one leaf, so we just put all
 		// the edges in the edge list and let 1/z sorting
 		// handle drawing order
-		R_DrawSubmodelPolygons(e, brushmodel, clipflags);
+		R_DrawSubmodelPolygons(entity, brushmodel, clipflags);
 	    }
-	    e->topnode = NULL;
+	    entity->topnode = NULL;
 	}
 
 	// put back world rotation and frustum clipping
