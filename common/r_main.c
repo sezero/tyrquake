@@ -959,7 +959,6 @@ R_DrawBEntitiesOnList(void)
 	return;
 
     VectorCopy(modelorg, oldorigin);
-    insubmodel = true;
     r_dlightframecount = r_framecount;
 
     for (i = 0; i < cl_numvisedicts; i++) {
@@ -1026,8 +1025,6 @@ R_DrawBEntitiesOnList(void)
 	VectorCopy(oldorigin, modelorg);
 	R_TransformFrustum();
     }
-
-    insubmodel = false;
 }
 
 

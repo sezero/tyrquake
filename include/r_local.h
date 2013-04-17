@@ -112,7 +112,6 @@ extern int r_visframecount;
 //
 // current entity info
 //
-extern qboolean insubmodel;
 
 void R_DrawSprite(const entity_t *e);
 void R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags);

@@ -358,7 +358,8 @@ R_RenderFace
 void
 R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
 {
-    brushmodel_t *brushmodel = BrushModel(e->model);
+    const brushmodel_t *brushmodel = BrushModel(e->model);
+    const qboolean insubmodel = e->model != r_worldentity.model;
     int i, lindex;
     unsigned mask;
     mplane_t *pplane;
