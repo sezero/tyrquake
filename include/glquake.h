@@ -255,7 +255,7 @@ void GL_Set2D(void);
 //
 // gl_rmain.c
 //
-qboolean R_CullBox(vec3_t mins, vec3_t maxs);
+qboolean R_CullBox(const vec3_t mins, const vec3_t maxs);
 void R_RotateForEntity(const vec3_t origin, const vec3_t angles);
 
 /*
