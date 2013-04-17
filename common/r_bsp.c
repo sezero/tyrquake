@@ -345,13 +345,13 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel)
 
 	    if (lindex > 0) {
 		pedge = &pedges[lindex];
-		pbedge[j].v[0] = &r_pcurrentvertbase[pedge->v[0]];
-		pbedge[j].v[1] = &r_pcurrentvertbase[pedge->v[1]];
+		pbedge[j].v[0] = &brushmodel->vertexes[pedge->v[0]];
+		pbedge[j].v[1] = &brushmodel->vertexes[pedge->v[1]];
 	    } else {
 		lindex = -lindex;
 		pedge = &pedges[lindex];
-		pbedge[j].v[0] = &r_pcurrentvertbase[pedge->v[1]];
-		pbedge[j].v[1] = &r_pcurrentvertbase[pedge->v[0]];
+		pbedge[j].v[0] = &brushmodel->vertexes[pedge->v[1]];
+		pbedge[j].v[1] = &brushmodel->vertexes[pedge->v[0]];
 	    }
 	    pbedge[j].pnext = &pbedge[j + 1];
 	}
@@ -475,6 +475,5 @@ R_RenderWorld(void)
     brushmodel_t *brushmodel = BrushModel(r_worldentity.model);
 
     VectorCopy(r_origin, modelorg);
-    r_pcurrentvertbase = brushmodel->vertexes;
     R_RecursiveWorldNode(&r_worldentity, brushmodel->nodes);
 }

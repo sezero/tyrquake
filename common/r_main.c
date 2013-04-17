@@ -46,8 +46,6 @@ static alight_t r_viewlighting = { 128, 192, viewlightvec };
 
 qboolean r_dowarp, r_dowarpold, r_viewchanged;
 
-mvertex_t *r_pcurrentvertbase;
-
 int c_surf;
 int r_maxsurfsseen, r_maxedgesseen;
 
@@ -983,7 +981,6 @@ R_DrawBEntitiesOnList(void)
 
 	VectorCopy(entity->origin, r_entorigin);
 	VectorSubtract(r_origin, r_entorigin, modelorg);
-	r_pcurrentvertbase = brushmodel->vertexes;
 
 	// FIXME: stop transforming twice
 	R_RotateBmodel(entity);
