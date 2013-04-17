@@ -199,26 +199,28 @@ R_DrawSpriteModel
 =================
 */
 static void
-R_DrawSpriteModel(const entity_t *e)
+R_DrawSpriteModel(const entity_t *entity)
 {
-    vec3_t point;
+    const msprite_t *sprite;
     const mspriteframe_t *frame;
-    float *up, *right;
-    vec3_t v_forward, v_right, v_up;
-    msprite_t *psprite;
+    const float *up, *right;
+    vec3_t point, v_forward, v_right, v_up;
     GLuint gltex;
 
-    psprite = e->model->cache.data;
-    frame = Mod_GetSpriteFrame(e, psprite, cl.time + e->syncbase);
+    sprite = entity->model->cache.data;
+    frame = Mod_GetSpriteFrame(entity, sprite, cl.time + entity->syncbase);
 
-    // don't even bother culling, because it's just a single
-    // polygon without a surface cache
-
-    if (psprite->type == SPR_ORIENTED) {	// bullet marks on walls
-	AngleVectors(e->angles, v_forward, v_right, v_up);
+    /*
+     * Don't even bother culling, because it's just a single polygon
+     * without a surface cache
+     */
+    if (sprite->type == SPR_ORIENTED) {
+	/* bullet marks on walls */
+	AngleVectors(entity->angles, v_forward, v_right, v_up);
 	up = v_up;
 	right = v_right;
-    } else {			// normal sprite
+    } else {
+	/* normal sprite */
 	up = vup;
 	right = vright;
     }
@@ -233,22 +235,22 @@ R_DrawSpriteModel(const entity_t *e)
     glBegin(GL_QUADS);
 
     glTexCoord2f(0, 1);
-    VectorMA(e->origin, frame->down, up, point);
+    VectorMA(entity->origin, frame->down, up, point);
     VectorMA(point, frame->left, right, point);
     glVertex3fv(point);
 
     glTexCoord2f(0, 0);
-    VectorMA(e->origin, frame->up, up, point);
+    VectorMA(entity->origin, frame->up, up, point);
     VectorMA(point, frame->left, right, point);
     glVertex3fv(point);
 
     glTexCoord2f(1, 0);
-    VectorMA(e->origin, frame->up, up, point);
+    VectorMA(entity->origin, frame->up, up, point);
     VectorMA(point, frame->right, right, point);
     glVertex3fv(point);
 
     glTexCoord2f(1, 1);
-    VectorMA(e->origin, frame->down, up, point);
+    VectorMA(entity->origin, frame->down, up, point);
     VectorMA(point, frame->right, right, point);
     glVertex3fv(point);
 
