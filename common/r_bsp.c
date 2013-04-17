@@ -308,18 +308,17 @@ R_DrawSolidClippedSubmodelPolygons
 ================
 */
 void
-R_DrawSolidClippedSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel)
+R_DrawSolidClippedSubmodelPolygons(const entity_t *entity)
 {
-    int i, j, lindex;
+    const brushmodel_t *brushmodel = BrushModel(entity->model);
+    int i, j;
     msurface_t *psurf;
     int numsurfaces;
     mvertex_t bverts[MAX_BMODEL_VERTS];
     bedge_t bedges[MAX_BMODEL_EDGES], *pbedge;
-    medge_t *pedge, *pedges;
 
     psurf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
     numsurfaces = brushmodel->nummodelsurfaces;
-    pedges = brushmodel->edges;
 
     for (i = 0; i < numsurfaces; i++, psurf++) {
 	if (psurf->clipflags == BMODEL_FULLY_CLIPPED)
@@ -341,23 +340,21 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel)
 	numbedges += psurf->numedges;
 
 	for (j = 0; j < psurf->numedges; j++) {
-	    lindex = brushmodel->surfedges[psurf->firstedge + j];
-
-	    if (lindex > 0) {
-		pedge = &pedges[lindex];
-		pbedge[j].v[0] = &brushmodel->vertexes[pedge->v[0]];
-		pbedge[j].v[1] = &brushmodel->vertexes[pedge->v[1]];
+	    const int edgenum = brushmodel->surfedges[psurf->firstedge + j];
+	    if (edgenum > 0) {
+		const medge_t *const edge = &brushmodel->edges[edgenum];
+		pbedge[j].v[0] = &brushmodel->vertexes[edge->v[0]];
+		pbedge[j].v[1] = &brushmodel->vertexes[edge->v[1]];
 	    } else {
-		lindex = -lindex;
-		pedge = &pedges[lindex];
-		pbedge[j].v[0] = &brushmodel->vertexes[pedge->v[1]];
-		pbedge[j].v[1] = &brushmodel->vertexes[pedge->v[0]];
+		const medge_t *const edge = &brushmodel->edges[-edgenum];
+		pbedge[j].v[0] = &brushmodel->vertexes[edge->v[1]];
+		pbedge[j].v[1] = &brushmodel->vertexes[edge->v[0]];
 	    }
 	    pbedge[j].pnext = &pbedge[j + 1];
 	}
 	pbedge[j - 1].pnext = NULL;	// mark end of edges
 
-	R_RecursiveClipBPoly(e, pbedge, e->topnode, psurf);
+	R_RecursiveClipBPoly(entity, pbedge, entity->topnode, psurf);
     }
 }
 
