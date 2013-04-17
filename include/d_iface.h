@@ -95,7 +95,7 @@ typedef struct {
     // there's room for an extra element at [nump],
     //  if the driver wants to duplicate element [0] at
     //  element [nump] to avoid dealing with wrapping
-    mspriteframe_t *pspriteframe;
+    const mspriteframe_t *pspriteframe;
     vec3_t vup, vright, vpn;	// in worldspace
     float nearzi;
 } spritedesc_t;

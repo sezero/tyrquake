@@ -202,7 +202,7 @@ static void
 R_DrawSpriteModel(const entity_t *e)
 {
     vec3_t point;
-    mspriteframe_t *frame;
+    const mspriteframe_t *frame;
     float *up, *right;
     vec3_t v_forward, v_right, v_up;
     msprite_t *psprite;

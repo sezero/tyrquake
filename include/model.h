@@ -265,7 +265,10 @@ typedef struct {
 
 typedef struct {
     spriteframetype_t type;
-    mspriteframe_t *frameptr;
+    union {
+	mspriteframe_t *frame;
+	mspritegroup_t *group;
+    } frame;
 } mspriteframedesc_t;
 
 typedef struct {
@@ -589,10 +592,10 @@ texture_t *R_TextureAnimation(const struct entity_s *e, texture_t *base);
 
 void Mod_LoadAliasModel(const model_loader_t *loader, model_t *model,
 			void *buffer);
-void Mod_LoadSpriteModel(model_t *model, void *buffer);
+void Mod_LoadSpriteModel(model_t *model, const void *buffer);
 
-mspriteframe_t *Mod_GetSpriteFrame(const struct entity_s *e,
-				   msprite_t *psprite, float time);
+const mspriteframe_t *Mod_GetSpriteFrame(const struct entity_s *entity,
+					 const msprite_t *sprite, float time);
 
 int Mod_FindInterval(const float *intervals, int numintervals, float time);
 

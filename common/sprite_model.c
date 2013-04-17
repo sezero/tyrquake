@@ -38,39 +38,39 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 Mod_LoadSpriteFrame
 =================
 */
-static void *
-Mod_LoadSpriteFrame(void *pin, mspriteframe_t **ppframe, const char *loadname,
-		    int framenum)
+static const void *
+Mod_LoadSpriteFrame(const void *buffer, mspriteframe_t **ppframe,
+		    const char *loadname, int framenum)
 {
-    dspriteframe_t *pinframe;
-    mspriteframe_t *pspriteframe;
-    int width, height, numpixels, size, origin[2];
+    const dspriteframe_t *dframe;
+    mspriteframe_t *frame;
+    int width, height, numpixels, memsize, origin[2];
 
-    pinframe = (dspriteframe_t *)pin;
+    dframe = buffer;
 
-    width = LittleLong(pinframe->width);
-    height = LittleLong(pinframe->height);
+    width = LittleLong(dframe->width);
+    height = LittleLong(dframe->height);
     numpixels = width * height;
-    size = sizeof(mspriteframe_t) + R_SpriteDataSize(numpixels);
+    memsize = sizeof(*frame) + R_SpriteDataSize(numpixels);
 
-    pspriteframe = Hunk_AllocName(size, loadname);
-    memset(pspriteframe, 0, size);
-    *ppframe = pspriteframe;
+    frame = Hunk_AllocName(memsize, loadname);
+    memset(frame, 0, memsize);
+    *ppframe = frame;
 
-    pspriteframe->width = width;
-    pspriteframe->height = height;
-    origin[0] = LittleLong(pinframe->origin[0]);
-    origin[1] = LittleLong(pinframe->origin[1]);
+    frame->width = width;
+    frame->height = height;
+    origin[0] = LittleLong(dframe->origin[0]);
+    origin[1] = LittleLong(dframe->origin[1]);
 
-    pspriteframe->up = origin[1];
-    pspriteframe->down = origin[1] - height;
-    pspriteframe->left = origin[0];
-    pspriteframe->right = width + origin[0];
+    frame->up = origin[1];
+    frame->down = origin[1] - height;
+    frame->left = origin[0];
+    frame->right = width + origin[0];
 
     /* Let the renderer process the pixel data as needed */
-    R_SpriteDataStore(pspriteframe, loadname, framenum, (byte *)(pinframe + 1));
+    R_SpriteDataStore(frame, loadname, framenum, (byte *)(dframe + 1));
 
-    return (byte *)pinframe + sizeof(dspriteframe_t) + numpixels;
+    return (byte *)buffer + sizeof(*dframe) + numpixels;
 }
 
 
@@ -79,47 +79,42 @@ Mod_LoadSpriteFrame(void *pin, mspriteframe_t **ppframe, const char *loadname,
 Mod_LoadSpriteGroup
 =================
 */
-static void *
-Mod_LoadSpriteGroup(void *pin, mspriteframe_t **ppframe, const char *loadname,
-		    int framenum)
+static const void *
+Mod_LoadSpriteGroup(const void *buffer, mspritegroup_t **ppgroup,
+		    const char *loadname, int framenum)
 {
-    dspritegroup_t *pingroup;
-    mspritegroup_t *pspritegroup;
-    int i, numframes;
-    dspriteinterval_t *pin_intervals;
-    float *poutintervals;
-    void *ptemp;
+    const dspritegroup_t *dgroup;
+    const dspriteinterval_t *dintervals;
+    float *intervals;
+    mspritegroup_t *group;
+    int i, numframes, memsize;
 
-    pingroup = (dspritegroup_t *)pin;
-    numframes = LittleLong(pingroup->numframes);
+    dgroup = buffer;
+    buffer = dgroup + 1;
 
-    pspritegroup = Hunk_AllocName(sizeof(*pspritegroup) +
-				  numframes * sizeof(pspritegroup->frames[0]),
-				  loadname);
+    numframes = LittleLong(dgroup->numframes);
+    memsize = sizeof(*group) + numframes * sizeof(group->frames[0]);
+    group = Hunk_AllocName(memsize, loadname);
 
-    pspritegroup->numframes = numframes;
-    *ppframe = (mspriteframe_t *)pspritegroup;
-    pin_intervals = (dspriteinterval_t *)(pingroup + 1);
-    poutintervals = Hunk_AllocName(numframes * sizeof(float), loadname);
-    pspritegroup->intervals = poutintervals;
+    group->numframes = numframes;
+    *ppgroup = group;
 
-    for (i = 0; i < numframes; i++) {
-	*poutintervals = LittleFloat(pin_intervals->interval);
-	if (*poutintervals <= 0.0)
+    dintervals = buffer;
+    intervals = Hunk_AllocName(numframes * sizeof(float), loadname);
+    group->intervals = intervals;
+
+    for (i = 0; i < numframes; i++, intervals++, dintervals++) {
+	*intervals = LittleFloat(dintervals->interval);
+	if (*intervals <= 0.0)
 	    Sys_Error("%s: interval <= 0", __func__);
-
-	poutintervals++;
-	pin_intervals++;
     }
+    buffer = dintervals;
 
-    ptemp = (void *)pin_intervals;
+    for (i = 0; i < numframes; i++)
+	buffer = Mod_LoadSpriteFrame(buffer, &group->frames[i],
+				     loadname, framenum * 100 + i);
 
-    for (i = 0; i < numframes; i++) {
-	ptemp = Mod_LoadSpriteFrame(ptemp, &pspritegroup->frames[i], loadname,
-				    framenum * 100 + i);
-    }
-
-    return ptemp;
+    return buffer;
 }
 
 
@@ -129,71 +124,58 @@ Mod_LoadSpriteModel
 =================
 */
 void
-Mod_LoadSpriteModel(model_t *model, void *buffer)
+Mod_LoadSpriteModel(model_t *model, const void *buffer)
 {
-    char hunkname[HUNK_NAMELEN];
-    int i;
-    int version;
-    dsprite_t *pin;
-    msprite_t *psprite;
-    int numframes;
-    int size;
-    dspriteframetype_t *pframetype;
+    char hunkname[HUNK_NAMELEN + 1];
+    const dsprite_t *dsprite;
+    msprite_t *sprite;
+    int i, version, numframes, memsize;
 
-    pin = (dsprite_t *)buffer;
-
-    version = LittleLong(pin->version);
+    dsprite = buffer;
+    version = LittleLong(dsprite->version);
     if (version != SPRITE_VERSION)
 	Sys_Error("%s: %s has wrong version number (%i should be %i)",
 		  __func__, model->name, version, SPRITE_VERSION);
 
-    numframes = LittleLong(pin->numframes);
-    size = sizeof(*psprite) + numframes * sizeof(psprite->frames[0]);
-    COM_FileBase(model->name, hunkname, sizeof(hunkname));
-    psprite = Hunk_AllocName(size, hunkname);
-    model->cache.data = psprite;
-
-    psprite->type = LittleLong(pin->type);
-    psprite->maxwidth = LittleLong(pin->width);
-    psprite->maxheight = LittleLong(pin->height);
-    psprite->beamlength = LittleFloat(pin->beamlength);
-    model->synctype = LittleLong(pin->synctype);
-    psprite->numframes = numframes;
-
-    model->mins[0] = model->mins[1] = -psprite->maxwidth / 2;
-    model->maxs[0] = model->maxs[1] = psprite->maxwidth / 2;
-    model->mins[2] = -psprite->maxheight / 2;
-    model->maxs[2] = psprite->maxheight / 2;
-
-//
-// load the frames
-//
+    numframes = LittleLong(dsprite->numframes);
     if (numframes < 1)
 	Sys_Error("%s: Invalid # of frames: %d", __func__, numframes);
 
-    model->numframes = numframes;
-    model->flags = 0;
+    memsize = sizeof(*sprite) + numframes * sizeof(sprite->frames[0]);
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    sprite = Hunk_AllocName(memsize, hunkname);
 
-    pframetype = (dspriteframetype_t *)(pin + 1);
-
-    for (i = 0; i < numframes; i++) {
-	spriteframetype_t frametype;
-
-	frametype = LittleLong(pframetype->type);
-	psprite->frames[i].type = frametype;
-
-	if (frametype == SPR_SINGLE) {
-	    pframetype = (dspriteframetype_t *)
-		Mod_LoadSpriteFrame(pframetype + 1,
-				    &psprite->frames[i].frameptr, hunkname, i);
-	} else {
-	    pframetype = (dspriteframetype_t *)
-		Mod_LoadSpriteGroup(pframetype + 1,
-				    &psprite->frames[i].frameptr, hunkname, i);
-	}
-    }
+    sprite->numframes = numframes;
+    sprite->type = LittleLong(dsprite->type);
+    sprite->maxwidth = LittleLong(dsprite->width);
+    sprite->maxheight = LittleLong(dsprite->height);
+    sprite->beamlength = LittleFloat(dsprite->beamlength);
 
     model->type = mod_sprite;
+    model->numframes = numframes;
+    model->synctype = LittleLong(dsprite->synctype);
+    model->flags = 0;
+    model->mins[0] = model->mins[1] = -sprite->maxwidth / 2;
+    model->maxs[0] = model->maxs[1] = sprite->maxwidth / 2;
+    model->mins[2] = -sprite->maxheight / 2;
+    model->maxs[2] = sprite->maxheight / 2;
+    model->cache.data = sprite;
+
+    /* load the frames */
+    buffer = dsprite + 1;
+    for (i = 0; i < numframes; i++) {
+	const dspriteframetype_t *const dframetype = buffer;
+	const spriteframetype_t frametype = LittleLong(dframetype->type);
+	sprite->frames[i].type = frametype;
+	buffer = (byte *)buffer + sizeof(dspriteframetype_t);
+	if (frametype == SPR_SINGLE) {
+	    mspriteframe_t **ppframe = &sprite->frames[i].frame.frame;
+	    buffer = Mod_LoadSpriteFrame(buffer, ppframe, hunkname, i);
+	} else {
+	    mspritegroup_t **ppgroup = &sprite->frames[i].frame.group;
+	    buffer = Mod_LoadSpriteGroup(buffer, ppgroup, hunkname, i);
+	}
+    }
 }
 
 /*
@@ -201,38 +183,38 @@ Mod_LoadSpriteModel(model_t *model, void *buffer)
 Mod_GetSpriteFrame
 ==================
 */
-mspriteframe_t *
-Mod_GetSpriteFrame(const entity_t *e, msprite_t *psprite, float time)
+const mspriteframe_t *
+Mod_GetSpriteFrame(const entity_t *entity, const msprite_t *sprite, float time)
 {
-    mspritegroup_t *pspritegroup;
-    mspriteframe_t *pspriteframe;
-    int i, numframes, frame;
-    float *pintervals, fullinterval, targettime;
+    const mspriteframedesc_t *framedesc;
+    const mspritegroup_t *group;
+    const float *intervals;
+    float fullinterval, targettime;
+    int numframes, framenum;
 
-    frame = e->frame;
-    if ((frame >= psprite->numframes) || (frame < 0)) {
-	Con_Printf("R_DrawSprite: no such frame %d\n", frame);
-	frame = 0;
+    framenum = entity->frame;
+    if (framenum >= sprite->numframes || framenum < 0) {
+	Con_Printf("R_DrawSprite: no such frame %d\n", framenum);
+	framenum = 0;
     }
 
-    if (psprite->frames[frame].type == SPR_SINGLE) {
-	pspriteframe = psprite->frames[frame].frameptr;
-    } else {
-	pspritegroup = (mspritegroup_t *)psprite->frames[frame].frameptr;
-	pintervals = pspritegroup->intervals;
-	numframes = pspritegroup->numframes;
-	fullinterval = pintervals[numframes - 1];
+    framedesc = &sprite->frames[framenum];
+    if (framedesc->type == SPR_SINGLE)
+	return framedesc->frame.frame;
 
-	// when loading in Mod_LoadSpriteGroup, we guaranteed all interval
-	// values are positive, so we don't have to worry about division by 0
-	targettime = time - ((int)(time / fullinterval)) * fullinterval;
+    group = framedesc->frame.group;
+    intervals = group->intervals;
+    numframes = group->numframes;
+    fullinterval = intervals[numframes - 1];
 
-	for (i = 0; i < (numframes - 1); i++) {
-	    if (pintervals[i] > targettime)
-		break;
-	}
-	pspriteframe = pspritegroup->frames[i];
-    }
+    /*
+     * when loading in Mod_LoadSpriteGroup, we guaranteed all interval
+     * values are positive, so we don't have to worry about division by 0
+     */
+    targettime = time - ((int)(time / fullinterval)) * fullinterval;
+    for (framenum = 0; framenum < numframes - 1; framenum++)
+	if (intervals[framenum] > targettime)
+	    break;
 
-    return pspriteframe;
+    return group->frames[framenum];
 }
