@@ -1012,7 +1012,7 @@ R_DrawBEntitiesOnList(void)
 		// falls entirely in one leaf, so we just put all
 		// the edges in the edge list and let 1/z sorting
 		// handle drawing order
-		R_DrawSubmodelPolygons(entity, brushmodel, clipflags);
+		R_DrawSubmodelPolygons(entity, clipflags);
 	    }
 	    entity->topnode = NULL;
 	}

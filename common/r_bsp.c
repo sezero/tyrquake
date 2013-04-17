@@ -363,23 +363,22 @@ R_DrawSubmodelPolygons
 ================
 */
 void
-R_DrawSubmodelPolygons(const entity_t *e, brushmodel_t *brushmodel, int clipflags)
+R_DrawSubmodelPolygons(const entity_t *entity, int clipflags)
 {
-    int i;
+    const brushmodel_t *brushmodel = BrushModel(entity->model);
+    const int numsurfaces = brushmodel->nummodelsurfaces;
     msurface_t *surf;
-    int numsurfaces;
+    int i;
 
 // FIXME: use bounding-box-based frustum clipping info?
 
     surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
-    numsurfaces = brushmodel->nummodelsurfaces;
-
     for (i = 0; i < numsurfaces; i++, surf++) {
 	if (surf->clipflags == BMODEL_FULLY_CLIPPED)
 	    continue;
 
-	r_currentkey = ((mleaf_t *)e->topnode)->key;
-	R_RenderFace(e, surf, clipflags);
+	r_currentkey = ((mleaf_t *)entity->topnode)->key;
+	R_RenderFace(entity, surf, clipflags);
     }
 }
 
