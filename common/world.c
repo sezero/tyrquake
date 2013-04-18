@@ -181,10 +181,11 @@ SV_AddLinksToPhysents_r(const areanode_t *node, const edict_t *player,
 
 	    VectorCopy(check->v.origin, physent->origin);
 	    physent->entitynum = NUM_FOR_EDICT(check);
-	    if (check->v.solid == SOLID_BSP)
-		physent->model = sv.models[(int)(check->v.modelindex)];
-	    else {
-		physent->model = NULL;
+	    if (check->v.solid == SOLID_BSP) {
+		const model_t *model = sv.models[(int)(check->v.modelindex)];
+		physent->brushmodel = ConstBrushModel(model);
+	    } else {
+		physent->brushmodel = NULL;
 		VectorCopy(check->v.mins, physent->mins);
 		VectorCopy(check->v.maxs, physent->maxs);
 	    }

@@ -44,7 +44,7 @@ PM_PointContents(const vec3_t point, const physent_stack_t *pestack)
 {
     const hull_t *hull;
 
-    hull = &BrushModel(pestack->physents[0].model)->hulls[0];
+    hull = &pestack->physents[0].brushmodel->hulls[0];
 
     return Mod_HullPointContents(hull, hull->firstclipnode, point);
 }
@@ -68,8 +68,8 @@ PM_TestPlayerPosition(const vec3_t pos, const physent_stack_t *pestack)
     physent = pestack->physents;
     for (i = 0; i < pestack->numphysent; i++, physent++) {
 	/* get the clipping hull */
-	if (physent->model)
-	    hull = &BrushModel(physent->model)->hulls[1];
+	if (physent->brushmodel)
+	    hull = &physent->brushmodel->hulls[1];
 	else {
 	    VectorSubtract(physent->mins, player_maxs, mins);
 	    VectorSubtract(physent->maxs, player_mins, maxs);
@@ -111,8 +111,8 @@ PM_PlayerMove(const vec3_t start, const vec3_t end,
     physent = pestack->physents;
     for (i = 0; i < pestack->numphysent; i++, physent++) {
 	/* get the clipping hull */
-	if (physent->model)
-	    hull = &BrushModel(physent->model)->hulls[1];
+	if (physent->brushmodel)
+	    hull = &physent->brushmodel->hulls[1];
 	else {
 	    VectorSubtract(physent->mins, player_maxs, mins);
 	    VectorSubtract(physent->maxs, player_mins, maxs);

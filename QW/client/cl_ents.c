@@ -896,17 +896,14 @@ Builds all the pmove physents for the current frame
 void
 CL_SetSolidEntities(physent_stack_t *pestack)
 {
-    int i;
-    frame_t *frame;
-    packet_entities_t *pak;
-    entity_state_t *state;
+    const packet_entities_t *pak;
+    const frame_t *frame;
     physent_t *physent;
-    model_t *model;
-    brushmodel_t *brushmodel;
+    int i;
 
     physent = pestack->physents;
 
-    physent->model = &cl.worldmodel->model;
+    physent->brushmodel = ConstBrushModel(&cl.worldmodel->model);
     VectorCopy(vec3_origin, physent->origin);
     physent++;
 
@@ -914,7 +911,9 @@ CL_SetSolidEntities(physent_stack_t *pestack)
     pak = &frame->packet_entities;
 
     for (i = 0; i < pak->num_entities; i++) {
-	state = &pak->entities[i];
+	const entity_state_t *state = &pak->entities[i];
+	const brushmodel_t *brushmodel;
+	const model_t *model;
 
 	if (!state->modelindex)
 	    continue;
@@ -923,9 +922,9 @@ CL_SetSolidEntities(physent_stack_t *pestack)
 	if (!model || model->type != mod_brush)
 	    continue;
 
-	brushmodel = BrushModel(model);
+	brushmodel = ConstBrushModel(model);
 	if (brushmodel->hulls[1].firstclipnode) {
-	    physent->model = model;
+	    physent->brushmodel = brushmodel;
 	    VectorCopy(state->origin, physent->origin);
 	    physent++;
 	}
@@ -1036,7 +1035,7 @@ CL_SetSolidPlayers(physent_stack_t *pestack, int playernum)
 	if (pplayer->flags & PF_DEAD)
 	    continue;
 
-	physent->model = 0;
+	physent->brushmodel = NULL;
 	VectorCopy(pplayer->origin, physent->origin);
 	VectorCopy(player_mins, physent->mins);
 	VectorCopy(player_maxs, physent->maxs);

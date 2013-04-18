@@ -31,7 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	MAX_PHYSENTS	32
 typedef struct {
     vec3_t origin;
-    model_t *model;		// only for bsp models
+    const brushmodel_t *brushmodel;
     vec3_t mins, maxs;		// only for non-bsp models
 #ifdef SERVERONLY
     int entitynum;		// for server to identify
