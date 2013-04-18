@@ -378,7 +378,15 @@ Mod_FindName(const char *name)
     model = brushmodel ? &brushmodel->model : NULL;
 
 #ifndef SERVERONLY
-    /* Otherwise, search the alias cache */
+    /* Search the sprite and alias lists */
+    if (!model) {
+	model = loaded_sprites;
+	while (model) {
+	    if (!strcmp(model->name, name))
+		break;
+	    model = model->next;
+	}
+    }
     if (!model)
 	model = Mod_FindAliasName(name);
 #endif
