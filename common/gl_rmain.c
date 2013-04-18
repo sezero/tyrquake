@@ -420,86 +420,88 @@ GL_AliasDrawModel
 =============
 */
 static void
-GL_AliasDrawModel(const entity_t *e, float blend)
+GL_AliasDrawModel(const entity_t *entity, float blend)
 {
-    float l;
-    aliashdr_t *pahdr;
-    trivertx_t *vertbase, *verts1;
-    int *order;
+    aliashdr_t *aliashdr;
+    const trivertx_t *vertbase, *verts1;
+    const int *order;
+    float light;
     int count;
 
-    lastposenum = e->currentpose;
+    lastposenum = entity->currentpose;
 
-    pahdr = Mod_Extradata(e->model);
-    vertbase = (trivertx_t *)((byte *)pahdr + pahdr->posedata);
-    verts1 = vertbase + e->currentpose * pahdr->numverts;
-    order = (int *)((byte *)pahdr + GL_Aliashdr(pahdr)->commands);
+    aliashdr = Mod_Extradata(entity->model);
+    vertbase = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
+    verts1 = vertbase + entity->currentpose * aliashdr->numverts;
+    order = (int *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->commands);
 
 #ifdef NQ_HACK
     if (r_lerpmodels.value && blend != 1.0f) {
-	trivertx_t *light;
-	trivertx_t *verts0 = vertbase + e->previouspose * pahdr->numverts;
-	float blend0 = 1.0f - blend;
-	light = (blend < 0.5f) ? verts0 : verts1;
+	const trivertx_t *lightvert;
+	const trivertx_t *verts0;
+	const float blend0 = 1.0f - blend;
+
+	verts0 = vertbase + entity->previouspose * aliashdr->numverts;
+	lightvert = (blend < 0.5f) ? verts0 : verts1;
 
 	while (1) {
-	    // get the vertex count and primitive type
+	    /* get the vertex count and primitive type */
 	    count = *order++;
 	    if (!count)
-		break;		// done
+		break;
 	    if (count < 0) {
 		count = -count;
 		glBegin(GL_TRIANGLE_FAN);
-	    } else
+	    } else {
 		glBegin(GL_TRIANGLE_STRIP);
+	    }
 
-	    do {
-		vec3_t glv;
+	    while (count--) {
+		vec3_t glvertex;
 
-		// texture coordinates come from the draw list
+		/* texture coordinates come from the draw list */
 		glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
 		order += 2;
 
-		// normals and vertexes come from the frame list
+		/* normals and vertexes come from the frame list */
 		if (r_fullbright.value) {
 		    glColor3f(255.0f, 255.0f, 255.0f);
 		} else {
-		    l = shadedots[light->lightnormalindex] * shadelight;
-		    glColor3f(l, l, l);
+		    light = shadedots[lightvert->lightnormalindex] * shadelight;
+		    glColor3f(light, light, light);
 		}
-		glv[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
-		glv[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
-		glv[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
-		glVertex3f(glv[0], glv[1], glv[2]);
+		glvertex[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
+		glvertex[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
+		glvertex[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
+		glVertex3f(glvertex[0], glvertex[1], glvertex[2]);
 		verts0++;
 		verts1++;
 		light++;
-	    } while (--count);
-
+	    }
 	    glEnd();
 	}
 	return;
     }
 #endif
     while (1) {
-	// get the vertex count and primitive type
+	/* get the vertex count and primitive type */
 	count = *order++;
 	if (!count)
-	    break;		// done
+	    break;
 	if (count < 0) {
 	    count = -count;
 	    glBegin(GL_TRIANGLE_FAN);
-	} else
+	} else {
 	    glBegin(GL_TRIANGLE_STRIP);
-
+	}
 	do {
-	    // texture coordinates come from the draw list
+	    /* texture coordinates come from the draw list */
 	    glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
 	    order += 2;
 
-	    // normals and vertexes come from the frame list
-	    l = shadedots[verts1->lightnormalindex] * shadelight;
-	    glColor3f(l, l, l);
+	    /* normals and vertexes come from the frame list */
+	    light = shadedots[verts1->lightnormalindex] * shadelight;
+	    glColor3f(light, light, light);
 	    glVertex3f(verts1->v[0], verts1->v[1], verts1->v[2]);
 	    verts1++;
 	} while (--count);
@@ -510,11 +512,11 @@ GL_AliasDrawModel(const entity_t *e, float blend)
 
 /*
 =============
-GL_DrawAliasShadow
+GL_AliasDrawShadow
 =============
 */
 static void
-GL_DrawAliasShadow(const entity_t *e, aliashdr_t *paliashdr, int posenum)
+GL_AliasDrawShadow(const entity_t *entity, aliashdr_t *paliashdr, int posenum)
 {
     trivertx_t *verts;
     int *order;
@@ -522,7 +524,7 @@ GL_DrawAliasShadow(const entity_t *e, aliashdr_t *paliashdr, int posenum)
     float height, lheight;
     int count;
 
-    lheight = e->origin[2] - lightspot[2];
+    lheight = entity->origin[2] - lightspot[2];
     height = -lheight + 1.0;
 
     verts = (trivertx_t *)((byte *)paliashdr + paliashdr->posedata);
@@ -893,7 +895,7 @@ R_AliasDrawModel(entity_t *e)
 	glDisable(GL_TEXTURE_2D);
 	glEnable(GL_BLEND);
 	glColor4f(0, 0, 0, 0.5);
-	GL_DrawAliasShadow(e, paliashdr, lastposenum);
+	GL_AliasDrawShadow(e, paliashdr, lastposenum);
 	glEnable(GL_TEXTURE_2D);
 	glDisable(GL_BLEND);
 	glColor4f(1, 1, 1, 1);
