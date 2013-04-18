@@ -578,31 +578,31 @@ R_AliasSetupSkin
 ===============
 */
 static void
-R_AliasSetupSkin(const entity_t *e, aliashdr_t *pahdr)
+R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 {
-    int skinnum;
-    int frame, numframes;
-    maliasskindesc_t *pskindesc;
-    float *intervals;
+    const maliasskindesc_t *skindesc;
+    const float *intervals;
+    int skinnum, numframes, frame;
     GLuint *glt;
 
-    skinnum = e->skinnum;
-    if ((skinnum >= pahdr->numskins) || (skinnum < 0)) {
+    skinnum = entity->skinnum;
+    if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
 	Con_DPrintf("%s: no such skin # %d\n", __func__, skinnum);
 	skinnum = 0;
     }
 
-    pskindesc = ((maliasskindesc_t *)((byte *)pahdr + pahdr->skindesc));
-    pskindesc += skinnum;
-    frame = pskindesc->firstframe;
-    numframes = pskindesc->numframes;
+    skindesc = (maliasskindesc_t *)((byte *)aliashdr + aliashdr->skindesc);
+    skindesc += skinnum;
+    frame = skindesc->firstframe;
+    numframes = skindesc->numframes;
 
     if (numframes > 1) {
-	intervals = (float *)((byte *)pahdr + pahdr->skinintervals) + frame;
-	frame += Mod_FindInterval(intervals, numframes, cl.time + e->syncbase);
+	const float frametime = cl.time + entity->syncbase;
+	intervals = (float *)((byte *)aliashdr + aliashdr->skinintervals);
+	frame += Mod_FindInterval(intervals + frame, numframes, frametime);
     }
 
-    glt = (GLuint *)((byte *)pahdr + pahdr->skindata);
+    glt = (GLuint *)((byte *)aliashdr + aliashdr->skindata);
     GL_Bind(glt[frame]);
 }
 
