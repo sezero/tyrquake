@@ -1372,6 +1372,8 @@ SCR_UpdateScreen(void)
 
     if (scr_drawdialog) {
 	Sbar_Draw();
+	if (con_forcedup)
+	    Draw_ConsoleBackground(vid.height);
 	Draw_FadeScreen();
 	SCR_DrawNotifyString();
 	scr_copyeverything = true;
