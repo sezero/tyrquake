@@ -918,9 +918,11 @@ CL_SetSolidEntities(physent_stack_t *pestack)
 
 	if (!state->modelindex)
 	    continue;
-	if (!cl.model_precache[state->modelindex])
-	    continue;
+
 	model = cl.model_precache[state->modelindex];
+	if (!model || model->type != mod_brush)
+	    continue;
+
 	brushmodel = BrushModel(model);
 	if (brushmodel->hulls[1].firstclipnode) {
 	    physent->model = model;
