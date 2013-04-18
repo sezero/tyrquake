@@ -901,8 +901,13 @@ CL_SetSolidEntities(physent_stack_t *pestack)
     physent_t *physent;
     int i;
 
-    physent = pestack->physents;
+    if (!cl.worldmodel) {
+	/* FIXME - Shouldn't be getting called without a world? */
+	pestack->numphysent = 0;
+	return;
+    }
 
+    physent = pestack->physents;
     physent->brushmodel = ConstBrushModel(&cl.worldmodel->model);
     VectorCopy(vec3_origin, physent->origin);
     physent++;
