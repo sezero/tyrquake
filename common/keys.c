@@ -156,6 +156,10 @@ keyname_t keynames[] = {
 
     {"PAUSE", K_PAUSE},
 
+    {"SHIFT", K_SHIFT},
+    {"CTRL", K_CTRL},
+    {"ALT", K_ALT},
+
     {"MWHEELUP", K_MWHEELUP},
     {"MWHEELDOWN", K_MWHEELDOWN},
 

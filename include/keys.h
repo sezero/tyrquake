@@ -204,8 +204,6 @@ typedef enum {
     K_MOUSE3,
     K_MOUSE4,
     K_MOUSE5,
-#define K_MWHEELUP K_MOUSE4
-#define K_MWHEELDOWN K_MOUSE5
     K_MOUSE6,
     K_MOUSE7,
     K_MOUSE8,
@@ -256,6 +254,15 @@ typedef enum {
     K_AUX32,
     K_LAST
 } knum_t;
+
+/* Backward compatibility */
+
+#define K_SHIFT K_LSHIFT
+#define K_CTRL K_LCTRL
+#define K_ALT K_LALT
+
+#define K_MWHEELUP K_MOUSE4
+#define K_MWHEELDOWN K_MOUSE5
 
 typedef enum {
     key_game,
