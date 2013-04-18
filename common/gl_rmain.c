@@ -752,31 +752,15 @@ R_AliasCalcLerp(entity_t *entity, vec3_t origin, vec3_t angles)
 #endif
 }
 
-/*
-=================
-R_AliasDrawModel
-=================
-*/
 static void
-R_AliasDrawModel(entity_t *entity)
+R_AliasCalcLight(const entity_t *entity,
+		 const vec3_t origin, const vec3_t angles)
 {
     const model_t *model = entity->model;
     const dlight_t *dlight;
-    vec3_t origin, angles, mins, maxs;
-    aliashdr_t *aliashdr;
     int i, shadequant;
     float angle;
 
-    /* Calculate position and cull if out of view */
-    R_AliasCalcLerp(entity, origin, angles);
-    VectorAdd(origin, model->mins, mins);
-    VectorAdd(origin, model->maxs, maxs);
-    if (R_CullBox(mins, maxs))
-	return;
-
-    VectorCopy(origin, r_entorigin);
-
-    /* get lighting information */
     ambientlight = shadelight = R_LightPoint(origin);
 
     /* always give the viewmodel some light */
@@ -828,12 +812,36 @@ R_AliasDrawModel(entity_t *entity)
     shadevector[1] = sin(-angle);
     shadevector[2] = 1;
     VectorNormalize(shadevector);
+}
+
+/*
+=================
+R_AliasDrawModel
+=================
+*/
+static void
+R_AliasDrawModel(entity_t *entity)
+{
+    const model_t *model = entity->model;
+    vec3_t origin, angles, mins, maxs;
+    aliashdr_t *aliashdr;
+
+    /* Calculate position and cull if out of view */
+    R_AliasCalcLerp(entity, origin, angles);
+    VectorAdd(origin, model->mins, mins);
+    VectorAdd(origin, model->maxs, maxs);
+    if (R_CullBox(mins, maxs))
+	return;
+
+    /* Calculate lighting at the lerp origin */
+    R_AliasCalcLight(entity, origin, angles);
 
     /* locate the proper data */
     aliashdr = Mod_Extradata(entity->model);
 
     /* draw all the triangles */
     c_alias_polys += aliashdr->numtris;
+    VectorCopy(origin, r_entorigin);
 
     GL_DisableMultitexture();
 
@@ -866,20 +874,20 @@ R_AliasDrawModel(entity_t *entity)
      */
 #ifdef NQ_HACK
     if (entity->colormap != vid.colormap && !gl_nocolors.value) {
-	i = CL_PlayerEntity(entity);
-	if (i)
-	    GL_Bind(playertextures[i - 1]);
+	const int playernum = CL_PlayerEntity(entity);
+	if (playernum)
+	    GL_Bind(playertextures[playernum - 1]);
     }
 #endif
 #ifdef QW_HACK
     if (entity->scoreboard && !gl_nocolors.value) {
-	i = entity->scoreboard - cl.players;
+	const int playernum = entity->scoreboard - cl.players;
 	if (!entity->scoreboard->skin) {
 	    Skin_Find(entity->scoreboard);
-	    R_TranslatePlayerSkin(i);
+	    R_TranslatePlayerSkin(playernum);
 	}
-	if (i >= 0 && i < MAX_CLIENTS)
-	    GL_Bind(playertextures[i]);
+	if (playernum >= 0 && playernum < MAX_CLIENTS)
+	    GL_Bind(playertextures[playernum]);
     }
 #endif
 
