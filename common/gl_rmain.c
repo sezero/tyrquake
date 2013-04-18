@@ -613,78 +613,81 @@ R_AliasSetupFrame
 =================
 */
 static void
-R_AliasSetupFrame(entity_t *e, aliashdr_t *pahdr)
+R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr)
 {
-    int frame, pose, numposes;
-    float *intervals;
+    int framenum, pose, numposes;
+    const float *intervals;
 
-    frame = e->frame;
-    if ((frame >= pahdr->numframes) || (frame < 0)) {
-	Con_DPrintf("%s: no such frame %d\n", __func__, frame);
-	frame = 0;
+    framenum = entity->frame;
+    if ((framenum >= aliashdr->numframes) || (framenum < 0)) {
+	Con_DPrintf("%s: no such frame %d\n", __func__, framenum);
+	framenum = 0;
     }
 
-    pose = pahdr->frames[frame].firstpose;
-    numposes = pahdr->frames[frame].numposes;
+    pose = aliashdr->frames[framenum].firstpose;
+    numposes = aliashdr->frames[framenum].numposes;
 
     if (numposes > 1) {
-	intervals = (float *)((byte *)pahdr + pahdr->poseintervals) + pose;
-	pose += Mod_FindInterval(intervals, numposes, cl.time + e->syncbase);
+	const float frametime = cl.time + entity->syncbase;
+	intervals = (float *)((byte *)aliashdr + aliashdr->poseintervals);
+	pose += Mod_FindInterval(intervals + pose, numposes, frametime);
     }
 
 #ifdef NQ_HACK
     if (r_lerpmodels.value) {
+	const maliasframedesc_t *currentframe, *previousframe;
 	float delta, time, blend;
 
 	/* A few quick sanity checks to abort lerping */
-	if (e->currentframetime < e->previousframetime)
+	if (entity->currentframetime < entity->previousframetime)
 	    goto nolerp;
-	if (e->currentframetime - e->previousframetime > 1.0f)
+	if (entity->currentframetime - entity->previousframetime > 1.0f)
 	    goto nolerp;
 	/* FIXME - hack to skip the viewent (weapon) */
-	if (e == &cl.viewent)
+	if (entity == &cl.viewent)
 	    goto nolerp;
 
+	currentframe = &aliashdr->frames[entity->currentframe];
 	if (numposes > 1) {
 	    /* FIXME - merge with Mod_FindInterval? */
 	    int i;
 	    float fullinterval, targettime;
 	    fullinterval = intervals[numposes - 1];
-	    time = cl.time + e->syncbase;
+	    time = cl.time + entity->syncbase;
 	    targettime = time - (int)(time / fullinterval) * fullinterval;
 	    for (i = 0; i < numposes - 1; i++)
 		if (intervals[i] > targettime)
 		    break;
 
-	    e->currentpose = pahdr->frames[e->currentframe].firstpose + i;
+	    entity->currentpose = currentframe->firstpose + i;
 	    if (i == 0) {
-		e->previouspose = pahdr->frames[e->currentframe].firstpose;
-		e->previouspose += numposes - 1;
+		entity->previouspose = currentframe->firstpose + numposes - 1;
 		time = targettime;
 		delta = intervals[0];
 	    } else {
-		e->previouspose = e->currentpose - 1;
+		entity->previouspose = entity->currentpose - 1;
 		time = targettime - intervals[i - 1];
 		delta = intervals[i] - intervals[i - 1];
 	    }
 	} else {
-	    e->currentpose = pahdr->frames[e->currentframe].firstpose;
-	    e->previouspose = pahdr->frames[e->previousframe].firstpose;
-	    time = cl.time - e->currentframetime;
-	    delta = e->currentframetime - e->previousframetime;
+	    previousframe = &aliashdr->frames[entity->previousframe];
+	    entity->currentpose = currentframe->firstpose;
+	    entity->previouspose = previousframe->firstpose;
+	    time = cl.time - entity->currentframetime;
+	    delta = entity->currentframetime - entity->previousframetime;
 	}
 	blend = qclamp(time / delta, 0.0f, 1.0f);
 
-	GL_AliasDrawModel(e, blend);
+	GL_AliasDrawModel(entity, blend);
 
 	return;
     }
  nolerp:
 #endif
-    e->currentpose = pose;
-    e->previouspose = pose;
+    entity->currentpose = pose;
+    entity->previouspose = pose;
 
-    GL_AliasDrawModel(e, 1.0f);
+    GL_AliasDrawModel(entity, 1.0f);
 }
 
 
