@@ -44,7 +44,7 @@ void ReleaseMappedBuffer(LPVOID pBuffer);
 BOOL GetScreenBufferLines(int *piLines);
 BOOL SetScreenBufferLines(int iLines);
 BOOL ReadText(LPTSTR pszText, int iBeginLine, int iEndLine);
-BOOL WriteText(LPCTSTR szText);
+BOOL WriteText(LPTSTR szText);
 int CharToCode(char c);
 BOOL SetConsoleCXCY(HANDLE hStdout, int cx, int cy);
 
@@ -122,7 +122,7 @@ RequestProc(DWORD dwNichts)
 	switch (pBuffer[0]) {
 	case CCOM_WRITE_TEXT:
 	    // Param1 : Text
-	    pBuffer[0] = WriteText((LPCTSTR)(pBuffer + 1));
+	    pBuffer[0] = WriteText((LPTSTR)(pBuffer + 1));
 	    break;
 
 	case CCOM_GET_TEXT:
@@ -219,13 +219,13 @@ ReadText(LPTSTR pszText, int iBeginLine, int iEndLine)
 
 
 BOOL
-WriteText(LPCTSTR szText)
+WriteText(LPTSTR szText)
 {
     DWORD dwWritten;
     INPUT_RECORD rec;
     char upper, *sz;
 
-    sz = (LPTSTR)szText;
+    sz = szText;
 
     while (*sz) {
 	// 13 is the code for a carriage return (\n) instead of 10.
