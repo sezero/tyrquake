@@ -21,13 +21,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef MENU_H
 #define MENU_H
 
+#include "keys.h"
 #include "wad.h"
 
 //
 // menus
 //
 void M_Init(void);
-void M_Keydown(int key);
+void M_Keydown(knum_t keynum);
 void M_Draw(void);
 
 void M_ToggleMenu_f(void);

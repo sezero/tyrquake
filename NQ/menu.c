@@ -35,8 +35,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "vid.h"
 #include "view.h"
 
-void (*vid_menudrawfn) (void);
-void (*vid_menukeyfn) (int key);
+void (*vid_menudrawfn)(void);
+void (*vid_menukeyfn)(knum_t keynum);
 
 void M_Menu_Options_f(void);
 void M_Menu_Quit_f(void);
@@ -71,21 +71,21 @@ static void M_GameOptions_Draw(void);
 static void M_Search_Draw(void);
 static void M_ServerList_Draw(void);
 
-static void M_Main_Key(int key);
-static void M_SinglePlayer_Key(int key);
-static void M_Load_Key(int key);
-static void M_Save_Key(int key);
-static void M_MultiPlayer_Key(int key);
-static void M_Setup_Key(int key);
-static void M_Options_Key(int key);
-static void M_Keys_Key(int key);
-static void M_Video_Key(int key);
-static void M_Help_Key(int key);
-static void M_Quit_Key(int key);
-static void M_LanConfig_Key(int key);
-static void M_GameOptions_Key(int key);
-static void M_Search_Key(int key);
-static void M_ServerList_Key(int key);
+static void M_Main_Key(knum_t keynum);
+static void M_SinglePlayer_Key(knum_t keynum);
+static void M_Load_Key(knum_t keynum);
+static void M_Save_Key(knum_t keynum);
+static void M_MultiPlayer_Key(knum_t keynum);
+static void M_Setup_Key(knum_t keynum);
+static void M_Options_Key(knum_t keynum);
+static void M_Keys_Key(knum_t keynum);
+static void M_Video_Key(knum_t keynum);
+static void M_Help_Key(knum_t keynum);
+static void M_Quit_Key(knum_t keynum);
+static void M_LanConfig_Key(knum_t keynum);
+static void M_GameOptions_Key(knum_t keynum);
+static void M_Search_Key(knum_t keynum);
+static void M_ServerList_Key(knum_t keynum);
 
 static qboolean m_recursiveDraw;
 static qboolean m_entersound;	// play after drawing a frame, so caching
@@ -304,9 +304,9 @@ M_Main_Draw(void)
 
 
 static void
-M_Main_Key(int key)
+M_Main_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	key_dest = key_game;
 	m_state = m_none;
@@ -352,6 +352,9 @@ M_Main_Key(int key)
 	    M_Menu_Quit_f();
 	    break;
 	}
+
+    default:
+	break;
     }
 }
 
@@ -391,9 +394,9 @@ M_SinglePlayer_Draw(void)
 
 
 static void
-M_SinglePlayer_Key(int key)
+M_SinglePlayer_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Main_f();
 	break;
@@ -434,6 +437,9 @@ M_SinglePlayer_Key(int key)
 	    M_Menu_Save_f();
 	    break;
 	}
+
+    default:
+	break;
     }
 }
 
@@ -455,15 +461,16 @@ M_ScanSaves(void)
     int version;
 
     for (i = 0; i < MAX_SAVEGAMES; i++) {
-	strcpy(m_filenames[i], "--- UNUSED SLOT ---");
+	snprintf(m_filenames[i], sizeof(m_filenames[i]), "--- UNUSED SLOT ---");
 	loadable[i] = false;
-	sprintf(name, "%s/s%i.sav", com_gamedir, i);
+	snprintf(name, sizeof(name), "%s/s%i.sav", com_gamedir, i);
 	f = fopen(name, "r");
 	if (!f)
 	    continue;
+
 	fscanf(f, "%i\n", &version);
 	fscanf(f, "%79s\n", name);
-	strncpy(m_filenames[i], name, sizeof(m_filenames[i]) - 1);
+	snprintf(m_filenames[i], sizeof(m_filenames[i]), "%s", name);
 
 	// change _ back to space
 	for (j = 0; j < SAVEGAME_COMMENT_LENGTH; j++)
@@ -535,9 +542,9 @@ M_Save_Draw(void)
 
 
 static void
-M_Load_Key(int k)
+M_Load_Key(knum_t keynum)
 {
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_SinglePlayer_f();
 	break;
@@ -572,14 +579,17 @@ M_Load_Key(int k)
 	if (load_cursor >= MAX_SAVEGAMES)
 	    load_cursor = 0;
 	break;
+
+    default:
+	break;
     }
 }
 
 
 static void
-M_Save_Key(int k)
+M_Save_Key(knum_t keynum)
 {
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_SinglePlayer_f();
 	break;
@@ -604,6 +614,9 @@ M_Save_Key(int k)
 	load_cursor++;
 	if (load_cursor >= MAX_SAVEGAMES)
 	    load_cursor = 0;
+	break;
+
+    default:
 	break;
     }
 }
@@ -648,9 +661,9 @@ M_MultiPlayer_Draw(void)
 
 
 static void
-M_MultiPlayer_Key(int key)
+M_MultiPlayer_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Main_f();
 	break;
@@ -684,6 +697,8 @@ M_MultiPlayer_Key(int key)
 	    M_Menu_Setup_f();
 	    break;
 	}
+    default:
+	break;
     }
 }
 
@@ -760,11 +775,9 @@ M_Setup_Draw(void)
 
 
 static void
-M_Setup_Key(int k)
+M_Setup_Key(knum_t keynum)
 {
-    int l;
-
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_MultiPlayer_f();
 	break;
@@ -834,20 +847,20 @@ M_Setup_Key(int k)
 	break;
 
     default:
-	if (k < 32 || k > 127)
+	if (keynum < K_SPACE || keynum > K_DEL)
 	    break;
 	if (setup_cursor == 0) {
-	    l = strlen(setup_hostname);
-	    if (l < 15) {
-		setup_hostname[l + 1] = 0;
-		setup_hostname[l] = k;
+	    int length = strlen(setup_hostname);
+	    if (length < 15) {
+		setup_hostname[length + 1] = 0;
+		setup_hostname[length] = keynum;
 	    }
 	}
 	if (setup_cursor == 1) {
-	    l = strlen(setup_myname);
-	    if (l < 15) {
-		setup_myname[l + 1] = 0;
-		setup_myname[l] = k;
+	    int length = strlen(setup_myname);
+	    if (length < 15) {
+		setup_myname[length + 1] = 0;
+		setup_myname[length] = keynum;
 	    }
 	}
     }
@@ -1045,9 +1058,9 @@ M_Options_Draw(void)
 
 
 static void
-M_Options_Key(int k)
+M_Options_Key(knum_t keynum)
 {
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Main_f();
 	break;
@@ -1095,16 +1108,19 @@ M_Options_Key(int k)
     case K_RIGHTARROW:
 	M_AdjustSliders(1);
 	break;
+
+    default:
+	break;
     }
 
     if (options_cursor == 12 && !vid_menudrawfn) {
-	if (k == K_UPARROW)
+	if (keynum == K_UPARROW)
 	    options_cursor = 11;
 	else
 	    options_cursor = 13;
     }
     if ((options_cursor == 13) && VID_IsFullScreen()) {
-	if (k == K_UPARROW) {
+	if (keynum == K_UPARROW) {
 	    if (!vid_menudrawfn)
 		options_cursor = 11;
 	    else
@@ -1154,23 +1170,22 @@ M_Menu_Keys_f(void)
 
 
 static void
-M_FindKeysForCommand(const char *const command, int *twokeys)
+M_FindKeysForCommand(const char *const command, knum_t keys[2])
 {
-    int count;
-    int j;
-    int l;
-    const char *b;
+    knum_t keynum;
+    int count, length;
+    const char *binding;
 
-    twokeys[0] = twokeys[1] = -1;
-    l = strlen(command);
+    keys[0] = keys[1] = K_UNKNOWN;
+    length = strlen(command);
     count = 0;
 
-    for (j = 0; j < K_LAST; j++) {
-	b = keybindings[j];
-	if (!b)
+    for (keynum = K_UNKNOWN + 1; keynum < K_LAST; keynum++) {
+	binding = keybindings[keynum];
+	if (!binding)
 	    continue;
-	if (!strncmp(b, command, l)) {
-	    twokeys[count] = j;
+	if (!strncmp(binding, command, length)) {
+	    keys[count] = keynum;
 	    count++;
 	    if (count == 2)
 		break;
@@ -1200,14 +1215,13 @@ M_UnbindCommand(const char *const command)
 static void
 M_Keys_Draw(void)
 {
-    int i;
-    int keys[2];
     const char *name;
-    int x, y;
-    const qpic_t *p;
+    const qpic_t *pic;
+    int i, x, y;
+    knum_t keys[2];
 
-    p = Draw_CachePic("gfx/ttl_cstm.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    pic = Draw_CachePic("gfx/ttl_cstm.lmp");
+    M_DrawPic((320 - pic->width) / 2, 4, pic);
 
     if (bind_grab)
 	M_Print(12, 32, "Press a key or button for this action");
@@ -1221,13 +1235,13 @@ M_Keys_Draw(void)
 	M_Print(16, y, bindnames[i][1]);
 	M_FindKeysForCommand(bindnames[i][0], keys);
 
-	if (keys[0] == -1) {
+	if (keys[0] == K_UNKNOWN) {
 	    M_Print(140, y, "???");
 	} else {
 	    name = Key_KeynumToString(keys[0]);
 	    M_Print(140, y, name);
 	    x = strlen(name) * 8;
-	    if (keys[1] != -1) {
+	    if (keys[1] != K_UNKNOWN) {
 		M_Print(140 + x + 8, y, "or");
 		M_Print(140 + x + 32, y, Key_KeynumToString(keys[1]));
 	    }
@@ -1243,18 +1257,18 @@ M_Keys_Draw(void)
 
 
 static void
-M_Keys_Key(int k)
+M_Keys_Key(knum_t keynum)
 {
     char cmd[80];
-    int keys[2];
+    knum_t keys[2];
 
     if (bind_grab) {		// defining a key
 	S_LocalSound("misc/menu1.wav");
-	if (k == K_ESCAPE) {
+	if (keynum == K_ESCAPE) {
 	    bind_grab = false;
-	} else if (k != '`') {
-	    sprintf(cmd, "bind \"%s\" \"%s\"\n", Key_KeynumToString(k),
-		    bindnames[keys_cursor][0]);
+	} else if (keynum != K_BACKQUOTE) {
+	    snprintf(cmd, sizeof(cmd), "bind \"%s\" \"%s\"\n",
+		     Key_KeynumToString(keynum), bindnames[keys_cursor][0]);
 	    Cbuf_InsertText(cmd);
 	}
 
@@ -1262,7 +1276,7 @@ M_Keys_Key(int k)
 	return;
     }
 
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Options_f();
 	break;
@@ -1286,7 +1300,7 @@ M_Keys_Key(int k)
     case K_ENTER:		// go into bind mode
 	M_FindKeysForCommand(bindnames[keys_cursor][0], keys);
 	S_LocalSound("misc/menu2.wav");
-	if (keys[1] != -1)
+	if (keys[1] != K_UNKNOWN)
 	    M_UnbindCommand(bindnames[keys_cursor][0]);
 	bind_grab = true;
 	break;
@@ -1295,6 +1309,9 @@ M_Keys_Key(int k)
     case K_DEL:			// delete bindings
 	S_LocalSound("misc/menu2.wav");
 	M_UnbindCommand(bindnames[keys_cursor][0]);
+	break;
+
+    default:
 	break;
     }
 }
@@ -1320,9 +1337,9 @@ M_Video_Draw(void)
 
 
 static void
-M_Video_Key(int key)
+M_Video_Key(knum_t keynum)
 {
-    (*vid_menukeyfn) (key);
+    (*vid_menukeyfn)(keynum);
 }
 
 //=============================================================================
@@ -1350,9 +1367,9 @@ M_Help_Draw(void)
 
 
 static void
-M_Help_Key(int key)
+M_Help_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Main_f();
 	break;
@@ -1370,8 +1387,10 @@ M_Help_Key(int key)
 	if (--help_page < 0)
 	    help_page = NUM_HELP_PAGES - 1;
 	break;
-    }
 
+    default:
+	break;
+    }
 }
 
 //=============================================================================
@@ -1439,12 +1458,11 @@ M_Menu_Quit_f(void)
 
 
 static void
-M_Quit_Key(int key)
+M_Quit_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
-    case 'n':
-    case 'N':
+    case K_n:
 	if (wasInMenus) {
 	    m_state = m_quit_prevstate;
 	    m_entersound = true;
@@ -1454,8 +1472,7 @@ M_Quit_Key(int key)
 	}
 	break;
 
-    case 'Y':
-    case 'y':
+    case K_y:
 	key_dest = key_console;
 	Host_Quit_f();
 	break;
@@ -1576,11 +1593,11 @@ M_LanConfig_Draw(void)
 
 
 static void
-M_LanConfig_Key(int key)
+M_LanConfig_Key(knum_t keynum)
 {
-    int l;
+    int port;
 
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_MultiPlayer_f();
 	break;
@@ -1640,38 +1657,39 @@ M_LanConfig_Key(int key)
 	break;
 
     default:
-	if (key < 32 || key > 127)
+	if (keynum < K_SPACE || keynum > K_DEL)
 	    break;
 
 	if (lanConfig_cursor == 2) {
-	    l = strlen(lanConfig_joinname);
-	    if (l < 21) {
-		lanConfig_joinname[l + 1] = 0;
-		lanConfig_joinname[l] = key;
+	    int length = strlen(lanConfig_joinname);
+	    if (length < 21) {
+		lanConfig_joinname[length + 1] = 0;
+		lanConfig_joinname[length] = keynum;
 	    }
 	}
 
-	if (key < '0' || key > '9')
+	if (keynum < K_0 || keynum > K_9)
 	    break;
 	if (lanConfig_cursor == 0) {
-	    l = strlen(lanConfig_portname);
-	    if (l < 5) {
-		lanConfig_portname[l + 1] = 0;
-		lanConfig_portname[l] = key;
+	    int length = strlen(lanConfig_portname);
+	    if (length < 5) {
+		lanConfig_portname[length + 1] = 0;
+		lanConfig_portname[length] = keynum;
 	    }
 	}
     }
 
     if (StartingGame && lanConfig_cursor == 2) {
-	if (key == K_UPARROW)
+	if (keynum == K_UPARROW)
 	    lanConfig_cursor = 1;
 	else
 	    lanConfig_cursor = 0;
     }
 
-    l = Q_atoi(lanConfig_portname);
-    lanConfig_port = qmin(l, 65535);
-    sprintf(lanConfig_portname, "%u", lanConfig_port);
+    port = Q_atoi(lanConfig_portname);
+    lanConfig_port = qmin(port, 65535);
+    snprintf(lanConfig_portname, sizeof(lanConfig_portname), "%u",
+	     lanConfig_port);
 }
 
 //=============================================================================
@@ -2085,9 +2103,9 @@ M_NetStart_Change(int dir)
 }
 
 static void
-M_GameOptions_Key(int key)
+M_GameOptions_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_MultiPlayer_f();
 	break;
@@ -2148,6 +2166,9 @@ M_GameOptions_Key(int key)
 
 	M_NetStart_Change(1);
 	break;
+
+    default:
+	break;
     }
 }
 
@@ -2206,7 +2227,7 @@ M_Search_Draw(void)
 
 
 static void
-M_Search_Key(int key)
+M_Search_Key(knum_t keynum)
 {
 }
 
@@ -2273,9 +2294,9 @@ M_ServerList_Draw(void)
 
 
 static void
-M_ServerList_Key(int k)
+M_ServerList_Key(knum_t keynum)
 {
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_LanConfig_f();
 	break;
@@ -2438,70 +2459,70 @@ M_Draw(void)
 
 
 void
-M_Keydown(int key)
+M_Keydown(knum_t keynum)
 {
     switch (m_state) {
     case m_none:
 	return;
 
     case m_main:
-	M_Main_Key(key);
+	M_Main_Key(keynum);
 	return;
 
     case m_singleplayer:
-	M_SinglePlayer_Key(key);
+	M_SinglePlayer_Key(keynum);
 	return;
 
     case m_load:
-	M_Load_Key(key);
+	M_Load_Key(keynum);
 	return;
 
     case m_save:
-	M_Save_Key(key);
+	M_Save_Key(keynum);
 	return;
 
     case m_multiplayer:
-	M_MultiPlayer_Key(key);
+	M_MultiPlayer_Key(keynum);
 	return;
 
     case m_setup:
-	M_Setup_Key(key);
+	M_Setup_Key(keynum);
 	return;
 
     case m_options:
-	M_Options_Key(key);
+	M_Options_Key(keynum);
 	return;
 
     case m_keys:
-	M_Keys_Key(key);
+	M_Keys_Key(keynum);
 	return;
 
     case m_video:
-	M_Video_Key(key);
+	M_Video_Key(keynum);
 	return;
 
     case m_help:
-	M_Help_Key(key);
+	M_Help_Key(keynum);
 	return;
 
     case m_quit:
-	M_Quit_Key(key);
+	M_Quit_Key(keynum);
 	return;
 
     case m_lanconfig:
-	M_LanConfig_Key(key);
+	M_LanConfig_Key(keynum);
 	return;
 
     case m_gameoptions:
-	M_GameOptions_Key(key);
+	M_GameOptions_Key(keynum);
 	return;
 
     case m_search:
-	M_Search_Key(key);
+	M_Search_Key(keynum);
 	break;
 
     case m_slist:
-	M_ServerList_Key(key);
+	M_ServerList_Key(keynum);
 	return;
     }
 }

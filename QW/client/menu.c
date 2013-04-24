@@ -32,8 +32,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "vid.h"
 #include "view.h"
 
-void (*vid_menudrawfn) (void);
-void (*vid_menukeyfn) (int key);
+void (*vid_menudrawfn)(void);
+void (*vid_menukeyfn)(knum_t keynum);
 
 enum {
     m_none, m_main, m_options, m_video, m_keys, m_quit
@@ -52,11 +52,11 @@ static void M_Keys_Draw(void);
 static void M_Video_Draw(void);
 static void M_Quit_Draw(void);
 
-static void M_Main_Key(int key);
-static void M_Options_Key(int key);
-static void M_Keys_Key(int key);
-static void M_Video_Key(int key);
-static void M_Quit_Key(int key);
+static void M_Main_Key(knum_t keynum);
+static void M_Options_Key(knum_t keynum);
+static void M_Keys_Key(knum_t keynum);
+static void M_Video_Key(knum_t keynum);
+static void M_Quit_Key(knum_t keynum);
 
 static qboolean m_recursiveDraw;
 static qboolean m_entersound;	// play after drawing a frame, so caching
@@ -232,9 +232,9 @@ M_Main_Draw(void)
 
 
 static void
-M_Main_Key(int key)
+M_Main_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	key_dest = key_game;
 	m_state = m_none;
@@ -262,6 +262,9 @@ M_Main_Key(int key)
 	    M_Menu_Quit_f();
 	    break;
 	}
+
+    default:
+	break;
     }
 }
 
@@ -459,9 +462,9 @@ M_Options_Draw(void)
 
 
 static void
-M_Options_Key(int k)
+M_Options_Key(knum_t keynum)
 {
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Main_f();
 	break;
@@ -508,10 +511,13 @@ M_Options_Key(int k)
     case K_RIGHTARROW:
 	M_AdjustSliders(1);
 	break;
+
+    default:
+	break;
     }
 
     if (options_cursor == 14 && !vid_menudrawfn) {
-	if (k == K_UPARROW)
+	if (keynum == K_UPARROW)
 	    options_cursor--;
 	else {
 	    options_cursor++;
@@ -520,7 +526,7 @@ M_Options_Key(int k)
     }
 
     if (options_cursor == 15 && VID_IsFullScreen()) {
-	if (k == K_UPARROW) {
+	if (keynum == K_UPARROW) {
 	    options_cursor--;
 	    if (!vid_menudrawfn)
 		options_cursor--;
@@ -572,23 +578,22 @@ M_Menu_Keys_f(void)
 
 
 static void
-M_FindKeysForCommand(const char *command, int *twokeys)
+M_FindKeysForCommand(const char *command, knum_t keys[2])
 {
-    int count;
-    int j;
-    int l;
-    const char *b;
+    knum_t keynum;
+    int count, length;
+    const char *binding;
 
-    twokeys[0] = twokeys[1] = -1;
-    l = strlen(command);
+    keys[0] = keys[1] = K_UNKNOWN;
+    length = strlen(command);
     count = 0;
 
-    for (j = 0; j < K_LAST; j++) {
-	b = keybindings[j];
-	if (!b)
+    for (keynum = K_UNKNOWN + 1; keynum < K_LAST; keynum++) {
+	binding = keybindings[keynum];
+	if (!binding)
 	    continue;
-	if (!strncmp(b, command, l)) {
-	    twokeys[count] = j;
+	if (!strncmp(binding, command, length)) {
+	    keys[count] = keynum;
 	    count++;
 	    if (count == 2)
 		break;
@@ -599,18 +604,18 @@ M_FindKeysForCommand(const char *command, int *twokeys)
 static void
 M_UnbindCommand(const char *const command)
 {
-    int j;
-    int l;
-    const char *b;
+    int length;
+    knum_t keynum;
+    const char *binding;
 
-    l = strlen(command);
+    length = strlen(command);
 
-    for (j = 0; j < K_LAST; j++) {
-	b = keybindings[j];
-	if (!b)
+    for (keynum = K_UNKNOWN + 1; keynum < K_LAST; keynum++) {
+	binding = keybindings[keynum];
+	if (!binding)
 	    continue;
-	if (!strncmp(b, command, l))
-	    Key_SetBinding(j, NULL);
+	if (!strncmp(binding, command, length))
+	    Key_SetBinding(keynum, NULL);
     }
 }
 
@@ -618,14 +623,13 @@ M_UnbindCommand(const char *const command)
 static void
 M_Keys_Draw(void)
 {
-    int i;
-    int keys[2];
     const char *name;
-    int x, y;
-    const qpic_t *p;
+    const qpic_t *pic;
+    int i, x, y;
+    knum_t keys[2];
 
-    p = Draw_CachePic("gfx/ttl_cstm.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    pic = Draw_CachePic("gfx/ttl_cstm.lmp");
+    M_DrawPic((320 - pic->width) / 2, 4, pic);
 
     if (bind_grab)
 	M_Print(12, 32, "Press a key or button for this action");
@@ -639,13 +643,13 @@ M_Keys_Draw(void)
 	M_Print(16, y, bindnames[i][1]);
 	M_FindKeysForCommand(bindnames[i][0], keys);
 
-	if (keys[0] == -1) {
+	if (keys[0] == K_UNKNOWN) {
 	    M_Print(140, y, "???");
 	} else {
 	    name = Key_KeynumToString(keys[0]);
 	    M_Print(140, y, name);
 	    x = strlen(name) * 8;
-	    if (keys[1] != -1) {
+	    if (keys[1] != K_UNKNOWN) {
 		M_Print(140 + x + 8, y, "or");
 		M_Print(140 + x + 32, y, Key_KeynumToString(keys[1]));
 	    }
@@ -661,18 +665,18 @@ M_Keys_Draw(void)
 
 
 static void
-M_Keys_Key(int k)
+M_Keys_Key(knum_t keynum)
 {
     char cmd[80];
-    int keys[2];
+    knum_t keys[2];
 
     if (bind_grab) {		// defining a key
 	S_LocalSound("misc/menu1.wav");
-	if (k == K_ESCAPE) {
+	if (keynum == K_ESCAPE) {
 	    bind_grab = false;
-	} else if (k != '`') {
-	    sprintf(cmd, "bind \"%s\" \"%s\"\n", Key_KeynumToString(k),
-		    bindnames[keys_cursor][0]);
+	} else if (keynum != K_BACKQUOTE) {
+	    snprintf(cmd, sizeof(cmd), "bind \"%s\" \"%s\"\n",
+		     Key_KeynumToString(keynum), bindnames[keys_cursor][0]);
 	    Cbuf_InsertText(cmd);
 	}
 
@@ -680,7 +684,7 @@ M_Keys_Key(int k)
 	return;
     }
 
-    switch (k) {
+    switch (keynum) {
     case K_ESCAPE:
 	M_Menu_Options_f();
 	break;
@@ -704,7 +708,7 @@ M_Keys_Key(int k)
     case K_ENTER:		// go into bind mode
 	M_FindKeysForCommand(bindnames[keys_cursor][0], keys);
 	S_LocalSound("misc/menu2.wav");
-	if (keys[1] != -1)
+	if (keys[1] != K_UNKNOWN)
 	    M_UnbindCommand(bindnames[keys_cursor][0]);
 	bind_grab = true;
 	break;
@@ -713,6 +717,9 @@ M_Keys_Key(int k)
     case K_DEL:			// delete bindings
 	S_LocalSound("misc/menu2.wav");
 	M_UnbindCommand(bindnames[keys_cursor][0]);
+	break;
+
+    default:
 	break;
     }
 }
@@ -732,14 +739,14 @@ M_Menu_Video_f(void)
 static void
 M_Video_Draw(void)
 {
-    (*vid_menudrawfn) ();
+    (*vid_menudrawfn)();
 }
 
 
 static void
-M_Video_Key(int key)
+M_Video_Key(knum_t keynum)
 {
-    (*vid_menukeyfn) (key);
+    (*vid_menukeyfn)(keynum);
 }
 
 //=============================================================================
@@ -807,12 +814,11 @@ M_Menu_Quit_f(void)
 
 
 static void
-M_Quit_Key(int key)
+M_Quit_Key(knum_t keynum)
 {
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
-    case 'n':
-    case 'N':
+    case K_n:
 	if (wasInMenus) {
 	    m_state = m_quit_prevstate;
 	    m_entersound = true;
@@ -822,8 +828,7 @@ M_Quit_Key(int key)
 	}
 	break;
 
-    case 'Y':
-    case 'y':
+    case K_y:
 	key_dest = key_console;
 	CL_Disconnect();
 	Sys_Quit();
@@ -832,7 +837,6 @@ M_Quit_Key(int key)
     default:
 	break;
     }
-
 }
 
 
@@ -929,30 +933,30 @@ M_Draw(void)
 
 
 void
-M_Keydown(int key)
+M_Keydown(knum_t keynum)
 {
     switch (m_state) {
     case m_none:
 	return;
 
     case m_main:
-	M_Main_Key(key);
+	M_Main_Key(keynum);
 	return;
 
     case m_options:
-	M_Options_Key(key);
+	M_Options_Key(keynum);
 	return;
 
     case m_keys:
-	M_Keys_Key(key);
+	M_Keys_Key(keynum);
 	return;
 
     case m_video:
-	M_Video_Key(key);
+	M_Video_Key(keynum);
 	return;
 
     case m_quit:
-	M_Quit_Key(key);
+	M_Quit_Key(keynum);
 	return;
     }
 }

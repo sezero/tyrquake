@@ -454,11 +454,11 @@ VID_MenuKey
 ================
 */
 void
-VID_MenuKey_(vid_menustate_t *menu, int key)
+VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 {
     const qvidmode_t *mode;
 
-    switch (key) {
+    switch (keynum) {
     case K_ESCAPE:
 	S_LocalSound("misc/menu1.wav");
 	M_Menu_Options_f();
@@ -569,9 +569,9 @@ VID_MenuKey_(vid_menustate_t *menu, int key)
 }
 
 void
-VID_MenuKey(int key)
+VID_MenuKey(knum_t keynum)
 {
-    VID_MenuKey_(&vid_menustate, key);
+    VID_MenuKey_(&vid_menustate, keynum);
 }
 
 /*

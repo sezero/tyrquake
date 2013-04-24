@@ -93,9 +93,6 @@ static long X11_buffersize;
 static int vid_surfcachesize;
 static void *vid_surfcache;
 
-void (*vid_menudrawfn) (void);
-void (*vid_menukeyfn) (int key);
-
 typedef unsigned short PIXEL16;
 typedef unsigned int PIXEL24;
 static PIXEL16 st2d_8to16table[256];

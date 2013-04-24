@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define VID_H
 
 #include "qtypes.h"
+#include "keys.h"
 
 #define VID_CBITS	6
 #define VID_GRADES	(1 << VID_CBITS)
@@ -99,7 +100,7 @@ const qvidmode_t *VID_GetCmdlineMode(void);
 
 void VID_MenuDraw(void);
 void VID_MenuInitState(const qvidmode_t *mode);
-void VID_MenuKey(int key);
+void VID_MenuKey(knum_t keynum);
 qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette);
 qboolean VID_CheckAdequateMem(int width, int height);
 void VID_NumModes_f(void);
@@ -107,8 +108,8 @@ void VID_DescribeModes_f(void);
 void VID_DescribeMode_f(void);
 void VID_DescribeCurrentMode_f(void);
 
-extern void (*vid_menudrawfn) (void);
-extern void (*vid_menukeyfn) (int key);
+extern void (*vid_menudrawfn)(void);
+extern void (*vid_menukeyfn)(knum_t keynum);
 
 /* ------------------------------------------------------------------------ */
 
