@@ -1262,7 +1262,9 @@ $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win32.zip: $(DIST_FILES_WIN32)
 
 quiet_cmd_git_archive = '  GIT-ARCV $@'
       cmd_git_archive = \
-	git archive --format=tar --prefix=tyrquake-$(TYR_VERSION_NUM)/ HEAD > $@
+	git archive --format=tar --prefix=tyrutils-$(TYR_VERSION_NUM)/ HEAD \
+		> $(@D)/.$(@F).tmp && \
+		mv $(@D)/.$(@F).tmp $@
 
 define do_git_archive
 	$(do_mkdir)
