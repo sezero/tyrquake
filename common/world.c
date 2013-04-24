@@ -160,7 +160,7 @@ SV_AddLinksToPhysents_r(const areanode_t *node, const edict_t *player,
     /* touch linked edicts */
     for (link = solids->next; link != solids; link = next) {
 	next = link->next;
-	check = container_of(link, edict_t, area);
+	check = const_container_of(link, edict_t, area);
 
 	/* player's own missile */
 	if (check->v.owner == playernum)
