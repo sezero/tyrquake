@@ -471,7 +471,7 @@ static inline const brushmodel_t *
 ConstBrushModel(const model_t *model)
 {
     assert(model && model->type == mod_brush);
-    return container_of(model, brushmodel_t, model);
+    return const_container_of(model, brushmodel_t, model);
 }
 
 static inline brushmodel_t *
