@@ -137,19 +137,20 @@ Draw_Init(void)
 {
     static qpic_t draw_disc_pic;
     static qpic_t draw_backtile_pic;
+    qpic_t *pic;
 
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
-    draw_disc = W_GetLumpName(&host_gfx, "disc");
-    draw_disc_pic.width = draw_disc->width;
-    draw_disc_pic.height = draw_disc->height;
-    draw_disc_pic.data = (byte *)&draw_disc->data;
+    pic = W_GetLumpName(&host_gfx, "disc");
+    draw_disc_pic.width = pic->width;
+    draw_disc_pic.height = pic->height;
+    draw_disc_pic.data = (byte *)&pic->data;
     draw_disc = &draw_disc_pic;
 
-    draw_backtile = W_GetLumpName(&host_gfx, "backtile");
-    draw_backtile_pic.width = draw_backtile->width;
-    draw_backtile_pic.height = draw_backtile->height;
-    draw_backtile_pic.data = (byte *)&draw_backtile->data;
+    pic = W_GetLumpName(&host_gfx, "backtile");
+    draw_backtile_pic.width = pic->width;
+    draw_backtile_pic.height = pic->height;
+    draw_backtile_pic.data = (byte *)&pic->data;
     draw_backtile = &draw_backtile_pic;
 
     r_rectdesc.width = draw_backtile->width;
