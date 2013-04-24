@@ -282,11 +282,11 @@ ClearAllStates
 static void
 ClearAllStates(void)
 {
-    int i;
+    knum_t keynum;
 
-    // send an up event for each key, to make sure the server clears them all
-    for (i = 0; i < 256; i++)
-	Key_Event(i, false);
+    /* send an up event for each key, to ensure the server clears them all */
+    for (keynum = K_UNKNOWN; keynum < K_LAST; keynum++)
+	Key_Event(keynum, false);
 
     Key_ClearStates();
     IN_ClearStates();
