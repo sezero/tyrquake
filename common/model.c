@@ -717,7 +717,7 @@ Mod_LoadVertexes(brushmodel_t *brushmodel, const dheader_t *header)
     mvertex_t *out;
     int i, count;
 
-    in = (dvertex_t *)((byte *)header + headerlump->fileofs);
+    in = (const dvertex_t *)((const byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = headerlump->filelen / sizeof(*in);

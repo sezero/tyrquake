@@ -87,7 +87,7 @@ Mod_LoadAliasFrameGroup(aliashdr_t *aliashdr, void *buffer,
     }
 
     /* Group frames start after the interval data */
-    dframe = (daliasframe_t *)&group->intervals[frame->numposes];
+    dframe = (const daliasframe_t *)&group->intervals[frame->numposes];
     snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
 
     vert = &posedata->verts[posedata->numposes];
@@ -98,10 +98,11 @@ Mod_LoadAliasFrameGroup(aliashdr_t *aliashdr, void *buffer,
 	if (*interval++ <= 0)
 	    Sys_Error("%s: interval <= 0", __func__);
 	posedata->numposes++;
-	dframe = (daliasframe_t *)&dframe->verts[aliashdr->numverts];
+	dframe = (const daliasframe_t *)&dframe->verts[aliashdr->numverts];
     }
 
-    return (void *)dframe;
+    /* Need to offset the buffer pointer to maintain const correctness */
+    return (byte *)buffer + ((const byte *)dframe - (const byte *)buffer);
 }
 
 /*
@@ -162,20 +163,19 @@ Mod_LoadAliasSkinGroup
 =================
 */
 static void *
-Mod_LoadAliasSkinGroup(const aliashdr_t *aliashdr, void *buffer,
+Mod_LoadAliasSkinGroup(aliashdr_t *aliashdr, void *buffer,
 		       maliasskindesc_t *skin, alias_skindata_t *skindata)
 {
     float *interval = (float *)((byte *)aliashdr + aliashdr->skinintervals);
     const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
     const daliasskingroup_t *group = buffer;
     const daliasskininterval_t *dinterval;
-    byte *data;
     int i;
 
     skin->firstframe = skindata->numskins;
     skin->numframes = LittleLong(group->numskins);
 
-    dinterval = (daliasskininterval_t *)(group + 1);
+    dinterval = (const daliasskininterval_t *)(group + 1);
     interval += skindata->numskins;
     for (i = 0; i < skin->numframes; i++, interval++, dinterval++) {
 	*interval = LittleFloat(dinterval->interval);
@@ -184,13 +184,16 @@ Mod_LoadAliasSkinGroup(const aliashdr_t *aliashdr, void *buffer,
 	skindata->numskins++;
     }
 
-    data = (byte *)dinterval;
+    /* Advance the buffer pointer */
+    buffer = (byte *)buffer + sizeof(*group);
+    buffer = (byte *)buffer + sizeof(*dinterval) * skin->numframes;
+
     for (i = 0; i < skin->numframes; i++) {
-	skindata->data[skin->firstframe + i] = data;
-	data += skinsize;
+	skindata->data[skin->firstframe + i] = buffer;
+	buffer = (byte *)buffer + skinsize;
     }
 
-    return data;
+    return buffer;
 }
 
 /*
@@ -321,17 +324,17 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
     for (i = 0; i < numskins; i++) {
 	const daliasskintype_t *const dskintype = buffer;
 	const aliasskintype_t skintype = LittleLong(dskintype->type);
-	buffer = (byte *)buffer + sizeof(daliasskintype_t);
+	buffer = (const byte *)buffer + sizeof(daliasskintype_t);
 	if (skintype == ALIAS_SKIN_SINGLE) {
-	    buffer = (byte *)buffer + skinsize;
+	    buffer = (const byte *)buffer + skinsize;
 	    count++;
 	} else {
 	    /* skin group */
 	    const daliasskingroup_t *const dskingroup = buffer;
 	    const int groupskins = LittleLong(dskingroup->numskins);
-	    buffer = (byte *)buffer + sizeof(daliasskingroup_t);
-	    buffer = (byte *)buffer + groupskins * sizeof(daliasskininterval_t);
-	    buffer = (byte *)buffer + groupskins * skinsize;
+	    buffer = (const byte *)buffer + sizeof(daliasskingroup_t);
+	    buffer = (const byte *)buffer + groupskins * sizeof(daliasskininterval_t);
+	    buffer = (const byte *)buffer + groupskins * skinsize;
 	    count += groupskins;
 	}
     }
@@ -340,9 +343,9 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
 
     /* Verticies and triangles are simple */
     numverts = LittleLong(mdl->numverts);
-    buffer = (byte *)buffer + numverts * sizeof(stvert_t);
+    buffer = (const byte *)buffer + numverts * sizeof(stvert_t);
     count = LittleLong(mdl->numtris);
-    buffer = (byte *)buffer + count * sizeof(dtriangle_t);
+    buffer = (const byte *)buffer + count * sizeof(dtriangle_t);
     meshdata->stverts = Hunk_Alloc(numverts * sizeof(*meshdata->stverts));
     meshdata->triangles = Hunk_Alloc(count * sizeof(*meshdata->triangles));
 
@@ -352,16 +355,16 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
     for (i = 0; i < numframes; i++) {
 	const daliasframetype_t *const dframetype = buffer;
 	const aliasframetype_t frametype = LittleLong(dframetype->type);
-	buffer = (byte *)buffer + sizeof(daliasframetype_t);
+	buffer = (const byte *)buffer + sizeof(daliasframetype_t);
 	if (frametype == ALIAS_SINGLE) {
-	    buffer = &((daliasframe_t *)buffer)->verts[numverts];
+	    buffer = &((const daliasframe_t *)buffer)->verts[numverts];
 	    count++;
 	} else {
 	    const daliasgroup_t *const group = buffer;
 	    const int groupframes = LittleLong(group->numframes);
 	    const int framesize = offsetof(daliasframe_t, verts[numverts]);
 	    buffer = &group->intervals[groupframes];
-	    buffer = (byte *)buffer + groupframes * framesize;
+	    buffer = (const byte *)buffer + groupframes * framesize;
 	    count += groupframes;
 	}
     }
