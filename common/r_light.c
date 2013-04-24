@@ -134,7 +134,7 @@ LIGHT SAMPLING
 */
 
 int
-RecursiveLightPoint(mnode_t *node, vec3_t start, vec3_t end)
+RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 {
     int r;
     float front, back, frac;
@@ -242,7 +242,7 @@ RecursiveLightPoint(mnode_t *node, vec3_t start, vec3_t end)
  * a func_plat or similar...
  */
 int
-R_LightPoint(vec3_t p)
+R_LightPoint(const vec3_t point)
 {
     vec3_t end;
     int r;
@@ -250,11 +250,11 @@ R_LightPoint(vec3_t p)
     if (!cl.worldmodel->lightdata)
 	return 255;
 
-    end[0] = p[0];
-    end[1] = p[1];
-    end[2] = p[2] - (8192 + 2); /* Max distance + error margin */
+    end[0] = point[0];
+    end[1] = point[1];
+    end[2] = point[2] - (8192 + 2); /* Max distance + error margin */
 
-    r = RecursiveLightPoint(cl.worldmodel->nodes, p, end);
+    r = RecursiveLightPoint(cl.worldmodel->nodes, point, end);
 
     if (r == -1)
 	r = 0;

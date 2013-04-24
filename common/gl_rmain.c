@@ -420,86 +420,88 @@ GL_AliasDrawModel
 =============
 */
 static void
-GL_AliasDrawModel(const entity_t *e, float blend)
+GL_AliasDrawModel(const entity_t *entity, float blend)
 {
-    float l;
-    aliashdr_t *pahdr;
-    trivertx_t *vertbase, *verts1;
-    int *order;
+    aliashdr_t *aliashdr;
+    const trivertx_t *vertbase, *verts1;
+    const int *order;
+    float light;
     int count;
 
-    lastposenum = e->currentpose;
+    lastposenum = entity->currentpose;
 
-    pahdr = Mod_Extradata(e->model);
-    vertbase = (trivertx_t *)((byte *)pahdr + pahdr->posedata);
-    verts1 = vertbase + e->currentpose * pahdr->numverts;
-    order = (int *)((byte *)pahdr + GL_Aliashdr(pahdr)->commands);
+    aliashdr = Mod_Extradata(entity->model);
+    vertbase = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
+    verts1 = vertbase + entity->currentpose * aliashdr->numverts;
+    order = (int *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->commands);
 
 #ifdef NQ_HACK
     if (r_lerpmodels.value && blend != 1.0f) {
-	trivertx_t *light;
-	trivertx_t *verts0 = vertbase + e->previouspose * pahdr->numverts;
-	float blend0 = 1.0f - blend;
-	light = (blend < 0.5f) ? verts0 : verts1;
+	const trivertx_t *lightvert;
+	const trivertx_t *verts0;
+	const float blend0 = 1.0f - blend;
+
+	verts0 = vertbase + entity->previouspose * aliashdr->numverts;
+	lightvert = (blend < 0.5f) ? verts0 : verts1;
 
 	while (1) {
-	    // get the vertex count and primitive type
+	    /* get the vertex count and primitive type */
 	    count = *order++;
 	    if (!count)
-		break;		// done
+		break;
 	    if (count < 0) {
 		count = -count;
 		glBegin(GL_TRIANGLE_FAN);
-	    } else
+	    } else {
 		glBegin(GL_TRIANGLE_STRIP);
+	    }
 
-	    do {
-		vec3_t glv;
+	    while (count--) {
+		vec3_t glvertex;
 
-		// texture coordinates come from the draw list
+		/* texture coordinates come from the draw list */
 		glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
 		order += 2;
 
-		// normals and vertexes come from the frame list
+		/* normals and vertexes come from the frame list */
 		if (r_fullbright.value) {
 		    glColor3f(255.0f, 255.0f, 255.0f);
 		} else {
-		    l = shadedots[light->lightnormalindex] * shadelight;
-		    glColor3f(l, l, l);
+		    light = shadedots[lightvert->lightnormalindex] * shadelight;
+		    glColor3f(light, light, light);
 		}
-		glv[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
-		glv[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
-		glv[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
-		glVertex3f(glv[0], glv[1], glv[2]);
+		glvertex[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
+		glvertex[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
+		glvertex[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
+		glVertex3f(glvertex[0], glvertex[1], glvertex[2]);
 		verts0++;
 		verts1++;
 		light++;
-	    } while (--count);
-
+	    }
 	    glEnd();
 	}
 	return;
     }
 #endif
     while (1) {
-	// get the vertex count and primitive type
+	/* get the vertex count and primitive type */
 	count = *order++;
 	if (!count)
-	    break;		// done
+	    break;
 	if (count < 0) {
 	    count = -count;
 	    glBegin(GL_TRIANGLE_FAN);
-	} else
+	} else {
 	    glBegin(GL_TRIANGLE_STRIP);
-
+	}
 	do {
-	    // texture coordinates come from the draw list
+	    /* texture coordinates come from the draw list */
 	    glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
 	    order += 2;
 
-	    // normals and vertexes come from the frame list
-	    l = shadedots[verts1->lightnormalindex] * shadelight;
-	    glColor3f(l, l, l);
+	    /* normals and vertexes come from the frame list */
+	    light = shadedots[verts1->lightnormalindex] * shadelight;
+	    glColor3f(light, light, light);
 	    glVertex3f(verts1->v[0], verts1->v[1], verts1->v[2]);
 	    verts1++;
 	} while (--count);
@@ -510,11 +512,11 @@ GL_AliasDrawModel(const entity_t *e, float blend)
 
 /*
 =============
-GL_DrawAliasShadow
+GL_AliasDrawShadow
 =============
 */
 static void
-GL_DrawAliasShadow(const entity_t *e, aliashdr_t *paliashdr, int posenum)
+GL_AliasDrawShadow(const entity_t *entity, aliashdr_t *paliashdr, int posenum)
 {
     trivertx_t *verts;
     int *order;
@@ -522,7 +524,7 @@ GL_DrawAliasShadow(const entity_t *e, aliashdr_t *paliashdr, int posenum)
     float height, lheight;
     int count;
 
-    lheight = e->origin[2] - lightspot[2];
+    lheight = entity->origin[2] - lightspot[2];
     height = -lheight + 1.0;
 
     verts = (trivertx_t *)((byte *)paliashdr + paliashdr->posedata);
@@ -576,31 +578,31 @@ R_AliasSetupSkin
 ===============
 */
 static void
-R_AliasSetupSkin(const entity_t *e, aliashdr_t *pahdr)
+R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 {
-    int skinnum;
-    int frame, numframes;
-    maliasskindesc_t *pskindesc;
-    float *intervals;
+    const maliasskindesc_t *skindesc;
+    const float *intervals;
+    int skinnum, numframes, frame;
     GLuint *glt;
 
-    skinnum = e->skinnum;
-    if ((skinnum >= pahdr->numskins) || (skinnum < 0)) {
+    skinnum = entity->skinnum;
+    if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
 	Con_DPrintf("%s: no such skin # %d\n", __func__, skinnum);
 	skinnum = 0;
     }
 
-    pskindesc = ((maliasskindesc_t *)((byte *)pahdr + pahdr->skindesc));
-    pskindesc += skinnum;
-    frame = pskindesc->firstframe;
-    numframes = pskindesc->numframes;
+    skindesc = (maliasskindesc_t *)((byte *)aliashdr + aliashdr->skindesc);
+    skindesc += skinnum;
+    frame = skindesc->firstframe;
+    numframes = skindesc->numframes;
 
     if (numframes > 1) {
-	intervals = (float *)((byte *)pahdr + pahdr->skinintervals) + frame;
-	frame += Mod_FindInterval(intervals, numframes, cl.time + e->syncbase);
+	const float frametime = cl.time + entity->syncbase;
+	intervals = (float *)((byte *)aliashdr + aliashdr->skinintervals);
+	frame += Mod_FindInterval(intervals + frame, numframes, frametime);
     }
 
-    glt = (GLuint *)((byte *)pahdr + pahdr->skindata);
+    glt = (GLuint *)((byte *)aliashdr + aliashdr->skindata);
     GL_Bind(glt[frame]);
 }
 
@@ -611,174 +613,170 @@ R_AliasSetupFrame
 =================
 */
 static void
-R_AliasSetupFrame(entity_t *e, aliashdr_t *pahdr)
+R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr)
 {
-    int frame, pose, numposes;
-    float *intervals;
+    int framenum, pose, numposes;
+    const float *intervals;
 
-    frame = e->frame;
-    if ((frame >= pahdr->numframes) || (frame < 0)) {
-	Con_DPrintf("%s: no such frame %d\n", __func__, frame);
-	frame = 0;
+    framenum = entity->frame;
+    if ((framenum >= aliashdr->numframes) || (framenum < 0)) {
+	Con_DPrintf("%s: no such frame %d\n", __func__, framenum);
+	framenum = 0;
     }
 
-    pose = pahdr->frames[frame].firstpose;
-    numposes = pahdr->frames[frame].numposes;
+    pose = aliashdr->frames[framenum].firstpose;
+    numposes = aliashdr->frames[framenum].numposes;
 
     if (numposes > 1) {
-	intervals = (float *)((byte *)pahdr + pahdr->poseintervals) + pose;
-	pose += Mod_FindInterval(intervals, numposes, cl.time + e->syncbase);
+	const float frametime = cl.time + entity->syncbase;
+	intervals = (float *)((byte *)aliashdr + aliashdr->poseintervals);
+	pose += Mod_FindInterval(intervals + pose, numposes, frametime);
     }
 
 #ifdef NQ_HACK
     if (r_lerpmodels.value) {
+	const maliasframedesc_t *currentframe, *previousframe;
 	float delta, time, blend;
 
 	/* A few quick sanity checks to abort lerping */
-	if (e->currentframetime < e->previousframetime)
+	if (entity->currentframetime < entity->previousframetime)
 	    goto nolerp;
-	if (e->currentframetime - e->previousframetime > 1.0f)
+	if (entity->currentframetime - entity->previousframetime > 1.0f)
 	    goto nolerp;
 	/* FIXME - hack to skip the viewent (weapon) */
-	if (e == &cl.viewent)
+	if (entity == &cl.viewent)
 	    goto nolerp;
 
+	currentframe = &aliashdr->frames[entity->currentframe];
 	if (numposes > 1) {
 	    /* FIXME - merge with Mod_FindInterval? */
 	    int i;
 	    float fullinterval, targettime;
 	    fullinterval = intervals[numposes - 1];
-	    time = cl.time + e->syncbase;
+	    time = cl.time + entity->syncbase;
 	    targettime = time - (int)(time / fullinterval) * fullinterval;
 	    for (i = 0; i < numposes - 1; i++)
 		if (intervals[i] > targettime)
 		    break;
 
-	    e->currentpose = pahdr->frames[e->currentframe].firstpose + i;
+	    entity->currentpose = currentframe->firstpose + i;
 	    if (i == 0) {
-		e->previouspose = pahdr->frames[e->currentframe].firstpose;
-		e->previouspose += numposes - 1;
+		entity->previouspose = currentframe->firstpose + numposes - 1;
 		time = targettime;
 		delta = intervals[0];
 	    } else {
-		e->previouspose = e->currentpose - 1;
+		entity->previouspose = entity->currentpose - 1;
 		time = targettime - intervals[i - 1];
 		delta = intervals[i] - intervals[i - 1];
 	    }
 	} else {
-	    e->currentpose = pahdr->frames[e->currentframe].firstpose;
-	    e->previouspose = pahdr->frames[e->previousframe].firstpose;
-	    time = cl.time - e->currentframetime;
-	    delta = e->currentframetime - e->previousframetime;
+	    previousframe = &aliashdr->frames[entity->previousframe];
+	    entity->currentpose = currentframe->firstpose;
+	    entity->previouspose = previousframe->firstpose;
+	    time = cl.time - entity->currentframetime;
+	    delta = entity->currentframetime - entity->previousframetime;
 	}
 	blend = qclamp(time / delta, 0.0f, 1.0f);
 
-	GL_AliasDrawModel(e, blend);
+	GL_AliasDrawModel(entity, blend);
 
 	return;
     }
  nolerp:
 #endif
-    e->currentpose = pose;
-    e->previouspose = pose;
+    entity->currentpose = pose;
+    entity->previouspose = pose;
 
-    GL_AliasDrawModel(e, 1.0f);
+    GL_AliasDrawModel(entity, 1.0f);
 }
-
 
 
 /*
 =================
-R_AliasDrawModel
+R_AliasCalcLerp
 =================
 */
 static void
-R_AliasDrawModel(entity_t *e)
+R_AliasCalcLerp(entity_t *entity, vec3_t origin, vec3_t angles)
 {
-    int i;
-    int lnum, shadequant;
-    vec3_t dist;
-    float add;
-    model_t *clmodel;
-    vec3_t mins, maxs;
-    aliashdr_t *paliashdr;
-    float an;
-    vec3_t lerp_origin, lerp_angles;
-
 #ifdef NQ_HACK
+    /* FIXME - hack to skip viewent (weapon) lerp */
+    if (entity == &cl.viewent)
+	goto nolerp_origin;
+
     /* Origin LERP */
     if (r_lerpmove.value) {
-	float delta = e->currentorigintime - e->previousorigintime;
-	float frac = qclamp((cl.time - e->currentorigintime) / delta, 0.0, 1.0);
+	float delta, frac;
 	vec3_t lerpvec;
 
-	/* FIXME - hack to skip the viewent (weapon) */
-	if (e == &cl.viewent)
-	    goto nolerp_origin;
-
-	VectorSubtract(e->currentorigin, e->previousorigin, lerpvec);
-	VectorMA(e->previousorigin, frac, lerpvec, lerp_origin);
+	delta = entity->currentorigintime - entity->previousorigintime;
+	frac = qclamp((cl.time - entity->currentorigintime) / delta, 0.0, 1.0);
+	VectorSubtract(entity->currentorigin, entity->previousorigin, lerpvec);
+	VectorMA(entity->previousorigin, frac, lerpvec, origin);
     } else {
  nolerp_origin:
-	VectorCopy(e->origin, lerp_origin);
+	VectorCopy(entity->origin, origin);
     }
 
+    /* FIXME - hack to skip the viewent (weapon) */
+    if (entity == &cl.viewent)
+	goto nolerp_angles;
+
     /* Angles lerp */
-    if (r_lerpmove.value && e->previousanglestime != e->currentanglestime) {
-	float delta = e->currentanglestime - e->previousanglestime;
-	float frac = qclamp((cl.time - e->currentanglestime) / delta, 0.0, 1.0);
+    if (entity->previousanglestime == entity->currentanglestime)
+	goto nolerp_angles;
+    if (r_lerpmove.value) {
+	float delta, frac;
 	vec3_t lerpvec;
+	int i;
 
-	/* FIXME - hack to skip the viewent (weapon) */
-	if (e == &cl.viewent)
-	    goto nolerp_angles;
-
-	VectorSubtract(e->currentangles, e->previousangles, lerpvec);
+	delta = entity->currentanglestime - entity->previousanglestime;
+	frac = qclamp((cl.time - entity->currentanglestime) / delta, 0.0, 1.0);
+	VectorSubtract(entity->currentangles, entity->previousangles, lerpvec);
 	for (i = 0; i < 3; i++) {
 	    if (lerpvec[i] > 180.0f)
 		lerpvec[i] -= 360.0f;
 	    else if (lerpvec[i] < -180.0f)
 		lerpvec[i] += 360.0f;
 	}
-	VectorMA(e->previousangles, frac, lerpvec, lerp_angles);
+	VectorMA(entity->previousangles, frac, lerpvec, angles);
 	//angles[PITCH] = -angles[PITCH];
     } else {
     nolerp_angles:
-	VectorCopy(e->angles, lerp_angles);
+	VectorCopy(entity->angles, angles);
     }
 #endif
 #ifdef QW_HACK
-    VectorCopy(e->origin, lerp_origin);
-    VectorCopy(e->angles, lerp_angles);
+    VectorCopy(entity->origin, origin);
+    VectorCopy(entity->angles, angles);
 #endif
+}
 
-    clmodel = e->model;
+static void
+R_AliasCalcLight(const entity_t *entity,
+		 const vec3_t origin, const vec3_t angles)
+{
+    const model_t *model = entity->model;
+    const dlight_t *dlight;
+    int i, shadequant;
+    float angle;
 
-    VectorAdd(lerp_origin, clmodel->mins, mins);
-    VectorAdd(lerp_origin, clmodel->maxs, maxs);
+    ambientlight = shadelight = R_LightPoint(origin);
 
-    if (R_CullBox(mins, maxs))
-	return;
-
-    VectorCopy(lerp_origin, r_entorigin);
-
-    //
-    // get lighting information
-    //
-    ambientlight = shadelight = R_LightPoint(lerp_origin);
-
-    // allways give the gun some light
-    if (e == &cl.viewent && ambientlight < 24)
+    /* always give the viewmodel some light */
+    if (entity == &cl.viewent && ambientlight < 24)
 	ambientlight = shadelight = 24;
 
-    for (lnum = 0; lnum < MAX_DLIGHTS; lnum++) {
-	if (cl_dlights[lnum].die >= cl.time) {
-	    VectorSubtract(lerp_origin, cl_dlights[lnum].origin, dist);
-	    add = cl_dlights[lnum].radius - Length(dist);
+    dlight = cl_dlights;
+    for (i = 0; i < MAX_DLIGHTS; i++, dlight++) {
+	if (dlight->die >= cl.time) {
+	    vec3_t lightvec;
+	    vec_t add;
 
+	    VectorSubtract(origin, dlight->origin, lightvec);
+	    add = dlight->radius - Length(lightvec);
 	    if (add > 0) {
 		ambientlight += add;
-		/* ZOID: models should be affected by dlights as well */
 		shadelight += add;
 	    }
 	}
@@ -792,81 +790,104 @@ R_AliasDrawModel(entity_t *e)
 
     // ZOID: never allow players to go totally black
 #ifdef NQ_HACK
-    if (CL_PlayerEntity(e)) {
+    if (CL_PlayerEntity(entity)) {
 #endif
 #ifdef QW_HACK
-    if (!strcmp(clmodel->name, "progs/player.mdl")) {
+    if (!strcmp(model->name, "progs/player.mdl")) {
 #endif
 	if (ambientlight < 8)
 	    ambientlight = shadelight = 8;
-    } else if (!strcmp(clmodel->name, "progs/flame.mdl")
-	       || !strcmp(clmodel->name, "progs/flame2.mdl")) {
+    } else if (!strcmp(model->name, "progs/flame.mdl")
+	       || !strcmp(model->name, "progs/flame2.mdl")) {
 	// HACK HACK HACK -- no fullbright colors, so make torches full light
 	ambientlight = shadelight = 256;
     }
 
-    shadequant = (int)(lerp_angles[1] * (SHADEDOT_QUANT / 360.0));
+    shadequant = (int)(angles[1] * (SHADEDOT_QUANT / 360.0));
     shadedots =	r_avertexnormal_dots[shadequant & (SHADEDOT_QUANT - 1)];
     shadelight /= 200.0;
 
-    an = lerp_angles[1] / 180 * M_PI;
-    shadevector[0] = cos(-an);
-    shadevector[1] = sin(-an);
+    angle = angles[1] / 180 * M_PI;
+    shadevector[0] = cos(-angle);
+    shadevector[1] = sin(-angle);
     shadevector[2] = 1;
     VectorNormalize(shadevector);
+}
 
-    //
-    // locate the proper data
-    //
-    paliashdr = Mod_Extradata(e->model);
+/*
+=================
+R_AliasDrawModel
+=================
+*/
+static void
+R_AliasDrawModel(entity_t *entity)
+{
+    const model_t *model = entity->model;
+    vec3_t origin, angles, mins, maxs;
+    aliashdr_t *aliashdr;
 
-    c_alias_polys += paliashdr->numtris;
+    /* Calculate position and cull if out of view */
+    R_AliasCalcLerp(entity, origin, angles);
+    VectorAdd(origin, model->mins, mins);
+    VectorAdd(origin, model->maxs, maxs);
+    if (R_CullBox(mins, maxs))
+	return;
 
-    //
-    // draw all the triangles
-    //
+    /* Calculate lighting at the lerp origin */
+    R_AliasCalcLight(entity, origin, angles);
+
+    /* locate the proper data */
+    aliashdr = Mod_Extradata(entity->model);
+
+    /* draw all the triangles */
+    c_alias_polys += aliashdr->numtris;
+    VectorCopy(origin, r_entorigin);
+
     GL_DisableMultitexture();
+
     glPushMatrix();
-    R_RotateForEntity(lerp_origin, lerp_angles);
+    R_RotateForEntity(origin, angles);
 
+    /* double size of eyes, since they are really hard to see in gl */
 #ifdef NQ_HACK
-    if (!strcmp(clmodel->name, "progs/eyes.mdl") && gl_doubleeyes.value) {
+    if (!strcmp(model->name, "progs/eyes.mdl") && gl_doubleeyes.value) {
 #endif
 #ifdef QW_HACK
-    if (!strcmp(clmodel->name, "progs/eyes.mdl")) {
+    if (!strcmp(model->name, "progs/eyes.mdl")) {
 #endif
-	glTranslatef(paliashdr->scale_origin[0], paliashdr->scale_origin[1],
-		     paliashdr->scale_origin[2] - (22 + 8));
-	// double size of eyes, since they are really hard to see in gl
-	glScalef(paliashdr->scale[0] * 2, paliashdr->scale[1] * 2,
-		 paliashdr->scale[2] * 2);
+	glTranslatef(aliashdr->scale_origin[0], aliashdr->scale_origin[1],
+		     aliashdr->scale_origin[2] - (22 + 8));
+	glScalef(aliashdr->scale[0] * 2, aliashdr->scale[1] * 2,
+		 aliashdr->scale[2] * 2);
     } else {
-	glTranslatef(paliashdr->scale_origin[0], paliashdr->scale_origin[1],
-		     paliashdr->scale_origin[2]);
-	glScalef(paliashdr->scale[0], paliashdr->scale[1],
-		 paliashdr->scale[2]);
+	glTranslatef(aliashdr->scale_origin[0], aliashdr->scale_origin[1],
+		     aliashdr->scale_origin[2]);
+	glScalef(aliashdr->scale[0], aliashdr->scale[1],
+		 aliashdr->scale[2]);
     }
 
-    R_AliasSetupSkin(e, paliashdr);
+    R_AliasSetupSkin(entity, aliashdr);
 
-    // we can't dynamically colormap textures, so they are cached
-    // seperately for the players.  Heads are just uncolored.
+    /*
+     * We can't dynamically colormap textures, so they are cached
+     * seperately for the players.  Heads are just uncolored.
+     */
 #ifdef NQ_HACK
-    if (e->colormap != vid.colormap && !gl_nocolors.value) {
-	i = CL_PlayerEntity(e);
-	if (i)
-	    GL_Bind(playertextures[i - 1]);
+    if (entity->colormap != vid.colormap && !gl_nocolors.value) {
+	const int playernum = CL_PlayerEntity(entity);
+	if (playernum)
+	    GL_Bind(playertextures[playernum - 1]);
     }
 #endif
 #ifdef QW_HACK
-    if (e->scoreboard && !gl_nocolors.value) {
-	i = e->scoreboard - cl.players;
-	if (!e->scoreboard->skin) {
-	    Skin_Find(e->scoreboard);
-	    R_TranslatePlayerSkin(i);
+    if (entity->scoreboard && !gl_nocolors.value) {
+	const int playernum = entity->scoreboard - cl.players;
+	if (!entity->scoreboard->skin) {
+	    Skin_Find(entity->scoreboard);
+	    R_TranslatePlayerSkin(playernum);
 	}
-	if (i >= 0 && i < MAX_CLIENTS)
-	    GL_Bind(playertextures[i]);
+	if (playernum >= 0 && playernum < MAX_CLIENTS)
+	    GL_Bind(playertextures[playernum]);
     }
 #endif
 
@@ -877,7 +898,7 @@ R_AliasDrawModel(entity_t *e)
     if (gl_affinemodels.value)
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
-    R_AliasSetupFrame(e, paliashdr);
+    R_AliasSetupFrame(entity, aliashdr);
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
@@ -889,11 +910,11 @@ R_AliasDrawModel(entity_t *e)
 
     if (r_shadows.value) {
 	glPushMatrix();
-	R_RotateForEntity(lerp_origin, lerp_angles);
+	R_RotateForEntity(origin, angles);
 	glDisable(GL_TEXTURE_2D);
 	glEnable(GL_BLEND);
 	glColor4f(0, 0, 0, 0.5);
-	GL_DrawAliasShadow(e, paliashdr, lastposenum);
+	GL_AliasDrawShadow(entity, aliashdr, lastposenum);
 	glEnable(GL_TEXTURE_2D);
 	glDisable(GL_BLEND);
 	glColor4f(1, 1, 1, 1);

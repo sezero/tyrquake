@@ -1258,11 +1258,39 @@ $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win32.zip: $(DIST_FILES_WIN32)
 	$(call do_zip,$(DIST_DIR)/win32)
 
 # ----------------------------------------------------------------------------
+# Source tarball creation
 
-.PHONY:	bundles snapshot
+quiet_cmd_git_archive = '  GIT-ARCV $@'
+      cmd_git_archive = \
+	git archive --format=tar --prefix=tyrutils-$(TYR_VERSION_NUM)/ HEAD \
+		> $(@D)/.$(@F).tmp && \
+		mv $(@D)/.$(@F).tmp $@
 
-#
-# To test, do 'make bundles' or 'make snapshot'
-#
+define do_git_archive
+	$(do_mkdir)
+	@echo $(if $(quiet),$(quiet_cmd_git_archive),"$(cmd_git_archive)");
+	@$(cmd_git_archive)
+endef
+
+$(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM).tar:
+	$(do_git_archive)
+
+quiet_cmd_gzip = '  GZIP     $@'
+      cmd_gzip = gzip -S .gz $<
+
+define do_gzip
+	$(do_mkdir)
+	@echo $($(quiet)cmd_gzip)
+	@$(cmd_gzip)
+endef
+
+%.gz:	%
+	$(do_gzip)
+
+# ----------------------------------------------------------------------------
+
+.PHONY:	bundles tarball snapshot
+
 bundles: $(ALL_BUNDLE_FILES)
 snapshot: $(SNAPSHOT_TARGET)
+tarball: $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM).tar.gz
