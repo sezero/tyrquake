@@ -790,13 +790,14 @@ VID_Shutdown(void)
 }
 
 static int
-XLateKey(XKeyEvent *ev)
+XLateKey(XKeyEvent *event)
 {
-    int key;
-    char buf[64];
+    char buffer[4];
     KeySym keysym;
+    knum_t key;
 
-    XLookupString(ev, buf, sizeof(buf), &keysym, 0);
+    memset(buffer, 0, sizeof(buffer));
+    XLookupString(event, buffer, sizeof(buffer), &keysym, NULL);
 
     switch (keysym) {
     case XK_KP_Page_Up:
@@ -970,7 +971,7 @@ XLateKey(XKeyEvent *ev)
 	break;
 
     default:
-	key = *(unsigned char *)buf;
+	key = (unsigned char)buffer[0];
 	if (key >= 'A' && key <= 'Z')
 	    key = key - 'A' + 'a';
 	break;
