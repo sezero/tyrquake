@@ -35,13 +35,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <winuser.h>
 #endif
 
-/*
-
-key up events are sent even if in console mode
-
-*/
-
-#define MAXCMDLINE 256
+/* Key up events are sent even if in console mode */
 
 char key_lines[32][MAXCMDLINE];
 int key_linepos;
@@ -51,25 +45,25 @@ static qboolean lshift_down = false;
 static qboolean rshift_down = false;
 
 int edit_line = 0;
-int history_line = 0;
+static int history_line = 0;
 
 keydest_t key_dest;
 
 int key_count;			// incremented every key event
 
 const char *keybindings[K_LAST];
-qboolean consolekeys[K_LAST];	// if true, can't be rebound while in console
-qboolean menubound[K_LAST];	// if true, can't be rebound while in menu
-knum_t keyshift[K_LAST];	// key to map to if shift held down in console
-int key_repeats[K_LAST];		// if > 1, it is autorepeating
-qboolean keydown[K_LAST];
+static qboolean consolekeys[K_LAST]; /* true => can't be rebound in console */
+static qboolean menubound[K_LAST];   /* true => can't be rebound in menu */
+static knum_t keyshift[K_LAST];      /* key to map if shift held in console */
+static int key_repeats[K_LAST];      /* if > 1, it is autorepeating */
+static qboolean keydown[K_LAST];
 
 typedef struct {
     const char *name;
     knum_t keynum;
 } keyname_t;
 
-keyname_t keynames[] = {
+static const keyname_t keynames[] = {
     {"TAB", K_TAB},
     {"ENTER", K_ENTER},
     {"ESCAPE", K_ESCAPE},
@@ -222,7 +216,7 @@ CheckForCommand(void)
 }
 
 
-void
+static void
 CompleteCommand(void)
 {
     const char *cmd, *completion;
@@ -354,7 +348,7 @@ Key_Console
 Interactive line editing and console scrollback
 ====================
 */
-void
+static void
 Key_Console(knum_t key)
 {
 #ifdef _WIN32
@@ -497,7 +491,7 @@ qboolean chat_team;
 char chat_buffer[MAXCMDLINE];
 int chat_bufferlen = 0;
 
-void
+static void
 Key_Message(knum_t key)
 {
     if (key == K_ENTER) {
@@ -550,18 +544,18 @@ the K_* names are matched up.
 ===================
 */
 static knum_t
-Key_StringToKeynum(const char *str)
+Key_StringToKeynum(const char *name)
 {
-    keyname_t *kn;
+    const keyname_t *keyname;
 
-    if (!str || !str[0])
-	return -1;
-    if (!str[1])
-	return str[0];
+    if (!name || !name[0])
+	return K_UNKNOWN;
+    if (!name[1])
+	return (unsigned char)name[0];
 
-    for (kn = keynames; kn->name; kn++) {
-	if (!strcasecmp(str, kn->name))
-	    return kn->keynum;
+    for (keyname = keynames; keyname->name; keyname++) {
+	if (!strcasecmp(name, keyname->name))
+	    return keyname->keynum;
     }
 
     return K_UNKNOWN;
@@ -579,7 +573,7 @@ FIXME: handle quote special (general escape sequence?)
 const char *
 Key_KeynumToString(knum_t keynum)
 {
-    keyname_t *kn;
+    const keyname_t *keyname;
     static char tinystr[2];
 
     if (keynum == K_UNKNOWN)
@@ -590,9 +584,9 @@ Key_KeynumToString(knum_t keynum)
 	return tinystr;
     }
 
-    for (kn = keynames; kn->name; kn++)
-	if (keynum == kn->keynum)
-	    return kn->name;
+    for (keyname = keynames; keyname->name; keyname++)
+	if (keynum == keyname->keynum)
+	    return keyname->name;
 
     return "<UNKNOWN KEYNUM>";
 }
@@ -649,7 +643,7 @@ Key_Unbind_f(void)
     Key_SetBinding(keynum, NULL);
 }
 
-void
+static void
 Key_Unbindall_f(void)
 {
     knum_t keynum;
@@ -665,10 +659,11 @@ Key_Unbindall_f(void)
 Key_Bind_f
 ===================
 */
-void
+static void
 Key_Bind_f(void)
 {
-    int i, argc, keynum, len;
+    int i, argc, len;
+    knum_t keynum;
     char cmd[1024];
 
     // FIXME - allow arguments bound with the commands?
@@ -679,7 +674,7 @@ Key_Bind_f(void)
     }
 
     keynum = Key_StringToKeynum(Cmd_Argv(1));
-    if (keynum == -1) {
+    if (keynum == K_UNKNOWN) {
 	Con_Printf("\"%s\" isn't a valid key\n", Cmd_Argv(1));
 	return;
     }
@@ -740,6 +735,7 @@ void
 Key_Init(void)
 {
     int i;
+    knum_t keynum;
 
     for (i = 0; i < 32; i++) {
 	key_lines[i][0] = ']';
@@ -750,8 +746,8 @@ Key_Init(void)
 //
 // init ascii characters in console mode
 //
-    for (i = 32; i < 128; i++)
-	consolekeys[i] = true;
+    for (keynum = K_SPACE; keynum <= K_DEL; keynum++)
+	consolekeys[keynum] = true;
     consolekeys[K_ENTER] = true;
     consolekeys[K_TAB] = true;
     consolekeys[K_LEFTARROW] = true;
@@ -768,10 +764,10 @@ Key_Init(void)
     consolekeys[K_MWHEELUP] = true;
     consolekeys[K_MWHEELDOWN] = true;
 
-    for (i = 0; i < K_LAST; i++)
-        keyshift[i] = i;
-    for (i = 'a'; i <= 'z'; i++)
-        keyshift[i] = i - 'a' + 'A';
+    for (keynum = K_UNKNOWN; keynum < K_LAST; keynum++)
+        keyshift[keynum] = keynum;
+    for (keynum = 'a'; keynum <= 'z'; keynum++)
+        keyshift[keynum] = keynum - 'a' + 'A';
 
     keyshift[K_BACKQUOTE] = K_ASCIITILDE;
     keyshift[K_1] = K_EXCLAIM;
@@ -796,8 +792,8 @@ Key_Init(void)
     keyshift[K_SLASH] = K_QUESTION;
 
     menubound[K_ESCAPE] = true;
-    for (i = K_F1; i <= K_F15; i++)
-	menubound[i] = true;
+    for (keynum = K_F1; keynum <= K_F15; keynum++)
+	menubound[keynum] = true;
 
 //
 // register our variables
@@ -823,7 +819,7 @@ Should NOT be called during an interrupt!
 void
 Key_Event(knum_t key, qboolean down)
 {
-    const char *kb;
+    const char *binding;
 
     keydown[key] = down;
 
@@ -887,13 +883,13 @@ Key_Event(knum_t key, qboolean down)
 // downs can be matched with ups
 //
     if (!down) {
-	kb = keybindings[key];
-	if (kb && kb[0] == '+')
-	    Cbuf_AddText("-%s %i\n", kb + 1, key);
+	binding = keybindings[key];
+	if (binding && binding[0] == '+')
+	    Cbuf_AddText("-%s %i\n", binding + 1, key);
 	if (keyshift[key] != key) {
-	    kb = keybindings[keyshift[key]];
-	    if (kb && kb[0] == '+')
-		Cbuf_AddText("-%s %i\n", kb + 1, key);
+	    binding = keybindings[keyshift[key]];
+	    if (binding && binding[0] == '+')
+		Cbuf_AddText("-%s %i\n", binding + 1, key);
 	}
 	return;
     }
@@ -918,13 +914,13 @@ Key_Event(knum_t key, qboolean down)
 #else
 	    && (cls.state == ca_active || !consolekeys[key]))) {
 #endif
-	kb = keybindings[key];
-	if (kb) {
-	    if (kb[0] == '+')
+	binding = keybindings[key];
+	if (binding) {
+	    if (binding[0] == '+')
 		/* button commands add keynum as a parm */
-		Cbuf_AddText("%s %i\n", kb, key);
+		Cbuf_AddText("%s %i\n", binding, key);
 	    else
-		Cbuf_AddText("%s\n", kb);
+		Cbuf_AddText("%s\n", binding);
 	}
 	return;
     }
@@ -960,11 +956,11 @@ Key_ClearStates
 void
 Key_ClearStates(void)
 {
-    int i;
+    knum_t keynum;
 
-    for (i = 0; i < 256; i++) {
-	keydown[i] = false;
-	key_repeats[i] = 0;
+    for (keynum = K_UNKNOWN; keynum < K_LAST; keynum++) {
+	keydown[keynum] = false;
+	key_repeats[keynum] = 0;
     }
 }
 
