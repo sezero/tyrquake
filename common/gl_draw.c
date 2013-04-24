@@ -672,7 +672,7 @@ Draw_Pic(int x, int y, const qpic_t *pic)
 {
     const glpic_t *glpic;
 
-    glpic = container_of(pic, glpic_t, pic);
+    glpic = const_container_of(pic, glpic_t, pic);
     Scrap_Flush(glpic->texnum);
 
     glColor4f(1, 1, 1, 1);
@@ -697,7 +697,7 @@ Draw_SubPic(int x, int y, const qpic_t *pic, int srcx, int srcy, int width,
     float newsl, newtl, newsh, newth;
     float oldglwidth, oldglheight;
 
-    glpic = container_of(pic, glpic_t, pic);
+    glpic = const_container_of(pic, glpic_t, pic);
     Scrap_Flush(glpic->texnum);
 
     oldglwidth = glpic->sh - glpic->sl;
@@ -800,7 +800,7 @@ Draw_ConsolePic(int lines, float offset, const qpic_t *pic, float alpha)
 {
     const glpic_t *glpic;
 
-    glpic = container_of(pic, glpic_t, pic);
+    glpic = const_container_of(pic, glpic_t, pic);
     Scrap_Flush(glpic->texnum);
 
     glDisable(GL_ALPHA_TEST);
@@ -874,7 +874,7 @@ refresh window.
 void
 Draw_TileClear(int x, int y, int w, int h)
 {
-    const glpic_t *glpic = container_of(draw_backtile, glpic_t, pic);
+    const glpic_t *glpic = const_container_of(draw_backtile, glpic_t, pic);
 
     glColor3f(1, 1, 1);
     GL_Bind(glpic->texnum);
