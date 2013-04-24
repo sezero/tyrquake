@@ -21,8 +21,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef KEYS_H
 #define KEYS_H
 
-#include <stdio.h>
-
 #include "qtypes.h"
 
 /*
@@ -276,7 +274,7 @@ extern keydest_t key_dest;
 extern const char *keybindings[K_LAST];
 extern int key_repeats[K_LAST];
 extern int key_count;		// incremented every key event
-extern int key_lastpress;
+extern knum_t key_lastpress;
 
 extern char chat_buffer[];
 extern int chat_bufferlen;
@@ -289,7 +287,7 @@ void Key_SetBinding(knum_t keynum, const char *binding);
 void Key_ClearStates(void);
 void Key_ClearTyping(void);
 
-const char *Key_KeynumToString(int keynum);
+const char *Key_KeynumToString(knum_t keynum);
 
 #define MAXCMDLINE 256
 extern char key_lines[32][MAXCMDLINE];

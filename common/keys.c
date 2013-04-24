@@ -45,7 +45,7 @@ key up events are sent even if in console mode
 
 char key_lines[32][MAXCMDLINE];
 int key_linepos;
-int key_lastpress;
+knum_t key_lastpress;
 
 static qboolean lshift_down = false;
 static qboolean rshift_down = false;
@@ -60,13 +60,13 @@ int key_count;			// incremented every key event
 const char *keybindings[K_LAST];
 qboolean consolekeys[K_LAST];	// if true, can't be rebound while in console
 qboolean menubound[K_LAST];	// if true, can't be rebound while in menu
-int keyshift[K_LAST];		// key to map to if shift held down in console
+knum_t keyshift[K_LAST];	// key to map to if shift held down in console
 int key_repeats[K_LAST];		// if > 1, it is autorepeating
 qboolean keydown[K_LAST];
 
 typedef struct {
     const char *name;
-    int keynum;
+    knum_t keynum;
 } keyname_t;
 
 keyname_t keynames[] = {
@@ -355,7 +355,7 @@ Interactive line editing and console scrollback
 ====================
 */
 void
-Key_Console(int key)
+Key_Console(knum_t key)
 {
 #ifdef _WIN32
     int i;
@@ -498,7 +498,7 @@ char chat_buffer[MAXCMDLINE];
 int chat_bufferlen = 0;
 
 void
-Key_Message(int key)
+Key_Message(knum_t key)
 {
     if (key == K_ENTER) {
 	if (chat_team)
@@ -549,7 +549,7 @@ the given string.  Single ascii characters return themselves, while
 the K_* names are matched up.
 ===================
 */
-static int
+static knum_t
 Key_StringToKeynum(const char *str)
 {
     keyname_t *kn;
@@ -563,7 +563,8 @@ Key_StringToKeynum(const char *str)
 	if (!strcasecmp(str, kn->name))
 	    return kn->keynum;
     }
-    return -1;
+
+    return K_UNKNOWN;
 }
 
 /*
@@ -576,12 +577,12 @@ FIXME: handle quote special (general escape sequence?)
 ===================
 */
 const char *
-Key_KeynumToString(int keynum)
+Key_KeynumToString(knum_t keynum)
 {
     keyname_t *kn;
     static char tinystr[2];
 
-    if (keynum == -1)
+    if (keynum == K_UNKNOWN)
 	return "<KEY NOT FOUND>";
     if (keynum > 32 && keynum < 127) {	// printable ascii
 	tinystr[0] = keynum;
@@ -607,7 +608,7 @@ Key_SetBinding(knum_t keynum, const char *binding)
 {
     char *newbinding;
 
-    if (keynum == -1)
+    if (keynum == K_UNKNOWN)
 	return;
 
     /* free old bindings */
@@ -629,33 +630,33 @@ Key_SetBinding(knum_t keynum, const char *binding)
 Key_Unbind_f
 ===================
 */
-void
+static void
 Key_Unbind_f(void)
 {
-    int b;
+    knum_t keynum;
 
     if (Cmd_Argc() != 2) {
 	Con_Printf("unbind <key> : remove commands from a key\n");
 	return;
     }
 
-    b = Key_StringToKeynum(Cmd_Argv(1));
-    if (b == -1) {
+    keynum = Key_StringToKeynum(Cmd_Argv(1));
+    if (keynum == K_UNKNOWN) {
 	Con_Printf("\"%s\" isn't a valid key\n", Cmd_Argv(1));
 	return;
     }
 
-    Key_SetBinding(b, NULL);
+    Key_SetBinding(keynum, NULL);
 }
 
 void
 Key_Unbindall_f(void)
 {
-    int i;
+    knum_t keynum;
 
-    for (i = 0; i < K_LAST; i++)
-	if (keybindings[i])
-	    Key_SetBinding(i, NULL);
+    for (keynum = K_UNKNOWN + 1; keynum < K_LAST; keynum++)
+	if (keybindings[keynum])
+	    Key_SetBinding(keynum, NULL);
 }
 
 

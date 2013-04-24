@@ -1181,18 +1181,18 @@ M_FindKeysForCommand(const char *const command, int *twokeys)
 static void
 M_UnbindCommand(const char *const command)
 {
-    int j;
-    int l;
-    const char *b;
+    int length;
+    knum_t keynum;
+    const char *binding;
 
-    l = strlen(command);
+    length = strlen(command);
 
-    for (j = 0; j < K_LAST; j++) {
-	b = keybindings[j];
-	if (!b)
+    for (keynum = K_UNKNOWN + 1; keynum < K_LAST; keynum++) {
+	binding = keybindings[keynum];
+	if (!binding)
 	    continue;
-	if (!strncmp(b, command, l))
-	    Key_SetBinding(j, NULL);
+	if (!strncmp(binding, command, length))
+	    Key_SetBinding(keynum, NULL);
     }
 }
 
