@@ -283,11 +283,23 @@ M_ToggleMenu_f(void)
 //=============================================================================
 /* MAIN MENU */
 
-static int m_main_cursor;
-
+typedef enum {
 #ifdef NQ_HACK
-#define MAIN_ITEMS 5
+    M_MAIN_CURSOR_SINGLEPLAYER,
+    M_MAIN_CURSOR_MULTIPLAYER,
+    M_MAIN_CURSOR_OPTIONS,
+    M_MAIN_CURSOR_HELP,
+    M_MAIN_CURSOR_QUIT,
+    M_MAIN_CURSOR_LINES,
 #endif
+#ifdef QW_HACK
+    M_MAIN_CURSOR_OPTIONS,
+    M_MAIN_CURSOR_QUIT,
+    M_MAIN_CURSOR_LINES,
+#endif
+} m_main_cursor_t;
+
+static m_main_cursor_t m_main_cursor;
 
 static void
 M_Menu_Main_f(void)
@@ -301,30 +313,27 @@ M_Menu_Main_f(void)
     m_entersound = true;
 }
 
-
 static void
 M_Main_Draw(void)
 {
-    int f;
-    const qpic_t *p;
-
-    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
-    p = Draw_CachePic("gfx/ttl_main.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-    M_DrawTransPic(72, 32, Draw_CachePic("gfx/mainmenu.lmp"));
-
 #ifdef NQ_HACK
-    f = (int)(host_time * 10) % 6;
-    M_DrawTransPic(54, 32 + m_main_cursor * 20,
-		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
+    static const int cursor_heights[] = { 32, 52, 72, 92, 112 };
 #endif
 #ifdef QW_HACK
-    f = (int)(realtime * 10) % 6;
-    M_DrawTransPic(54, 32 + 40 + m_main_cursor * 20,
-		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
+    static const int cursor_heights[] = { 72, 112 };
 #endif
-}
+    int flash;
+    const qpic_t *pic;
 
+    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+    pic = Draw_CachePic("gfx/ttl_main.lmp");
+    M_DrawPic((320 - pic->width) / 2, 4, pic);
+    M_DrawTransPic(72, 32, Draw_CachePic("gfx/mainmenu.lmp"));
+
+    flash = (int)(realtime * 10) % 6;
+    M_DrawTransPic(54, cursor_heights[m_main_cursor],
+		   Draw_CachePic(va("gfx/menudot%i.lmp", flash + 1)));
+}
 
 static void
 M_Main_Key(knum_t keynum)
@@ -346,64 +355,46 @@ M_Main_Key(knum_t keynum)
 #endif
 	break;
 
-#ifdef NQ_HACK
     case K_DOWNARROW:
 	S_LocalSound("misc/menu1.wav");
-	if (++m_main_cursor >= MAIN_ITEMS)
+	if (++m_main_cursor >= M_MAIN_CURSOR_LINES)
 	    m_main_cursor = 0;
 	break;
 
     case K_UPARROW:
 	S_LocalSound("misc/menu1.wav");
-	if (--m_main_cursor < 0)
-	    m_main_cursor = MAIN_ITEMS - 1;
+	if (m_main_cursor-- == 0)
+	    m_main_cursor = M_MAIN_CURSOR_LINES - 1;
 	break;
-#endif
-#ifdef QW_HACK
-    case K_DOWNARROW:
-    case K_UPARROW:
-	S_LocalSound("misc/menu1.wav");
-	m_main_cursor = m_main_cursor ? 0 : 2;
-	break;
-#endif
 
     case K_ENTER:
 	m_entersound = true;
 
-#ifdef NQ_HACK
 	switch (m_main_cursor) {
-	case 0:
+	case M_MAIN_CURSOR_OPTIONS:
+	    M_Menu_Options_f();
+	    break;
+
+	case M_MAIN_CURSOR_QUIT:
+	    M_Menu_Quit_f();
+	    break;
+
+#ifdef NQ_HACK
+	case M_MAIN_CURSOR_SINGLEPLAYER:
 	    M_Menu_SinglePlayer_f();
 	    break;
 
-	case 1:
+	case M_MAIN_CURSOR_MULTIPLAYER:
 	    M_Menu_MultiPlayer_f();
 	    break;
 
-	case 2:
-	    M_Menu_Options_f();
-	    break;
-
-	case 3:
+	case M_MAIN_CURSOR_HELP:
 	    M_Menu_Help_f();
 	    break;
-
-	case 4:
-	    M_Menu_Quit_f();
+#endif
+	default:
 	    break;
 	}
-#endif
-#ifdef QW_HACK
-	switch (m_main_cursor) {
-	case 0:
-	    M_Menu_Options_f();
-	    break;
-
-	case 2:
-	    M_Menu_Quit_f();
-	    break;
-	}
-#endif
 	break;
 
     default:
