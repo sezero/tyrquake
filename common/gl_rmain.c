@@ -425,7 +425,6 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
     aliashdr_t *aliashdr;
     const trivertx_t *vertbase, *verts1;
     const int *order;
-    float light;
     int count;
 
     lastposenum = entity->currentpose;
@@ -467,6 +466,7 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 		if (r_fullbright.value) {
 		    glColor3f(255.0f, 255.0f, 255.0f);
 		} else {
+		    float light;
 		    light = shadedots[lightvert->lightnormalindex] * shadelight;
 		    glColor3f(light, light, light);
 		}
@@ -476,7 +476,7 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 		glVertex3f(glvertex[0], glvertex[1], glvertex[2]);
 		verts0++;
 		verts1++;
-		light++;
+		lightvert++;
 	    }
 	    glEnd();
 	}
@@ -500,7 +500,7 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 	    order += 2;
 
 	    /* normals and vertexes come from the frame list */
-	    light = shadedots[verts1->lightnormalindex] * shadelight;
+	    float light = shadedots[verts1->lightnormalindex] * shadelight;
 	    glColor3f(light, light, light);
 	    glVertex3f(verts1->v[0], verts1->v[1], verts1->v[2]);
 	    verts1++;
