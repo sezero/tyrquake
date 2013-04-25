@@ -139,14 +139,6 @@ R_AddDynamicLights(msurface_t *surf, unsigned *blocklights)
 }
 
 /*
- * Iterate through each lightmap for a surface
- * msurface_t *s => the surface
- * int n         => lightmap number
- */
-#define for_each_surf_lightstyle(s, n) \
-	for ((n) = 0; (n) < MAXLIGHTMAPS && (s)->styles[n] != 255; (n)++)
-
-/*
 ===============
 R_BuildLightMap
 
@@ -184,7 +176,7 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
 
 // add all the lightmaps
     if (lightmap) {
-	for_each_surf_lightstyle(surf, map) {
+	foreach_surf_lightstyle(surf, map) {
 	    scale = d_lightstylevalue[surf->styles[map]];
 	    surf->cached_light[map] = scale;	// 8.8 fraction
 	    for (i = 0; i < size; i++)
@@ -554,7 +546,7 @@ R_UpdateLightmapBlockRect(msurface_t *fa)
 	return;
 
     /* Check if any of this surface's lightmaps changed */
-    for_each_surf_lightstyle(fa, map)
+    foreach_surf_lightstyle(fa, map)
 	if (d_lightstylevalue[fa->styles[map]] != fa->cached_light[map])
 	    goto dynamic;
 

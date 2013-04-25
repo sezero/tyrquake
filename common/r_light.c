@@ -144,18 +144,17 @@ vec3_t lightspot;
 static int
 RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 {
-    int r;
+    const mplane_t *plane;
     float front, back, frac;
-    int side;
-    mplane_t *plane;
     vec3_t mid;
-    msurface_t *surf;
-    int s, t, ds, dt;
+    int side;
+
+    const msurface_t *surf;
+    const mtexinfo_t *tex;
+    const byte *lightmap;
+    int maps, lightlevel;
     int i;
-    mtexinfo_t *tex;
-    byte *lightmap;
-    unsigned scale;
-    int maps;
+
 
     if (node->contents < 0)
 	return -1; /* didn't hit anything */
@@ -186,9 +185,9 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     mid[2] = start[2] + (end[2] - start[2]) * frac;
 
     /* go down front side */
-    r = RecursiveLightPoint(node->children[side], start, mid);
-    if (r >= 0)
-	return r; /* hit something */
+    lightlevel = RecursiveLightPoint(node->children[side], start, mid);
+    if (lightlevel >= 0)
+	return lightlevel; /* hit something */
 
     if ((back < 0) == side)
 	return -1; /* didn't hit anything */
@@ -200,20 +199,19 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     /* check for impact on this node */
     surf = cl.worldmodel->surfaces + node->firstsurface;
     for (i = 0; i < node->numsurfaces; i++, surf++) {
+	int s, t, ds, dt;
+
 	if (surf->flags & SURF_DRAWTILED)
-	    continue;		// no lightmaps
+	    continue; /* no lightmaps */
 
 	tex = surf->texinfo;
-
 	s = DotProduct(mid, tex->vecs[0]) + tex->vecs[0][3];
 	t = DotProduct(mid, tex->vecs[1]) + tex->vecs[1][3];
-
 	if (s < surf->texturemins[0] || t < surf->texturemins[1])
 	    continue;
 
 	ds = s - surf->texturemins[0];
 	dt = t - surf->texturemins[1];
-
 	if (ds > surf->extents[0] || dt > surf->extents[1])
 	    continue;
 
@@ -224,20 +222,16 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 	dt >>= 4;
 
 	/* FIXME: does this account properly for dynamic lights? e.g. rocket */
-	lightmap = surf->samples;
-	r = 0;
-	if (lightmap) {
-	    lightmap += dt * ((surf->extents[0] >> 4) + 1) + ds;
-	    for (maps = 0; maps < MAXLIGHTMAPS && surf->styles[maps] != 255;
-		 maps++) {
-		scale = d_lightstylevalue[surf->styles[maps]];
-		r += *lightmap * scale;
-		lightmap += ((surf->extents[0] >> 4) + 1) *
-		    ((surf->extents[1] >> 4) + 1);
-	    }
-	    r >>= 8;
+	lightlevel = 0;
+	lightmap = surf->samples + dt * ((surf->extents[0] >> 4) + 1) + ds;
+	foreach_surf_lightstyle(surf, maps) {
+	    const short *size = surf->extents;
+	    const int surfbytes = ((size[0] >> 4) + 1) * ((size[1] >> 4) + 1);
+
+	    lightlevel += *lightmap * d_lightstylevalue[surf->styles[maps]];
+	    lightmap += surfbytes;
 	}
-	return r;
+	return lightlevel >> 8;
     }
 
     /* FIXME - tail recursion => optimize */
@@ -254,7 +248,7 @@ int
 R_LightPoint(const vec3_t point)
 {
     vec3_t end;
-    int r;
+    int lightlevel;
 
     if (!cl.worldmodel->lightdata)
 	return 255;
@@ -263,17 +257,17 @@ R_LightPoint(const vec3_t point)
     end[1] = point[1];
     end[2] = point[2] - (8192 + 2); /* Max distance + error margin */
 
-    r = RecursiveLightPoint(cl.worldmodel->nodes, point, end);
+    lightlevel = RecursiveLightPoint(cl.worldmodel->nodes, point, end);
 
-    if (r == -1)
-	r = 0;
+    if (lightlevel == -1)
+	lightlevel = 0;
 
 #ifndef GLQUAKE
-    if (r < r_refdef.ambientlight)
-	r = r_refdef.ambientlight;
+    if (lightlevel < r_refdef.ambientlight)
+	lightlevel = r_refdef.ambientlight;
 #endif
 
-    return r;
+    return lightlevel;
 }
 
 #ifdef GLQUAKE
