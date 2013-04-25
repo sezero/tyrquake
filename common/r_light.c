@@ -141,72 +141,26 @@ R_PushDlights(void)
 vec3_t lightspot;
 #endif
 
+__attribute__((noinline))
 static int
-RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
+R_LightSurfPoint(const mnode_t *node, const vec3_t surfpoint)
 {
-    const mplane_t *plane;
-    float front, back, frac;
-    vec3_t mid;
-    int side;
-
     const msurface_t *surf;
-    const mtexinfo_t *tex;
-    const byte *lightmap;
-    int maps, lightlevel;
-    int i;
-
-
-    if (node->contents < 0)
-	return -1; /* didn't hit anything */
-
-    /* calculate mid point */
-    plane = node->plane;
-    switch (plane->type) {
-    case PLANE_X:
-    case PLANE_Y:
-    case PLANE_Z:
-	front = start[plane->type - PLANE_X] - plane->dist;
-	back = end[plane->type - PLANE_X] - plane->dist;
-	break;
-    default:
-	front = DotProduct(start, plane->normal) - plane->dist;
-	back = DotProduct(end, plane->normal) - plane->dist;
-	break;
-    }
-    side = front < 0;
-
-    /* FIXME - tail recursion => optimize */
-    if ((back < 0) == side)
-	return RecursiveLightPoint(node->children[side], start, end);
-
-    frac = front / (front - back);
-    mid[0] = start[0] + (end[0] - start[0]) * frac;
-    mid[1] = start[1] + (end[1] - start[1]) * frac;
-    mid[2] = start[2] + (end[2] - start[2]) * frac;
-
-    /* go down front side */
-    lightlevel = RecursiveLightPoint(node->children[side], start, mid);
-    if (lightlevel >= 0)
-	return lightlevel; /* hit something */
-
-    if ((back < 0) == side)
-	return -1; /* didn't hit anything */
-
-#ifdef GLQUAKE
-    VectorCopy(mid, lightspot);
-#endif
+    int i, maps;
 
     /* check for impact on this node */
     surf = cl.worldmodel->surfaces + node->firstsurface;
     for (i = 0; i < node->numsurfaces; i++, surf++) {
-	int s, t, ds, dt;
+	const mtexinfo_t *tex;
+	const byte *lightmap;
+	int s, t, ds, dt, lightlevel;
 
 	if (surf->flags & SURF_DRAWTILED)
 	    continue; /* no lightmaps */
 
 	tex = surf->texinfo;
-	s = DotProduct(mid, tex->vecs[0]) + tex->vecs[0][3];
-	t = DotProduct(mid, tex->vecs[1]) + tex->vecs[1][3];
+	s = DotProduct(surfpoint, tex->vecs[0]) + tex->vecs[0][3];
+	t = DotProduct(surfpoint, tex->vecs[1]) + tex->vecs[1][3];
 	if (s < surf->texturemins[0] || t < surf->texturemins[1])
 	    continue;
 
@@ -234,9 +188,64 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 	return lightlevel >> 8;
     }
 
+    return -1;
+}
+
+static int
+RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
+{
+    const mplane_t *plane;
+    float front, back, frac;
+    vec3_t surfpoint;
+    int side, lightlevel;
+
+    if (node->contents < 0)
+	return -1; /* didn't hit anything */
+
+    /* calculate surface intersection point */
+    plane = node->plane;
+    switch (plane->type) {
+    case PLANE_X:
+    case PLANE_Y:
+    case PLANE_Z:
+	front = start[plane->type - PLANE_X] - plane->dist;
+	back = end[plane->type - PLANE_X] - plane->dist;
+	break;
+    default:
+	front = DotProduct(start, plane->normal) - plane->dist;
+	back = DotProduct(end, plane->normal) - plane->dist;
+	break;
+    }
+    side = front < 0;
+
+    /* FIXME - tail recursion => optimize */
+    if ((back < 0) == side)
+	return RecursiveLightPoint(node->children[side], start, end);
+
+    frac = front / (front - back);
+    surfpoint[0] = start[0] + (end[0] - start[0]) * frac;
+    surfpoint[1] = start[1] + (end[1] - start[1]) * frac;
+    surfpoint[2] = start[2] + (end[2] - start[2]) * frac;
+
+    /* go down front side */
+    lightlevel = RecursiveLightPoint(node->children[side], start, surfpoint);
+    if (lightlevel >= 0)
+	return lightlevel; /* hit something */
+
+    if ((back < 0) == side)
+	return -1; /* didn't hit anything */
+
+#ifdef GLQUAKE
+    VectorCopy(surfpoint, lightspot);
+#endif
+
+    lightlevel = R_LightSurfPoint(node, surfpoint);
+    if (lightlevel >= 0)
+	return lightlevel;
+
     /* FIXME - tail recursion => optimize */
     /* go down back side */
-    return RecursiveLightPoint(node->children[!side], mid, end);
+    return RecursiveLightPoint(node->children[!side], surfpoint, end);
 }
 
 /*
