@@ -643,6 +643,7 @@ CL_OBJS := \
 	keys.o		\
 	menu.o		\
 	r_efrag.o	\
+	r_light.o	\
 	r_model.o	\
 	r_part.o	\
 	sbar.o		\
@@ -704,7 +705,6 @@ SW_OBJS := \
 	r_bsp.o		\
 	r_draw.o	\
 	r_edge.o	\
-	r_light.o	\
 	r_main.o	\
 	r_misc.o	\
 	r_sky.o		\
@@ -716,7 +716,6 @@ GL_OBJS := \
 	drawhulls.o	\
 	gl_draw.o	\
 	gl_mesh.o	\
-	gl_rlight.o	\
 	gl_rmain.o	\
 	gl_rmisc.o	\
 	gl_rsurf.o	\
