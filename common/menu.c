@@ -247,17 +247,6 @@ M_DrawTransPicTranslate(int x, int y, const qpic_t *pic)
 
 static int m_save_demonum;
 
-#ifdef NQ_HACK
-qboolean m_return_onerror;
-char m_return_reason[32];
-int m_return_state;
-
-#define StartingGame	(m_multiplayer_cursor == 1)
-#define JoiningGame	(m_multiplayer_cursor == 0)
-
-static void M_ConfigureNetSubsystem(void);
-#endif
-
 #ifdef QW_HACK
 enum {
     m_none, m_main, m_options, m_video, m_keys, m_quit
@@ -1518,6 +1507,8 @@ M_Save_Key(knum_t keynum)
 #define	MULTIPLAYER_ITEMS 3
 
 static int m_multiplayer_cursor;
+#define StartingGame (m_multiplayer_cursor == 1)
+#define JoiningGame  (m_multiplayer_cursor == 0)
 
 static void
 M_Menu_MultiPlayer_f(void)
@@ -1814,6 +1805,10 @@ M_Help_Key(knum_t keynum)
 //=============================================================================
 /* LAN CONFIG MENU */
 
+qboolean m_return_onerror;
+char m_return_reason[32];
+int m_return_state;
+
 static int lanConfig_cursor = -1;
 static int lanConfig_cursor_table[] = { 72, 92, 124 };
 
@@ -1822,6 +1817,14 @@ static int lanConfig_cursor_table[] = { 72, 92, 124 };
 static int lanConfig_port;
 static char lanConfig_portname[6];
 static char lanConfig_joinname[22];
+
+static void
+M_ConfigureNetSubsystem(void)
+{
+    /* enable/disable net systems to match desired config */
+    Cbuf_AddText("stopdemo\n");
+    net_hostport = lanConfig_port;
+}
 
 static void
 M_Menu_LanConfig_f(void)
@@ -2637,14 +2640,6 @@ M_ServerList_Key(knum_t keynum)
 	break;
     }
 
-}
-
-static void
-M_ConfigureNetSubsystem(void)
-{
-    /* enable/disable net systems to match desired config */
-    Cbuf_AddText("stopdemo\n");
-    net_hostport = lanConfig_port;
 }
 
 #endif /* NQ_HACK */
