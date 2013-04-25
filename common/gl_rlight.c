@@ -262,7 +262,6 @@ LIGHT SAMPLING
 =============================================================================
 */
 
-static mplane_t *lightplane;
 vec3_t lightspot;
 
 static int
@@ -317,7 +316,6 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 
 // check for impact on this node
     VectorCopy(mid, lightspot);
-    lightplane = plane;
 
     surf = cl.worldmodel->surfaces + node->firstsurface;
     for (i = 0; i < node->numsurfaces; i++, surf++) {
