@@ -22,91 +22,99 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cmd.h"
 #include "console.h"
 #include "draw.h"
-#include "host.h"
 #include "input.h"
 #include "keys.h"
 #include "menu.h"
-#include "net.h"
 #include "quakedef.h"
 #include "render.h"
 #include "screen.h"
-#include "server.h"
-#include "sound.h"
 #include "vid.h"
 #include "view.h"
+
+#ifdef NQ_HACK
+#include "host.h"
+#include "net.h"
+#include "server.h"
+#include "sound.h"
+#endif
+
+#ifdef QW_HACK
+#include "sys.h"
+#endif
 
 void (*vid_menudrawfn)(void);
 void (*vid_menukeyfn)(knum_t keynum);
 
-void M_Menu_Options_f(void);
-void M_Menu_Quit_f(void);
-
 static void M_Menu_Main_f(void);
-static void M_Menu_SinglePlayer_f(void);
-static void M_Menu_Load_f(void);
-static void M_Menu_Save_f(void);
-static void M_Menu_MultiPlayer_f(void);
-static void M_Menu_Setup_f(void);
-static void M_Menu_Keys_f(void);
-static void M_Menu_Video_f(void);
-static void M_Menu_Help_f(void);
-static void M_Menu_LanConfig_f(void);
-static void M_Menu_GameOptions_f(void);
-static void M_Menu_Search_f(void);
-static void M_Menu_ServerList_f(void);
-
 static void M_Main_Draw(void);
-static void M_SinglePlayer_Draw(void);
-static void M_Load_Draw(void);
-static void M_Save_Draw(void);
-static void M_MultiPlayer_Draw(void);
-static void M_Setup_Draw(void);
-static void M_Options_Draw(void);
-static void M_Keys_Draw(void);
-static void M_Video_Draw(void);
-static void M_Help_Draw(void);
-static void M_Quit_Draw(void);
-static void M_LanConfig_Draw(void);
-static void M_GameOptions_Draw(void);
-static void M_Search_Draw(void);
-static void M_ServerList_Draw(void);
-
 static void M_Main_Key(knum_t keynum);
-static void M_SinglePlayer_Key(knum_t keynum);
-static void M_Load_Key(knum_t keynum);
-static void M_Save_Key(knum_t keynum);
-static void M_MultiPlayer_Key(knum_t keynum);
-static void M_Setup_Key(knum_t keynum);
+
+void M_Menu_Options_f(void);
+static void M_Options_Draw(void);
 static void M_Options_Key(knum_t keynum);
+
+static void M_Menu_Keys_f(void);
+static void M_Keys_Draw(void);
 static void M_Keys_Key(knum_t keynum);
+
+static void M_Menu_Video_f(void);
+static void M_Video_Draw(void);
 static void M_Video_Key(knum_t keynum);
-static void M_Help_Key(knum_t keynum);
+
+void M_Menu_Quit_f(void);
+static void M_Quit_Draw(void);
 static void M_Quit_Key(knum_t keynum);
+
+#ifdef NQ_HACK
+static void M_Menu_SinglePlayer_f(void);
+static void M_SinglePlayer_Draw(void);
+static void M_SinglePlayer_Key(knum_t keynum);
+
+static void M_Menu_Setup_f(void);
+static void M_Setup_Draw(void);
+static void M_Setup_Key(knum_t keynum);
+
+static void M_Menu_Load_f(void);
+static void M_Load_Draw(void);
+static void M_Load_Key(knum_t keynum);
+
+static void M_Menu_Save_f(void);
+static void M_Save_Draw(void);
+static void M_Save_Key(knum_t keynum);
+
+static void M_Menu_MultiPlayer_f(void);
+static void M_MultiPlayer_Draw(void);
+static void M_MultiPlayer_Key(knum_t keynum);
+
+static void M_Menu_LanConfig_f(void);
+static void M_LanConfig_Draw(void);
 static void M_LanConfig_Key(knum_t keynum);
+
+static void M_Menu_GameOptions_f(void);
+static void M_GameOptions_Draw(void);
 static void M_GameOptions_Key(knum_t keynum);
+
+static void M_Menu_Search_f(void);
+static void M_Search_Draw(void);
 static void M_Search_Key(knum_t keynum);
+
+static void M_Menu_ServerList_f(void);
+static void M_ServerList_Draw(void);
 static void M_ServerList_Key(knum_t keynum);
 
+static void M_Menu_Help_f(void);
+static void M_Help_Draw(void);
+static void M_Help_Key(knum_t keynum);
+#endif /* NQ_HACK */
+
+/* play enter sound after drawing a frame, so caching won't disrupt */
+static qboolean m_entersound;
 static qboolean m_recursiveDraw;
-static qboolean m_entersound;	// play after drawing a frame, so caching
-				// won't disrupt the sound
 
-qboolean m_return_onerror;
-char m_return_reason[32];
-int m_return_state;
+/* --------------------------------------------------------------------------*/
+/* Support Routines                                                          */
+/* --------------------------------------------------------------------------*/
 
-#define StartingGame	(m_multiplayer_cursor == 1)
-#define JoiningGame	(m_multiplayer_cursor == 0)
-
-static void M_ConfigureNetSubsystem(void);
-
-/*
-================
-M_DrawCharacter
-
-Draws one solid graphics character
-================
-*/
 void
 M_DrawCharacter(int cx, int line, int num)
 {
@@ -144,43 +152,6 @@ M_DrawPic(int x, int y, const qpic_t *pic)
 {
     Draw_Pic(x + ((vid.width - 320) >> 1), y, pic);
 }
-
-static byte identityTable[256];
-static byte translationTable[256];
-
-static void
-M_BuildTranslationTable(int top, int bottom)
-{
-    int j;
-    byte *dest, *source;
-
-    for (j = 0; j < 256; j++)
-	identityTable[j] = j;
-    dest = translationTable;
-    source = identityTable;
-    memcpy(dest, source, 256);
-
-    if (top < 128)		// the artists made some backwards ranges.  sigh.
-	memcpy(dest + TOP_RANGE, source + top, 16);
-    else
-	for (j = 0; j < 16; j++)
-	    dest[TOP_RANGE + j] = source[top + 15 - j];
-
-    if (bottom < 128)
-	memcpy(dest + BOTTOM_RANGE, source + bottom, 16);
-    else
-	for (j = 0; j < 16; j++)
-	    dest[BOTTOM_RANGE + j] = source[bottom + 15 - j];
-}
-
-
-static void
-M_DrawTransPicTranslate(int x, int y, const qpic_t *pic)
-{
-    Draw_TransPicTranslate(x + ((vid.width - 320) >> 1), y, pic,
-			   translationTable);
-}
-
 
 void
 M_DrawTextBox(int x, int y, int width, int lines)
@@ -234,9 +205,64 @@ M_DrawTextBox(int x, int y, int width, int lines)
     M_DrawTransPic(cx, cy + 8, p);
 }
 
-//=============================================================================
+#ifdef NQ_HACK
+static byte identityTable[256];
+static byte translationTable[256];
+
+static void
+M_BuildTranslationTable(int top, int bottom)
+{
+    int j;
+    byte *dest, *source;
+
+    for (j = 0; j < 256; j++)
+	identityTable[j] = j;
+    dest = translationTable;
+    source = identityTable;
+    memcpy(dest, source, 256);
+
+    /* the artists made some backwards ranges */
+    if (top < 128)
+	memcpy(dest + TOP_RANGE, source + top, 16);
+    else
+	for (j = 0; j < 16; j++)
+	    dest[TOP_RANGE + j] = source[top + 15 - j];
+
+    if (bottom < 128)
+	memcpy(dest + BOTTOM_RANGE, source + bottom, 16);
+    else
+	for (j = 0; j < 16; j++)
+	    dest[BOTTOM_RANGE + j] = source[bottom + 15 - j];
+}
+
+static void
+M_DrawTransPicTranslate(int x, int y, const qpic_t *pic)
+{
+    Draw_TransPicTranslate(x + ((vid.width - 320) >> 1), y, pic,
+			   translationTable);
+}
+#endif /* NQ_HACK */
+
+/* --------------------------------------------------------------------------*/
 
 static int m_save_demonum;
+
+#ifdef NQ_HACK
+qboolean m_return_onerror;
+char m_return_reason[32];
+int m_return_state;
+
+#define StartingGame	(m_multiplayer_cursor == 1)
+#define JoiningGame	(m_multiplayer_cursor == 0)
+
+static void M_ConfigureNetSubsystem(void);
+#endif
+
+#ifdef QW_HACK
+enum {
+    m_none, m_main, m_options, m_video, m_keys, m_quit
+} m_state;
+#endif
 
 /*
 ================
@@ -270,7 +296,9 @@ M_ToggleMenu_f(void)
 
 static int m_main_cursor;
 
+#ifdef NQ_HACK
 #define MAIN_ITEMS 5
+#endif
 
 static void
 M_Menu_Main_f(void)
@@ -296,10 +324,16 @@ M_Main_Draw(void)
     M_DrawPic((320 - p->width) / 2, 4, p);
     M_DrawTransPic(72, 32, Draw_CachePic("gfx/mainmenu.lmp"));
 
+#ifdef NQ_HACK
     f = (int)(host_time * 10) % 6;
-
     M_DrawTransPic(54, 32 + m_main_cursor * 20,
 		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
+#endif
+#ifdef QW_HACK
+    f = (int)(realtime * 10) % 6;
+    M_DrawTransPic(54, 32 + 40 + m_main_cursor * 20,
+		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
+#endif
 }
 
 
@@ -311,11 +345,19 @@ M_Main_Key(knum_t keynum)
 	key_dest = key_game;
 	m_state = m_none;
 	cls.demonum = m_save_demonum;
+#ifdef NQ_HACK
 	if (cls.demonum != -1 && !cls.demoplayback
 	    && cls.state <= ca_connected)
 	    CL_NextDemo();
+#endif
+#ifdef QW_HACK
+	if (cls.demonum != -1 && !cls.demoplayback
+	    && cls.state == ca_disconnected)
+	    CL_NextDemo();
+#endif
 	break;
 
+#ifdef NQ_HACK
     case K_DOWNARROW:
 	S_LocalSound("misc/menu1.wav");
 	if (++m_main_cursor >= MAIN_ITEMS)
@@ -327,10 +369,19 @@ M_Main_Key(knum_t keynum)
 	if (--m_main_cursor < 0)
 	    m_main_cursor = MAIN_ITEMS - 1;
 	break;
+#endif
+#ifdef QW_HACK
+    case K_DOWNARROW:
+    case K_UPARROW:
+	S_LocalSound("misc/menu1.wav");
+	m_main_cursor = m_main_cursor ? 0 : 2;
+	break;
+#endif
 
     case K_ENTER:
 	m_entersound = true;
 
+#ifdef NQ_HACK
 	switch (m_main_cursor) {
 	case 0:
 	    M_Menu_SinglePlayer_f();
@@ -352,533 +403,35 @@ M_Main_Key(knum_t keynum)
 	    M_Menu_Quit_f();
 	    break;
 	}
-
-    default:
-	break;
-    }
-}
-
-//=============================================================================
-/* SINGLE PLAYER MENU */
-
-int m_singleplayer_cursor;
-
-#define	SINGLEPLAYER_ITEMS	3
-
-
-static void
-M_Menu_SinglePlayer_f(void)
-{
-    key_dest = key_menu;
-    m_state = m_singleplayer;
-    m_entersound = true;
-}
-
-
-static void
-M_SinglePlayer_Draw(void)
-{
-    int f;
-    const qpic_t *p;
-
-    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
-    p = Draw_CachePic("gfx/ttl_sgl.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-    M_DrawTransPic(72, 32, Draw_CachePic("gfx/sp_menu.lmp"));
-
-    f = (int)(host_time * 10) % 6;
-
-    M_DrawTransPic(54, 32 + m_singleplayer_cursor * 20,
-		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
-}
-
-
-static void
-M_SinglePlayer_Key(knum_t keynum)
-{
-    switch (keynum) {
-    case K_ESCAPE:
-	M_Menu_Main_f();
-	break;
-
-    case K_DOWNARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (++m_singleplayer_cursor >= SINGLEPLAYER_ITEMS)
-	    m_singleplayer_cursor = 0;
-	break;
-
-    case K_UPARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (--m_singleplayer_cursor < 0)
-	    m_singleplayer_cursor = SINGLEPLAYER_ITEMS - 1;
-	break;
-
-    case K_ENTER:
-	m_entersound = true;
-
-	switch (m_singleplayer_cursor) {
+#endif
+#ifdef QW_HACK
+	switch (m_main_cursor) {
 	case 0:
-	    if (sv.active)
-		if (!SCR_ModalMessage("Are you sure you want to\n"
-				      "start a new game?\n"))
-		    break;
-	    key_dest = key_game;
-	    if (sv.active)
-		Cbuf_AddText("disconnect\n");
-	    Cbuf_AddText("maxplayers 1\n");
-	    Cbuf_AddText("map start\n");
-	    break;
-
-	case 1:
-	    M_Menu_Load_f();
+	    M_Menu_Options_f();
 	    break;
 
 	case 2:
-	    M_Menu_Save_f();
+	    M_Menu_Quit_f();
 	    break;
 	}
-
-    default:
-	break;
-    }
-}
-
-//=============================================================================
-/* LOAD/SAVE MENU */
-
-#define	MAX_SAVEGAMES 12
-
-static char m_filenames[MAX_SAVEGAMES][SAVEGAME_COMMENT_LENGTH + 1];
-static int loadable[MAX_SAVEGAMES];
-static int load_cursor;		// 0 < load_cursor < MAX_SAVEGAMES
-
-static void
-M_ScanSaves(void)
-{
-    int i, j;
-    char name[MAX_OSPATH];
-    FILE *f;
-    int version;
-
-    for (i = 0; i < MAX_SAVEGAMES; i++) {
-	snprintf(m_filenames[i], sizeof(m_filenames[i]), "--- UNUSED SLOT ---");
-	loadable[i] = false;
-	snprintf(name, sizeof(name), "%s/s%i.sav", com_gamedir, i);
-	f = fopen(name, "r");
-	if (!f)
-	    continue;
-
-	fscanf(f, "%i\n", &version);
-	fscanf(f, "%79s\n", name);
-	snprintf(m_filenames[i], sizeof(m_filenames[i]), "%s", name);
-
-	// change _ back to space
-	for (j = 0; j < SAVEGAME_COMMENT_LENGTH; j++)
-	    if (m_filenames[i][j] == '_')
-		m_filenames[i][j] = ' ';
-	loadable[i] = true;
-	fclose(f);
-    }
-}
-
-static void
-M_Menu_Load_f(void)
-{
-    m_entersound = true;
-    m_state = m_load;
-    key_dest = key_menu;
-    M_ScanSaves();
-}
-
-
-static void
-M_Menu_Save_f(void)
-{
-    if (!sv.active)
-	return;
-    if (cl.intermission)
-	return;
-    if (svs.maxclients != 1)
-	return;
-    m_entersound = true;
-    m_state = m_save;
-    key_dest = key_menu;
-    M_ScanSaves();
-}
-
-
-static void
-M_Load_Draw(void)
-{
-    int i;
-    const qpic_t *p;
-
-    p = Draw_CachePic("gfx/p_load.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-
-    for (i = 0; i < MAX_SAVEGAMES; i++)
-	M_Print(16, 32 + 8 * i, m_filenames[i]);
-
-// line cursor
-    M_DrawCharacter(8, 32 + load_cursor * 8, 12 + ((int)(realtime * 4) & 1));
-}
-
-
-static void
-M_Save_Draw(void)
-{
-    int i;
-    const qpic_t *p;
-
-    p = Draw_CachePic("gfx/p_save.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-
-    for (i = 0; i < MAX_SAVEGAMES; i++)
-	M_Print(16, 32 + 8 * i, m_filenames[i]);
-
-// line cursor
-    M_DrawCharacter(8, 32 + load_cursor * 8, 12 + ((int)(realtime * 4) & 1));
-}
-
-
-static void
-M_Load_Key(knum_t keynum)
-{
-    switch (keynum) {
-    case K_ESCAPE:
-	M_Menu_SinglePlayer_f();
-	break;
-
-    case K_ENTER:
-	S_LocalSound("misc/menu2.wav");
-	if (!loadable[load_cursor])
-	    return;
-	m_state = m_none;
-	key_dest = key_game;
-
-	// Host_Loadgame_f can't bring up the loading plaque because too much
-	// stack space has been used, so do it now
-	SCR_BeginLoadingPlaque();
-
-	// issue the load command
-	Cbuf_AddText("load s%i\n", load_cursor);
-	return;
-
-    case K_UPARROW:
-    case K_LEFTARROW:
-	S_LocalSound("misc/menu1.wav");
-	load_cursor--;
-	if (load_cursor < 0)
-	    load_cursor = MAX_SAVEGAMES - 1;
-	break;
-
-    case K_DOWNARROW:
-    case K_RIGHTARROW:
-	S_LocalSound("misc/menu1.wav");
-	load_cursor++;
-	if (load_cursor >= MAX_SAVEGAMES)
-	    load_cursor = 0;
+#endif
 	break;
 
     default:
 	break;
     }
-}
-
-
-static void
-M_Save_Key(knum_t keynum)
-{
-    switch (keynum) {
-    case K_ESCAPE:
-	M_Menu_SinglePlayer_f();
-	break;
-
-    case K_ENTER:
-	m_state = m_none;
-	key_dest = key_game;
-	Cbuf_AddText("save s%i\n", load_cursor);
-	return;
-
-    case K_UPARROW:
-    case K_LEFTARROW:
-	S_LocalSound("misc/menu1.wav");
-	load_cursor--;
-	if (load_cursor < 0)
-	    load_cursor = MAX_SAVEGAMES - 1;
-	break;
-
-    case K_DOWNARROW:
-    case K_RIGHTARROW:
-	S_LocalSound("misc/menu1.wav");
-	load_cursor++;
-	if (load_cursor >= MAX_SAVEGAMES)
-	    load_cursor = 0;
-	break;
-
-    default:
-	break;
-    }
-}
-
-//=============================================================================
-/* MULTIPLAYER MENU */
-
-#define	MULTIPLAYER_ITEMS 3
-
-static int m_multiplayer_cursor;
-
-static void
-M_Menu_MultiPlayer_f(void)
-{
-    key_dest = key_menu;
-    m_state = m_multiplayer;
-    m_entersound = true;
-}
-
-
-static void
-M_MultiPlayer_Draw(void)
-{
-    int f;
-    const qpic_t *p;
-
-    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
-    p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-    M_DrawTransPic(72, 32, Draw_CachePic("gfx/mp_menu.lmp"));
-
-    f = (int)(host_time * 10) % 6;
-
-    M_DrawTransPic(54, 32 + m_multiplayer_cursor * 20,
-		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
-
-    if (tcpipAvailable)
-	return;
-    M_PrintWhite((320 / 2) - ((27 * 8) / 2), 148,
-		 "No Communications Available");
-}
-
-
-static void
-M_MultiPlayer_Key(knum_t keynum)
-{
-    switch (keynum) {
-    case K_ESCAPE:
-	M_Menu_Main_f();
-	break;
-
-    case K_DOWNARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (++m_multiplayer_cursor >= MULTIPLAYER_ITEMS)
-	    m_multiplayer_cursor = 0;
-	break;
-
-    case K_UPARROW:
-	S_LocalSound("misc/menu1.wav");
-	if (--m_multiplayer_cursor < 0)
-	    m_multiplayer_cursor = MULTIPLAYER_ITEMS - 1;
-	break;
-
-    case K_ENTER:
-	m_entersound = true;
-	switch (m_multiplayer_cursor) {
-	case 0:
-	    if (tcpipAvailable)
-		M_Menu_LanConfig_f();
-	    break;
-
-	case 1:
-	    if (tcpipAvailable)
-		M_Menu_LanConfig_f();
-	    break;
-
-	case 2:
-	    M_Menu_Setup_f();
-	    break;
-	}
-    default:
-	break;
-    }
-}
-
-//=============================================================================
-/* SETUP MENU */
-
-static int setup_cursor = 4;
-static int setup_cursor_table[] = { 40, 56, 80, 104, 140 };
-
-static char setup_hostname[16];
-static char setup_myname[16];
-static int setup_oldtop;
-static int setup_oldbottom;
-static int setup_top;
-static int setup_bottom;
-
-#define	NUM_SETUP_CMDS	5
-
-static void
-M_Menu_Setup_f(void)
-{
-    key_dest = key_menu;
-    m_state = m_setup;
-    m_entersound = true;
-    strcpy(setup_myname, cl_name.string);
-    strcpy(setup_hostname, hostname.string);
-    setup_top = setup_oldtop = ((int)cl_color.value) >> 4;
-    setup_bottom = setup_oldbottom = ((int)cl_color.value) & 15;
-}
-
-
-static void
-M_Setup_Draw(void)
-{
-    const qpic_t *p;
-
-    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
-    p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
-
-    M_Print(64, 40, "Hostname");
-    M_DrawTextBox(160, 32, 16, 1);
-    M_Print(168, 40, setup_hostname);
-
-    M_Print(64, 56, "Your name");
-    M_DrawTextBox(160, 48, 16, 1);
-    M_Print(168, 56, setup_myname);
-
-    M_Print(64, 80, "Shirt color");
-    M_Print(64, 104, "Pants color");
-
-    M_DrawTextBox(64, 140 - 8, 14, 1);
-    M_Print(72, 140, "Accept Changes");
-
-    p = Draw_CachePic("gfx/bigbox.lmp");
-    M_DrawTransPic(160, 64, p);
-    p = Draw_CachePic("gfx/menuplyr.lmp");
-    M_BuildTranslationTable(setup_top * 16, setup_bottom * 16);
-    M_DrawTransPicTranslate(172, 72, p);
-
-    M_DrawCharacter(56, setup_cursor_table[setup_cursor],
-		    12 + ((int)(realtime * 4) & 1));
-
-    if (setup_cursor == 0)
-	M_DrawCharacter(168 + 8 * strlen(setup_hostname),
-			setup_cursor_table[setup_cursor],
-			10 + ((int)(realtime * 4) & 1));
-
-    if (setup_cursor == 1)
-	M_DrawCharacter(168 + 8 * strlen(setup_myname),
-			setup_cursor_table[setup_cursor],
-			10 + ((int)(realtime * 4) & 1));
-}
-
-
-static void
-M_Setup_Key(knum_t keynum)
-{
-    switch (keynum) {
-    case K_ESCAPE:
-	M_Menu_MultiPlayer_f();
-	break;
-
-    case K_UPARROW:
-	S_LocalSound("misc/menu1.wav");
-	setup_cursor--;
-	if (setup_cursor < 0)
-	    setup_cursor = NUM_SETUP_CMDS - 1;
-	break;
-
-    case K_DOWNARROW:
-	S_LocalSound("misc/menu1.wav");
-	setup_cursor++;
-	if (setup_cursor >= NUM_SETUP_CMDS)
-	    setup_cursor = 0;
-	break;
-
-    case K_LEFTARROW:
-	if (setup_cursor < 2)
-	    return;
-	S_LocalSound("misc/menu3.wav");
-	if (setup_cursor == 2)
-	    setup_top = setup_top - 1;
-	if (setup_cursor == 3)
-	    setup_bottom = setup_bottom - 1;
-	break;
-    case K_RIGHTARROW:
-	if (setup_cursor < 2)
-	    return;
-      forward:
-	S_LocalSound("misc/menu3.wav");
-	if (setup_cursor == 2)
-	    setup_top = setup_top + 1;
-	if (setup_cursor == 3)
-	    setup_bottom = setup_bottom + 1;
-	break;
-
-    case K_ENTER:
-	if (setup_cursor == 0 || setup_cursor == 1)
-	    return;
-
-	if (setup_cursor == 2 || setup_cursor == 3)
-	    goto forward;
-
-	// setup_cursor == 4 (OK)
-	if (strcmp(cl_name.string, setup_myname) != 0)
-	    Cbuf_AddText("name \"%s\"\n", setup_myname);
-	if (strcmp(hostname.string, setup_hostname) != 0)
-	    Cvar_Set("hostname", setup_hostname);
-	if (setup_top != setup_oldtop || setup_bottom != setup_oldbottom)
-	    Cbuf_AddText("color %i %i\n", setup_top, setup_bottom);
-	m_entersound = true;
-	M_Menu_MultiPlayer_f();
-	break;
-
-    case K_BACKSPACE:
-	if (setup_cursor == 0) {
-	    if (strlen(setup_hostname))
-		setup_hostname[strlen(setup_hostname) - 1] = 0;
-	}
-
-	if (setup_cursor == 1) {
-	    if (strlen(setup_myname))
-		setup_myname[strlen(setup_myname) - 1] = 0;
-	}
-	break;
-
-    default:
-	if (keynum < K_SPACE || keynum > K_DEL)
-	    break;
-	if (setup_cursor == 0) {
-	    int length = strlen(setup_hostname);
-	    if (length < 15) {
-		setup_hostname[length + 1] = 0;
-		setup_hostname[length] = keynum;
-	    }
-	}
-	if (setup_cursor == 1) {
-	    int length = strlen(setup_myname);
-	    if (length < 15) {
-		setup_myname[length + 1] = 0;
-		setup_myname[length] = keynum;
-	    }
-	}
-    }
-
-    if (setup_top > 13)
-	setup_top = 0;
-    if (setup_top < 0)
-	setup_top = 13;
-    if (setup_bottom > 13)
-	setup_bottom = 0;
-    if (setup_bottom < 0)
-	setup_bottom = 13;
 }
 
 //=============================================================================
 /* OPTIONS MENU */
 
+#ifdef NQ_HACK
 #define	OPTIONS_ITEMS	14
+#endif
+#ifdef QW_HACK
+#define	OPTIONS_ITEMS	16
+#endif
+
 #define	SLIDER_RANGE	10
 
 static int options_cursor;
@@ -890,8 +443,10 @@ M_Menu_Options_f(void)
     m_state = m_options;
     m_entersound = true;
 
+#ifdef NQ_HACK
     if ((options_cursor == 13) && VID_IsFullScreen())
 	options_cursor = 0;
+#endif
 }
 
 
@@ -968,12 +523,25 @@ M_AdjustSliders(int dir)
 	Cvar_SetValue("lookstrafe", !lookstrafe.value);
 	break;
 
+#ifdef QW_HACK
+    case 12:
+	Cvar_SetValue("cl_sbar", !cl_sbar.value);
+	break;
+
+    case 13:
+	Cvar_SetValue("cl_hudswap", !cl_hudswap.value);
+#endif
+
+#ifdef NQ_HACK
     case 13:			// _windowed_mouse
+#endif
+#ifdef QW_HACK
+    case 15:			// _windowed_mouse
+#endif
 	Cvar_SetValue("_windowed_mouse", !_windowed_mouse.value);
 	break;
     }
 }
-
 
 static void
 M_DrawSlider(int x, int y, float range)
@@ -1043,6 +611,7 @@ M_Options_Draw(void)
     M_Print(16, 120, "            Lookstrafe");
     M_DrawCheckbox(220, 120, lookstrafe.value);
 
+#ifdef NQ_HACK
     if (vid_menudrawfn)
 	M_Print(16, 128, "         Video Options");
 
@@ -1050,6 +619,22 @@ M_Options_Draw(void)
 	M_Print(16, 136, "             Use Mouse");
 	M_DrawCheckbox(220, 136, _windowed_mouse.value);
     }
+#endif
+#ifdef QW_HACK
+    M_Print(16, 128, "    Use old status bar");
+    M_DrawCheckbox(220, 128, cl_sbar.value);
+
+    M_Print(16, 136, "      HUD on left side");
+    M_DrawCheckbox(220, 136, cl_hudswap.value);
+
+    if (vid_menudrawfn)
+	M_Print(16, 144, "         Video Options");
+
+    if (!VID_IsFullScreen()) {
+	M_Print(16, 152, "             Use Mouse");
+	M_DrawCheckbox(220, 152, _windowed_mouse.value);
+    }
+#endif
 
 // cursor
     M_DrawCharacter(200, 32 + options_cursor * 8,
@@ -1078,7 +663,12 @@ M_Options_Key(knum_t keynum)
 	case 2:
 	    Cbuf_AddText("exec default.cfg\n");
 	    break;
+#ifdef NQ_HACK
 	case 12:
+#endif
+#ifdef QW_HACK
+	case 14:
+#endif
 	    M_Menu_Video_f();
 	    break;
 	default:
@@ -1097,8 +687,7 @@ M_Options_Key(knum_t keynum)
     case K_DOWNARROW:
 	S_LocalSound("misc/menu1.wav");
 	options_cursor++;
-	if (options_cursor >= OPTIONS_ITEMS)
-	    options_cursor = 0;
+	options_cursor %= OPTIONS_ITEMS;
 	break;
 
     case K_LEFTARROW:
@@ -1113,6 +702,7 @@ M_Options_Key(knum_t keynum)
 	break;
     }
 
+#ifdef NQ_HACK
     if (options_cursor == 12 && !vid_menudrawfn) {
 	if (keynum == K_UPARROW)
 	    options_cursor = 11;
@@ -1128,6 +718,27 @@ M_Options_Key(knum_t keynum)
 	} else
 	    options_cursor = 0;
     }
+#endif
+#ifdef QW_HACK
+    if (options_cursor == 14 && !vid_menudrawfn) {
+	if (keynum == K_UPARROW)
+	    options_cursor--;
+	else {
+	    options_cursor++;
+	    options_cursor %= OPTIONS_ITEMS;
+	}
+    }
+    if (options_cursor == 15 && VID_IsFullScreen()) {
+	if (keynum == K_UPARROW) {
+	    options_cursor--;
+	    if (!vid_menudrawfn)
+		options_cursor--;
+	} else {
+	    options_cursor++;
+	    options_cursor %= OPTIONS_ITEMS;
+	}
+    }
+#endif
 }
 
 //=============================================================================
@@ -1328,69 +939,16 @@ M_Menu_Video_f(void)
     VID_MenuInitState(&modelist[vid_modenum]);
 }
 
-
 static void
 M_Video_Draw(void)
 {
-    (*vid_menudrawfn) ();
+    (*vid_menudrawfn)();
 }
-
 
 static void
 M_Video_Key(knum_t keynum)
 {
     (*vid_menukeyfn)(keynum);
-}
-
-//=============================================================================
-/* HELP MENU */
-
-#define NUM_HELP_PAGES 6
-
-static int help_page;
-
-static void
-M_Menu_Help_f(void)
-{
-    key_dest = key_menu;
-    m_state = m_help;
-    m_entersound = true;
-    help_page = 0;
-}
-
-
-static void
-M_Help_Draw(void)
-{
-    M_DrawPic(0, 0, Draw_CachePic(va("gfx/help%i.lmp", help_page)));
-}
-
-
-static void
-M_Help_Key(knum_t keynum)
-{
-    switch (keynum) {
-    case K_ESCAPE:
-	M_Menu_Main_f();
-	break;
-
-    case K_UPARROW:
-    case K_RIGHTARROW:
-	m_entersound = true;
-	if (++help_page >= NUM_HELP_PAGES)
-	    help_page = 0;
-	break;
-
-    case K_DOWNARROW:
-    case K_LEFTARROW:
-	m_entersound = true;
-	if (--help_page < 0)
-	    help_page = NUM_HELP_PAGES - 1;
-	break;
-
-    default:
-	break;
-    }
 }
 
 //=============================================================================
@@ -1442,7 +1000,6 @@ static const char *const quitMessage[] = {
     "                        "
 };
 
-
 void
 M_Menu_Quit_f(void)
 {
@@ -1455,7 +1012,6 @@ M_Menu_Quit_f(void)
     m_entersound = true;
     msgNumber = rand() & 7;
 }
-
 
 static void
 M_Quit_Key(knum_t keynum)
@@ -1474,15 +1030,19 @@ M_Quit_Key(knum_t keynum)
 
     case K_y:
 	key_dest = key_console;
+#ifdef NQ_HACK
 	Host_Quit_f();
+#endif
+#ifdef QW_HACK
+	CL_Disconnect();
+	Sys_Quit();
+#endif
 	break;
 
     default:
 	break;
     }
-
 }
-
 
 static void
 M_Quit_Draw(void)
@@ -1499,6 +1059,756 @@ M_Quit_Draw(void)
     M_Print(64, 92, quitMessage[msgNumber * 4 + 1]);
     M_Print(64, 100, quitMessage[msgNumber * 4 + 2]);
     M_Print(64, 108, quitMessage[msgNumber * 4 + 3]);
+}
+
+//=============================================================================
+/* Menu Subsystem */
+
+void
+M_Init(void)
+{
+    Cmd_AddCommand("togglemenu", M_ToggleMenu_f);
+    Cmd_AddCommand("menu_main", M_Menu_Main_f);
+    Cmd_AddCommand("menu_options", M_Menu_Options_f);
+    Cmd_AddCommand("menu_keys", M_Menu_Keys_f);
+    Cmd_AddCommand("menu_video", M_Menu_Video_f);
+    Cmd_AddCommand("menu_quit", M_Menu_Quit_f);
+#ifdef NQ_HACK
+    Cmd_AddCommand("menu_singleplayer", M_Menu_SinglePlayer_f);
+    Cmd_AddCommand("menu_load", M_Menu_Load_f);
+    Cmd_AddCommand("menu_save", M_Menu_Save_f);
+    Cmd_AddCommand("menu_multiplayer", M_Menu_MultiPlayer_f);
+    Cmd_AddCommand("menu_setup", M_Menu_Setup_f);
+    Cmd_AddCommand("help", M_Menu_Help_f);
+#endif
+}
+
+void
+M_Draw(void)
+{
+    if (m_state == m_none || key_dest != key_menu)
+	return;
+
+    if (!m_recursiveDraw) {
+	scr_copyeverything = 1;
+
+	if (scr_con_current) {
+	    Draw_ConsoleBackground(vid.height);
+	    VID_UnlockBuffer();
+	    S_ExtraUpdate();
+	    VID_LockBuffer();
+	} else
+	    Draw_FadeScreen();
+
+	scr_fullupdate = 0;
+    } else {
+	m_recursiveDraw = false;
+    }
+
+    switch (m_state) {
+    case m_main:
+	M_Main_Draw();
+	break;
+
+    case m_options:
+	M_Options_Draw();
+	break;
+
+    case m_keys:
+	M_Keys_Draw();
+	break;
+
+    case m_video:
+	M_Video_Draw();
+	break;
+
+    case m_quit:
+	M_Quit_Draw();
+	break;
+
+#ifdef NQ_HACK
+    case m_singleplayer:
+	M_SinglePlayer_Draw();
+	break;
+
+    case m_load:
+	M_Load_Draw();
+	break;
+
+    case m_save:
+	M_Save_Draw();
+	break;
+
+    case m_multiplayer:
+	M_MultiPlayer_Draw();
+	break;
+
+    case m_setup:
+	M_Setup_Draw();
+	break;
+
+    case m_lanconfig:
+	M_LanConfig_Draw();
+	break;
+
+    case m_gameoptions:
+	M_GameOptions_Draw();
+	break;
+
+    case m_search:
+	M_Search_Draw();
+	break;
+
+    case m_slist:
+	M_ServerList_Draw();
+	break;
+
+    case m_help:
+	M_Help_Draw();
+	break;
+#endif
+
+    case m_none:
+	break;
+    }
+
+    if (m_entersound) {
+	S_LocalSound("misc/menu2.wav");
+	m_entersound = false;
+    }
+
+    VID_UnlockBuffer();
+    S_ExtraUpdate();
+    VID_LockBuffer();
+}
+
+void
+M_Keydown(knum_t keynum)
+{
+    switch (m_state) {
+    case m_none:
+	return;
+
+    case m_main:
+	M_Main_Key(keynum);
+	return;
+
+    case m_options:
+	M_Options_Key(keynum);
+	return;
+
+    case m_keys:
+	M_Keys_Key(keynum);
+	return;
+
+    case m_video:
+	M_Video_Key(keynum);
+	return;
+
+    case m_quit:
+	M_Quit_Key(keynum);
+	return;
+
+#ifdef NQ_HACK
+    case m_singleplayer:
+	M_SinglePlayer_Key(keynum);
+	return;
+
+    case m_load:
+	M_Load_Key(keynum);
+	return;
+
+    case m_save:
+	M_Save_Key(keynum);
+	return;
+
+    case m_multiplayer:
+	M_MultiPlayer_Key(keynum);
+	return;
+
+    case m_setup:
+	M_Setup_Key(keynum);
+	return;
+
+    case m_lanconfig:
+	M_LanConfig_Key(keynum);
+	return;
+
+    case m_gameoptions:
+	M_GameOptions_Key(keynum);
+	return;
+
+    case m_search:
+	M_Search_Key(keynum);
+	break;
+
+    case m_slist:
+	M_ServerList_Key(keynum);
+	return;
+
+    case m_help:
+	M_Help_Key(keynum);
+	return;
+#endif
+    }
+}
+
+/* All NQ menus below */
+#ifdef NQ_HACK
+
+//=============================================================================
+/* SINGLE PLAYER MENU */
+
+int m_singleplayer_cursor;
+
+#define	SINGLEPLAYER_ITEMS	3
+
+static void
+M_Menu_SinglePlayer_f(void)
+{
+    key_dest = key_menu;
+    m_state = m_singleplayer;
+    m_entersound = true;
+}
+
+static void
+M_SinglePlayer_Draw(void)
+{
+    int f;
+    const qpic_t *p;
+
+    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+    p = Draw_CachePic("gfx/ttl_sgl.lmp");
+    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic(72, 32, Draw_CachePic("gfx/sp_menu.lmp"));
+
+    f = (int)(host_time * 10) % 6;
+
+    M_DrawTransPic(54, 32 + m_singleplayer_cursor * 20,
+		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
+}
+
+static void
+M_SinglePlayer_Key(knum_t keynum)
+{
+    switch (keynum) {
+    case K_ESCAPE:
+	M_Menu_Main_f();
+	break;
+
+    case K_DOWNARROW:
+	S_LocalSound("misc/menu1.wav");
+	if (++m_singleplayer_cursor >= SINGLEPLAYER_ITEMS)
+	    m_singleplayer_cursor = 0;
+	break;
+
+    case K_UPARROW:
+	S_LocalSound("misc/menu1.wav");
+	if (--m_singleplayer_cursor < 0)
+	    m_singleplayer_cursor = SINGLEPLAYER_ITEMS - 1;
+	break;
+
+    case K_ENTER:
+	m_entersound = true;
+
+	switch (m_singleplayer_cursor) {
+	case 0:
+	    if (sv.active)
+		if (!SCR_ModalMessage("Are you sure you want to\n"
+				      "start a new game?\n"))
+		    break;
+	    key_dest = key_game;
+	    if (sv.active)
+		Cbuf_AddText("disconnect\n");
+	    Cbuf_AddText("maxplayers 1\n");
+	    Cbuf_AddText("map start\n");
+	    break;
+
+	case 1:
+	    M_Menu_Load_f();
+	    break;
+
+	case 2:
+	    M_Menu_Save_f();
+	    break;
+	}
+
+    default:
+	break;
+    }
+}
+
+//=============================================================================
+/* LOAD/SAVE MENU */
+
+#define	MAX_SAVEGAMES 12
+
+static char m_filenames[MAX_SAVEGAMES][SAVEGAME_COMMENT_LENGTH + 1];
+static int loadable[MAX_SAVEGAMES];
+static int load_cursor;		// 0 < load_cursor < MAX_SAVEGAMES
+
+static void
+M_ScanSaves(void)
+{
+    int i, j;
+    char name[MAX_OSPATH];
+    FILE *f;
+    int version;
+
+    for (i = 0; i < MAX_SAVEGAMES; i++) {
+	snprintf(m_filenames[i], sizeof(m_filenames[i]), "--- UNUSED SLOT ---");
+	loadable[i] = false;
+	snprintf(name, sizeof(name), "%s/s%i.sav", com_gamedir, i);
+	f = fopen(name, "r");
+	if (!f)
+	    continue;
+
+	fscanf(f, "%i\n", &version);
+	fscanf(f, "%79s\n", name);
+	snprintf(m_filenames[i], sizeof(m_filenames[i]), "%s", name);
+
+	// change _ back to space
+	for (j = 0; j < SAVEGAME_COMMENT_LENGTH; j++)
+	    if (m_filenames[i][j] == '_')
+		m_filenames[i][j] = ' ';
+	loadable[i] = true;
+	fclose(f);
+    }
+}
+
+static void
+M_Menu_Load_f(void)
+{
+    m_entersound = true;
+    m_state = m_load;
+    key_dest = key_menu;
+    M_ScanSaves();
+}
+
+static void
+M_Menu_Save_f(void)
+{
+    if (!sv.active)
+	return;
+    if (cl.intermission)
+	return;
+    if (svs.maxclients != 1)
+	return;
+    m_entersound = true;
+    m_state = m_save;
+    key_dest = key_menu;
+    M_ScanSaves();
+}
+
+static void
+M_Load_Draw(void)
+{
+    int i;
+    const qpic_t *p;
+
+    p = Draw_CachePic("gfx/p_load.lmp");
+    M_DrawPic((320 - p->width) / 2, 4, p);
+
+    for (i = 0; i < MAX_SAVEGAMES; i++)
+	M_Print(16, 32 + 8 * i, m_filenames[i]);
+
+// line cursor
+    M_DrawCharacter(8, 32 + load_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+}
+
+static void
+M_Save_Draw(void)
+{
+    int i;
+    const qpic_t *p;
+
+    p = Draw_CachePic("gfx/p_save.lmp");
+    M_DrawPic((320 - p->width) / 2, 4, p);
+
+    for (i = 0; i < MAX_SAVEGAMES; i++)
+	M_Print(16, 32 + 8 * i, m_filenames[i]);
+
+// line cursor
+    M_DrawCharacter(8, 32 + load_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+}
+
+static void
+M_Load_Key(knum_t keynum)
+{
+    switch (keynum) {
+    case K_ESCAPE:
+	M_Menu_SinglePlayer_f();
+	break;
+
+    case K_ENTER:
+	S_LocalSound("misc/menu2.wav");
+	if (!loadable[load_cursor])
+	    return;
+	m_state = m_none;
+	key_dest = key_game;
+
+	// Host_Loadgame_f can't bring up the loading plaque because too much
+	// stack space has been used, so do it now
+	SCR_BeginLoadingPlaque();
+
+	// issue the load command
+	Cbuf_AddText("load s%i\n", load_cursor);
+	return;
+
+    case K_UPARROW:
+    case K_LEFTARROW:
+	S_LocalSound("misc/menu1.wav");
+	load_cursor--;
+	if (load_cursor < 0)
+	    load_cursor = MAX_SAVEGAMES - 1;
+	break;
+
+    case K_DOWNARROW:
+    case K_RIGHTARROW:
+	S_LocalSound("misc/menu1.wav");
+	load_cursor++;
+	if (load_cursor >= MAX_SAVEGAMES)
+	    load_cursor = 0;
+	break;
+
+    default:
+	break;
+    }
+}
+
+
+static void
+M_Save_Key(knum_t keynum)
+{
+    switch (keynum) {
+    case K_ESCAPE:
+	M_Menu_SinglePlayer_f();
+	break;
+
+    case K_ENTER:
+	m_state = m_none;
+	key_dest = key_game;
+	Cbuf_AddText("save s%i\n", load_cursor);
+	return;
+
+    case K_UPARROW:
+    case K_LEFTARROW:
+	S_LocalSound("misc/menu1.wav");
+	load_cursor--;
+	if (load_cursor < 0)
+	    load_cursor = MAX_SAVEGAMES - 1;
+	break;
+
+    case K_DOWNARROW:
+    case K_RIGHTARROW:
+	S_LocalSound("misc/menu1.wav");
+	load_cursor++;
+	if (load_cursor >= MAX_SAVEGAMES)
+	    load_cursor = 0;
+	break;
+
+    default:
+	break;
+    }
+}
+
+//=============================================================================
+/* MULTIPLAYER MENU */
+
+#define	MULTIPLAYER_ITEMS 3
+
+static int m_multiplayer_cursor;
+
+static void
+M_Menu_MultiPlayer_f(void)
+{
+    key_dest = key_menu;
+    m_state = m_multiplayer;
+    m_entersound = true;
+}
+
+static void
+M_MultiPlayer_Draw(void)
+{
+    int f;
+    const qpic_t *p;
+
+    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+    p = Draw_CachePic("gfx/p_multi.lmp");
+    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic(72, 32, Draw_CachePic("gfx/mp_menu.lmp"));
+
+    f = (int)(host_time * 10) % 6;
+
+    M_DrawTransPic(54, 32 + m_multiplayer_cursor * 20,
+		   Draw_CachePic(va("gfx/menudot%i.lmp", f + 1)));
+
+    if (tcpipAvailable)
+	return;
+    M_PrintWhite((320 / 2) - ((27 * 8) / 2), 148,
+		 "No Communications Available");
+}
+
+static void
+M_MultiPlayer_Key(knum_t keynum)
+{
+    switch (keynum) {
+    case K_ESCAPE:
+	M_Menu_Main_f();
+	break;
+
+    case K_DOWNARROW:
+	S_LocalSound("misc/menu1.wav");
+	if (++m_multiplayer_cursor >= MULTIPLAYER_ITEMS)
+	    m_multiplayer_cursor = 0;
+	break;
+
+    case K_UPARROW:
+	S_LocalSound("misc/menu1.wav");
+	if (--m_multiplayer_cursor < 0)
+	    m_multiplayer_cursor = MULTIPLAYER_ITEMS - 1;
+	break;
+
+    case K_ENTER:
+	m_entersound = true;
+	switch (m_multiplayer_cursor) {
+	case 0:
+	    if (tcpipAvailable)
+		M_Menu_LanConfig_f();
+	    break;
+
+	case 1:
+	    if (tcpipAvailable)
+		M_Menu_LanConfig_f();
+	    break;
+
+	case 2:
+	    M_Menu_Setup_f();
+	    break;
+	}
+    default:
+	break;
+    }
+}
+
+//=============================================================================
+/* SETUP MENU */
+
+static int setup_cursor = 4;
+static int setup_cursor_table[] = { 40, 56, 80, 104, 140 };
+
+static char setup_hostname[16];
+static char setup_myname[16];
+static int setup_oldtop;
+static int setup_oldbottom;
+static int setup_top;
+static int setup_bottom;
+
+#define	NUM_SETUP_CMDS	5
+
+static void
+M_Menu_Setup_f(void)
+{
+    key_dest = key_menu;
+    m_state = m_setup;
+    m_entersound = true;
+    strcpy(setup_myname, cl_name.string);
+    strcpy(setup_hostname, hostname.string);
+    setup_top = setup_oldtop = ((int)cl_color.value) >> 4;
+    setup_bottom = setup_oldbottom = ((int)cl_color.value) & 15;
+}
+
+static void
+M_Setup_Draw(void)
+{
+    const qpic_t *p;
+
+    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+    p = Draw_CachePic("gfx/p_multi.lmp");
+    M_DrawPic((320 - p->width) / 2, 4, p);
+
+    M_Print(64, 40, "Hostname");
+    M_DrawTextBox(160, 32, 16, 1);
+    M_Print(168, 40, setup_hostname);
+
+    M_Print(64, 56, "Your name");
+    M_DrawTextBox(160, 48, 16, 1);
+    M_Print(168, 56, setup_myname);
+
+    M_Print(64, 80, "Shirt color");
+    M_Print(64, 104, "Pants color");
+
+    M_DrawTextBox(64, 140 - 8, 14, 1);
+    M_Print(72, 140, "Accept Changes");
+
+    p = Draw_CachePic("gfx/bigbox.lmp");
+    M_DrawTransPic(160, 64, p);
+    p = Draw_CachePic("gfx/menuplyr.lmp");
+    M_BuildTranslationTable(setup_top * 16, setup_bottom * 16);
+    M_DrawTransPicTranslate(172, 72, p);
+
+    M_DrawCharacter(56, setup_cursor_table[setup_cursor],
+		    12 + ((int)(realtime * 4) & 1));
+
+    if (setup_cursor == 0)
+	M_DrawCharacter(168 + 8 * strlen(setup_hostname),
+			setup_cursor_table[setup_cursor],
+			10 + ((int)(realtime * 4) & 1));
+
+    if (setup_cursor == 1)
+	M_DrawCharacter(168 + 8 * strlen(setup_myname),
+			setup_cursor_table[setup_cursor],
+			10 + ((int)(realtime * 4) & 1));
+}
+
+static void
+M_Setup_Key(knum_t keynum)
+{
+    switch (keynum) {
+    case K_ESCAPE:
+	M_Menu_MultiPlayer_f();
+	break;
+
+    case K_UPARROW:
+	S_LocalSound("misc/menu1.wav");
+	setup_cursor--;
+	if (setup_cursor < 0)
+	    setup_cursor = NUM_SETUP_CMDS - 1;
+	break;
+
+    case K_DOWNARROW:
+	S_LocalSound("misc/menu1.wav");
+	setup_cursor++;
+	if (setup_cursor >= NUM_SETUP_CMDS)
+	    setup_cursor = 0;
+	break;
+
+    case K_LEFTARROW:
+	if (setup_cursor < 2)
+	    return;
+	S_LocalSound("misc/menu3.wav");
+	if (setup_cursor == 2)
+	    setup_top = setup_top - 1;
+	if (setup_cursor == 3)
+	    setup_bottom = setup_bottom - 1;
+	break;
+    case K_RIGHTARROW:
+	if (setup_cursor < 2)
+	    return;
+      forward:
+	S_LocalSound("misc/menu3.wav");
+	if (setup_cursor == 2)
+	    setup_top = setup_top + 1;
+	if (setup_cursor == 3)
+	    setup_bottom = setup_bottom + 1;
+	break;
+
+    case K_ENTER:
+	if (setup_cursor == 0 || setup_cursor == 1)
+	    return;
+
+	if (setup_cursor == 2 || setup_cursor == 3)
+	    goto forward;
+
+	// setup_cursor == 4 (OK)
+	if (strcmp(cl_name.string, setup_myname) != 0)
+	    Cbuf_AddText("name \"%s\"\n", setup_myname);
+	if (strcmp(hostname.string, setup_hostname) != 0)
+	    Cvar_Set("hostname", setup_hostname);
+	if (setup_top != setup_oldtop || setup_bottom != setup_oldbottom)
+	    Cbuf_AddText("color %i %i\n", setup_top, setup_bottom);
+	m_entersound = true;
+	M_Menu_MultiPlayer_f();
+	break;
+
+    case K_BACKSPACE:
+	if (setup_cursor == 0) {
+	    if (strlen(setup_hostname))
+		setup_hostname[strlen(setup_hostname) - 1] = 0;
+	}
+
+	if (setup_cursor == 1) {
+	    if (strlen(setup_myname))
+		setup_myname[strlen(setup_myname) - 1] = 0;
+	}
+	break;
+
+    default:
+	if (keynum < K_SPACE || keynum > K_DEL)
+	    break;
+	if (setup_cursor == 0) {
+	    int length = strlen(setup_hostname);
+	    if (length < 15) {
+		setup_hostname[length + 1] = 0;
+		setup_hostname[length] = keynum;
+	    }
+	}
+	if (setup_cursor == 1) {
+	    int length = strlen(setup_myname);
+	    if (length < 15) {
+		setup_myname[length + 1] = 0;
+		setup_myname[length] = keynum;
+	    }
+	}
+    }
+
+    if (setup_top > 13)
+	setup_top = 0;
+    if (setup_top < 0)
+	setup_top = 13;
+    if (setup_bottom > 13)
+	setup_bottom = 0;
+    if (setup_bottom < 0)
+	setup_bottom = 13;
+}
+
+//=============================================================================
+/* HELP MENU */
+
+#define NUM_HELP_PAGES 6
+
+static int help_page;
+
+static void
+M_Menu_Help_f(void)
+{
+    key_dest = key_menu;
+    m_state = m_help;
+    m_entersound = true;
+    help_page = 0;
+}
+
+static void
+M_Help_Draw(void)
+{
+    M_DrawPic(0, 0, Draw_CachePic(va("gfx/help%i.lmp", help_page)));
+}
+
+static void
+M_Help_Key(knum_t keynum)
+{
+    switch (keynum) {
+    case K_ESCAPE:
+	M_Menu_Main_f();
+	break;
+
+    case K_UPARROW:
+    case K_RIGHTARROW:
+	m_entersound = true;
+	if (++help_page >= NUM_HELP_PAGES)
+	    help_page = 0;
+	break;
+
+    case K_DOWNARROW:
+    case K_LEFTARROW:
+	m_entersound = true;
+	if (--help_page < 0)
+	    help_page = NUM_HELP_PAGES - 1;
+	break;
+
+    default:
+	break;
+    }
 }
 
 //=============================================================================
@@ -1533,7 +1843,6 @@ M_Menu_LanConfig_f(void)
     m_return_onerror = false;
     m_return_reason[0] = 0;
 }
-
 
 static void
 M_LanConfig_Draw(void)
@@ -1590,7 +1899,6 @@ M_LanConfig_Draw(void)
     if (*m_return_reason)
 	M_PrintWhite(basex, 148, m_return_reason);
 }
-
 
 static void
 M_LanConfig_Key(knum_t keynum)
@@ -1855,7 +2163,6 @@ M_Menu_GameOptions_f(void)
 	maxplayers = svs.maxclientslimit;
 }
 
-
 static void
 M_GameOptions_Draw(void)
 {
@@ -1999,7 +2306,6 @@ M_GameOptions_Draw(void)
 	}
     }
 }
-
 
 static void
 M_NetStart_Change(int dir)
@@ -2190,7 +2496,6 @@ M_Menu_Search_f(void)
     NET_Slist_f();
 }
 
-
 static void
 M_Search_Draw(void)
 {
@@ -2225,7 +2530,6 @@ M_Search_Draw(void)
     M_Menu_LanConfig_f();
 }
 
-
 static void
 M_Search_Key(knum_t keynum)
 {
@@ -2248,7 +2552,6 @@ M_Menu_ServerList_f(void)
     m_return_reason[0] = 0;
     slist_sorted = false;
 }
-
 
 static void
 M_ServerList_Draw(void)
@@ -2291,7 +2594,6 @@ M_ServerList_Draw(void)
     if (*m_return_reason)
 	M_PrintWhite(16, 148, m_return_reason);
 }
-
 
 static void
 M_ServerList_Key(knum_t keynum)
@@ -2337,197 +2639,6 @@ M_ServerList_Key(knum_t keynum)
 
 }
 
-//=============================================================================
-/* Menu Subsystem */
-
-
-void
-M_Init(void)
-{
-    Cmd_AddCommand("togglemenu", M_ToggleMenu_f);
-
-    Cmd_AddCommand("menu_main", M_Menu_Main_f);
-    Cmd_AddCommand("menu_singleplayer", M_Menu_SinglePlayer_f);
-    Cmd_AddCommand("menu_load", M_Menu_Load_f);
-    Cmd_AddCommand("menu_save", M_Menu_Save_f);
-    Cmd_AddCommand("menu_multiplayer", M_Menu_MultiPlayer_f);
-    Cmd_AddCommand("menu_setup", M_Menu_Setup_f);
-    Cmd_AddCommand("menu_options", M_Menu_Options_f);
-    Cmd_AddCommand("menu_keys", M_Menu_Keys_f);
-    Cmd_AddCommand("menu_video", M_Menu_Video_f);
-    Cmd_AddCommand("help", M_Menu_Help_f);
-    Cmd_AddCommand("menu_quit", M_Menu_Quit_f);
-}
-
-
-void
-M_Draw(void)
-{
-    if (m_state == m_none || key_dest != key_menu)
-	return;
-
-    if (!m_recursiveDraw) {
-	scr_copyeverything = 1;
-
-	if (scr_con_current) {
-	    Draw_ConsoleBackground(vid.height);
-	    VID_UnlockBuffer();
-	    S_ExtraUpdate();
-	    VID_LockBuffer();
-	} else
-	    Draw_FadeScreen();
-
-	scr_fullupdate = 0;
-    } else {
-	m_recursiveDraw = false;
-    }
-
-    switch (m_state) {
-    case m_none:
-	break;
-
-    case m_main:
-	M_Main_Draw();
-	break;
-
-    case m_singleplayer:
-	M_SinglePlayer_Draw();
-	break;
-
-    case m_load:
-	M_Load_Draw();
-	break;
-
-    case m_save:
-	M_Save_Draw();
-	break;
-
-    case m_multiplayer:
-	M_MultiPlayer_Draw();
-	break;
-
-    case m_setup:
-	M_Setup_Draw();
-	break;
-
-    case m_options:
-	M_Options_Draw();
-	break;
-
-    case m_keys:
-	M_Keys_Draw();
-	break;
-
-    case m_video:
-	M_Video_Draw();
-	break;
-
-    case m_help:
-	M_Help_Draw();
-	break;
-
-    case m_quit:
-	M_Quit_Draw();
-	break;
-
-    case m_lanconfig:
-	M_LanConfig_Draw();
-	break;
-
-    case m_gameoptions:
-	M_GameOptions_Draw();
-	break;
-
-    case m_search:
-	M_Search_Draw();
-	break;
-
-    case m_slist:
-	M_ServerList_Draw();
-	break;
-    }
-
-    if (m_entersound) {
-	S_LocalSound("misc/menu2.wav");
-	m_entersound = false;
-    }
-
-    VID_UnlockBuffer();
-    S_ExtraUpdate();
-    VID_LockBuffer();
-}
-
-
-void
-M_Keydown(knum_t keynum)
-{
-    switch (m_state) {
-    case m_none:
-	return;
-
-    case m_main:
-	M_Main_Key(keynum);
-	return;
-
-    case m_singleplayer:
-	M_SinglePlayer_Key(keynum);
-	return;
-
-    case m_load:
-	M_Load_Key(keynum);
-	return;
-
-    case m_save:
-	M_Save_Key(keynum);
-	return;
-
-    case m_multiplayer:
-	M_MultiPlayer_Key(keynum);
-	return;
-
-    case m_setup:
-	M_Setup_Key(keynum);
-	return;
-
-    case m_options:
-	M_Options_Key(keynum);
-	return;
-
-    case m_keys:
-	M_Keys_Key(keynum);
-	return;
-
-    case m_video:
-	M_Video_Key(keynum);
-	return;
-
-    case m_help:
-	M_Help_Key(keynum);
-	return;
-
-    case m_quit:
-	M_Quit_Key(keynum);
-	return;
-
-    case m_lanconfig:
-	M_LanConfig_Key(keynum);
-	return;
-
-    case m_gameoptions:
-	M_GameOptions_Key(keynum);
-	return;
-
-    case m_search:
-	M_Search_Key(keynum);
-	break;
-
-    case m_slist:
-	M_ServerList_Key(keynum);
-	return;
-    }
-}
-
-
 static void
 M_ConfigureNetSubsystem(void)
 {
@@ -2535,3 +2646,5 @@ M_ConfigureNetSubsystem(void)
     Cbuf_AddText("stopdemo\n");
     net_hostport = lanConfig_port;
 }
+
+#endif /* NQ_HACK */
