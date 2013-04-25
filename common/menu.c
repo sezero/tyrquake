@@ -874,50 +874,51 @@ M_Video_Key(knum_t keynum)
 //=============================================================================
 /* QUIT MENU */
 
-static int msgNumber;
+static const char *const *m_quit_message;
 static int m_quit_prevstate;
-static qboolean wasInMenus;
 
-static const char *const quitMessage[] = {
-    "  Are you gonna quit    ",
-    "  this game just like   ",
-    "   everything else?     ",
-    "                        ",
-
-    " Milord, methinks that  ",
-    "   thou art a lowly     ",
-    " quitter. Is this true? ",
-    "                        ",
-
-    " Do I need to bust your ",
-    "  face open for trying  ",
-    "        to quit?        ",
-    "                        ",
-
-    " Man, I oughta smack you",
-    "   for trying to quit!  ",
-    "     Press Y to get     ",
-    "      smacked out.      ",
-
-    " Press Y to quit like a ",
-    "   big loser in life.   ",
-    "  Press N to stay proud ",
-    "    and successful!     ",
-
-    "   If you press Y to    ",
-    "  quit, I will summon   ",
-    "  Satan all over your   ",
-    "      hard drive!       ",
-
-    "  Um, Asmodeus dislikes ",
-    " his children trying to ",
-    " quit. Press Y to return",
-    "   to your Tinkertoys.  ",
-
-    "  If you quit now, I'll ",
-    "  throw a blanket-party ",
-    "   for you next time!   ",
-    "                        "
+static const char *const m_quit_messages[][4] = {
+    {
+	"  Are you gonna quit    ",
+	"  this game just like   ",
+	"   everything else?     ",
+	"                        ",
+    }, {
+	" Milord, methinks that  ",
+	"   thou art a lowly     ",
+	" quitter. Is this true? ",
+	"                        ",
+    }, {
+	" Do I need to bust your ",
+	"  face open for trying  ",
+	"        to quit?        ",
+	"                        ",
+    }, {
+	" Man, I oughta smack you",
+	"   for trying to quit!  ",
+	"     Press Y to get     ",
+	"      smacked out.      ",
+    }, {
+	" Press Y to quit like a ",
+	"   big loser in life.   ",
+	"  Press N to stay proud ",
+	"    and successful!     ",
+    }, {
+	"   If you press Y to    ",
+	"  quit, I will summon   ",
+	"  Satan all over your   ",
+	"      hard drive!       ",
+    }, {
+	"  Um, Asmodeus dislikes ",
+	" his children trying to ",
+	" quit. Press Y to return",
+	"   to your Tinkertoys.  ",
+    }, {
+	"  If you quit now, I'll ",
+	"  throw a blanket-party ",
+	"   for you next time!   ",
+	"                        ",
+    },
 };
 
 void
@@ -925,12 +926,11 @@ M_Menu_Quit_f(void)
 {
     if (m_state == m_quit)
 	return;
-    wasInMenus = (key_dest == key_menu);
     key_dest = key_menu;
     m_quit_prevstate = m_state;
     m_state = m_quit;
     m_entersound = true;
-    msgNumber = rand() & 7;
+    m_quit_message = m_quit_messages[rand() % ARRAY_SIZE(m_quit_messages)];
 }
 
 static void
@@ -939,13 +939,12 @@ M_Quit_Key(knum_t keynum)
     switch (keynum) {
     case K_ESCAPE:
     case K_n:
-	if (wasInMenus) {
-	    m_state = m_quit_prevstate;
-	    m_entersound = true;
-	} else {
+	/* If we were previously in-game, return the key focus */
+	if (m_quit_prevstate == m_none)
 	    key_dest = key_game;
-	    m_state = m_none;
-	}
+	else
+	    m_entersound = true;
+	m_state = m_quit_prevstate;
 	break;
 
     case K_y:
@@ -967,7 +966,7 @@ M_Quit_Key(knum_t keynum)
 static void
 M_Quit_Draw(void)
 {
-    if (wasInMenus) {
+    if (m_quit_prevstate != m_none) {
 	m_state = m_quit_prevstate;
 	m_recursiveDraw = true;
 	M_Draw();
@@ -975,10 +974,10 @@ M_Quit_Draw(void)
     }
 
     M_DrawTextBox(56, 76, 24, 4);
-    M_Print(64, 84, quitMessage[msgNumber * 4 + 0]);
-    M_Print(64, 92, quitMessage[msgNumber * 4 + 1]);
-    M_Print(64, 100, quitMessage[msgNumber * 4 + 2]);
-    M_Print(64, 108, quitMessage[msgNumber * 4 + 3]);
+    M_Print(64, 84, m_quit_message[0]);
+    M_Print(64, 92, m_quit_message[1]);
+    M_Print(64, 100, m_quit_message[2]);
+    M_Print(64, 108, m_quit_message[3]);
 }
 
 //=============================================================================
