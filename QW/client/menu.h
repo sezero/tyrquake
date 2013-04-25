@@ -42,4 +42,16 @@ void M_DrawTextBox(int x, int y, int width, int lines);
 void M_Print(int cx, int cy, const char *str);
 void M_PrintWhite(int cx, int cy, const char *str);
 
+#ifdef NQ_HACK
+/* FIXME - These are only here for NQ/net_dgrm.c */
+extern qboolean m_return_onerror;
+extern char m_return_reason[32];
+extern int m_return_state;
+enum {
+    m_none, m_main, m_singleplayer, m_load, m_save, m_multiplayer, m_setup,
+    m_options, m_video, m_keys, m_help, m_quit, m_lanconfig, m_gameoptions,
+    m_search, m_slist
+} m_state;
+#endif
+
 #endif /* MENU_H */
