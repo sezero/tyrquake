@@ -457,19 +457,17 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 
 	    while (count--) {
 		vec3_t glvertex;
+		float light;
 
 		/* texture coordinates come from the draw list */
 		glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
 		order += 2;
 
 		/* normals and vertexes come from the frame list */
-		if (r_fullbright.value) {
-		    glColor3f(255.0f, 255.0f, 255.0f);
-		} else {
-		    float light;
-		    light = shadedots[lightvert->lightnormalindex] * shadelight;
-		    glColor3f(light, light, light);
-		}
+		light = shadedots[lightvert->lightnormalindex] * shadelight;
+		if (r_fullbright.value)
+		    light = 255.0f;
+		glColor3f(light, light, light);
 		glvertex[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
 		glvertex[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
 		glvertex[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
@@ -494,18 +492,22 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 	} else {
 	    glBegin(GL_TRIANGLE_STRIP);
 	}
-	do {
+
+	while (count--) {
+	    float light;
+
 	    /* texture coordinates come from the draw list */
 	    glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
 	    order += 2;
 
 	    /* normals and vertexes come from the frame list */
-	    float light = shadedots[verts1->lightnormalindex] * shadelight;
+	    light = shadedots[verts1->lightnormalindex] * shadelight;
+	    if (r_fullbright.value)
+		light = 255.0f;
 	    glColor3f(light, light, light);
 	    glVertex3f(verts1->v[0], verts1->v[1], verts1->v[2]);
 	    verts1++;
-	} while (--count);
-
+	}
 	glEnd();
     }
 }
