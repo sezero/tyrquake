@@ -653,7 +653,30 @@ M_Options_Key(knum_t keynum)
 //=============================================================================
 /* KEYS MENU */
 
-static const char *const bindnames[][2] = {
+typedef enum {
+    M_KEYS_CURSOR_ATTACK,
+    M_KEYS_CURSOR_NEXTWEAPON,
+    M_KEYS_CURSOR_PREVWEAPON,
+    M_KEYS_CURSOR_JUMP,
+    M_KEYS_CURSOR_FORWARD,
+    M_KEYS_CURSOR_BACK,
+    M_KEYS_CURSOR_TURNLEFT,
+    M_KEYS_CURSOR_TURNRIGHT,
+    M_KEYS_CURSOR_RUN,
+    M_KEYS_CURSOR_MOVELEFT,
+    M_KEYS_CURSOR_MOVERIGHT,
+    M_KEYS_CURSOR_STRAFE,
+    M_KEYS_CURSOR_LOOKUP,
+    M_KEYS_CURSOR_LOOKDOWN,
+    M_KEYS_CURSOR_CENTERVIEW,
+    M_KEYS_CURSOR_MLOOK,
+    M_KEYS_CURSOR_KLOOK,
+    M_KEYS_CURSOR_MOVEUP,
+    M_KEYS_CURSOR_MOVEDOWN,
+    M_KEYS_CURSOR_LINES,
+} m_keys_cursor_t;
+
+static const char *const m_keys_bindnames[M_KEYS_CURSOR_LINES][2] = {
     {"+attack", "attack"},
     {"impulse 10", "next weapon"},
     {"impulse 12", "prev weapon"},
@@ -675,10 +698,8 @@ static const char *const bindnames[][2] = {
     {"+movedown", "swim down"}
 };
 
-#define	NUMCOMMANDS (sizeof(bindnames)/sizeof(bindnames[0]))
-
-static int keys_cursor;
-static int bind_grab;
+static m_keys_cursor_t m_keys_cursor;
+static int m_keys_bind_grab;
 
 static void
 M_Menu_Keys_f(void)
@@ -688,15 +709,15 @@ M_Menu_Keys_f(void)
     m_entersound = true;
 }
 
-
 static void
-M_FindKeysForCommand(const char *const command, knum_t keys[2])
+M_FindKeysForCommand(m_keys_cursor_t commandnum, knum_t keys[2])
 {
-    knum_t keynum;
+    const char *command, *binding;
     int count, length;
-    const char *binding;
+    knum_t keynum;
 
     keys[0] = keys[1] = K_UNKNOWN;
+    command = m_keys_bindnames[commandnum][0];
     length = strlen(command);
     count = 0;
 
@@ -714,12 +735,13 @@ M_FindKeysForCommand(const char *const command, knum_t keys[2])
 }
 
 static void
-M_UnbindCommand(const char *const command)
+M_UnbindCommand(m_keys_cursor_t commandnum)
 {
+    const char *command, *binding;
     int length;
     knum_t keynum;
-    const char *binding;
 
+    command = m_keys_bindnames[commandnum][0];
     length = strlen(command);
 
     for (keynum = K_UNKNOWN + 1; keynum < K_LAST; keynum++) {
@@ -731,68 +753,62 @@ M_UnbindCommand(const char *const command)
     }
 }
 
-
 static void
 M_Keys_Draw(void)
 {
-    const char *name;
     const qpic_t *pic;
-    int i, x, y;
-    knum_t keys[2];
+    m_keys_cursor_t line;
 
     pic = Draw_CachePic("gfx/ttl_cstm.lmp");
     M_DrawPic((320 - pic->width) / 2, 4, pic);
 
-    if (bind_grab)
-	M_Print(12, 32, "Press a key or button for this action");
-    else
-	M_Print(18, 32, "Enter to change, backspace to clear");
+    /* Draw the key bindings list */
+    for (line = 0; line < M_KEYS_CURSOR_LINES; line++) {
+	const int height = 48 + 8 * line;
+	knum_t keys[2];
 
-// search for known bindings
-    for (i = 0; i < NUMCOMMANDS; i++) {
-	y = 48 + 8 * i;
-
-	M_Print(16, y, bindnames[i][1]);
-	M_FindKeysForCommand(bindnames[i][0], keys);
+	M_Print(16, height, m_keys_bindnames[line][1]);
+	M_FindKeysForCommand(line, keys);
 
 	if (keys[0] == K_UNKNOWN) {
-	    M_Print(140, y, "???");
+	    M_Print(140, height, "???");
 	} else {
-	    name = Key_KeynumToString(keys[0]);
-	    M_Print(140, y, name);
-	    x = strlen(name) * 8;
+	    const char *keyname = Key_KeynumToString(keys[0]);
+	    M_Print(140, height, keyname);
 	    if (keys[1] != K_UNKNOWN) {
-		M_Print(140 + x + 8, y, "or");
-		M_Print(140 + x + 32, y, Key_KeynumToString(keys[1]));
+		const int namewidth = strlen(keyname) * 8;
+		keyname = Key_KeynumToString(keys[1]);
+		M_Print(140 + namewidth + 8, height, "or");
+		M_Print(140 + namewidth + 32, height, keyname);
 	    }
 	}
     }
 
-    if (bind_grab)
-	M_DrawCharacter(130, 48 + keys_cursor * 8, '=');
-    else
-	M_DrawCharacter(130, 48 + keys_cursor * 8,
-			12 + ((int)(realtime * 4) & 1));
+    /* Draw the header and cursor */
+    if (m_keys_bind_grab) {
+	M_Print(12, 32, "Press a key or button for this action");
+	M_DrawCharacter(130, 48 + m_keys_cursor * 8, '=');
+    } else {
+	const int cursor_char = 12 + ((int)(realtime * 4) & 1);
+	M_Print(18, 32, "Enter to change, backspace to clear");
+	M_DrawCharacter(130, 48 + m_keys_cursor * 8, cursor_char);
+    }
 }
-
 
 static void
 M_Keys_Key(knum_t keynum)
 {
-    char cmd[80];
     knum_t keys[2];
 
-    if (bind_grab) {		// defining a key
+    if (m_keys_bind_grab) {
+	/* Define a key binding */
 	S_LocalSound("misc/menu1.wav");
-	if (keynum == K_ESCAPE) {
-	    bind_grab = false;
-	} else if (keynum != K_BACKQUOTE) {
-	    snprintf(cmd, sizeof(cmd), "bind \"%s\" \"%s\"\n",
-		     Key_KeynumToString(keynum), bindnames[keys_cursor][0]);
-	    Cbuf_InsertText(cmd);
+	if (keynum != K_ESCAPE && keynum != K_BACKQUOTE) {
+	    const char *keyname = Key_KeynumToString(keynum);
+	    const char *command = m_keys_bindnames[m_keys_cursor][0];
+	    Cbuf_InsertText(va("bind \"%s\" \"%s\"\n", keyname, command));
 	}
-
-	bind_grab = false;
+	m_keys_bind_grab = false;
 	return;
     }
 
@@ -800,37 +816,32 @@ M_Keys_Key(knum_t keynum)
     case K_ESCAPE:
 	M_Menu_Options_f();
 	break;
-
     case K_LEFTARROW:
     case K_UPARROW:
 	S_LocalSound("misc/menu1.wav");
-	keys_cursor--;
-	if (keys_cursor < 0)
-	    keys_cursor = NUMCOMMANDS - 1;
+	if (m_keys_cursor-- == 0)
+	    m_keys_cursor = M_KEYS_CURSOR_LINES - 1;
 	break;
-
     case K_DOWNARROW:
     case K_RIGHTARROW:
 	S_LocalSound("misc/menu1.wav");
-	keys_cursor++;
-	if (keys_cursor >= NUMCOMMANDS)
-	    keys_cursor = 0;
+	m_keys_cursor++;
+	m_keys_cursor %= M_KEYS_CURSOR_LINES;
 	break;
-
-    case K_ENTER:		// go into bind mode
-	M_FindKeysForCommand(bindnames[keys_cursor][0], keys);
+    case K_ENTER:
+	/* go into bind mode */
+	M_FindKeysForCommand(m_keys_cursor, keys);
 	S_LocalSound("misc/menu2.wav");
 	if (keys[1] != K_UNKNOWN)
-	    M_UnbindCommand(bindnames[keys_cursor][0]);
-	bind_grab = true;
+	    M_UnbindCommand(m_keys_cursor);
+	m_keys_bind_grab = true;
 	break;
-
-    case K_BACKSPACE:		// delete bindings
-    case K_DEL:			// delete bindings
+    case K_BACKSPACE:
+    case K_DEL:
+	/* delete bindings */
 	S_LocalSound("misc/menu2.wav");
-	M_UnbindCommand(bindnames[keys_cursor][0]);
+	M_UnbindCommand(m_keys_cursor);
 	break;
-
     default:
 	break;
     }
