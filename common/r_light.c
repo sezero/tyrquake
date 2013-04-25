@@ -19,11 +19,20 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // r_light.c
 
+#include <math.h>
+
+#include "bspfile.h"
+#include "client.h"
 #include "quakedef.h"
+
+#ifdef GLQUAKE
+#include "glquake.h"
+#include "view.h"
+#else
 #include "r_local.h"
+#endif
 
 int r_dlightframecount;
-
 
 /*
 ==================
@@ -51,14 +60,9 @@ R_AnimateLight(void)
     }
 }
 
-
-/*
-=============================================================================
-
-DYNAMIC LIGHTS
-
-=============================================================================
-*/
+/* --------------------------------------------------------------------------*/
+/* Dynamic Lights                                                            */
+/* --------------------------------------------------------------------------*/
 
 /*
 =============
@@ -113,6 +117,11 @@ R_PushDlights(void)
     int i;
     dlight_t *l;
 
+#ifdef GLQUAKE
+    if (gl_flashblend.value)
+	return;
+#endif
+
     r_dlightframecount = r_framecount + 1;	// because the count hasn't
     //  advanced yet for this frame
     l = cl_dlights;
@@ -124,16 +133,15 @@ R_PushDlights(void)
     }
 }
 
+/* --------------------------------------------------------------------------*/
+/* Light Sampling                                                            */
+/* --------------------------------------------------------------------------*/
 
-/*
-=============================================================================
+#ifdef GLQUAKE
+vec3_t lightspot;
+#endif
 
-LIGHT SAMPLING
-
-=============================================================================
-*/
-
-int
+static int
 RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 {
     int r;
@@ -150,10 +158,9 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     int maps;
 
     if (node->contents < 0)
-	return -1;		// didn't hit anything
+	return -1; /* didn't hit anything */
 
-// calculate mid point
-
+    /* calculate mid point */
     plane = node->plane;
     switch (plane->type) {
     case PLANE_X:
@@ -178,16 +185,19 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     mid[1] = start[1] + (end[1] - start[1]) * frac;
     mid[2] = start[2] + (end[2] - start[2]) * frac;
 
-// go down front side
+    /* go down front side */
     r = RecursiveLightPoint(node->children[side], start, mid);
     if (r >= 0)
-	return r;		// hit something
+	return r; /* hit something */
 
     if ((back < 0) == side)
-	return -1;		// didn't hit anuthing
+	return -1; /* didn't hit anything */
 
-// check for impact on this node
+#ifdef GLQUAKE
+    VectorCopy(mid, lightspot);
+#endif
 
+    /* check for impact on this node */
     surf = cl.worldmodel->surfaces + node->firstsurface;
     for (i = 0; i < node->numsurfaces; i++, surf++) {
 	if (surf->flags & SURF_DRAWTILED)
@@ -196,7 +206,7 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 	tex = surf->texinfo;
 
 	s = DotProduct(mid, tex->vecs[0]) + tex->vecs[0][3];
-	t = DotProduct(mid, tex->vecs[1]) + tex->vecs[1][3];;
+	t = DotProduct(mid, tex->vecs[1]) + tex->vecs[1][3];
 
 	if (s < surf->texturemins[0] || t < surf->texturemins[1])
 	    continue;
@@ -227,7 +237,6 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 	    }
 	    r >>= 8;
 	}
-
 	return r;
     }
 
@@ -259,8 +268,125 @@ R_LightPoint(const vec3_t point)
     if (r == -1)
 	r = 0;
 
+#ifndef GLQUAKE
     if (r < r_refdef.ambientlight)
 	r = r_refdef.ambientlight;
+#endif
 
     return r;
 }
+
+#ifdef GLQUAKE
+/*
+=============================================================================
+GLQUAKE - DYNAMIC LIGHTS BLEND RENDERING
+=============================================================================
+*/
+
+static void
+AddLightBlend(float r, float g, float b, float a2)
+{
+    float a;
+
+    v_blend[3] = a = v_blend[3] + a2 * (1 - v_blend[3]);
+
+    a2 = a2 / a;
+
+    v_blend[0] = v_blend[1] * (1 - a2) + r * a2;
+    v_blend[1] = v_blend[1] * (1 - a2) + g * a2;
+    v_blend[2] = v_blend[2] * (1 - a2) + b * a2;
+}
+
+#define DLIGHT_BUBBLE_WEDGES 16
+static float bubble_sintable[DLIGHT_BUBBLE_WEDGES + 1];
+static float bubble_costable[DLIGHT_BUBBLE_WEDGES + 1];
+
+void
+R_InitBubble()
+{
+    float a;
+    int i;
+    float *bub_sin, *bub_cos;
+
+    bub_sin = bubble_sintable;
+    bub_cos = bubble_costable;
+
+    for (i = DLIGHT_BUBBLE_WEDGES; i >= 0; i--) {
+	a = i / ((float)DLIGHT_BUBBLE_WEDGES) * M_PI * 2;
+	*bub_sin++ = sin(a);
+	*bub_cos++ = cos(a);
+    }
+}
+
+static void
+R_RenderDlight(dlight_t *light)
+{
+    int i, j;
+    vec3_t v;
+    float rad;
+    float *bub_sin, *bub_cos;
+
+    bub_sin = bubble_sintable;
+    bub_cos = bubble_costable;
+    rad = light->radius * 0.35;
+
+    VectorSubtract(light->origin, r_origin, v);
+    if (Length(v) < rad) {	// view is inside the dlight
+	AddLightBlend(1, 0.5, 0, light->radius * 0.0003);
+	return;
+    }
+
+    glBegin(GL_TRIANGLE_FAN);
+    glColor4fv(light->color);
+
+    for (i = 0; i < 3; i++)
+	v[i] = light->origin[i] - vpn[i] * rad;
+    glVertex3fv(v);
+    glColor3f(0, 0, 0);
+    for (i = DLIGHT_BUBBLE_WEDGES; i >= 0; i--) {
+	for (j = 0; j < 3; j++)
+	    v[j] = light->origin[j] + (vright[j] * (*bub_cos)
+				       + vup[j] * (*bub_sin)) * rad;
+	bub_sin++;
+	bub_cos++;
+	glVertex3fv(v);
+    }
+    glEnd();
+}
+
+/*
+=============
+R_RenderDlights
+=============
+*/
+void
+R_RenderDlights(void)
+{
+    int i;
+    dlight_t *l;
+
+    if (!gl_flashblend.value)
+	return;
+
+    r_dlightframecount = r_framecount + 1;	// because the count hasn't
+    //  advanced yet for this frame
+    glDepthMask(0);
+    glDisable(GL_TEXTURE_2D);
+    glShadeModel(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+
+    l = cl_dlights;
+    for (i = 0; i < MAX_DLIGHTS; i++, l++) {
+	if (l->die < cl.time || !l->radius)
+	    continue;
+	R_RenderDlight(l);
+    }
+
+    glColor3f(1, 1, 1);
+    glDisable(GL_BLEND);
+    glEnable(GL_TEXTURE_2D);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(1);
+}
+#endif /* GLQUAKE */
