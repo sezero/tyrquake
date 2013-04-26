@@ -199,6 +199,7 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     vec3_t surfpoint;
     int side, lightlevel;
 
+ restart:
     if (node->contents < 0)
 	return -1; /* didn't hit anything */
 
@@ -218,9 +219,11 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     }
     side = front < 0;
 
-    /* FIXME - tail recursion => optimize */
-    if ((back < 0) == side)
-	return RecursiveLightPoint(node->children[side], start, end);
+    if ((back < 0) == side) {
+	/* Completely on one side - tail recursion optimization */
+	node = node->children[side];
+	goto restart;
+    }
 
     frac = front / (front - back);
     surfpoint[0] = start[0] + (end[0] - start[0]) * frac;
@@ -243,8 +246,7 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     if (lightlevel >= 0)
 	return lightlevel;
 
-    /* FIXME - tail recursion => optimize */
-    /* go down back side */
+    /* Go down back side */
     return RecursiveLightPoint(node->children[!side], surfpoint, end);
 }
 
