@@ -23,12 +23,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cmd.h"
 #include "common.h"
 #include "draw.h"
-#include "menu.h"
 #include "protocol.h"
 #include "quakedef.h"
 #include "sbar.h"
 #include "screen.h"
 #include "server.h"
+#include "vid.h"
 #include "wad.h"
 
 int sb_updates;			// if >= vid.numpages, no update needed
@@ -1050,7 +1050,7 @@ Sbar_DeathmatchOverlay(void)
     scr_fullupdate = 0;
 
     pic = Draw_CachePic("gfx/ranking.lmp");
-    M_DrawPic((320 - pic->width) / 2, 8, pic);
+    Draw_Pic(160 - pic->width / 2, 8, pic);
 
 // scores
     Sbar_SortFrags();
