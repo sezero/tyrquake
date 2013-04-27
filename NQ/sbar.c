@@ -1118,89 +1118,61 @@ Sbar_DeathmatchOverlay
 void
 Sbar_MiniDeathmatchOverlay(void)
 {
-    int i, k;
-    int top, bottom;
-    int x, y, f;
-    char num[12];
-    player_info_t *p;
-    int numlines;
+    int x, y, line, numlines, top, bottom;
 
+    /* Don't bother if not enough room */
     if (vid.width < 512 || !sb_lines)
 	return;
 
     scr_copyeverything = 1;
     scr_fullupdate = 0;
 
-// scores
     Sbar_SortFrags();
 
-// draw the text
+    /* Check for space to draw the text */
     y = vid.height - sb_lines;
     numlines = sb_lines / 8;
     if (numlines < 3)
 	return;
 
-    //find us
-    for (i = 0; i < scoreboardlines; i++)
-	if (fragsort[i] == cl.viewentity - 1)
+    /* Find client in the scoreboard, if not there (spectator) display top */
+    for (line = 0; line < scoreboardlines; line++)
+	if (fragsort[line] == cl.viewentity - 1)
 	    break;
+    if (line == scoreboardlines)
+	line = 0;
 
-    if (i == scoreboardlines)	// we're not there
-	i = 0;
-    else			// figure out start
-	i = i - numlines / 2;
-
-    if (i > scoreboardlines - numlines)
-	i = scoreboardlines - numlines;
-    if (i < 0)
-	i = 0;
+    /* Put the client in the centre of the displayed lines */
+    line = qclamp(line - numlines / 2, 0, scoreboardlines - numlines);
 
     x = 324;
-    for ( /* */ ; i < scoreboardlines && y < vid.height - 8; i++) {
-	k = fragsort[i];
-	p = &cl.players[k];
-	if (!p->name[0])
+    while (line < scoreboardlines && y < vid.height - 8 + 1) {
+	const int playernum = fragsort[line++];
+	const player_info_t *player = &cl.players[playernum];
+	if (!player->name[0])
 	    continue;
 
-	// draw background
-	top = Sbar_ColorForMap(p->topcolor);
-	bottom = Sbar_ColorForMap(p->bottomcolor);
-
+	/* draw background */
+	top = Sbar_ColorForMap(player->topcolor);
+	bottom = Sbar_ColorForMap(player->bottomcolor);
 	Draw_Fill(x, y + 1, 40, 3, top);
 	Draw_Fill(x, y + 4, 40, 4, bottom);
 
-	// draw number
-	f = p->frags;
-	sprintf(num, "%3i", f);
-
-	Draw_Character(x + 8, y, num[0]);
-	Draw_Character(x + 16, y, num[1]);
-	Draw_Character(x + 24, y, num[2]);
-
-	if (k == cl.viewentity - 1) {
+	/* draw frags */
+	char frags[4];
+	snprintf(frags, sizeof(frags), "%3d", player->frags);
+	Draw_Character(x + 8, y, frags[0]);
+	Draw_Character(x + 16, y, frags[1]);
+	Draw_Character(x + 24, y, frags[2]);
+	if (playernum == cl.viewentity - 1) {
 	    Draw_Character(x, y, 16);
 	    Draw_Character(x + 32, y, 17);
 	}
-#if 0
-	{
-	    int total;
-	    int n, minutes, tens, units;
 
-	    // draw time
-	    total = cl.completed_time - p->entertime;
-	    minutes = (int)total / 60;
-	    n = total - minutes * 60;
-	    tens = n / 10;
-	    units = n % 10;
-
-	    sprintf(num, "%3i:%i%i", minutes, tens, units);
-
-	    Draw_String(x + 48, y, num);
-	}
-#endif
-
-	// draw name
-	Draw_String(x + 48, y, p->name);
+	/* draw name */
+	char name[17];
+	snprintf(name, sizeof(name), "%-16s", player->name);
+	Draw_String(x + 48, y, name);
 
 	y += 8;
     }

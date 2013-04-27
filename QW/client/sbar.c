@@ -1149,131 +1149,117 @@ displayed to right of status bar if there's room
 void
 Sbar_MiniDeathmatchOverlay(void)
 {
-    int i, k;
-    int top, bottom;
-    int x, y, f;
-    char num[12];
-    player_info_t *s;
+    int x, y, line, numlines, top, bottom;
     int teamplay;
-    char team[5];
-    int numlines;
-    char name[16 + 1];
-    team_t *tm;
 
+    /* Don't bother if not enough room */
     if (vid.width < 512 || !sb_lines)
-	return;			// not enuff room
+	return;
 
     teamplay = atoi(Info_ValueForKey(cl.serverinfo, "teamplay"));
 
     scr_copyeverything = 1;
     scr_fullupdate = 0;
 
-// scores
     Sbar_SortFrags(false);
     if (vid.width >= 640)
 	Sbar_SortTeams();
-
     if (!scoreboardlines)
-	return;			// no one there?
+	return;
 
-// draw the text
+    /* Check for space to draw the text */
     y = vid.height - sb_lines - 1;
     numlines = sb_lines / 8;
     if (numlines < 3)
-	return;			// not enough room
+	return;
 
-    // find us
-    for (i = 0; i < scoreboardlines; i++)
-	if (fragsort[i] == cl.playernum)
+    /* Find client in the scoreboard, if not there (spectator) display top */
+    for (line = 0; line < scoreboardlines; line++)
+	if (fragsort[line] == cl.playernum)
 	    break;
+    if (line == scoreboardlines)
+	line = 0;
 
-    if (i == scoreboardlines)	// we're not there, we are probably a spectator, just display top
-	i = 0;
-    else			// figure out start
-	i = i - numlines / 2;
-
-    if (i > scoreboardlines - numlines)
-	i = scoreboardlines - numlines;
-    if (i < 0)
-	i = 0;
+    /* Put the client in the centre of the displayed lines */
+    line = qclamp(line - numlines / 2, 0, scoreboardlines - numlines);
 
     x = 324;
-
-    for ( /* */ ; i < scoreboardlines && y < vid.height - 8 + 1; i++) {
-	k = fragsort[i];
-	s = &cl.players[k];
-	if (!s->name[0])
+    while (line < scoreboardlines && y < vid.height - 8 + 1) {
+	const int playernum = fragsort[line++];
+	const player_info_t *player = &cl.players[playernum];
+	if (!player->name[0])
 	    continue;
 
-	// draw ping
-	top = Sbar_ColorForMap(s->topcolor);
-	bottom = Sbar_ColorForMap(s->bottomcolor);
-
+	/* draw background */
+	top = Sbar_ColorForMap(player->topcolor);
+	bottom = Sbar_ColorForMap(player->bottomcolor);
 	Draw_Fill(x, y + 1, 40, 3, top);
 	Draw_Fill(x, y + 4, 40, 4, bottom);
 
-	// draw number
-	f = s->frags;
-	sprintf(num, "%3i", f);
-
-	Draw_Character(x + 8, y, num[0]);
-	Draw_Character(x + 16, y, num[1]);
-	Draw_Character(x + 24, y, num[2]);
-
-	if (k == cl.playernum) {
+	/* draw frags */
+	char frags[4];
+	snprintf(frags, sizeof(frags), "%3d", player->frags);
+	Draw_Character(x + 8, y, frags[0]);
+	Draw_Character(x + 16, y, frags[1]);
+	Draw_Character(x + 24, y, frags[2]);
+	if (playernum == cl.playernum) {
 	    Draw_Character(x, y, 16);
 	    Draw_Character(x + 32, y, 17);
 	}
-	// team
+
+	/* draw team name */
 	if (teamplay) {
-	    team[4] = 0;
-	    strncpy(team, Info_ValueForKey(s->userinfo, "team"), 4);
-	    Draw_String(x + 48, y, team);
+	    const char *playerteam = Info_ValueForKey(player->userinfo, "team");
+	    char short_team[5];
+	    snprintf(short_team, sizeof(short_team), "%-4s", playerteam);
+	    Draw_String(x + 48, y, short_team);
 	}
-	// draw name
-	name[16] = 0;
-	strncpy(name, s->name, 16);
+
+	/* draw name */
+	char name[17];
+	snprintf(name, sizeof(name), "%-16s", player->name);
 	if (teamplay)
 	    Draw_String(x + 48 + 40, y, name);
 	else
 	    Draw_String(x + 48, y, name);
+
 	y += 8;
     }
 
-    // draw teams if room
+    /* draw teams if room */
     if (vid.width < 640 || !teamplay)
 	return;
 
-    // draw seperator
+    /* draw seperator */
     x += 208;
     for (y = vid.height - sb_lines; y < vid.height - 6; y += 2)
 	Draw_Character(x, y, 14);
 
+    const player_info_t *player = &cl.players[cl.playernum];
+    const char *playerteam = Info_ValueForKey(player->userinfo, "team");
+
     x += 16;
-
     y = vid.height - sb_lines;
-    for (i = 0; i < scoreboardteams && y <= vid.height; i++) {
-	k = teamsort[i];
-	tm = teams + k;
+    line = 0;
+    while (line < scoreboardteams && y <= vid.height) {
+	const team_t *team = teams + teamsort[line++];
 
-	// draw pings
-	team[4] = 0;
-	strncpy(team, tm->team, 4);
-	Draw_String(x, y, team);
+	/* draw teamname */
+	char short_team[5];
+	snprintf(short_team, sizeof(short_team), "%-4s", team->team);
+	Draw_String(x, y, short_team);
 
-	// draw total
-	sprintf(num, "%5i", tm->frags);
-	Draw_String(x + 40, y, num);
-
-	if (!strncmp(Info_ValueForKey(cl.players[cl.playernum].userinfo,
-				      "team"), tm->team, 16)) {
+	/* draw frags */
+	char frags[4];
+	snprintf(frags, sizeof(frags), "%3d", team->frags);
+	Draw_String(x + 40, y, frags);
+	if (!strncmp(team->team, playerteam, 16)) {
 	    Draw_Character(x - 8, y, 16);
 	    Draw_Character(x + 32, y, 17);
 	}
 
 	y += 8;
     }
-
 }
 
 
