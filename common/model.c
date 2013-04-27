@@ -540,17 +540,19 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 
 	if ((mt->width & 15) || (mt->height & 15))
 	    SV_Error("Texture %s is not 16 aligned", mt->name);
+
 	pixels = mt->width * mt->height / 64 * 85;
 	tx = Mod_AllocName(sizeof(texture_t) + pixels, model->name);
 	brushmodel->textures[i] = tx;
 
+	/* FIXME ~ do we handle non-terminated strings everywhere? */
 	memcpy(tx->name, mt->name, sizeof(tx->name));
 	tx->width = mt->width;
 	tx->height = mt->height;
 	for (j = 0; j < MIPLEVELS; j++)
 	    tx->offsets[j] =
 		mt->offsets[j] + sizeof(texture_t) - sizeof(miptex_t);
-	// the pixels immediately follow the structures
+	/* the pixels immediately follow the structures */
 	memcpy(tx + 1, mt + 1, pixels);
 
 #ifndef SERVERONLY
@@ -564,23 +566,24 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 #endif
     }
 
-//
-// sequence the animations
-//
+    /*
+     * sequence the animations
+     */
     for (i = 0; i < lump->nummiptex; i++) {
 	tx = brushmodel->textures[i];
 	if (!tx || tx->name[0] != '+')
 	    continue;
 	if (tx->anim_next)
-	    continue;		// allready sequenced
+	    continue; /* Already sequenced */
 
-	// find the number of frames in the animation
+	/* find the number of frames in the animation */
 	memset(anims, 0, sizeof(anims));
 	memset(altanims, 0, sizeof(altanims));
 
 	max = tx->name[1];
 	if (max >= 'a' && max <= 'z')
 	    max -= 'a' - 'A';
+
 	if (max >= '0' && max <= '9') {
 	    max -= '0';
 	    altmax = 0;
@@ -619,7 +622,7 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	}
 
 #define	ANIM_CYCLE	2
-	// link them all together
+	/* Link them all together */
 	for (j = 0; j < max; j++) {
 	    tx2 = anims[j];
 	    if (!tx2)
