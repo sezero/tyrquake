@@ -94,31 +94,30 @@ void R_AliasProjectFinalVert(finalvert_t *fv, auxvert_t *av);
  */
 static int SW_Aliashdr_Padding(void) { return offsetof(sw_aliashdr_t, ahdr); }
 
-static void *
-SW_LoadSkinData(const char *modelname, aliashdr_t *ahdr,
+static void
+SW_LoadSkinData(model_t *model, aliashdr_t *ahdr,
 		const alias_skindata_t *skindata)
 {
     int i, j, skinsize;
-    byte *ret, *out;
+    byte *pixels;
 
     skinsize = ahdr->skinwidth * ahdr->skinheight;
-    ret = out = Hunk_Alloc(skindata->numskins * skinsize * r_pixbytes);
+    pixels = Hunk_Alloc(skindata->numskins * skinsize * r_pixbytes);
+    ahdr->skindata = (byte *)pixels - (byte *)ahdr;
 
     for (i = 0; i < skindata->numskins; i++) {
 	if (r_pixbytes == 1) {
-	    memcpy(out, skindata->data[i], skinsize);
+	    memcpy(pixels, skindata->data[i], skinsize);
 	} else if (r_pixbytes == 2) {
-	    unsigned short *skin16 = (unsigned short *)out;
+	    uint16_t *skin16 = (uint16_t *)pixels;
 	    for (j = 0; j < skinsize; j++)
 		skin16[j] = d_8to16table[skindata->data[i][j]];
 	} else {
 	    Sys_Error("%s: driver set invalid r_pixbytes: %d", __func__,
 		      r_pixbytes);
 	}
-	out += skinsize * r_pixbytes;
+	pixels += skinsize * r_pixbytes;
     }
-
-    return ret;
 }
 
 static void

@@ -366,24 +366,31 @@ GL_FloodFillSkin(byte *skin, int skinwidth, int skinheight)
     }
 }
 
-static void *
-GL_LoadSkinData(const char *modelname, aliashdr_t *ahdr,
+static void
+GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr,
 		const alias_skindata_t *skindata)
 {
     char hunkname[HUNK_NAMELEN + 1];
     int i, skinsize;
-    GLuint *glt;
+    GLuint *textures;
+    byte *pixels;
 
-    skinsize = ahdr->skinwidth * ahdr->skinheight;
-    glt = Mod_AllocName(skindata->numskins * sizeof(GLuint), modelname);
+    skinsize = aliashdr->skinwidth * aliashdr->skinheight;
+    pixels = Mod_AllocName(skindata->numskins * skinsize, model->name);
+    aliashdr->skindata = (byte *)pixels - (byte *)aliashdr;
+    textures = Mod_AllocName(skindata->numskins * sizeof(GLuint), model->name);
+    GL_Aliashdr(aliashdr)->textures = (byte *)textures - (byte *)aliashdr;
+
     for (i = 0; i < skindata->numskins; i++) {
-	GL_FloodFillSkin(skindata->data[i], ahdr->skinwidth, ahdr->skinheight);
+	GL_FloodFillSkin(skindata->data[i], aliashdr->skinwidth, aliashdr->skinheight);
+	memcpy(pixels, skindata->data[i], skinsize);
+	pixels += skinsize;
 
 	/* save 8 bit texels for the player model to remap */
-	if (!strcmp(modelname, "progs/player.mdl")) {
+	if (!strcmp(model->name, "progs/player.mdl")) {
 #ifdef NQ_HACK
-	    byte *texels = Mod_AllocName(skinsize, modelname);
-	    GL_Aliashdr(ahdr)->texels[i] = texels - (byte *)ahdr;
+	    byte *texels = Mod_AllocName(skinsize, model->name);
+	    GL_Aliashdr(aliashdr)->texels[i] = texels - (byte *)aliashdr;
 	    memcpy(texels, skindata->data[i], skinsize);
 #endif
 #ifdef QW_HACK
@@ -393,13 +400,11 @@ GL_LoadSkinData(const char *modelname, aliashdr_t *ahdr,
 #endif
 	}
 
-	COM_FileBase(modelname, hunkname, sizeof(hunkname));
-	glt[i] = GL_LoadTexture(va("%s_%i", hunkname, i),
-				ahdr->skinwidth, ahdr->skinheight,
-				skindata->data[i], true, false);
+	COM_FileBase(model->name, hunkname, sizeof(hunkname));
+	textures[i] = GL_LoadTexture(va("%s_%i", hunkname, i),
+				     aliashdr->skinwidth, aliashdr->skinheight,
+				     skindata->data[i], true, false);
     }
-
-    return glt;
 }
 
 static model_loader_t GL_Model_Loader = {
@@ -586,7 +591,7 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
     const maliasskindesc_t *skindesc;
     const float *intervals;
     int skinnum, numframes, frame;
-    GLuint *glt;
+    GLuint *textures;
 
     skinnum = entity->skinnum;
     if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
@@ -606,8 +611,8 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 	frame += Mod_FindInterval(intervals + frame, numframes, frametime);
     }
 
-    glt = (GLuint *)((byte *)aliashdr + aliashdr->skindata);
-    GL_Bind(glt[frame]);
+    textures = (GLuint *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
+    GL_Bind(textures[frame]);
 }
 
 /*

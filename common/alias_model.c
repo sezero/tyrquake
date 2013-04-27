@@ -202,11 +202,10 @@ Mod_LoadAliasSkins
 */
 static void *
 Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
-		   const model_t *model, void *buffer,
+		   model_t *model, void *buffer,
 		   alias_skindata_t *skindata)
 {
     maliasskindesc_t *skin;
-    byte *data;
     int i;
 
     if (aliashdr->numskins < 1
@@ -233,8 +232,7 @@ Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
     }
 
     /* Hand off saving the skin data to the loader */
-    data = loader->LoadSkinData(model->name, aliashdr, skindata);
-    aliashdr->skindata = (byte *)data - (byte *)aliashdr;
+    loader->LoadSkinData(model, aliashdr, skindata);
 
     return buffer;
 }

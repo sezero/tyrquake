@@ -349,6 +349,7 @@ typedef struct {
 #define	MAX_SKINS	32
     int texels[MAX_SKINS];	// only for player skins
 #endif
+    int textures;     /* Offset to GLuint texture names */
     aliashdr_t ahdr;
 } gl_aliashdr_t;
 
@@ -508,7 +509,7 @@ typedef struct {
 
 typedef struct model_loader {
     int (*Aliashdr_Padding)(void);
-    void *(*LoadSkinData)(const char *, aliashdr_t *, const alias_skindata_t *);
+    void (*LoadSkinData)(model_t *, aliashdr_t *, const alias_skindata_t *);
     void (*LoadMeshData)(const model_t *, aliashdr_t *hdr,
 			 const alias_meshdata_t *, const alias_posedata_t *);
     void (*CacheDestructor)(cache_user_t *);
