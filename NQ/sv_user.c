@@ -787,7 +787,7 @@ SV_Kill_f(client_t *client)
     edict_t *player = client->edict;
 
     if (player->v.health <= 0) {
-	SV_ClientPrintf(client, "Can't suicide -- allready dead!\n");
+	SV_ClientPrintf(client, "Can't suicide -- already dead!\n");
 	return;
     }
 

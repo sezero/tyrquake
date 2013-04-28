@@ -561,7 +561,7 @@ CL_SendMove(usercmd_t *cmd)
      */
 
     /*
-     * allways dump the first two message, because it may contain leftover
+     * always dump the first two message, because it may contain leftover
      * inputs from the last level
      */
     if (++cl.movemessages <= 2)

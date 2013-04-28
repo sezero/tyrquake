@@ -268,9 +268,9 @@ Cvar_RegisterVariable(cvar_t *variable)
     char value[512];		// FIXME - magic numbers...
     float old_developer;
 
-    /* first check to see if it has allready been defined */
+    /* first check to see if it has already been defined */
     if (Cvar_FindVar(variable->name)) {
-	Con_Printf("Can't register variable %s, allready defined\n",
+	Con_Printf("Can't register variable %s, already defined\n",
 		   variable->name);
 	return;
     }

@@ -47,7 +47,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 /*
- * A server can allways be started, even if the system started out as a client
+ * A server can always be started, even if the system started out as a client
  * to a remote system.
  *
  * A client can NOT be started if the system started as a dedicated server.

@@ -62,7 +62,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  * multiple frames worth piling up while the last reliable transmit goes
  * unacknowledged, the netchan signals a fatal error.
  *
- * Reliable messages are allways placed first in a packet, then the unreliable
+ * Reliable messages are always placed first in a packet, then the unreliable
  * message is included if there is sufficient room.
  *
  * To the receiver, there is no distinction between the reliable and

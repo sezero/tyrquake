@@ -1104,7 +1104,7 @@ Cache_AllocPadded(cache_user_t *c, int pad, int size, const char *name)
     cache_system_t *cs;
 
     if (c->data)
-	Sys_Error("%s: allready allocated", __func__);
+	Sys_Error("%s: already allocated", __func__);
 
     if (size <= 0)
 	Sys_Error("%s: size %i", __func__, size);

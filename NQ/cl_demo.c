@@ -107,11 +107,11 @@ CL_GetMessage(void)
 
     if (cls.demoplayback) {
 	// decide if it is time to grab the next message
-	// allways grab until fully connected
+	// always grab until fully connected
 	if (cls.state == ca_active) {
 	    if (cls.timedemo) {
 		if (host_framecount == cls.td_lastframe)
-		    return 0;	// allready read this frame's message
+		    return 0;	// already read this frame's message
 
 		cls.td_lastframe = host_framecount;
 

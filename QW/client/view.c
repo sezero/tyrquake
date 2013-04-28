@@ -783,7 +783,7 @@ V_CalcIntermissionRefdef(void)
     VectorCopy(cl.simangles, r_refdef.viewangles);
     view->model = NULL;
 
-// allways idle in intermission
+// always idle in intermission
     old = v_idlescale.value;
     v_idlescale.value = 1;
     V_AddIdle();

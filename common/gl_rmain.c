@@ -1053,7 +1053,7 @@ R_DrawViewModel(void)
     j = R_LightPoint(e->origin);
 
     if (j < 24)
-	j = 24;			// allways give some light on gun
+	j = 24;			// always give some light on gun
     ambientlight = j;
     shadelight = j;
 

@@ -340,7 +340,7 @@ SND_PickChannel(int entnum, int entchannel)
 	channel = &channels[i];
 	/*
 	 * - channel 0 never overrides
-	 * - allways override sound from same entity
+	 * - always override sound from same entity
 	 */
 	if (entchannel != 0 && channel->entnum == entnum &&
 	    (channel->entchannel == entchannel || entchannel == -1)) {
@@ -382,7 +382,7 @@ SND_Spatialize(channel_t *ch)
     vec_t lscale, rscale, scale;
     vec3_t source_vec;
 
-    /* anything coming from the view entity will allways be full volume */
+    /* anything coming from the view entity will always be full volume */
 #ifdef NQ_HACK
     if (ch->entnum == cl.viewentity) {
 	ch->leftvol = ch->master_vol;

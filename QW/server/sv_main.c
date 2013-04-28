@@ -610,7 +610,7 @@ SVC_DirectConnect(void)
     } else
 	strncpy(newcl->userinfo, userinfo, sizeof(newcl->userinfo) - 1);
 
-    // if there is allready a slot for this ip, drop it
+    // if there is already a slot for this ip, drop it
     for (i = 0, cl = svs.clients; i < MAX_CLIENTS; i++, cl++) {
 	if (cl->state == cs_free)
 	    continue;
@@ -1590,7 +1590,7 @@ SV_InitNet(void)
 
     Netchan_Init();
 
-    // heartbeats will allways be sent to the id master
+    // heartbeats will always be sent to the id master
     svs.last_heartbeat = -99999;	// send immediately
 //      NET_StringToAdr ("192.246.40.70:27000", &idmaster_adr);
 }
