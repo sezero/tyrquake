@@ -113,6 +113,7 @@ void *Hunk_TempAllocExtend(int size);
 void Hunk_Check(void);
 
 typedef struct cache_user_s {
+    void (*destructor)(struct cache_user_s *self);
     void *data;
     int pad;
 } cache_user_t;

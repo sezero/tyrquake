@@ -46,6 +46,7 @@ typedef struct {
 
 static void Cache_FreeLow(int new_low_hunk);
 static void Cache_FreeHigh(int new_high_hunk);
+static void Cache_Dealloc(cache_user_t *c);
 
 /*
  * ============================================================================
@@ -794,24 +795,21 @@ Cache_Data(const cache_system_t *c)
  * ===========
  */
 static void
-Cache_Move(cache_system_t *c)
+Cache_Move(cache_system_t *old_cs)
 {
-    cache_system_t *new;
-    int pad;
+    cache_system_t *new_cs;
 
     /* we are clearing up space at the bottom, so only allocate it late */
-    new = Cache_TryAlloc(c->size, true);
-    if (new) {
-	memcpy(new + 1, c + 1, c->size - sizeof(cache_system_t));
-	new->user = c->user;
-	memcpy(new->name, c->name, sizeof(new->name));
-	pad = c->user->pad;
-	Cache_Free(c->user);
-	new->user->pad = pad;
-	new->user->data = Cache_Data(new);
+    new_cs = Cache_TryAlloc(old_cs->size, true);
+    if (new_cs) {
+	memcpy(new_cs + 1, old_cs + 1, old_cs->size - sizeof(cache_system_t));
+	new_cs->user = old_cs->user;
+	memcpy(new_cs->name, old_cs->name, sizeof(new_cs->name));
+	Cache_Dealloc(old_cs->user);
+	new_cs->user->data = Cache_Data(new_cs);
     } else {
 	/* tough luck... */
-	Cache_Free(c->user);
+	Cache_Free(old_cs->user);
     }
 }
 
@@ -1033,13 +1031,13 @@ Cache_Init(void)
 
 /*
  * ==============
- * Cache_Free
+ * Cache_Dealloc
  *
  * Frees the memory and removes it from the LRU list
  * ==============
  */
-void
-Cache_Free(cache_user_t *c)
+static void
+Cache_Dealloc(cache_user_t *c)
 {
     cache_system_t *cs;
 
@@ -1051,13 +1049,30 @@ Cache_Free(cache_user_t *c)
     cs->next->prev = cs->prev;
     cs->next = cs->prev = NULL;
 
-    c->pad = 0;
-    c->data = NULL;
-
     Cache_UnlinkLRU(cs);
 }
 
+/*
+ * ==============
+ * Cache_Free
+ *
+ * Call the destructor before freeing the cache entry
+ * ==============
+ */
+void
+Cache_Free(cache_user_t *c)
+{
+    /* Cleanup the user data */
+    if (c->destructor) {
+	c->destructor(c);
+	c->destructor = NULL;
+    }
 
+    Cache_Dealloc(c);
+
+    c->pad = 0;
+    c->data = NULL;
+}
 
 /*
  * ==============
@@ -1119,6 +1134,7 @@ Cache_AllocPadded(cache_user_t *c, int pad, int size, const char *name)
 	    cs->user = c;
 	    c->pad = pad;
 	    c->data = Cache_Data(cs);
+	    c->destructor = NULL;
 	    break;
 	}
 	/* free the least recently used cache data */
