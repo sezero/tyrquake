@@ -511,6 +511,7 @@ typedef struct model_loader {
     void *(*LoadSkinData)(const char *, aliashdr_t *, const alias_skindata_t *);
     void (*LoadMeshData)(const model_t *, aliashdr_t *hdr,
 			 const alias_meshdata_t *, const alias_posedata_t *);
+    void (*CacheDestructor)(cache_user_t *);
 } model_loader_t;
 
 //============================================================================

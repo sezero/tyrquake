@@ -164,7 +164,8 @@ SW_LoadMeshData(const model_t *model, aliashdr_t *hdr,
 static model_loader_t SW_Model_Loader = {
     .Aliashdr_Padding = SW_Aliashdr_Padding,
     .LoadSkinData = SW_LoadSkinData,
-    .LoadMeshData = SW_LoadMeshData
+    .LoadMeshData = SW_LoadMeshData,
+    .CacheDestructor = NULL,
 };
 
 const model_loader_t *

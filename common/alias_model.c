@@ -468,6 +468,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
     if (!model->cache.data)
 	return;
     memcpy((byte *)model->cache.data - pad, membase, memsize);
+    model->cache.destructor = loader->CacheDestructor;
 
     Hunk_FreeToLowMark(lowmark);
 }
