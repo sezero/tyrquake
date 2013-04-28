@@ -52,11 +52,10 @@ Mod_LoadAliasFrame(aliashdr_t *aliashdr, void *buffer,
 	frame->bboxmin.v[i] = dframe->bboxmin.v[i];
 	frame->bboxmax.v[i] = dframe->bboxmax.v[i];
     }
-    posedata->verts[posedata->numposes] = dframe->verts;
-    posedata->numposes++;
-
     /* interval is unused, but 999 should make problems obvious */
     intervals[posedata->numposes] = 999.0f;
+    posedata->verts[posedata->numposes] = dframe->verts;
+    posedata->numposes++;
 
     return (byte *)buffer + offsetof(daliasframe_t, verts[aliashdr->numverts]);
 }
