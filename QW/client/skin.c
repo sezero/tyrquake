@@ -31,8 +31,8 @@ cvar_t noskins = { "noskins", "0" };
 static char allskins[128];
 
 #define	MAX_CACHED_SKINS		128
-skin_t skins[MAX_CACHED_SKINS];
-int numskins;
+static skin_t skins[MAX_CACHED_SKINS];
+static int numskins;
 
 /*
 ================
