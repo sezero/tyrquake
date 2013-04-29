@@ -590,7 +590,8 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 
     skinnum = entity->skinnum;
     if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
-	Con_DPrintf("%s: no such skin # %d\n", __func__, skinnum);
+	Con_DPrintf("%s: %s has no such skin (%d)\n",
+		    __func__, entity->model->name, skinnum);
 	skinnum = 0;
     }
 

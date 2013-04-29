@@ -661,48 +661,50 @@ R_AliasSetupSkin
 ===============
 */
 static void
-R_AliasSetupSkin(const entity_t *e, aliashdr_t *pahdr)
+R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 {
-    int skinnum;
-    int frame, numframes, skinbytes;
-    maliasskindesc_t *pskindesc;
-    float *intervals;
+    const maliasskindesc_t *pskindesc;
+    const float *intervals;
+    int skinnum, numframes, frame;
+    int skinbytes;
     byte *pdata;
 
-    skinnum = e->skinnum;
-    if ((skinnum >= pahdr->numskins) || (skinnum < 0)) {
-	Con_DPrintf("%s: no such skin # %d\n", __func__, skinnum);
+    skinnum = entity->skinnum;
+    if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
+	Con_DPrintf("%s: %s has no such skin (%d)\n",
+		    __func__, entity->model->name, skinnum);
 	skinnum = 0;
     }
 
-    pskindesc = ((maliasskindesc_t *)((byte *)pahdr + pahdr->skindesc));
+    pskindesc = ((maliasskindesc_t *)((byte *)aliashdr + aliashdr->skindesc));
     pskindesc += skinnum;
-    a_skinwidth = pahdr->skinwidth;
+    a_skinwidth = aliashdr->skinwidth;
 
     frame = pskindesc->firstframe;
     numframes = pskindesc->numframes;
 
     if (numframes > 1) {
-	intervals = (float *)((byte *)pahdr + pahdr->skinintervals) + frame;
-	frame += Mod_FindInterval(intervals, numframes, cl.time + e->syncbase);
+	const float frametime = cl.time + entity->syncbase;
+	intervals = (float *)((byte *)aliashdr + aliashdr->skinintervals);
+	frame += Mod_FindInterval(intervals + frame, numframes, frametime);
     }
 
-    skinbytes = pahdr->skinwidth * pahdr->skinheight * r_pixbytes;
-    pdata = (byte *)pahdr + pahdr->skindata;
+    skinbytes = aliashdr->skinwidth * aliashdr->skinheight * r_pixbytes;
+    pdata = (byte *)aliashdr + aliashdr->skindata;
     pdata += frame * skinbytes;
 
     r_affinetridesc.pskin = pdata;
     r_affinetridesc.skinwidth = a_skinwidth;
     r_affinetridesc.seamfixupX16 = (a_skinwidth >> 1) << 16;
-    r_affinetridesc.skinheight = pahdr->skinheight;
+    r_affinetridesc.skinheight = aliashdr->skinheight;
 
 #ifdef QW_HACK
-    if (e->scoreboard) {
+    if (entity->scoreboard) {
 	byte *base;
 
-	if (!e->scoreboard->skin)
-	    Skin_Find(e->scoreboard);
-	base = Skin_Cache(e->scoreboard->skin);
+	if (!entity->scoreboard->skin)
+	    Skin_Find(entity->scoreboard);
+	base = Skin_Cache(entity->scoreboard->skin);
 	if (base) {
 	    r_affinetridesc.pskin = base;
 	    r_affinetridesc.skinwidth = 320;
