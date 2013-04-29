@@ -57,9 +57,6 @@ static model_t *loaded_sprites;
 
 #ifdef GLQUAKE
 cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", true };
-#ifdef QW_HACK
-byte player_8bit_texels[320 * 200];
-#endif
 #endif
 
 static const model_loader_t *mod_loader;

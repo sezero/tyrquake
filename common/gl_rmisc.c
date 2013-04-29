@@ -354,18 +354,12 @@ R_TranslatePlayerSkin(int playernum)
     int top, bottom;
     unsigned translate[256];
     int i;
-    byte *original;
+    const byte *original;
     unsigned pixels[512 * 256];
     unsigned scaled_width, scaled_height;
     int inwidth, inheight, instride;
     player_info_t *player;
 
-#ifdef NQ_HACK
-    model_t *model;
-    aliashdr_t *paliashdr;
-    int size;
-    const entity_t *e;
-#endif
 #ifdef QW_HACK
     const char *skin_key;
     char skin[MAX_QPATH];
@@ -416,25 +410,29 @@ R_TranslatePlayerSkin(int playernum)
      * Locate the original skin pixels
      */
 #ifdef NQ_HACK
-    e = &cl_entities[1 + playernum];
-    model = e->model;
+    entity_t *entity = &cl_entities[1 + playernum];
+    model_t *model = entity->model;
+    const aliashdr_t *aliashdr;
+
     if (!model)
 	return;			// player doesn't have a model yet
     if (model->type != mod_alias)
 	return;			// only translate skins on alias models
 
-    paliashdr = Mod_Extradata(model);
-    size = paliashdr->skinwidth * paliashdr->skinheight;
-    if (e->skinnum < 0 || e->skinnum >= paliashdr->numskins) {
-	Con_Printf("(%d): Invalid player skin #%d\n", playernum, e->skinnum);
-	original = (byte *)paliashdr + GL_Aliashdr(paliashdr)->texels[0];
-    } else
-	original = (byte *)paliashdr + GL_Aliashdr(paliashdr)->texels[e->skinnum];
-    if (size & 3)
-	Sys_Error("%s: size & 3", __func__);
+    aliashdr = Mod_Extradata(model);
+    original = (const byte *)aliashdr + aliashdr->skindata;
+    if (entity->skinnum < 0 || entity->skinnum >= aliashdr->numskins) {
+	Con_DPrintf("Player %d has invalid skin #%d\n",
+		    playernum, entity->skinnum);
+    } else {
+	const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
+	if (skinsize & 3)
+	    Sys_Error("%s: skinsize & 3", __func__);
+	original += entity->skinnum * skinsize;
+    }
 
-    inwidth = instride = paliashdr->skinwidth;
-    inheight = paliashdr->skinheight;
+    inwidth = instride = aliashdr->skinwidth;
+    inheight = aliashdr->skinheight;
 #endif
 #ifdef QW_HACK
     /* Hard coded width from original model */
@@ -447,7 +445,9 @@ R_TranslatePlayerSkin(int playernum)
 	/* Skin data width for custom skins */
 	instride = 320;
     } else {
-	original = player_8bit_texels;
+	model_t *model = cl.model_precache[cl_playerindex];
+	const aliashdr_t *aliashdr = Mod_Extradata(model);
+	original = (const byte *)aliashdr + aliashdr->skindata;
 	instride = inwidth;
     }
 #endif

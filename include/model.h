@@ -289,10 +289,6 @@ typedef struct {
     mspriteframedesc_t frames[];	/* variable sized */
 } msprite_t;
 
-#if defined (GLQUAKE) && defined(QW_HACK)
-extern byte player_8bit_texels[320 * 200];
-#endif
-
 /*
 ==============================================================================
 
@@ -345,11 +341,7 @@ typedef struct {
 
 typedef struct {
     int commands;	// gl command list with embedded s/t
-#ifdef NQ_HACK
-#define	MAX_SKINS	32
-    int texels[MAX_SKINS];	// only for player skins
-#endif
-    int textures;     /* Offset to GLuint texture names */
+    int textures;	/* Offset to GLuint texture names */
     aliashdr_t ahdr;
 } gl_aliashdr_t;
 

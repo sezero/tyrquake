@@ -208,11 +208,7 @@ Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
     maliasskindesc_t *skin;
     int i;
 
-    if (aliashdr->numskins < 1
-#if defined(GLQUAKE) && defined(NQ_HACK)
-	|| aliashdr->numskins > MAX_SKINS
-#endif
-	)
+    if (aliashdr->numskins < 1)
 	Sys_Error("%s: Invalid # of skins: %d", __func__, aliashdr->numskins);
     if (aliashdr->skinwidth & 0x03)
 	Sys_Error("%s: skinwidth not multiple of 4", __func__);
