@@ -44,7 +44,7 @@ Skin_Find
 ================
 */
 void
-Skin_Find(player_info_t * sc)
+Skin_Find(player_info_t *player)
 {
     skin_t *skin;
     int i;
@@ -53,7 +53,7 @@ Skin_Find(player_info_t * sc)
 
     skinname = allskins;
     if (!skinname[0]) {
-	skinname = Info_ValueForKey(sc->userinfo, "skin");
+	skinname = Info_ValueForKey(player->userinfo, "skin");
 	if (!skinname || !skinname[0])
 	    skinname = baseskin.string;
     }
@@ -64,8 +64,8 @@ Skin_Find(player_info_t * sc)
 
     for (i = 0; i < numskins; i++) {
 	if (!strcmp(name, skins[i].name)) {
-	    sc->skin = &skins[i];
-	    Skin_Cache(sc->skin);
+	    player->skin = &skins[i];
+	    Skin_Cache(player->skin);
 	    return;
 	}
     }
@@ -76,7 +76,7 @@ Skin_Find(player_info_t * sc)
     }
 
     skin = &skins[numskins];
-    sc->skin = skin;
+    player->skin = skin;
     numskins++;
 
     memset(skin, 0, sizeof(*skin));
@@ -194,7 +194,7 @@ Skin_NextDownload
 void
 Skin_NextDownload(void)
 {
-    player_info_t *sc;
+    player_info_t *player;
     int i;
 
     if (cls.downloadnumber == 0)
@@ -202,13 +202,13 @@ Skin_NextDownload(void)
     cls.downloadtype = dl_skin;
 
     for (; cls.downloadnumber != MAX_CLIENTS; cls.downloadnumber++) {
-	sc = &cl.players[cls.downloadnumber];
-	if (!sc->name[0])
+	player = &cl.players[cls.downloadnumber];
+	if (!player->name[0])
 	    continue;
-	Skin_Find(sc);
+	Skin_Find(player);
 	if (noskins.value)
 	    continue;
-	if (!CL_CheckOrDownloadFile(va("skins/%s.pcx", sc->skin->name)))
+	if (!CL_CheckOrDownloadFile(va("skins/%s.pcx", player->skin->name)))
 	    return;		// started a download
     }
 
@@ -216,12 +216,12 @@ Skin_NextDownload(void)
 
     // now load them in for real
     for (i = 0; i < MAX_CLIENTS; i++) {
-	sc = &cl.players[i];
-	if (!sc->name[0])
+	player = &cl.players[i];
+	if (!player->name[0])
 	    continue;
-	Skin_Cache(sc->skin);
+	Skin_Cache(player->skin);
 #ifdef GLQUAKE
-	sc->skin = NULL;
+	player->skin = NULL;
 #endif
     }
 
