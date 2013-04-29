@@ -175,21 +175,28 @@ R_RotateForEntity(const vec3_t origin, const vec3_t angles)
 =============================================================
 */
 
+typedef struct {
+    GLuint texture;
+    byte pixels[];
+} gl_spritedata_t;
+
 int R_SpriteDataSize(int numpixels)
 {
-    return sizeof(GLuint);
+    return offsetof(gl_spritedata_t, pixels[numpixels]);
 }
 
 void R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
 		       int framenum, byte *pixels)
 {
     char name[MAX_QPATH];
-    GLuint gl_texturenum;
+    gl_spritedata_t *spritedata;
+
+    spritedata = (gl_spritedata_t *)frame->rdata;
+    memcpy(spritedata->pixels, pixels, frame->width * frame->height);
 
     snprintf(name, sizeof(name), "%s_%i", modelname, framenum);
-    gl_texturenum = GL_LoadTexture(name, frame->width, frame->height, pixels,
-				   true, true);
-    memcpy(frame->rdata, &gl_texturenum, sizeof(gl_texturenum));
+    spritedata->texture = GL_LoadTexture(name, frame->width, frame->height,
+					 pixels, true, true);
 }
 
 /*
@@ -204,11 +211,12 @@ R_DrawSpriteModel(const entity_t *entity)
     const msprite_t *sprite;
     const mspriteframe_t *frame;
     const float *up, *right;
+    const gl_spritedata_t *spritedata;
     vec3_t point, v_forward, v_right, v_up;
-    GLuint gltex;
 
     sprite = entity->model->cache.data;
     frame = Mod_GetSpriteFrame(entity, sprite, cl.time + entity->syncbase);
+    spritedata = (gl_spritedata_t *)frame->rdata;
 
     /*
      * Don't even bother culling, because it's just a single polygon
@@ -227,9 +235,8 @@ R_DrawSpriteModel(const entity_t *entity)
 
     glColor3f(1, 1, 1);
 
-    memcpy(&gltex, frame->rdata, sizeof(gltex));
     GL_DisableMultitexture();
-    GL_Bind(gltex);
+    GL_Bind(spritedata->texture);
 
     glEnable(GL_ALPHA_TEST);
     glBegin(GL_QUADS);
