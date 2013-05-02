@@ -49,7 +49,7 @@ typedef enum { false, true } qboolean;
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define const_container_of(ptr, type, member) ({                \
-	typeof( ((const type *)0)->member ) *__mptr = (ptr);    \
+	const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (const type *)( (const char *)__mptr - offsetof(type,member) );})
 
 #endif /* QTYPES_H */
