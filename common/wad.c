@@ -90,7 +90,7 @@ W_LoadWadFile(wad_t *wad, const char *filename)
 	lump->size = LittleLong(lump->size);
 	W_CleanupName(lump->name, lump->name);
 	if (lump->type == TYP_QPIC)
-	    SwapPic((qpic_t *)(wad->base + lump->filepos));
+	    SwapPic((dpic_t *)(wad->base + lump->filepos));
     }
 }
 
@@ -149,8 +149,8 @@ automatic byte swapping
 */
 
 void
-SwapPic(qpic_t *pic)
+SwapPic(dpic_t *dpic)
 {
-    pic->width = LittleLong(pic->width);
-    pic->height = LittleLong(pic->height);
+    dpic->width = LittleLong(dpic->width);
+    dpic->height = LittleLong(dpic->height);
 }

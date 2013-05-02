@@ -71,13 +71,14 @@ static int menu_numcachepics;
 const qpic_t *
 Draw_PicFromWad(const char *name)
 {
-    qpic_t *pic, *picdata;
+    qpic_t *pic;
+    dpic_t *dpic;
 
-    picdata = W_GetLumpName(&host_gfx, name);
+    dpic = W_GetLumpName(&host_gfx, name);
     pic = Hunk_AllocName(sizeof(*pic), "qpic_t");
-    pic->width = picdata->width;
-    pic->height = picdata->height;
-    pic->data = (byte *)&picdata->data;
+    pic->width = dpic->width;
+    pic->height = dpic->height;
+    pic->data = dpic->data;
 
     return pic;
 }
@@ -91,7 +92,7 @@ qpic_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
-    qpic_t *pic;
+    dpic_t *dpic;
     int i;
 
     cachepic = menu_cachepics;
@@ -106,23 +107,23 @@ Draw_CachePic(const char *path)
 	snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
     }
 
-    pic = Cache_Check(&cachepic->cache);
-    if (pic) {
+    dpic = Cache_Check(&cachepic->cache);
+    if (dpic) {
 	/* Cache data may have been moved */
-	cachepic->pic.data = (byte *)&pic->data;
+	cachepic->pic.data = dpic->data;
 	return &cachepic->pic;
     }
 
     /* load the pic from disk */
     COM_LoadCacheFile(path, &cachepic->cache);
-    pic = cachepic->cache.data;
-    if (!pic)
+    dpic = cachepic->cache.data;
+    if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
 
-    SwapPic(pic);
-    cachepic->pic.width = pic->width;
-    cachepic->pic.height = pic->height;
-    cachepic->pic.data = (byte *)&pic->data;
+    SwapPic(dpic);
+    cachepic->pic.width = dpic->width;
+    cachepic->pic.height = dpic->height;
+    cachepic->pic.data = dpic->data;
 
     return &cachepic->pic;
 }
@@ -137,20 +138,20 @@ Draw_Init(void)
 {
     static qpic_t draw_disc_pic;
     static qpic_t draw_backtile_pic;
-    qpic_t *pic;
+    dpic_t *dpic;
 
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
-    pic = W_GetLumpName(&host_gfx, "disc");
-    draw_disc_pic.width = pic->width;
-    draw_disc_pic.height = pic->height;
-    draw_disc_pic.data = (byte *)&pic->data;
+    dpic = W_GetLumpName(&host_gfx, "disc");
+    draw_disc_pic.width = dpic->width;
+    draw_disc_pic.height = dpic->height;
+    draw_disc_pic.data = dpic->data;
     draw_disc = &draw_disc_pic;
 
-    pic = W_GetLumpName(&host_gfx, "backtile");
-    draw_backtile_pic.width = pic->width;
-    draw_backtile_pic.height = pic->height;
-    draw_backtile_pic.data = (byte *)&pic->data;
+    dpic = W_GetLumpName(&host_gfx, "backtile");
+    draw_backtile_pic.width = dpic->width;
+    draw_backtile_pic.height = dpic->height;
+    draw_backtile_pic.data = dpic->data;
     draw_backtile = &draw_backtile_pic;
 
     r_rectdesc.width = draw_backtile->width;
@@ -158,7 +159,6 @@ Draw_Init(void)
     r_rectdesc.ptexbytes = draw_backtile->data;
     r_rectdesc.rowbytes = draw_backtile->width;
 }
-
 
 
 /*

@@ -245,17 +245,18 @@ const qpic_t *
 Draw_PicFromWad(const char *name)
 {
     qpic_t *pic;
+    dpic_t *dpic;
     glpic_t *glpic;
     scrap_t *scrap;
 
     glpic = Hunk_AllocName(sizeof(*glpic), "qpic_t");
-    pic = W_GetLumpName(&host_gfx, name);
+    dpic = W_GetLumpName(&host_gfx, name);
 
     /* Set up the embedded pic */
-    glpic->pic.width = pic->width;
-    glpic->pic.height = pic->height;
-    glpic->pic.data = (byte *)&pic->data;
     pic = &glpic->pic;
+    pic->width = dpic->width;
+    pic->height = dpic->height;
+    pic->data = dpic->data;
 
     /* load little ones into the scrap */
     if (pic->width < 64 && pic->height < 64) {
@@ -295,6 +296,7 @@ const qpic_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
+    dpic_t *dpic;
     qpic_t *pic;
     int i;
 
@@ -309,13 +311,13 @@ Draw_CachePic(const char *path)
 
     /* load the pic from disk */
     snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
-    pic = COM_LoadHunkFile(path);
-    if (!pic)
+    dpic = COM_LoadHunkFile(path);
+    if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
-    SwapPic(pic);
-    cachepic->glpic.pic.width = pic->width;
-    cachepic->glpic.pic.height = pic->height;
-    cachepic->glpic.pic.data = (byte *)&pic->data;
+    SwapPic(dpic);
+    cachepic->glpic.pic.width = dpic->width;
+    cachepic->glpic.pic.height = dpic->height;
+    cachepic->glpic.pic.data = dpic->data;
     pic = &cachepic->glpic.pic;
 
     // HACK HACK HACK --- we need to keep the bytes for
@@ -475,6 +477,7 @@ void
 Draw_Init(void)
 {
     int i;
+    dpic_t *dpic;
     qpic_t *pic;
     char version[5];
 
@@ -509,13 +512,13 @@ Draw_Init(void)
     cs_texture = GL_LoadTexture("crosshair", 8, 8, cs_data, false, true);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic_t");
-    pic = COM_LoadHunkFile("gfx/conback.lmp");
-    if (!pic)
+    dpic = COM_LoadHunkFile("gfx/conback.lmp");
+    if (!dpic)
 	Sys_Error("Couldn't load gfx/conback.lmp");
-    SwapPic(pic);
-    conback->pic.width = pic->width;
-    conback->pic.height = pic->height;
-    conback->pic.data = (byte *)&pic->data;
+    SwapPic(dpic);
+    conback->pic.width = dpic->width;
+    conback->pic.height = dpic->height;
+    conback->pic.data = dpic->data;
     pic = &conback->pic;
 
     /* hack the version number directly into the pic */
