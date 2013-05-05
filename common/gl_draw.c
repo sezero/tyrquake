@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sbar.h"
 #include "screen.h"
 #include "sys.h"
+#include "textures.h"
 #include "view.h"
 #include "wad.h"
 
@@ -1034,129 +1035,62 @@ GL_FindTexture(const char *identifier)
 }
 
 /*
-================
-GL_ResampleTexture
-================
-*/
-static void
-GL_ResampleTexture(const unsigned *in, int inwidth, int inheight,
-		   unsigned *out, int outwidth, int outheight)
-{
-    int i, j;
-    const unsigned *inrow;
-    unsigned frac, fracstep;
-
-    fracstep = inwidth * 0x10000 / outwidth;
-    for (i = 0; i < outheight; i++, out += outwidth) {
-	inrow = in + inwidth * (i * inheight / outheight);
-	frac = fracstep >> 1;
-	for (j = 0; j < outwidth; j += 4) {
-	    out[j] = inrow[frac >> 16];
-	    frac += fracstep;
-	    out[j + 1] = inrow[frac >> 16];
-	    frac += fracstep;
-	    out[j + 2] = inrow[frac >> 16];
-	    frac += fracstep;
-	    out[j + 3] = inrow[frac >> 16];
-	    frac += fracstep;
-	}
-    }
-}
-
-/*
-================
-GL_MipMap
-
-Operates in place, quartering the size of the texture
-================
-*/
-static void
-GL_MipMap(byte *in, int width, int height)
-{
-    int i, j;
-    byte *out;
-
-    width <<= 2;
-    height >>= 1;
-    out = in;
-    for (i = 0; i < height; i++, in += width) {
-	for (j = 0; j < width; j += 8, out += 4, in += 8) {
-	    out[0] = (in[0] + in[4] + in[width + 0] + in[width + 4]) >> 2;
-	    out[1] = (in[1] + in[5] + in[width + 1] + in[width + 5]) >> 2;
-	    out[2] = (in[2] + in[6] + in[width + 2] + in[width + 6]) >> 2;
-	    out[3] = (in[3] + in[7] + in[width + 3] + in[width + 7]) >> 2;
-	}
-    }
-}
-
-/*
 ===============
 GL_Upload32
 ===============
 */
-void
-GL_Upload32(const unsigned *data, int width, int height, qboolean mipmap,
-	    qboolean alpha)
+static void
+GL_Upload32(qtexture32_t *texture, qboolean mipmap, qboolean alpha)
 {
-    int samples;
-    static unsigned scaled[1024 * 512];	// [512*256];
-    int scaled_width, scaled_height;
+    const int format = alpha ? gl_alpha_format : gl_solid_format;
+    qtexture32_t *scaled;
+    int width, height, mark;
 
-    for (scaled_width = 1; scaled_width < width; scaled_width <<= 1);
-    for (scaled_height = 1; scaled_height < height; scaled_height <<= 1);
+    /* find the scaled size */
+    width = 1;
+    while (width < texture->width)
+	width <<= 1;
+    height = 1;
+    while (height < texture->height)
+	height <<= 1;
 
-    scaled_width >>= (int)gl_picmip.value;
-    scaled_height >>= (int)gl_picmip.value;
+    width >>= (int)gl_picmip.value;
+    width = qclamp(width, 1, (int)gl_max_size.value);
+    height >>= (int)gl_picmip.value;
+    height = qclamp(height, 1, (int)gl_max_size.value);
 
-    if (scaled_width > gl_max_size.value)
-	scaled_width = gl_max_size.value;
-    if (scaled_height > gl_max_size.value)
-	scaled_height = gl_max_size.value;
+    mark = Hunk_LowMark();
 
-    if (scaled_width * scaled_height > sizeof(scaled) / 4)
-	Sys_Error("%s: too big", __func__);
-
-    samples = alpha ? gl_alpha_format : gl_solid_format;
-    if (scaled_width == width && scaled_height == height) {
-	if (!mipmap) {
-	    glTexImage2D(GL_TEXTURE_2D, 0, samples, scaled_width,
-			 scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-	    goto done;
-	}
-	memcpy(scaled, data, width * height * 4);
-    } else
-	GL_ResampleTexture(data, width, height, scaled, scaled_width,
-			   scaled_height);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, samples, scaled_width, scaled_height, 0,
-		 GL_RGBA, GL_UNSIGNED_BYTE, scaled);
-
-    if (mipmap) {
-	int miplevel;
-
-	miplevel = 0;
-	while (scaled_width > 1 || scaled_height > 1) {
-	    GL_MipMap((byte *)scaled, scaled_width, scaled_height);
-	    scaled_width >>= 1;
-	    scaled_height >>= 1;
-	    if (scaled_width < 1)
-		scaled_width = 1;
-	    if (scaled_height < 1)
-		scaled_height = 1;
-	    miplevel++;
-	    glTexImage2D(GL_TEXTURE_2D, miplevel, samples, scaled_width,
-			 scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, scaled);
-	}
+    if (width != texture->width || height != texture->height) {
+	scaled = QTexture32_Alloc(width, height);
+	QTexture32_Stretch(texture, scaled);
+    } else {
+	scaled = texture;
     }
 
-  done:
     if (mipmap) {
+	int miplevel = 0;
+	while (1) {
+	    glTexImage2D(GL_TEXTURE_2D, miplevel, format,
+			 scaled->width, scaled->height, 0,
+			 GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
+	    if (scaled->width == 1 && scaled->height == 1)
+		break;
+
+	    QTexture32_MipMap(scaled);
+	    miplevel++;
+	}
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
     } else {
+	glTexImage2D(GL_TEXTURE_2D, 0, format,
+		     scaled->width, scaled->height, 0,
+		     GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_max);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
     }
+
+    Hunk_FreeToLowMark(mark);
 }
 
 /*
@@ -1168,37 +1102,17 @@ void
 GL_Upload8(const byte *data, int width, int height, qboolean mipmap,
 	   qboolean alpha)
 {
-    static unsigned trans[640 * 480];	// FIXME, temporary
-    int i, s;
-    qboolean noalpha;
-    int p;
+    qtexture32_t *texture;
+    int mark;
 
-    s = width * height;
-    // if there are no transparent pixels, make it a 3 component
-    // texture even if it was specified as otherwise
-    if (alpha) {
-	noalpha = true;
-	for (i = 0; i < s; i++) {
-	    p = data[i];
-	    if (p == 255)
-		noalpha = false;
-	    trans[i] = d_8to24table[p];
-	}
+    mark = Hunk_LowMark();
 
-	if (alpha && noalpha)
-	    alpha = false;
-    } else {
-	if (s & 3)
-	    Sys_Error("%s: s&3", __func__);
-	for (i = 0; i < s; i += 4) {
-	    trans[i] = d_8to24table[data[i]];
-	    trans[i + 1] = d_8to24table[data[i + 1]];
-	    trans[i + 2] = d_8to24table[data[i + 2]];
-	    trans[i + 3] = d_8to24table[data[i + 3]];
-	}
-    }
+    texture = QTexture32_Alloc(width, height);
+    QTexture32_8to32(data, width, height, width, alpha, texture);
 
-    GL_Upload32(trans, width, height, mipmap, alpha);
+    GL_Upload32(texture, mipmap, alpha);
+
+    Hunk_FreeToLowMark(mark);
 }
 
 /*

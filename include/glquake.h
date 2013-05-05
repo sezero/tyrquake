@@ -59,8 +59,6 @@ extern unsigned char d_15to8table[65536];
 
 extern float gldepthmin, gldepthmax;
 
-void GL_Upload32(const unsigned *data, int width, int height,
-		 qboolean mipmap, qboolean alpha);
 void GL_Upload8(const byte *data, int width, int height,
 		qboolean mipmap, qboolean alpha);
 int GL_LoadTexture(const char *identifier, int width, int height,
