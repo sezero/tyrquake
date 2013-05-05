@@ -45,6 +45,93 @@ QTexture32_Alloc(int width, int height)
     return texture;
 }
 
+/*
+================
+QTexture32_AlphaFix
+
+Operates in-place on an RGBA texture assumed to have all alpha values
+either fully opaque or transparent.  Fully transparent pixels get
+their color components set to the average colour of their
+non-transparent neighbours to avoid artifacts from blending.
+
+TODO: add an edge clamp mode?
+================
+*/
+static void
+QTexture32_AlphaFix(qtexture32_t *texture)
+{
+    const int width = texture->width;
+    const int height = texture->height;
+    qpixel32_t *pixels = texture->pixels;
+
+    int x, y, n, red, green, blue, count;
+    int neighbours[8];
+
+    for (y = 0; y < height; y++) {
+	for (x = 0; x < width; x++) {
+	    const int current = y * width + x;
+
+	    /* only modify completely transparent pixels */
+	    if (pixels[current].alpha)
+		continue;
+
+	    /*
+	     * Neighbour pixel indexes are left to right:
+	     *   1 2 3
+	     *   4 * 5
+	     *   6 7 8
+	     */
+	    neighbours[0] = current - width - 1;
+	    neighbours[1] = current - width;
+	    neighbours[2] = current - width + 1;
+	    neighbours[3] = current - 1;
+	    neighbours[4] = current + 1;
+	    neighbours[5] = current + width - 1;
+	    neighbours[6] = current + width;
+	    neighbours[7] = current + width + 1;
+
+	    /* handle edge cases (wrap around) */
+	    if (!x) {
+		neighbours[0] += width;
+		neighbours[3] += width;
+		neighbours[5] += width;
+	    } else if (x == width - 1) {
+		neighbours[2] -= width;
+		neighbours[4] -= width;
+		neighbours[7] -= width;
+	    }
+	    if (!y) {
+		neighbours[0] += width * height;
+		neighbours[1] += width * height;
+		neighbours[2] += width * height;
+	    } else if (y == height - 1) {
+		neighbours[5] -= width * height;
+		neighbours[6] -= width * height;
+		neighbours[7] -= width * height;
+	    }
+
+	    /* find the average colour of non-transparent neighbours */
+	    red = green = blue = count = 0;
+	    for (n = 0; n < 8; n++) {
+		if (!pixels[neighbours[n]].alpha)
+		    continue;
+		red += pixels[neighbours[n]].red;
+		green += pixels[neighbours[n]].green;
+		blue += pixels[neighbours[n]].blue;
+		count++;
+	    }
+
+	    /* skip if no non-transparent neighbours */
+	    if (!count)
+		continue;
+
+	    pixels[current].red = red / count;
+	    pixels[current].green = green / count;
+	    pixels[current].blue = blue / count;
+	}
+    }
+}
+
 void
 QTexture32_8to32(const byte *in, int width, int height, int stride,
 		 qboolean alpha, qtexture32_t *out)
@@ -59,6 +146,7 @@ QTexture32_8to32(const byte *in, int width, int height, int stride,
 		pixel->rgba = (*in) ? d_8to24table[*in] : 0;
 	    in += stride - width;
 	}
+	QTexture32_AlphaFix(out);
     } else {
 	for (y = 0; y < height; y++) {
 	    for (x = 0; x < width; x++, in++, pixel++)
