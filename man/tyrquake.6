@@ -71,6 +71,9 @@ conheight, height). E.g. \fB\-width\fP \fI1280\fP \fB\-conwidth\fP \fI640\fP.
 Request an OpenGL context with the specified bits-per-pixel.
 .IP "\fB\-nomtex\fP"
 Disable use of OpenGL Multitexture extenstions.
+.IP "\fB\-nonpot\fP"
+Disable use of OpenGL non-power-of-two textures.  Textures will be stretched
+or padded to power-of two sizes as needed.
 .IP "\fB\-gamma n\fP"
 Set the video gamma value. Default 1.0.
 .IP "\fB\-fullsbar\fP (tyr-glquake,tyr-glqwcl Windows only)"
@@ -381,6 +384,10 @@ listip.cfg which can later be restored with 'exec listip.cfg'.
 .IP "\fBgl_picmip\fP"
 .IP "\fBgl_constretch\fP"
 .IP "\fBgl_max_size\fP"
+.IP "\fBgl_npot\fP"
+If 1, allow use of non-power-of-two sized textures in OpenGL (if the ARB
+extension is advertised).  Set to zero to force stretching/padding of textures
+to power-of-two sizes.  Default 1.
 .IP "\fBr_lockpvs\fP"
 .IP "\fBr_lockfrustum\fP"
 .IP "\fBr_drawflat\fP"

@@ -82,10 +82,10 @@ static qboolean vid_wassuspended = false;
 static int windowed_mouse;
 
 const char *gl_renderer;
-static int gl_num_texture_units;
+const char *gl_extensions;
 static const char *gl_vendor;
 static const char *gl_version;
-static const char *gl_extensions;
+static int gl_num_texture_units;
 
 static qboolean fullsbardraw = false;
 
@@ -492,7 +492,6 @@ CheckMultiTextureExtensions(void)
     gl_mtexable = true;
 }
 
-
 /*
 ===============
 GL_Init
@@ -512,6 +511,7 @@ GL_Init(void)
     Con_DPrintf("GL_EXTENSIONS: %s\n", gl_extensions);
 
     CheckMultiTextureExtensions();
+    GL_ExtensionCheck_NPoT();
 
     //glClearColor(1, 0, 0, 0);
     glClearColor(0.5, 0.5, 0.5, 0);
@@ -900,6 +900,7 @@ VID_Init(const byte *palette)
     Cvar_RegisterVariable(&vid_config_y);
     Cvar_RegisterVariable(&vid_stretch_by_2);
     Cvar_RegisterVariable(&gl_ztrick);
+    Cvar_RegisterVariable(&gl_npot);
 
     Cmd_AddCommand("vid_nummodes", VID_NumModes_f);
     Cmd_AddCommand("vid_describecurrentmode", VID_DescribeCurrentMode_f);

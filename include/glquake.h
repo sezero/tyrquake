@@ -211,6 +211,7 @@ extern int gl_alpha_format;
 
 extern cvar_t gl_max_size;
 extern cvar_t gl_playermip;
+extern cvar_t gl_npot;
 
 extern int mirrortexturenum;	// quake texturenum, not gltexturenum
 extern qboolean mirror;
@@ -219,6 +220,7 @@ extern mplane_t *mirror_plane;
 extern float r_world_matrix[16];
 
 extern const char *gl_renderer;
+extern const char *gl_extensions;
 
 void R_TranslatePlayerSkin(int playernum);
 void GL_Bind(int texnum);
@@ -232,7 +234,9 @@ extern lpMultiTexFUNC qglMultiTexCoord2fARB;
 extern lpActiveTextureFUNC qglActiveTextureARB;
 
 extern qboolean gl_mtexable;
+extern qboolean gl_npotable;
 
+void GL_ExtensionCheck_NPoT(void);
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

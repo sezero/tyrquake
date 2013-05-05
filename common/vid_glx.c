@@ -613,6 +613,7 @@ GL_Init(void)
     Con_DPrintf("GL_EXTENSIONS: %s\n", gl_extensions);
 
     CheckMultiTextureExtensions();
+    GL_ExtensionCheck_NPoT();
 
     glClearColor(0.5, 0.5, 0.5, 0);
     glCullFace(GL_FRONT);
@@ -688,6 +689,7 @@ static void
 VID_InitCvars(void)
 {
     Cvar_RegisterVariable(&vid_mode);
+    Cvar_RegisterVariable(&gl_npot);
     Cvar_RegisterVariable(&gl_ztrick);
 }
 

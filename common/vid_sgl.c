@@ -193,6 +193,8 @@ static void
 VID_InitGL(void)
 {
     Cvar_RegisterVariable(&vid_mode);
+    Cvar_RegisterVariable(&gl_npot);
+    Cvar_RegisterVariable(&gl_ztrick);
 
     gl_vendor = (const char *)glGetString(GL_VENDOR);
     gl_renderer = (const char *)glGetString(GL_RENDERER);
@@ -217,6 +219,8 @@ VID_InitGL(void)
 		   "-> %i texture units available\n",
 		   gl_num_texture_units);
     }
+
+    GL_ExtensionCheck_NPoT();
 
     glClearColor(0.5, 0.5, 0.5, 0);
     glCullFace(GL_FRONT);
@@ -296,8 +300,6 @@ VID_Init(const byte *palette)
     qvidmode_t *mode;
     qvidformat_t *format;
     const qvidmode_t *setmode;
-
-    Cvar_RegisterVariable(&gl_ztrick);
 
     VID_InitModeCvars();
 

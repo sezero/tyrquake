@@ -1046,13 +1046,18 @@ GL_Upload32(qtexture32_t *texture, qboolean mipmap, qboolean alpha)
     qtexture32_t *scaled;
     int width, height, mark;
 
-    /* find the scaled size */
-    width = 1;
-    while (width < texture->width)
-	width <<= 1;
-    height = 1;
-    while (height < texture->height)
-	height <<= 1;
+    if (!gl_npotable || !gl_npot.value) {
+	/* find the next power-of-two size up */
+	width = 1;
+	while (width < texture->width)
+	    width <<= 1;
+	height = 1;
+	while (height < texture->height)
+	    height <<= 1;
+    } else {
+	width = texture->width;
+	height = texture->height;
+    }
 
     width >>= (int)gl_picmip.value;
     width = qclamp(width, 1, (int)gl_max_size.value);

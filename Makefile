@@ -715,6 +715,7 @@ SW_OBJS := \
 GL_OBJS := \
 	drawhulls.o	\
 	gl_draw.o	\
+	gl_extensions.o	\
 	gl_mesh.o	\
 	gl_rmain.o	\
 	gl_rmisc.o	\
