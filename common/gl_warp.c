@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "model.h"
 #include "quakedef.h"
 #include "sys.h"
+#include "textures.h"
 
 #ifdef NQ_HACK
 #include "host.h"
@@ -394,56 +395,32 @@ A sky texture is 256*128, with the right side being a masked overlay
 void
 R_InitSky(texture_t *mt)
 {
-    int i, j, p;
-    byte *src;
-    unsigned trans[128 * 128];
-    unsigned transpix;
-    int r, g, b;
-    unsigned *rgba;
+    const byte *src = (const byte *)mt + mt->offsets[0];
+    qtexture32_t *texture;
+    int mark;
 
-    src = (byte *)mt + mt->offsets[0];
+    mark = Hunk_LowMark();
+    texture = QTexture32_Alloc(128, 128);
 
-    // make an average value for the back to avoid
-    // a fringe on the top level
-
-    r = g = b = 0;
-    for (i = 0; i < 128; i++)
-	for (j = 0; j < 128; j++) {
-	    p = src[i * 256 + j + 128];
-	    rgba = &d_8to24table[p];
-	    trans[(i * 128) + j] = *rgba;
-	    r += ((byte *)rgba)[0];
-	    g += ((byte *)rgba)[1];
-	    b += ((byte *)rgba)[2];
-	}
-
-    ((byte *)&transpix)[0] = r / (128 * 128);
-    ((byte *)&transpix)[1] = g / (128 * 128);
-    ((byte *)&transpix)[2] = b / (128 * 128);
-    ((byte *)&transpix)[3] = 0;
-
-    // FIXME - move this to some init function
+    /* Create the solid layer */
+    QTexture32_8to32(src + 128, 128, 128, 256, false, texture);
     glGenTextures(1, &mt->gl_texturenum);
     GL_Bind(mt->gl_texturenum);
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_solid_format, 128, 128, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, trans);
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_solid_format,
+		 128, 128, 0,
+		 GL_RGBA, GL_UNSIGNED_BYTE, texture->pixels);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    for (i = 0; i < 128; i++)
-	for (j = 0; j < 128; j++) {
-	    p = src[i * 256 + j];
-	    if (p == 0)
-		trans[(i * 128) + j] = transpix;
-	    else
-		trans[(i * 128) + j] = d_8to24table[p];
-	}
-
-    // FIXME - move this to an init function...
+    /* Create the alpha layer */
+    QTexture32_8to32(src, 128, 128, 256, true, texture);
     glGenTextures(1, &mt->gl_texturenum_alpha);
     GL_Bind(mt->gl_texturenum_alpha);
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 128, 128, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, trans);
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format,
+		 128, 128, 0,
+		 GL_RGBA, GL_UNSIGNED_BYTE, texture->pixels);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    Hunk_FreeToLowMark(mark);
 }
