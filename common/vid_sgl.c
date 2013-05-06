@@ -289,6 +289,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid_modenum = mode - modelist;
     Cvar_SetValue("vid_mode", vid_modenum);
 
+    vid.recalc_refdef = 1;
+
     return true;
 }
 
