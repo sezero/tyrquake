@@ -506,6 +506,7 @@ void *
 Hunk_AllocName(int size, const char *name)
 {
     hunk_t *hunk;
+    size_t freebytes;
 
 #ifdef PARANOID
     Hunk_Check();
@@ -516,15 +517,21 @@ Hunk_AllocName(int size, const char *name)
 
     size = sizeof(hunk_t) + ((size + 15) & ~15);
 
-    if (hunkstate.size - hunkstate.lowbytes - hunkstate.highbytes < size) {
-	/* Sys_Error ("%s: failed on %i bytes", __func__, size); */
-#ifdef _WIN32
-	Sys_Error("Not enough RAM allocated.  Try starting using "
-		  "\"-heapsize 16000\" on the command line.");
-#else
-	Sys_Error("Not enough RAM allocated.  Try starting using "
-		  "\"-mem 16\" on the command line.");
-#endif
+    freebytes = hunkstate.size - hunkstate.lowbytes - hunkstate.highbytes;
+    if (freebytes < size) {
+	int extra, newmem;
+
+	/* check how much was needed, but recommend at least 1/4 extra */
+	extra = (size - freebytes + (1 << 20) - 1) >> 20;
+	extra = qmax(extra, hunkstate.size >> 22);
+
+	/* Round memory recommendation to a multiple of 16MB */
+	newmem = (((hunkstate.size + (1 << 20) - 1) >> 20) + extra + 15) & ~15;
+
+	Sys_Error ("%s: failed on %d bytes.\n\n"
+		   "Not enough RAM allocated (%4.1f MB).\n"
+		   "Try starting using \"-mem %d\" on the command line.",
+		   __func__, size, (float)hunkstate.size / 1024 / 1024, newmem);
     }
 
     hunk = (hunk_t *)(hunkstate.base + hunkstate.lowbytes);
