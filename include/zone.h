@@ -149,4 +149,11 @@ void Cache_Free(cache_user_t *c);
 
 void Cache_Report(void);
 
+/* For debugging - Walk the links to check for data corruption */
+#ifdef DEBUG
+void Cache_CheckLinks(void);
+#else
+static inline void Cache_CheckLinks(void) { }
+#endif
+
 #endif /* ZONE_H */

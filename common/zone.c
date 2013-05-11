@@ -796,6 +796,30 @@ Cache_Data(const cache_system_t *c)
     return (byte *)(c + 1) + c->user->pad;
 }
 
+#ifdef DEBUG
+void
+Cache_CheckLinks(void)
+{
+    const cache_system_t *cache;
+
+    cache = cache_head.next;
+    while (cache != &cache_head)
+	cache = cache->next;
+
+    cache = cache_head.prev;
+    while (cache != &cache_head)
+	cache = cache->prev;
+
+    cache = cache_head.lru_next;
+    while (cache != &cache_head)
+	cache = cache->lru_next;
+
+    cache = cache_head.lru_prev;
+    while (cache != &cache_head)
+	cache = cache->lru_prev;
+}
+#endif
+
 /*
  * ===========
  * Cache_Move
