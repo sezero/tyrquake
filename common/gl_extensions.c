@@ -60,7 +60,7 @@ GL_ExtensionCheck_NPoT(void)
     gl_npotable = false;
     if (COM_CheckParm("-nonpot"))
 	return;
-    if (!GL_ExtensionCheck("ARB_texture_non_power_of_two"))
+    if (!GL_ExtensionCheck("GL_ARB_texture_non_power_of_two"))
 	return;
 
     Con_DPrintf("Non-power-of-two textures available.\n");
