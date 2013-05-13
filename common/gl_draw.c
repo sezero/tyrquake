@@ -1040,23 +1040,23 @@ GL_Upload32
 ===============
 */
 static void
-GL_Upload32(qtexture32_t *texture, qboolean mipmap, qboolean alpha)
+GL_Upload32(qpic32_t *pic, qboolean mipmap, qboolean alpha)
 {
     const int format = alpha ? gl_alpha_format : gl_solid_format;
-    qtexture32_t *scaled;
+    qpic32_t *scaled;
     int width, height, mark;
 
     if (!gl_npotable || !gl_npot.value) {
 	/* find the next power-of-two size up */
 	width = 1;
-	while (width < texture->width)
+	while (width < pic->width)
 	    width <<= 1;
 	height = 1;
-	while (height < texture->height)
+	while (height < pic->height)
 	    height <<= 1;
     } else {
-	width = texture->width;
-	height = texture->height;
+	width = pic->width;
+	height = pic->height;
     }
 
     width >>= (int)gl_picmip.value;
@@ -1066,11 +1066,11 @@ GL_Upload32(qtexture32_t *texture, qboolean mipmap, qboolean alpha)
 
     mark = Hunk_LowMark();
 
-    if (width != texture->width || height != texture->height) {
-	scaled = QTexture32_Alloc(width, height);
-	QTexture32_Stretch(texture, scaled);
+    if (width != pic->width || height != pic->height) {
+	scaled = QPic32_Alloc(width, height);
+	QPic32_Stretch(pic, scaled);
     } else {
-	scaled = texture;
+	scaled = pic;
     }
 
     if (mipmap) {
@@ -1082,7 +1082,7 @@ GL_Upload32(qtexture32_t *texture, qboolean mipmap, qboolean alpha)
 	    if (scaled->width == 1 && scaled->height == 1)
 		break;
 
-	    QTexture32_MipMap(scaled);
+	    QPic32_MipMap(scaled);
 	    miplevel++;
 	}
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
@@ -1107,15 +1107,15 @@ void
 GL_Upload8(const byte *data, int width, int height, qboolean mipmap,
 	   qboolean alpha)
 {
-    qtexture32_t *texture;
+    qpic32_t *pic;
     int mark;
 
     mark = Hunk_LowMark();
 
-    texture = QTexture32_Alloc(width, height);
-    QTexture32_8to32(data, width, height, width, alpha, texture);
+    pic = QPic32_Alloc(width, height);
+    QPic_8to32(data, width, height, width, alpha, pic);
 
-    GL_Upload32(texture, mipmap, alpha);
+    GL_Upload32(pic, mipmap, alpha);
 
     Hunk_FreeToLowMark(mark);
 }

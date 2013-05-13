@@ -40,19 +40,19 @@ typedef struct {
     int width;
     int height;
     qpixel32_t pixels[];
-} qtexture32_t;
+} qpic32_t;
 
 /* Allocate hunk space for a texture */
-qtexture32_t *QTexture32_Alloc(int width, int height);
+qpic32_t *QPic32_Alloc(int width, int height);
 
 /* Create 32 bit texture from 8 bit source */
-void QTexture32_8to32(const byte *in, int width, int height, int stride,
-		    qboolean alpha, qtexture32_t *out);
+void QPic_8to32(const byte *in, int width, int height, int stride,
+		qboolean alpha, qpic32_t *out);
 
 /* Stretch from in size to out size */
-void QTexture32_Stretch(const qtexture32_t *in, qtexture32_t *out);
+void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);
 
 /* Shrink texture in place to next mipmap level */
-void QTexture32_MipMap(qtexture32_t *in);
+void QPic32_MipMap(qpic32_t *pic);
 
 #endif /* TEXTURES_H */

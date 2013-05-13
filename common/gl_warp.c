@@ -396,29 +396,29 @@ void
 R_InitSky(texture_t *mt)
 {
     const byte *src = (const byte *)mt + mt->offsets[0];
-    qtexture32_t *texture;
+    qpic32_t *pic;
     int mark;
 
     mark = Hunk_LowMark();
-    texture = QTexture32_Alloc(128, 128);
+    pic = QPic32_Alloc(128, 128);
 
     /* Create the solid layer */
-    QTexture32_8to32(src + 128, 128, 128, 256, false, texture);
+    QPic_8to32(src + 128, 128, 128, 256, false, pic);
     glGenTextures(1, &mt->gl_texturenum);
     GL_Bind(mt->gl_texturenum);
     glTexImage2D(GL_TEXTURE_2D, 0, gl_solid_format,
 		 128, 128, 0,
-		 GL_RGBA, GL_UNSIGNED_BYTE, texture->pixels);
+		 GL_RGBA, GL_UNSIGNED_BYTE, pic->pixels);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     /* Create the alpha layer */
-    QTexture32_8to32(src, 128, 128, 256, true, texture);
+    QPic_8to32(src, 128, 128, 256, true, pic);
     glGenTextures(1, &mt->gl_texturenum_alpha);
     GL_Bind(mt->gl_texturenum_alpha);
     glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format,
 		 128, 128, 0,
-		 GL_RGBA, GL_UNSIGNED_BYTE, texture->pixels);
+		 GL_RGBA, GL_UNSIGNED_BYTE, pic->pixels);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 

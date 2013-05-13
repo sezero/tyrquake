@@ -1,6 +1,6 @@
 /*
-Copyright (C) 1996-1997 Id Software, Inc.
-Copyright (C) 2013 Kevin Shanahan
+Copyright (C) 1996-1997 Id Software, Inc.  Copyright (C) 2013 Kevin
+Shanahan
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -31,23 +31,23 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 /* Texture Format Transformations                                            */
 /* --------------------------------------------------------------------------*/
 
-qtexture32_t *
-QTexture32_Alloc(int width, int height)
+qpic32_t *
+QPic32_Alloc(int width, int height)
 {
-    const int memsize = offsetof(qtexture32_t, pixels[width * height]);
-    qtexture32_t *texture = Hunk_Alloc(memsize);
+    const int memsize = offsetof(qpic32_t, pixels[width * height]);
+    qpic32_t *pic = Hunk_Alloc(memsize);
 
-    if (texture) {
-	texture->width = width;
-	texture->height = height;
+    if (pic) {
+	pic->width = width;
+	pic->height = height;
     }
 
-    return texture;
+    return pic;
 }
 
 /*
 ================
-QTexture32_AlphaFix
+QPic32_AlphaFix
 
 Operates in-place on an RGBA texture assumed to have all alpha values
 either fully opaque or transparent.  Fully transparent pixels get
@@ -58,11 +58,11 @@ TODO: add an edge clamp mode?
 ================
 */
 static void
-QTexture32_AlphaFix(qtexture32_t *texture)
+QPic32_AlphaFix(qpic32_t *pic)
 {
-    const int width = texture->width;
-    const int height = texture->height;
-    qpixel32_t *pixels = texture->pixels;
+    const int width = pic->width;
+    const int height = pic->height;
+    qpixel32_t *pixels = pic->pixels;
 
     int x, y, n, red, green, blue, count;
     int neighbours[8];
@@ -133,8 +133,8 @@ QTexture32_AlphaFix(qtexture32_t *texture)
 }
 
 void
-QTexture32_8to32(const byte *in, int width, int height, int stride,
-		 qboolean alpha, qtexture32_t *out)
+QPic_8to32(const byte *in, int width, int height, int stride, qboolean alpha,
+	   qpic32_t *out)
 {
     qpixel32_t *pixel = out->pixels;
     int x, y;
@@ -146,7 +146,7 @@ QTexture32_8to32(const byte *in, int width, int height, int stride,
 		pixel->rgba = (*in) ? d_8to24table[*in] : 0;
 	    in += stride - width;
 	}
-	QTexture32_AlphaFix(out);
+	QPic32_AlphaFix(out);
     } else {
 	for (y = 0; y < height; y++) {
 	    for (x = 0; x < width; x++, in++, pixel++)
@@ -158,12 +158,12 @@ QTexture32_8to32(const byte *in, int width, int height, int stride,
 
 /*
 ================
-QTexture32_Stretch
+QPic32_Stretch
 TODO - should probably be doing bilinear filtering or something
 ================
 */
 void
-QTexture32_Stretch(const qtexture32_t *in, qtexture32_t *out)
+QPic32_Stretch(const qpic32_t *in, qpic32_t *out)
 {
     int i, j;
     const qpixel32_t *inrow;
@@ -195,7 +195,7 @@ QTexture32_Stretch(const qtexture32_t *in, qtexture32_t *out)
 /* --------------------------------------------------------------------------*/
 
 static void
-QTexture32_MipMap_1D_Even(qpixel32_t *pixels, int length)
+QPic32_MipMap_1D_Even(qpixel32_t *pixels, int length)
 {
     const byte *in;
     byte *out;
@@ -213,7 +213,7 @@ QTexture32_MipMap_1D_Even(qpixel32_t *pixels, int length)
 }
 
 static void
-QTexture32_MipMap_1D_Odd(qpixel32_t *pixels, int length)
+QPic32_MipMap_1D_Odd(qpixel32_t *pixels, int length)
 {
     const int inlength = length;
     const byte *in;
@@ -238,13 +238,13 @@ QTexture32_MipMap_1D_Odd(qpixel32_t *pixels, int length)
 
 /*
 ================
-QTexture32_MipMap_EvenEven
+QPic32_MipMap_EvenEven
 
 Simple 2x2 box filter for textures with even width/height
 ================
 */
 static void
-QTexture32_MipMap_EvenEven(qpixel32_t *pixels, int width, int height)
+QPic32_MipMap_EvenEven(qpixel32_t *pixels, int width, int height)
 {
     int i, j;
     byte *in, *out;
@@ -266,7 +266,7 @@ QTexture32_MipMap_EvenEven(qpixel32_t *pixels, int width, int height)
 
 /*
 ================
-QTexture32_MipMap_OddOdd
+QPic32_MipMap_OddOdd
 
 With two odd dimensions we have a polyphase box filter in two
 dimensions, taking weighted samples from a 3x3 square in the original
@@ -274,7 +274,7 @@ texture.
 ================
 */
 static void
-QTexture32_MipMap_OddOdd(qpixel32_t *pixels, int width, int height)
+QPic32_MipMap_OddOdd(qpixel32_t *pixels, int width, int height)
 {
     const int inwidth = width;
     const int inheight = height;
@@ -329,13 +329,13 @@ QTexture32_MipMap_OddOdd(qpixel32_t *pixels, int width, int height)
 
 /*
 ================
-QTexture32_MipMap_OddEven
+QPic32_MipMap_OddEven
 
 Handle odd width, even height
 ================
 */
 static void
-QTexture32_MipMap_OddEven(qpixel32_t *pixels, int width, int height)
+QPic32_MipMap_OddEven(qpixel32_t *pixels, int width, int height)
 {
     const int inwidth = width;
     const byte *in;
@@ -375,13 +375,13 @@ QTexture32_MipMap_OddEven(qpixel32_t *pixels, int width, int height)
 
 /*
 ================
-QTexture32_MipMap_EvenOdd
+QPic32_MipMap_EvenOdd
 
 Handle even width, odd height
 ================
 */
 static void
-QTexture32_MipMap_EvenOdd(qpixel32_t *pixels, int width, int height)
+QPic32_MipMap_EvenOdd(qpixel32_t *pixels, int width, int height)
 {
     const int inwidth = width;
     const int inheight = height;
@@ -428,21 +428,21 @@ QTexture32_MipMap_EvenOdd(qpixel32_t *pixels, int width, int height)
 
 /*
 ================
-QTexture32_MipMap
+QPic32_MipMap
 
 Check texture dimensions and call the approriate specialized mipmap function
 ================
 */
 void
-QTexture32_MipMap(qtexture32_t *in)
+QPic32_MipMap(qpic32_t *in)
 {
     assert(in->width > 1 || in->height > 1);
 
     if (in->width == 1) {
 	if (in->height & 1)
-	    QTexture32_MipMap_1D_Odd(in->pixels, in->height);
+	    QPic32_MipMap_1D_Odd(in->pixels, in->height);
 	else
-	    QTexture32_MipMap_1D_Even(in->pixels, in->height);
+	    QPic32_MipMap_1D_Even(in->pixels, in->height);
 
 	in->height >>= 1;
 	return;
@@ -450,9 +450,9 @@ QTexture32_MipMap(qtexture32_t *in)
 
     if (in->height == 1) {
 	if (in->width & 1)
-	    QTexture32_MipMap_1D_Odd(in->pixels, in->width);
+	    QPic32_MipMap_1D_Odd(in->pixels, in->width);
 	else
-	    QTexture32_MipMap_1D_Even(in->pixels, in->width);
+	    QPic32_MipMap_1D_Even(in->pixels, in->width);
 
 	in->width >>= 1;
 	return;
@@ -460,13 +460,13 @@ QTexture32_MipMap(qtexture32_t *in)
 
     if (in->width & 1) {
 	if (in->height & 1)
-	    QTexture32_MipMap_OddOdd(in->pixels, in->width, in->height);
+	    QPic32_MipMap_OddOdd(in->pixels, in->width, in->height);
 	else
-	    QTexture32_MipMap_OddEven(in->pixels, in->width, in->height);
+	    QPic32_MipMap_OddEven(in->pixels, in->width, in->height);
     } else if (in->height & 1) {
-	QTexture32_MipMap_EvenOdd(in->pixels, in->width, in->height);
+	QPic32_MipMap_EvenOdd(in->pixels, in->width, in->height);
     } else {
-	QTexture32_MipMap_EvenEven(in->pixels, in->width, in->height);
+	QPic32_MipMap_EvenEven(in->pixels, in->width, in->height);
     }
 
     in->width >>= 1;
