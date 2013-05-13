@@ -72,7 +72,7 @@ const qpic_t *
 Draw_PicFromWad(const char *name)
 {
     qpic_t *pic;
-    dpic_t *dpic;
+    dpic8_t *dpic;
 
     dpic = W_GetLumpName(&host_gfx, name);
     pic = Hunk_AllocName(sizeof(*pic), "qpic_t");
@@ -92,7 +92,7 @@ qpic_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
-    dpic_t *dpic;
+    dpic8_t *dpic;
     int i;
 
     cachepic = menu_cachepics;
@@ -120,7 +120,7 @@ Draw_CachePic(const char *path)
     if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
 
-    SwapPic(dpic);
+    SwapDPic(dpic);
     cachepic->pic.width = dpic->width;
     cachepic->pic.height = dpic->height;
     cachepic->pic.data = dpic->data;
@@ -138,7 +138,7 @@ Draw_Init(void)
 {
     static qpic_t draw_disc_pic;
     static qpic_t draw_backtile_pic;
-    dpic_t *dpic;
+    dpic8_t *dpic;
 
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 

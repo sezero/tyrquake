@@ -43,7 +43,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 typedef struct {
     int width, height;
     byte data[];
-} dpic_t;
+} dpic8_t;
 
 typedef struct {
     int width, height;
@@ -79,6 +79,6 @@ lumpinfo_t *W_GetLumpinfo(wad_t *wad, const char *name);
 void *W_GetLumpName(wad_t *wad, const char *name);
 void *W_GetLumpNum(wad_t *wad, int num);
 
-void SwapPic(dpic_t *dpic);
+void SwapDPic(dpic8_t *dpic);
 
 #endif /* WAD_H */

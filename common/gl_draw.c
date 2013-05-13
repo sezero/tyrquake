@@ -246,7 +246,7 @@ const qpic_t *
 Draw_PicFromWad(const char *name)
 {
     qpic_t *pic;
-    dpic_t *dpic;
+    dpic8_t *dpic;
     glpic_t *glpic;
     scrap_t *scrap;
 
@@ -297,7 +297,7 @@ const qpic_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
-    dpic_t *dpic;
+    dpic8_t *dpic;
     qpic_t *pic;
     int i;
 
@@ -315,7 +315,7 @@ Draw_CachePic(const char *path)
     dpic = COM_LoadHunkFile(path);
     if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
-    SwapPic(dpic);
+    SwapDPic(dpic);
     cachepic->glpic.pic.width = dpic->width;
     cachepic->glpic.pic.height = dpic->height;
     cachepic->glpic.pic.data = dpic->data;
@@ -478,7 +478,7 @@ void
 Draw_Init(void)
 {
     int i;
-    dpic_t *dpic;
+    dpic8_t *dpic;
     qpic_t *pic;
     char version[5];
 
@@ -516,7 +516,7 @@ Draw_Init(void)
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
     if (!dpic)
 	Sys_Error("Couldn't load gfx/conback.lmp");
-    SwapPic(dpic);
+    SwapDPic(dpic);
     conback->pic.width = dpic->width;
     conback->pic.height = dpic->height;
     conback->pic.data = dpic->data;
