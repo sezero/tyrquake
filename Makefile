@@ -721,7 +721,7 @@ GL_OBJS := \
 	gl_rmisc.o	\
 	gl_rsurf.o	\
 	gl_warp.o	\
-	textures.o
+	qpic.o
 
 NQSW_OBJS :=
 

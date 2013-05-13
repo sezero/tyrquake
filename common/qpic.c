@@ -22,13 +22,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <assert.h>
 #include <stdint.h>
 
+#include "qpic.h"
 #include "qtypes.h"
-#include "textures.h"
 #include "vid.h"
 #include "zone.h"
 
 /* --------------------------------------------------------------------------*/
-/* Texture Format Transformations                                            */
+/* Pic Format Transformations                                                */
 /* --------------------------------------------------------------------------*/
 
 qpic32_t *
@@ -49,7 +49,7 @@ QPic32_Alloc(int width, int height)
 ================
 QPic32_AlphaFix
 
-Operates in-place on an RGBA texture assumed to have all alpha values
+Operates in-place on an RGBA pic assumed to have all alpha values
 either fully opaque or transparent.  Fully transparent pixels get
 their color components set to the average colour of their
 non-transparent neighbours to avoid artifacts from blending.
@@ -240,7 +240,7 @@ QPic32_MipMap_1D_Odd(qpixel32_t *pixels, int length)
 ================
 QPic32_MipMap_EvenEven
 
-Simple 2x2 box filter for textures with even width/height
+Simple 2x2 box filter for pics with even width/height
 ================
 */
 static void
@@ -270,7 +270,7 @@ QPic32_MipMap_OddOdd
 
 With two odd dimensions we have a polyphase box filter in two
 dimensions, taking weighted samples from a 3x3 square in the original
-texture.
+pic.
 ================
 */
 static void
@@ -288,7 +288,7 @@ QPic32_MipMap_OddOdd(qpixel32_t *pixels, int width, int height)
     height >>= 1;
 
     /*
-     * Take weighted samples from a 3x3 square on the original texture.
+     * Take weighted samples from a 3x3 square on the original pic.
      * Weights for the centre pixel work out to be constant.
      */
     const float wy1 = (float)height / inheight;
@@ -348,7 +348,7 @@ QPic32_MipMap_OddEven(qpixel32_t *pixels, int width, int height)
     height >>= 1;
 
     /*
-     * Take weighted samples from a 3x2 square on the original texture.
+     * Take weighted samples from a 3x2 square on the original pic.
      * Weights for the centre pixels are constant.
      */
     const float wx1 = (float)width / inwidth;
@@ -395,7 +395,7 @@ QPic32_MipMap_EvenOdd(qpixel32_t *pixels, int width, int height)
     height >>= 1;
 
     /*
-     * Take weighted samples from a 2x3 square on the original texture.
+     * Take weighted samples from a 2x3 square on the original pic.
      * Weights for the centre pixels are constant.
      */
     const float wy1 = (float)height / inheight;
@@ -430,7 +430,7 @@ QPic32_MipMap_EvenOdd(qpixel32_t *pixels, int width, int height)
 ================
 QPic32_MipMap
 
-Check texture dimensions and call the approriate specialized mipmap function
+Check pic dimensions and call the approriate specialized mipmap function
 ================
 */
 void

@@ -25,11 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "crc.h"
 #include "glquake.h"
+#include "qpic.h"
 #include "quakedef.h"
 #include "sbar.h"
 #include "screen.h"
 #include "sys.h"
-#include "textures.h"
 #include "view.h"
 #include "wad.h"
 

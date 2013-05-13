@@ -19,8 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
-#ifndef TEXTURES_H
-#define TEXTURES_H
+#ifndef QPIC_H
+#define QPIC_H
 
 #include <stdint.h>
 
@@ -55,4 +55,4 @@ void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);
 /* Shrink texture in place to next mipmap level */
 void QPic32_MipMap(qpic32_t *pic);
 
-#endif /* TEXTURES_H */
+#endif /* QPIC_H */
