@@ -271,7 +271,7 @@ Draw_PicFromWad(const char *name)
 	for (i = 0; i < pic->height; i++) {
 	    for (j = 0; j < pic->width; j++, src++) {
 		const int dst = (y + i) * BLOCK_WIDTH + x + j;
-		scrap->pic.pixels[dst] = pic->pixels[src];
+		scrap->texels[dst] = pic->pixels[src];
 	    }
 	}
 	glpic->texnum = scrap->glnum;
@@ -382,7 +382,7 @@ Draw_ScaledCharToConback(qpic8_t *conback, int num, byte *dest)
  * at the same location.
  */
 static void
-Draw_ConbackString(qpic8_t *conback, const char *str)
+Draw_ConbackString(qpic8_t *conback, byte *pixels, const char *str)
 {
     int len, row, col, i, x;
     byte *dest;
@@ -391,7 +391,7 @@ Draw_ConbackString(qpic8_t *conback, const char *str)
     row = conback->height - ((CHAR_HEIGHT + 6) * conback->height / 200);
     col = conback->width - ((11 + CHAR_WIDTH * len) * conback->width / 320);
 
-    dest = conback->pixels + conback->width * row + col;
+    dest = pixels + conback->width * row + col;
     for (i = 0; i < len; i++) {
 	x = i * CHAR_WIDTH * conback->width / 320;
 	Draw_ScaledCharToConback(conback, str[i], dest + x);
@@ -535,7 +535,7 @@ Draw_Init(void)
 
     /* hack the version number directly into the pic */
     snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
-    Draw_ConbackString(pic, version);
+    Draw_ConbackString(pic, dpic->data, version);
 
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);

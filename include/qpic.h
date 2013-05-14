@@ -34,7 +34,7 @@ typedef struct {
     int height;
     int stride;
     qboolean alpha;
-    byte *pixels;
+    const byte *pixels;
 } qpic8_t;
 
 typedef union {
