@@ -43,8 +43,8 @@ void Draw_TileClear(int x, int y, int w, int h);
 void Draw_Fill(int x, int y, int w, int h, int c);
 void Draw_FadeScreen(void);
 void Draw_String(int x, int y, const char *str);
-qpic8_t *Draw_PicFromWad(const char *name);
-qpic8_t *Draw_CachePic(const char *path);
+const qpic8_t *Draw_PicFromWad(const char *name);
+const qpic8_t *Draw_CachePic(const char *path);
 
 void Draw_Alt_String(int x, int y, const char *str);
 void Draw_Crosshair(void);

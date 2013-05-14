@@ -52,7 +52,7 @@ typedef struct {
 
 static rectdesc_t r_rectdesc;
 
-const byte *draw_chars;		// 8*8 graphic characters
+const byte *draw_chars;		/* 8*8 graphic characters */
 const qpic8_t *draw_disc;
 
 static const qpic8_t *draw_backtile;
@@ -70,7 +70,7 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-qpic8_t *
+const qpic8_t *
 Draw_PicFromWad(const char *name)
 {
     qpic8_t *pic;
@@ -119,7 +119,7 @@ Draw_FindCache(const char *path)
 Draw_CachePic
 ================
 */
-qpic8_t *
+const qpic8_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
@@ -158,7 +158,7 @@ Draw_CacheConback
 static void Draw_ConbackString(const qpic8_t *conback, byte *pixels,
 			       const char *str);
 
-qpic8_t *
+const qpic8_t *
 Draw_CacheConback(void)
 {
     const char conbackfile[] = "gfx/conback.lmp";
@@ -708,18 +708,16 @@ Draw_ConsoleBackground
 void
 Draw_ConsoleBackground(int lines)
 {
-    int x, y, v;
+    const qpic8_t *conback;
     const byte *src;
-    byte *dest;
-    unsigned short *pusdest;
+    int x, y, v;
     int f, fstep;
-    qpic8_t *conback;
 
     conback = Draw_CacheConback();
 
     /* draw the pic */
     if (r_pixbytes == 1) {
-	dest = vid.conbuffer;
+	byte *dest = vid.conbuffer;
 
 	for (y = 0; y < lines; y++, dest += vid.conrowbytes) {
 	    v = (vid.conheight - lines + y) * conback->height / vid.conheight;
@@ -742,7 +740,7 @@ Draw_ConsoleBackground(int lines)
 	    }
 	}
     } else {
-	pusdest = (unsigned short *)vid.conbuffer;
+	unsigned short *pusdest = (unsigned short *)vid.conbuffer;
 
 	for (y = 0; y < lines; y++, pusdest += vid.conrowbytes / 2) {
 	    // FIXME: pre-expand to native format?

@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cmd.h"
 #include "console.h"
 #include "crc.h"
+#include "draw.h"
 #include "glquake.h"
 #include "qpic.h"
 #include "quakedef.h"
@@ -47,7 +48,7 @@ static cvar_t gl_constretch = { "gl_constretch", "0", true };
 // FIXME - should I let this get larger, with view to enhancements?
 cvar_t gl_max_size = { "gl_max_size", "1024" };
 
-byte *draw_chars;		/* 8*8 graphic characters */
+const byte *draw_chars;		/* 8*8 graphic characters */
 const qpic8_t *draw_disc;
 static const qpic8_t *draw_backtile;
 
@@ -347,10 +348,10 @@ Draw_CachePic(const char *path)
 #define CHAR_HEIGHT 8
 
 static void
-Draw_ScaledCharToConback(qpic8_t *conback, int num, byte *dest)
+Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
 {
+    const byte *source, *src;
     int row, col;
-    byte *source, *src;
     int drawlines, drawwidth;
     int x, y, fstep, f;
 
@@ -382,7 +383,7 @@ Draw_ScaledCharToConback(qpic8_t *conback, int num, byte *dest)
  * at the same location.
  */
 static void
-Draw_ConbackString(qpic8_t *conback, byte *pixels, const char *str)
+Draw_ConbackString(const qpic8_t *conback, byte *pixels, const char *str)
 {
     int len, row, col, i, x;
     byte *dest;
@@ -510,10 +511,11 @@ Draw_Init(void)
     // by hand, because we need to write the version
     // string into the background before turning
     // it into a texture
-    draw_chars = W_GetLumpName(&host_gfx, "conchars");
+    byte *chars = W_GetLumpName(&host_gfx, "conchars");
     for (i = 0; i < 256 * 64; i++)
-	if (draw_chars[i] == 0)
-	    draw_chars[i] = 255;	// proper transparent color
+	if (chars[i] == 0)
+	    chars[i] = 255; /* Use the proper transparent colour */
+    draw_chars = chars;
 
     // now turn them into textures
     const qpic8_t chars_pic = { 128, 128, 128, true, draw_chars };
