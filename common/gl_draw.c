@@ -48,8 +48,8 @@ static cvar_t gl_constretch = { "gl_constretch", "0", true };
 cvar_t gl_max_size = { "gl_max_size", "1024" };
 
 byte *draw_chars;		/* 8*8 graphic characters */
-const qpic_t *draw_disc;
-static const qpic_t *draw_backtile;
+const qpic8_t *draw_disc;
+static const qpic8_t *draw_backtile;
 
 static GLuint translate_texture;
 static GLuint char_texture;
@@ -69,7 +69,7 @@ static byte cs_data[64] = {
 typedef struct {
     int texnum;
     float sl, tl, sh, th;
-    qpic_t pic;
+    qpic8_t pic;
 } glpic_t;
 
 static glpic_t *conback;
@@ -126,8 +126,8 @@ typedef struct {
     GLuint glnum;
     qboolean dirty;
     int allocated[BLOCK_WIDTH];
-    qpic_t pic;
-    byte texels[BLOCK_BYTES]; /* referenced via pic->data */
+    qpic8_t pic;
+    byte texels[BLOCK_BYTES]; /* referenced via pic->pixels */
 } scrap_t;
 
 static scrap_t gl_scraps[MAX_SCRAPS];
@@ -141,9 +141,10 @@ Scrap_Init(void)
     memset(gl_scraps, 0, sizeof(gl_scraps));
     scrap = gl_scraps;
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
-	scrap->pic.width = BLOCK_WIDTH;
+	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
 	scrap->pic.height = BLOCK_HEIGHT;
-	scrap->pic.data = scrap->texels;
+	scrap->pic.alpha = true;
+	scrap->pic.pixels = scrap->texels;
 	glGenTextures(1, &scrap->glnum);
     }
 }
@@ -237,38 +238,42 @@ static int menu_numcachepics;
 static byte menuplyr_pixels[4096];
 
 static int
-GL_LoadPicTexture(const qpic_t *pic)
+GL_LoadPicTexture(const qpic8_t *pic)
 {
-    return GL_LoadTexture("", pic->width, pic->height, pic->data, false, true);
+    return GL_LoadTexture("", pic->width, pic->height, pic->pixels, false, pic->alpha);
 }
 
-const qpic_t *
+const qpic8_t *
 Draw_PicFromWad(const char *name)
 {
-    qpic_t *pic;
+    qpic8_t *pic;
     dpic8_t *dpic;
     glpic_t *glpic;
     scrap_t *scrap;
 
-    glpic = Hunk_AllocName(sizeof(*glpic), "qpic_t");
+    glpic = Hunk_AllocName(sizeof(*glpic), "qpic8_t");
     dpic = W_GetLumpName(&host_gfx, name);
 
     /* Set up the embedded pic */
     pic = &glpic->pic;
-    pic->width = dpic->width;
+    pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->data = dpic->data;
+    pic->alpha = true;
+    pic->pixels = dpic->data;
 
     /* load little ones into the scrap */
     if (pic->width < 64 && pic->height < 64) {
 	int x, y;
-	int i, j, k;
+	int i, j, src;
 
 	scrap = Scrap_AllocBlock(pic->width, pic->height, &x, &y);
-	k = 0;
-	for (i = 0; i < pic->height; i++)
-	    for (j = 0; j < pic->width; j++, k++)
-		scrap->pic.data[(y + i) * BLOCK_WIDTH + x + j] = pic->data[k];
+	src = 0;
+	for (i = 0; i < pic->height; i++) {
+	    for (j = 0; j < pic->width; j++, src++) {
+		const int dst = (y + i) * BLOCK_WIDTH + x + j;
+		scrap->pic.pixels[dst] = pic->pixels[src];
+	    }
+	}
 	glpic->texnum = scrap->glnum;
 	glpic->sl = (x + 0.01) / (float)BLOCK_WIDTH;
 	glpic->sh = (x + pic->width - 0.01) / (float)BLOCK_WIDTH;
@@ -293,12 +298,12 @@ Draw_PicFromWad(const char *name)
 Draw_CachePic
 ================
 */
-const qpic_t *
+const qpic8_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
     dpic8_t *dpic;
-    qpic_t *pic;
+    qpic8_t *pic;
     int i;
 
     cachepic = menu_cachepics;
@@ -316,16 +321,18 @@ Draw_CachePic(const char *path)
     if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
     SwapDPic(dpic);
-    cachepic->glpic.pic.width = dpic->width;
-    cachepic->glpic.pic.height = dpic->height;
-    cachepic->glpic.pic.data = dpic->data;
+
     pic = &cachepic->glpic.pic;
+    pic->width = pic->stride = dpic->width;
+    pic->height = dpic->height;
+    pic->alpha = true;
+    pic->pixels = dpic->data;
 
     // HACK HACK HACK --- we need to keep the bytes for
     // the translatable player picture just for the menu
     // configuration dialog
     if (!strcmp(path, "gfx/menuplyr.lmp"))
-	memcpy(menuplyr_pixels, pic->data, pic->width * pic->height);
+	memcpy(menuplyr_pixels, pic->pixels, pic->width * pic->height);
 
     cachepic->glpic.texnum = GL_LoadPicTexture(pic);
     cachepic->glpic.sl = 0;
@@ -340,7 +347,7 @@ Draw_CachePic(const char *path)
 #define CHAR_HEIGHT 8
 
 static void
-Draw_ScaledCharToConback(qpic_t *conback, int num, byte *dest)
+Draw_ScaledCharToConback(qpic8_t *conback, int num, byte *dest)
 {
     int row, col;
     byte *source, *src;
@@ -375,7 +382,7 @@ Draw_ScaledCharToConback(qpic_t *conback, int num, byte *dest)
  * at the same location.
  */
 static void
-Draw_ConbackString(qpic_t *conback, const char *str)
+Draw_ConbackString(qpic8_t *conback, const char *str)
 {
     int len, row, col, i, x;
     byte *dest;
@@ -384,7 +391,7 @@ Draw_ConbackString(qpic_t *conback, const char *str)
     row = conback->height - ((CHAR_HEIGHT + 6) * conback->height / 200);
     col = conback->width - ((11 + CHAR_WIDTH * len) * conback->width / 320);
 
-    dest = conback->data + conback->width * row + col;
+    dest = conback->pixels + conback->width * row + col;
     for (i = 0; i < len; i++) {
 	x = i * CHAR_WIDTH * conback->width / 320;
 	Draw_ScaledCharToConback(conback, str[i], dest + x);
@@ -479,7 +486,7 @@ Draw_Init(void)
 {
     int i;
     dpic8_t *dpic;
-    qpic_t *pic;
+    qpic8_t *pic;
     char version[5];
 
     Cvar_RegisterVariable(&gl_nobind);
@@ -512,15 +519,17 @@ Draw_Init(void)
     char_texture = GL_LoadTexture("charset", 128, 128, draw_chars, false, true);
     cs_texture = GL_LoadTexture("crosshair", 8, 8, cs_data, false, true);
 
-    conback = Hunk_AllocName(sizeof(*conback), "qpic_t");
+    conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
     if (!dpic)
 	Sys_Error("Couldn't load gfx/conback.lmp");
     SwapDPic(dpic);
-    conback->pic.width = dpic->width;
-    conback->pic.height = dpic->height;
-    conback->pic.data = dpic->data;
+
     pic = &conback->pic;
+    pic->width = pic->stride = dpic->width;
+    pic->height = dpic->height;
+    pic->alpha = false;
+    pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */
     snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
@@ -530,7 +539,7 @@ Draw_Init(void)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     conback->texnum = GL_LoadTexture("conback", pic->width, pic->height,
-				     pic->data, false, false);
+				     pic->pixels, false, pic->alpha);
     conback->sl = 0;
     conback->sh = 1;
     conback->tl = 0;
@@ -672,7 +681,7 @@ Draw_Pic
 =============
 */
 void
-Draw_Pic(int x, int y, const qpic_t *pic)
+Draw_Pic(int x, int y, const qpic8_t *pic)
 {
     const glpic_t *glpic;
 
@@ -694,7 +703,7 @@ Draw_Pic(int x, int y, const qpic_t *pic)
 }
 
 void
-Draw_SubPic(int x, int y, const qpic_t *pic, int srcx, int srcy, int width,
+Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 	    int height)
 {
     const glpic_t *glpic;
@@ -733,7 +742,7 @@ Draw_TransPic
 =============
 */
 void
-Draw_TransPic(int x, int y, const qpic_t *pic)
+Draw_TransPic(int x, int y, const qpic8_t *pic)
 {
     if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
 	y < 0 || (unsigned)(y + pic->height) > vid.height) {
@@ -752,7 +761,7 @@ Only used for the player color selection menu
 =============
 */
 void
-Draw_TransPicTranslate(int x, int y, const qpic_t *pic, byte *translation)
+Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
 {
     int v, u;
     unsigned trans[64 * 64], *dest;
@@ -800,7 +809,7 @@ Draw_ConsoleBackground
 ================
 */
 static void
-Draw_ConsolePic(int lines, float offset, const qpic_t *pic, float alpha)
+Draw_ConsolePic(int lines, float offset, const qpic8_t *pic, float alpha)
 {
     const glpic_t *glpic;
 

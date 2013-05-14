@@ -22,7 +22,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MENU_H
 
 #include "keys.h"
-#include "wad.h"
+#include "qpic.h"
+#include "qtypes.h"
 
 //
 // menus
@@ -35,7 +36,7 @@ void M_ToggleMenu_f(void);
 void M_Menu_Options_f(void);
 void M_Menu_Quit_f(void);
 
-void M_DrawPic(int x, int y, const qpic_t *pic);
+void M_DrawPic(int x, int y, const qpic8_t *pic);
 void M_DrawCharacter(int cx, int line, int num);
 void M_DrawCheckbox(int x, int y, qboolean checked);
 void M_DrawTextBox(int x, int y, int width, int lines);

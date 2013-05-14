@@ -123,7 +123,7 @@ void
 VID_MenuDraw_(const vid_menustate_t *menu)
 {
     static const int cursor_heights[] = { 48, 56, 64, 72, 88, 96 };
-    const qpic_t *pic;
+    const qpic8_t *pic;
     const char *text;
     vid_menu_cursor_t cursor = VID_MENU_CURSOR_RESOLUTION;
     int rwidth, rheight, divisor;

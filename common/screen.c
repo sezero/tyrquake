@@ -125,9 +125,9 @@ static cvar_t gl_triplebuffer = { "gl_triplebuffer", "1", true };
 static vrect_t *pconupdate;
 #endif
 
-static const qpic_t *scr_ram;
-static const qpic_t *scr_net;
-static const qpic_t *scr_turtle;
+static const qpic8_t *scr_ram;
+static const qpic8_t *scr_net;
+static const qpic8_t *scr_turtle;
 
 static char scr_centerstring[1024];
 static float scr_centertime_start;	// for slow victory printing
@@ -251,7 +251,7 @@ DrawPause
 static void
 SCR_DrawPause(void)
 {
-    const qpic_t *pic;
+    const qpic8_t *pic;
 
     if (!scr_showpause.value)	// turn off for screenshots
 	return;
@@ -1185,7 +1185,7 @@ SCR_DrawLoading
 static void
 SCR_DrawLoading(void)
 {
-    const qpic_t *pic;
+    const qpic8_t *pic;
 
     if (!scr_drawloading)
 	return;

@@ -25,32 +25,40 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "draw.h"
 #include "protocol.h"
 #include "quakedef.h"
+#include "qpic.h"
 #include "sbar.h"
 #include "screen.h"
 #include "vid.h"
 #include "wad.h"
 
-int sb_updates;			// if >= vid.numpages, no update needed
+/* if >= vid.numpages, no update needed */
+int sb_updates;
 
-#define STAT_MINUS 10		// num frame for '-' stats digit
-const qpic_t *sb_nums[2][11];
-const qpic_t *sb_colon, *sb_slash;
-const qpic_t *sb_ibar;
-const qpic_t *sb_sbar;
-const qpic_t *sb_scorebar;
+/* num frame for '-' stats digit */
+#define STAT_MINUS 10
 
-const qpic_t *sb_weapons[7][8];	// 0 is active, 1 is owned, 2-5 are flashes
-const qpic_t *sb_ammo[4];
-const qpic_t *sb_sigil[4];
-const qpic_t *sb_armor[3];
-const qpic_t *sb_items[32];
+const qpic8_t *sb_nums[2][11];
+const qpic8_t *sb_colon, *sb_slash;
+const qpic8_t *sb_ibar;
+const qpic8_t *sb_sbar;
+const qpic8_t *sb_scorebar;
 
-const qpic_t *sb_faces[7][2];	// 0 is gibbed, 1 is dead, 2-6 are alive
-				// 0 is static, 1 is temporary animation
-const qpic_t *sb_face_invis;
-const qpic_t *sb_face_quad;
-const qpic_t *sb_face_invuln;
-const qpic_t *sb_face_invis_invuln;
+/* 0 is active, 1 is owned, 2-5 are flashes */
+const qpic8_t *sb_weapons[7][8];
+
+const qpic8_t *sb_ammo[4];
+const qpic8_t *sb_sigil[4];
+const qpic8_t *sb_armor[3];
+const qpic8_t *sb_items[32];
+
+/* [0][] is gibbed, [1][] is dead, [2-6][] are alive */
+/* [][0] is static, [][1] is temporary animation */
+const qpic8_t *sb_faces[7][2];
+
+const qpic8_t *sb_face_invis;
+const qpic8_t *sb_face_quad;
+const qpic8_t *sb_face_invuln;
+const qpic8_t *sb_face_invis_invuln;
 
 qboolean sb_showscores;
 qboolean sb_showteamscores;
@@ -242,7 +250,7 @@ Sbar_DrawPic
 =============
 */
 void
-Sbar_DrawPic(int x, int y, const qpic_t *pic)
+Sbar_DrawPic(int x, int y, const qpic8_t *pic)
 {
     Draw_Pic(x /* + ((vid.width - 320)>>1) */ ,
 	     y + (vid.height - SBAR_HEIGHT), pic);
@@ -256,7 +264,7 @@ JACK: Draws a portion of the picture in the status bar.
 */
 
 void
-Sbar_DrawSubPic(int x, int y, const qpic_t *pic, int srcx, int srcy, int width,
+Sbar_DrawSubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 		int height)
 {
     Draw_SubPic(x, y + (vid.height - SBAR_HEIGHT), pic, srcx, srcy, width,
@@ -270,7 +278,7 @@ Sbar_DrawTransPic
 =============
 */
 void
-Sbar_DrawTransPic(int x, int y, const qpic_t *pic)
+Sbar_DrawTransPic(int x, int y, const qpic8_t *pic)
 {
     Draw_TransPic(x /*+ ((vid.width - 320)>>1) */ ,
 		  y + (vid.height - SBAR_HEIGHT), pic);
@@ -902,7 +910,7 @@ added by Zoid
 void
 Sbar_TeamOverlay(void)
 {
-    const qpic_t *pic;
+    const qpic8_t *pic;
     int i, k;
     int x, y;
     char num[12];
@@ -994,7 +1002,7 @@ ping time frags name
 void
 Sbar_DeathmatchOverlay(int start)
 {
-    const qpic_t *pic;
+    const qpic8_t *pic;
     int i, k, l;
     int top, bottom;
     int x, y, f;
@@ -1292,7 +1300,7 @@ Sbar_FinaleOverlay
 void
 Sbar_FinaleOverlay(void)
 {
-    const qpic_t *pic;
+    const qpic8_t *pic;
 
     scr_copyeverything = 1;
 

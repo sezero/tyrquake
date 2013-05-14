@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "common.h"
 #include "console.h"
 #include "d_iface.h"
+#include "draw.h"
+#include "qpic.h"
 #include "quakedef.h"
 #include "sys.h"
 #include "vid.h"
@@ -50,17 +52,17 @@ typedef struct {
 
 static rectdesc_t r_rectdesc;
 
-byte *draw_chars;		// 8*8 graphic characters
-const qpic_t *draw_disc;
+const byte *draw_chars;		// 8*8 graphic characters
+const qpic8_t *draw_disc;
 
-static const qpic_t *draw_backtile;
+static const qpic8_t *draw_backtile;
 
 //=============================================================================
 /* Support Routines */
 
 typedef struct cachepic_s {
     char name[MAX_QPATH];
-    qpic_t pic;
+    qpic8_t pic;
     cache_user_t cache;
 } cachepic_t;
 
@@ -68,17 +70,18 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-const qpic_t *
+qpic8_t *
 Draw_PicFromWad(const char *name)
 {
-    qpic_t *pic;
+    qpic8_t *pic;
     dpic8_t *dpic;
 
     dpic = W_GetLumpName(&host_gfx, name);
-    pic = Hunk_AllocName(sizeof(*pic), "qpic_t");
-    pic->width = dpic->width;
+    pic = Hunk_AllocName(sizeof(*pic), "qpic8_t");
+    pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->data = dpic->data;
+    pic->alpha = true;
+    pic->pixels = dpic->data;
 
     return pic;
 }
@@ -88,10 +91,11 @@ Draw_PicFromWad(const char *name)
 Draw_CachePic
 ================
 */
-qpic_t *
+qpic8_t *
 Draw_CachePic(const char *path)
 {
     cachepic_t *cachepic;
+    qpic8_t *pic;
     dpic8_t *dpic;
     int i;
 
@@ -110,7 +114,7 @@ Draw_CachePic(const char *path)
     dpic = Cache_Check(&cachepic->cache);
     if (dpic) {
 	/* Cache data may have been moved */
-	cachepic->pic.data = dpic->data;
+	cachepic->pic.pixels = dpic->data;
 	return &cachepic->pic;
     }
 
@@ -121,11 +125,13 @@ Draw_CachePic(const char *path)
 	Sys_Error("%s: failed to load %s", __func__, path);
 
     SwapDPic(dpic);
-    cachepic->pic.width = dpic->width;
-    cachepic->pic.height = dpic->height;
-    cachepic->pic.data = dpic->data;
+    pic = &cachepic->pic;
+    pic->width = pic->stride = dpic->width;
+    pic->height = dpic->height;
+    pic->alpha = true;
+    pic->pixels = dpic->data;
 
-    return &cachepic->pic;
+    return pic;
 }
 
 /*
@@ -136,28 +142,30 @@ Draw_Init
 void
 Draw_Init(void)
 {
-    static qpic_t draw_disc_pic;
-    static qpic_t draw_backtile_pic;
+    static qpic8_t draw_disc_pic;
+    static qpic8_t draw_backtile_pic;
     dpic8_t *dpic;
 
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
     dpic = W_GetLumpName(&host_gfx, "disc");
-    draw_disc_pic.width = dpic->width;
+    draw_disc_pic.width = draw_disc_pic.stride = dpic->width;
     draw_disc_pic.height = dpic->height;
-    draw_disc_pic.data = dpic->data;
+    draw_disc_pic.alpha = true;
+    draw_disc_pic.pixels = dpic->data;
     draw_disc = &draw_disc_pic;
 
     dpic = W_GetLumpName(&host_gfx, "backtile");
-    draw_backtile_pic.width = dpic->width;
+    draw_backtile_pic.width = draw_backtile_pic.stride = dpic->width;
     draw_backtile_pic.height = dpic->height;
-    draw_backtile_pic.data = dpic->data;
+    draw_backtile_pic.alpha = false;
+    draw_backtile_pic.pixels = dpic->data;
     draw_backtile = &draw_backtile_pic;
 
     r_rectdesc.width = draw_backtile->width;
     r_rectdesc.height = draw_backtile->height;
-    r_rectdesc.ptexbytes = draw_backtile->data;
-    r_rectdesc.rowbytes = draw_backtile->width;
+    r_rectdesc.ptexbytes = draw_backtile->pixels;
+    r_rectdesc.rowbytes = draw_backtile->stride;
 }
 
 
@@ -174,7 +182,7 @@ void
 Draw_Character(int x, int y, int num)
 {
     byte *dest;
-    byte *source;
+    const byte *source;
     unsigned short *pusdest;
     int drawline;
     int row, col;
@@ -266,7 +274,7 @@ Draw_String
 ================
 */
 void
-Draw_String(int x, int y, char *str)
+Draw_String(int x, int y, const char *str)
 {
     while (*str) {
 	Draw_Character(x, y, *str);
@@ -281,7 +289,7 @@ Draw_Alt_String
 ================
 */
 void
-Draw_Alt_String(int x, int y, char *str)
+Draw_Alt_String(int x, int y, const char *str)
 {
     while (*str) {
 	Draw_Character(x, y, (*str) | 0x80);
@@ -338,7 +346,7 @@ Draw_Pic
 =============
 */
 void
-Draw_Pic(int x, int y, const qpic_t *pic)
+Draw_Pic(int x, int y, const qpic8_t *pic)
 {
     byte *dest;
     const byte *source;
@@ -350,7 +358,7 @@ Draw_Pic(int x, int y, const qpic_t *pic)
 	Sys_Error("%s: bad coordinates", __func__);
     }
 
-    source = pic->data;
+    source = pic->pixels;
 
     if (r_pixbytes == 1) {
 	dest = vid.buffer + y * vid.rowbytes + x;
@@ -382,7 +390,7 @@ Draw_SubPic
 =============
 */
 void
-Draw_SubPic(int x, int y, const qpic_t *pic, int srcx, int srcy, int width,
+Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 	    int height)
 {
     const byte *source;
@@ -395,7 +403,7 @@ Draw_SubPic(int x, int y, const qpic_t *pic, int srcx, int srcy, int width,
 	Sys_Error("%s: bad coordinates", __func__);
     }
 
-    source = pic->data + srcy * pic->width + srcx;
+    source = pic->pixels + srcy * pic->width + srcx;
 
     if (r_pixbytes == 1) {
 	dest = vid.buffer + y * vid.rowbytes + x;
@@ -427,7 +435,7 @@ Draw_TransPic
 =============
 */
 void
-Draw_TransPic(int x, int y, const qpic_t *pic)
+Draw_TransPic(int x, int y, const qpic8_t *pic)
 {
     byte *dest, tbyte;
     const byte *source;
@@ -439,7 +447,7 @@ Draw_TransPic(int x, int y, const qpic_t *pic)
 	Sys_Error("%s: bad coordinates", __func__);
     }
 
-    source = pic->data;
+    source = pic->pixels;
 
     if (r_pixbytes == 1) {
 	dest = vid.buffer + y * vid.rowbytes + x;
@@ -503,7 +511,7 @@ Draw_TransPicTranslate
 =============
 */
 void
-Draw_TransPicTranslate(int x, int y, const qpic_t *pic, byte *translation)
+Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
 {
     byte *dest, tbyte;
     const byte *source;
@@ -515,7 +523,7 @@ Draw_TransPicTranslate(int x, int y, const qpic_t *pic, byte *translation)
 	Sys_Error("%s: bad coordinates", __func__);
     }
 
-    source = pic->data;
+    source = pic->pixels;
 
     if (r_pixbytes == 1) {
 	dest = vid.buffer + y * vid.rowbytes + x;
@@ -577,10 +585,10 @@ Draw_TransPicTranslate(int x, int y, const qpic_t *pic, byte *translation)
 #define CHAR_HEIGHT	8
 
 static void
-Draw_ScaledCharToConback(const qpic_t *conback, int num, byte *dest)
+Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
 {
+    const byte *source, *src;
     int row, col;
-    byte *source, *src;
     int drawlines, drawwidth;
     int x, y, fstep, f;
 
@@ -612,7 +620,7 @@ Draw_ScaledCharToConback(const qpic_t *conback, int num, byte *dest)
  * at the same location.
  */
 static void
-Draw_ConbackString(qpic_t *cb, const char *str)
+Draw_ConbackString(qpic8_t *cb, const char *str)
 {
     int len, row, col, x;
     byte *dest;
@@ -621,7 +629,7 @@ Draw_ConbackString(qpic_t *cb, const char *str)
     row = cb->height - ((CHAR_HEIGHT + 6) * cb->height / 200);
     col = cb->width - ((11 + CHAR_WIDTH * len) * cb->width / 320);
 
-    dest = cb->data + cb->width * row + col;
+    dest = cb->pixels + cb->width * row + col;
     for (x = 0; x < len; x++)
 	Draw_ScaledCharToConback(cb, str[x], dest + (x * CHAR_WIDTH *
 						     cb->width / 320));
@@ -642,7 +650,7 @@ Draw_ConsoleBackground(int lines)
     byte *dest;
     unsigned short *pusdest;
     int f, fstep;
-    qpic_t *conback;
+    qpic8_t *conback;
     char version[5];
 
     conback = Draw_CachePic("gfx/conback.lmp");
@@ -657,7 +665,7 @@ Draw_ConsoleBackground(int lines)
 
 	for (y = 0; y < lines; y++, dest += vid.conrowbytes) {
 	    v = (vid.conheight - lines + y) * conback->height / vid.conheight;
-	    src = conback->data + v * conback->width;
+	    src = conback->pixels + v * conback->width;
 	    if (vid.conwidth == conback->width)
 		memcpy(dest, src, vid.conwidth);
 	    else {
@@ -682,7 +690,7 @@ Draw_ConsoleBackground(int lines)
 	    // FIXME: pre-expand to native format?
 	    // FIXME: does the endian switching go away in production?
 	    v = (vid.conheight - lines + y) * conback->height / vid.conheight;
-	    src = conback->data + v * conback->width;
+	    src = conback->pixels + v * conback->width;
 	    f = 0;
 	    fstep = conback->width * 0x10000 / vid.conwidth;
 	    for (x = 0; x < vid.conwidth; x += 4) {
@@ -953,7 +961,7 @@ Draw_BeginDisc(void)
     if (!draw_disc)
 	return;
 
-    D_BeginDirectRect(vid.width - 24, 0, draw_disc->data, 24, 24);
+    D_BeginDirectRect(vid.width - 24, 0, draw_disc->pixels, 24, 24);
 }
 
 

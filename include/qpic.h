@@ -26,6 +26,17 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "qtypes.h"
 
+/*
+ * QPic8 - if alpha is true, palette index 255 is transparent
+ */
+typedef struct {
+    int width;
+    int height;
+    int stride;
+    qboolean alpha;
+    byte *pixels;
+} qpic8_t;
+
 typedef union {
     uint32_t rgba;
     struct {
