@@ -240,7 +240,7 @@ static byte menuplyr_pixels[4096];
 static int
 GL_LoadPicTexture(const qpic8_t *pic)
 {
-    return GL_LoadTexture("", pic->width, pic->height, pic->pixels, false, pic->alpha);
+    return GL_LoadTexture("", pic, false);
 }
 
 const qpic8_t *
@@ -516,8 +516,10 @@ Draw_Init(void)
 	    draw_chars[i] = 255;	// proper transparent color
 
     // now turn them into textures
-    char_texture = GL_LoadTexture("charset", 128, 128, draw_chars, false, true);
-    cs_texture = GL_LoadTexture("crosshair", 8, 8, cs_data, false, true);
+    const qpic8_t chars_pic = { 128, 128, 128, true, draw_chars };
+    char_texture = GL_LoadTexture("charset", &chars_pic, false);
+    const qpic8_t cs_pic = { 8, 8, 8, true, cs_data };
+    cs_texture = GL_LoadTexture("crosshair", &cs_pic, false);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
@@ -538,8 +540,7 @@ Draw_Init(void)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    conback->texnum = GL_LoadTexture("conback", pic->width, pic->height,
-				     pic->pixels, false, pic->alpha);
+    conback->texnum = GL_LoadTexture("conback", pic, false);
     conback->sl = 0;
     conback->sh = 1;
     conback->tl = 0;
@@ -1134,25 +1135,23 @@ GL_LoadTexture
 ================
 */
 int
-GL_LoadTexture(const char *identifier, int width, int height,
-	       const byte *data, qboolean mipmap, qboolean alpha)
+GL_LoadTexture(const char *identifier, const qpic8_t *pic, qboolean mipmap)
 {
     int i;
     gltexture_t *glt;
     unsigned short crc;
-    qpic8_t pic;
 
-    crc = CRC_Block(data, width * height);
+    crc = CRC_Block(pic->pixels, pic->width * pic->height);
 
     // see if the texture is already present
     if (identifier[0]) {
 	for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
 	    if (!strcmp(identifier, glt->identifier)) {
-		if (crc != glt->crc
-		    || width != glt->width || height != glt->height)
+		if (crc != glt->crc)
 		    goto GL_LoadTexture_setup;
-		else
-		    return glt->texnum;
+		if (pic->width != glt->width || pic->height != glt->height)
+		    goto GL_LoadTexture_setup;
+		return glt->texnum;
 	    }
 	}
     }
@@ -1170,24 +1169,18 @@ GL_LoadTexture(const char *identifier, int width, int height,
 
   GL_LoadTexture_setup:
     glt->crc = crc;
-    glt->width = width;
-    glt->height = height;
+    glt->width = pic->width;
+    glt->height = pic->height;
     glt->mipmap = mipmap;
-
-    pic.width = width;
-    pic.height = height;
-    pic.stride = width;
-    pic.alpha = alpha;
-    pic.pixels = data; /* FIXME - const... */
 
 #ifdef NQ_HACK
     if (!isDedicated) {
 	GL_Bind(glt->texnum);
-	GL_Upload8(&pic, mipmap);
+	GL_Upload8(pic, mipmap);
     }
 #else
     GL_Bind(glt->texnum);
-    GL_Upload8(&pic, mipmap);
+    GL_Upload8(pic, mipmap);
 #endif
 
     return glt->texnum;

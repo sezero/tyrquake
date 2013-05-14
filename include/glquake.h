@@ -61,8 +61,7 @@ extern unsigned char d_15to8table[65536];
 extern float gldepthmin, gldepthmax;
 
 void GL_Upload8(const qpic8_t *pic, qboolean mipmap);
-int GL_LoadTexture(const char *identifier, int width, int height,
-		   const byte *data, qboolean mipmap, qboolean alpha);
+int GL_LoadTexture(const char *identifier, const qpic8_t *pic, qboolean mipmap);
 int GL_FindTexture(const char *identifier);
 
 void GL_SelectTexture(GLenum);

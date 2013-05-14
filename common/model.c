@@ -556,9 +556,11 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	if (!strncmp(mt->name, "sky", 3))
 	    R_InitSky(tx);
 #ifdef GLQUAKE
-	else
-	    tx->gl_texturenum =	GL_LoadTexture(mt->name, tx->width, tx->height,
-					       (byte *)(tx + 1), true, false);
+	else {
+	    byte *pixels = (byte *)(tx + 1);
+	    qpic8_t pic = { tx->width, tx->height, tx->width, false, pixels };
+	    tx->gl_texturenum =	GL_LoadTexture(mt->name, &pic, true);
+	}
 #endif
 #endif
     }
