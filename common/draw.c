@@ -88,15 +88,13 @@ Draw_PicFromWad(const char *name)
 
 /*
 ================
-Draw_CachePic
+Draw_FindCache
 ================
 */
-qpic8_t *
-Draw_CachePic(const char *path)
+static cachepic_t *
+Draw_FindCache(const char *path)
 {
     cachepic_t *cachepic;
-    qpic8_t *pic;
-    dpic8_t *dpic;
     int i;
 
     cachepic = menu_cachepics;
@@ -111,11 +109,30 @@ Draw_CachePic(const char *path)
 	snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
     }
 
-    dpic = Cache_Check(&cachepic->cache);
+    Cache_Check(&cachepic->cache);
+
+    return cachepic;
+}
+
+/*
+================
+Draw_CachePic
+================
+*/
+qpic8_t *
+Draw_CachePic(const char *path)
+{
+    cachepic_t *cachepic;
+    qpic8_t *pic;
+    dpic8_t *dpic;
+
+    cachepic = Draw_FindCache(path);
+    pic = &cachepic->pic;
+    dpic = cachepic->cache.data;
     if (dpic) {
-	/* Cache data may have been moved */
-	cachepic->pic.pixels = dpic->data;
-	return &cachepic->pic;
+	/* Update pixel pointer in case of cache moves */
+	pic->pixels = dpic->data;
+	return pic;
     }
 
     /* load the pic from disk */
@@ -123,9 +140,8 @@ Draw_CachePic(const char *path)
     dpic = cachepic->cache.data;
     if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
-
     SwapDPic(dpic);
-    pic = &cachepic->pic;
+
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
     pic->alpha = true;
@@ -133,6 +149,52 @@ Draw_CachePic(const char *path)
 
     return pic;
 }
+
+/*
+================
+Draw_CacheConback
+================
+*/
+static void Draw_ConbackString(const qpic8_t *conback, byte *pixels,
+			       const char *str);
+
+qpic8_t *
+Draw_CacheConback(void)
+{
+    const char conbackfile[] = "gfx/conback.lmp";
+    cachepic_t *cachepic;
+    dpic8_t *dpic;
+    qpic8_t *pic;
+    char version[5];
+
+    cachepic = Draw_FindCache(conbackfile);
+    pic = &cachepic->pic;
+    dpic = cachepic->cache.data;
+    if (dpic) {
+	/* Update pixel pointer in case of cache moves */
+	pic->pixels = dpic->data;
+	return pic;
+    }
+
+    /* load the pic from disk */
+    COM_LoadCacheFile(conbackfile, &cachepic->cache);
+    dpic = cachepic->cache.data;
+    if (!dpic)
+	Sys_Error("%s: failed to load %s", __func__, conbackfile);
+    SwapDPic(dpic);
+
+    pic->width = pic->stride = dpic->width;
+    pic->height = dpic->height;
+    pic->alpha = false;
+    pic->pixels = dpic->data;
+
+    /* hack the version number directly into the pic */
+    snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    Draw_ConbackString(pic, dpic->data, version);
+
+    return pic;
+}
+
 
 /*
 ===============
@@ -620,19 +682,20 @@ Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
  * at the same location.
  */
 static void
-Draw_ConbackString(qpic8_t *cb, const char *str)
+Draw_ConbackString(const qpic8_t *conback, byte *pixels, const char *str)
 {
-    int len, row, col, x;
+    int len, row, col, i, x;
     byte *dest;
 
     len = strlen(str);
-    row = cb->height - ((CHAR_HEIGHT + 6) * cb->height / 200);
-    col = cb->width - ((11 + CHAR_WIDTH * len) * cb->width / 320);
+    row = conback->height - ((CHAR_HEIGHT + 6) * conback->height / 200);
+    col = conback->width - ((11 + CHAR_WIDTH * len) * conback->width / 320);
 
-    dest = cb->pixels + cb->width * row + col;
-    for (x = 0; x < len; x++)
-	Draw_ScaledCharToConback(cb, str[x], dest + (x * CHAR_WIDTH *
-						     cb->width / 320));
+    dest = pixels + conback->width * row + col;
+    for (i = 0; i < len; i++) {
+	x = i * CHAR_WIDTH * conback->width / 320;
+	Draw_ScaledCharToConback(conback, str[i], dest + x);
+    }
 }
 
 
@@ -651,13 +714,8 @@ Draw_ConsoleBackground(int lines)
     unsigned short *pusdest;
     int f, fstep;
     qpic8_t *conback;
-    char version[5];
 
-    conback = Draw_CachePic("gfx/conback.lmp");
-
-    /* hack the version number directly into the pic */
-    snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
-    Draw_ConbackString(conback, version);
+    conback = Draw_CacheConback();
 
     /* draw the pic */
     if (r_pixbytes == 1) {
