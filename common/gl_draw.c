@@ -216,7 +216,7 @@ Scrap_Flush(GLuint texnum)
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	if (scrap->dirty && texnum == scrap->glnum) {
 	    GL_Bind(scrap->glnum);
-	    GL_Upload8(scrap->texels, BLOCK_WIDTH, BLOCK_HEIGHT, false, true);
+	    GL_Upload8(&scrap->pic, false);
 	    scrap->dirty = false;
 	    return;
 	}
@@ -1113,18 +1113,17 @@ GL_Upload8
 ===============
 */
 void
-GL_Upload8(const byte *data, int width, int height, qboolean mipmap,
-	   qboolean alpha)
+GL_Upload8(const qpic8_t *pic, qboolean mipmap)
 {
-    qpic32_t *pic;
+    qpic32_t *pic32;
     int mark;
 
     mark = Hunk_LowMark();
 
-    pic = QPic32_Alloc(width, height);
-    QPic_8to32(data, width, height, width, alpha, pic);
+    pic32 = QPic32_Alloc(pic->width, pic->height);
+    QPic_8to32(pic, pic32);
 
-    GL_Upload32(pic, mipmap, alpha);
+    GL_Upload32(pic32, mipmap, pic->alpha);
 
     Hunk_FreeToLowMark(mark);
 }
@@ -1141,6 +1140,7 @@ GL_LoadTexture(const char *identifier, int width, int height,
     int i;
     gltexture_t *glt;
     unsigned short crc;
+    qpic8_t pic;
 
     crc = CRC_Block(data, width * height);
 
@@ -1174,14 +1174,20 @@ GL_LoadTexture(const char *identifier, int width, int height,
     glt->height = height;
     glt->mipmap = mipmap;
 
+    pic.width = width;
+    pic.height = height;
+    pic.stride = width;
+    pic.alpha = alpha;
+    pic.pixels = data; /* FIXME - const... */
+
 #ifdef NQ_HACK
     if (!isDedicated) {
 	GL_Bind(glt->texnum);
-	GL_Upload8(data, width, height, mipmap, alpha);
+	GL_Upload8(&pic, mipmap);
     }
 #else
     GL_Bind(glt->texnum);
-    GL_Upload8(data, width, height, mipmap, alpha);
+    GL_Upload8(&pic, mipmap);
 #endif
 
     return glt->texnum;

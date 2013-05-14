@@ -133,25 +133,28 @@ QPic32_AlphaFix(qpic32_t *pic)
 }
 
 void
-QPic_8to32(const byte *in, int width, int height, int stride, qboolean alpha,
-	   qpic32_t *out)
+QPic_8to32(const qpic8_t *in, qpic32_t *out)
 {
-    qpixel32_t *pixel = out->pixels;
+    const int width = in->width;
+    const int height = in->height;
+    const int stride = in->stride;
+    const byte *in_p = in->pixels;
+    qpixel32_t *out_p = out->pixels;
     int x, y;
 
-    if (alpha) {
-	/* index 0 is a transparent colour */
+    if (in->alpha) {
+	/* index 255 is transparent */
 	for (y = 0; y < height; y++) {
-	    for (x = 0; x < width; x++, in++, pixel++)
-		pixel->rgba = (*in) ? d_8to24table[*in] : 0;
-	    in += stride - width;
+	    for (x = 0; x < width; x++, in_p++, out_p++)
+		out_p->rgba = (*in_p == 255) ? 0 : d_8to24table[*in_p];
+	    in_p += stride - width;
 	}
 	QPic32_AlphaFix(out);
     } else {
 	for (y = 0; y < height; y++) {
-	    for (x = 0; x < width; x++, in++, pixel++)
-		pixel->rgba = d_8to24table[*in];
-	    in += stride - width;
+	    for (x = 0; x < width; x++, in_p++, out_p++)
+		out_p->rgba = d_8to24table[*in_p];
+	    in_p += stride - width;
 	}
     }
 }

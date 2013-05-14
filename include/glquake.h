@@ -38,6 +38,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "client.h"
 #include "model.h"
 #include "protocol.h"
+#include "qpic.h"
 
 #ifndef APIENTRY
 #define APIENTRY
@@ -59,8 +60,7 @@ extern unsigned char d_15to8table[65536];
 
 extern float gldepthmin, gldepthmax;
 
-void GL_Upload8(const byte *data, int width, int height,
-		qboolean mipmap, qboolean alpha);
+void GL_Upload8(const qpic8_t *pic, qboolean mipmap);
 int GL_LoadTexture(const char *identifier, int width, int height,
 		   const byte *data, qboolean mipmap, qboolean alpha);
 int GL_FindTexture(const char *identifier);

@@ -57,8 +57,7 @@ typedef struct {
 qpic32_t *QPic32_Alloc(int width, int height);
 
 /* Create 32 bit texture from 8 bit source */
-void QPic_8to32(const byte *in, int width, int height, int stride,
-		qboolean alpha, qpic32_t *out);
+void QPic_8to32(const qpic8_t *in, qpic32_t *out);
 
 /* Stretch from in size to out size */
 void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);
