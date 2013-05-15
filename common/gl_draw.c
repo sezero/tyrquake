@@ -53,10 +53,10 @@ const qpic8_t *draw_disc;
 static const qpic8_t *draw_backtile;
 
 static GLuint translate_texture;
-static GLuint char_texture;
-static GLuint cs_texture;		// crosshair texture
+static GLuint charset_texture;
+static GLuint crosshair_texture;		// crosshair texture
 
-static byte cs_data[64] = {
+static byte crosshair_data[64] = {
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
@@ -98,7 +98,7 @@ void
 GL_Bind(int texnum)
 {
     if (gl_nobind.value)
-	texnum = char_texture;
+	texnum = charset_texture;
     if (currenttexture == texnum)
 	return;
     currenttexture = texnum;
@@ -519,9 +519,9 @@ Draw_Init(void)
 
     // now turn them into textures
     const qpic8_t chars_pic = { 128, 128, 128, true, draw_chars };
-    char_texture = GL_LoadTexture("charset", &chars_pic, false);
-    const qpic8_t cs_pic = { 8, 8, 8, true, cs_data };
-    cs_texture = GL_LoadTexture("crosshair", &cs_pic, false);
+    charset_texture = GL_LoadTexture("charset", &chars_pic, false);
+    const qpic8_t cs_pic = { 8, 8, 8, true, crosshair_data };
+    crosshair_texture = GL_LoadTexture("crosshair", &cs_pic, false);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
@@ -600,7 +600,7 @@ Draw_Character(int x, int y, int num)
     fcol = col * 0.0625;
     size = 0.0625;
 
-    GL_Bind(char_texture);
+    GL_Bind(charset_texture);
     glBegin(GL_QUADS);
     glTexCoord2f(fcol, frow);
     glVertex2f(x, y);
@@ -656,7 +656,7 @@ Draw_Crosshair(void)
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	pColor = (unsigned char *)&d_8to24table[(byte)crosshaircolor.value];
 	glColor4ubv(pColor);
-	GL_Bind(cs_texture);
+	GL_Bind(crosshair_texture);
 
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 0);
