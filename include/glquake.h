@@ -160,6 +160,7 @@ extern int d_lightstylevalue[256];	// 8.8 fraction of base light value
 extern qboolean envmap;
 extern GLuint currenttexture;
 extern GLuint particletexture;
+extern GLuint charset_texture;
 extern GLuint playertextures[MAX_CLIENTS];
 
 extern cvar_t r_norefresh;
@@ -220,6 +221,8 @@ extern float r_world_matrix[16];
 
 extern const char *gl_renderer;
 extern const char *gl_extensions;
+
+void GL_InitTextures(void);
 
 void R_TranslatePlayerSkin(int playernum);
 void GL_Bind(int texnum);
