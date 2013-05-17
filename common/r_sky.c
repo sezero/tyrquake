@@ -17,7 +17,8 @@ along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
-// r_sky.c
+
+#include <stdint.h>
 
 #include "quakedef.h"
 #include "r_local.h"
@@ -33,19 +34,16 @@ float skytime;
 byte *r_skysource;
 
 int r_skymade;
-int r_skydirect;		// not used?
-
-
-// TODO: clean up these routines
-
+int r_skydirect;
 byte bottomsky[128 * 131];
 byte bottommask[128 * 131];
-byte newsky[128 * 256];		// newsky and topsky both pack in here, 128 bytes
 
-							//  of newsky on the left of each scan, 128 bytes
-							//  of topsky on the right, because the low-level
-							//  drawers need 256-byte scan widths
-
+/*
+ * newsky and topsky both pack in here, 128 bytes of newsky on the
+ * left of each scan, 128 bytes of topsky on the right, because the
+ * low-level drawers need 256-byte scan widths
+ */
+byte newsky[128 * 256];
 
 /*
 =============
@@ -95,7 +93,7 @@ R_MakeSky(void)
     int x, y;
     int ofs, baseofs;
     int xshift, yshift;
-    unsigned *pnewsky;
+    uint32_t *pnewsky;
     static int xlast = -1, ylast = -1;
 
     xshift = skytime * skyspeed;
@@ -107,21 +105,21 @@ R_MakeSky(void)
     xlast = xshift;
     ylast = yshift;
 
-    pnewsky = (unsigned *)&newsky[0];
+    pnewsky = (uint32_t *)&newsky[0];
 
     for (y = 0; y < SKYSIZE; y++) {
 	baseofs = ((y + yshift) & SKYMASK) * 131;
 
 	for (x = 0; x < SKYSIZE; x += 4) {
-	    unsigned bsky, bmask;
+	    uint32_t bsky, bmask;
 
 	    ofs = baseofs + ((x + xshift) & SKYMASK);
 	    memcpy(&bsky, &bottomsky[ofs], sizeof(bsky));
 	    memcpy(&bmask, &bottommask[ofs], sizeof(bmask));
-	    *pnewsky = (pnewsky[128 / sizeof(unsigned)] & bmask) | bsky;
+	    *pnewsky = (pnewsky[128 / sizeof(uint32_t)] & bmask) | bsky;
 	    pnewsky++;
 	}
-	pnewsky += 128 / sizeof(unsigned);
+	pnewsky += 128 / sizeof(uint32_t);
     }
 
     r_skymade = 1;
@@ -139,29 +137,29 @@ R_GenSkyTile(void *pdest)
     int x, y;
     int ofs, baseofs;
     int xshift, yshift;
-    unsigned *pnewsky;
-    unsigned *pd;
+    uint32_t *pnewsky;
+    uint32_t *pd;
 
     xshift = skytime * skyspeed;
     yshift = skytime * skyspeed;
 
-    pnewsky = (unsigned *)&newsky[0];
-    pd = (unsigned *)pdest;
+    pnewsky = (uint32_t *)&newsky[0];
+    pd = (uint32_t *)pdest;
 
     for (y = 0; y < SKYSIZE; y++) {
 	baseofs = ((y + yshift) & SKYMASK) * 131;
 
 	for (x = 0; x < SKYSIZE; x += 4) {
-	    unsigned bsky, bmask;
+	    uint32_t bsky, bmask;
 
 	    ofs = baseofs + ((x + xshift) & SKYMASK);
 	    memcpy(&bsky, &bottomsky[ofs], sizeof(bsky));
 	    memcpy(&bmask, &bottommask[ofs], sizeof(bmask));
-	    *pd = (pnewsky[128 / sizeof(unsigned)] & bmask) | bsky;
+	    *pd = (pnewsky[128 / sizeof(uint32_t)] & bmask) | bsky;
 	    pnewsky++;
 	    pd++;
 	}
-	pnewsky += 128 / sizeof(unsigned);
+	pnewsky += 128 / sizeof(uint32_t);
     }
 }
 
@@ -178,19 +176,17 @@ R_GenSkyTile16(void *pdest)
     int ofs, baseofs;
     int xshift, yshift;
     byte *pnewsky;
-    unsigned short *pd;
+    uint16_t *pd;
 
     xshift = skytime * skyspeed;
     yshift = skytime * skyspeed;
 
     pnewsky = (byte *)&newsky[0];
-    pd = (unsigned short *)pdest;
+    pd = (uint16_t *)pdest;
 
     for (y = 0; y < SKYSIZE; y++) {
 	baseofs = ((y + yshift) & SKYMASK) * 131;
 
-// FIXME: clean this up
-// FIXME: do faster unaligned version?
 	for (x = 0; x < SKYSIZE; x++) {
 	    ofs = baseofs + ((x + xshift) & SKYMASK);
 
