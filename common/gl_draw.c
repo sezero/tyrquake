@@ -105,7 +105,6 @@ Scrap_Init(void)
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
 	scrap->pic.height = BLOCK_HEIGHT;
-	scrap->pic.alpha = true;
 	scrap->pic.pixels = scrap->texels;
 	glGenTextures(1, &scrap->glnum);
     }
@@ -178,7 +177,7 @@ Scrap_Flush(GLuint texnum)
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	if (scrap->dirty && texnum == scrap->glnum) {
 	    GL_Bind(scrap->glnum);
-	    GL_Upload8(&scrap->pic, false);
+	    GL_Upload8_Alpha(&scrap->pic, false, 255);
 	    scrap->dirty = false;
 	    return;
 	}
@@ -202,7 +201,7 @@ static byte menuplyr_pixels[4096];
 static int
 GL_LoadPicTexture(const qpic8_t *pic)
 {
-    return GL_LoadTexture("", pic, false);
+    return GL_LoadTexture_Alpha("", pic, false, 255);
 }
 
 const qpic8_t *
@@ -220,7 +219,6 @@ Draw_PicFromWad(const char *name)
     pic = &glpic->pic;
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->alpha = true;
     pic->pixels = dpic->data;
 
     /* load little ones into the scrap */
@@ -287,7 +285,6 @@ Draw_CachePic(const char *path)
     pic = &cachepic->glpic.pic;
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->alpha = true;
     pic->pixels = dpic->data;
 
     // HACK HACK HACK --- we need to keep the bytes for
@@ -368,7 +365,6 @@ Draw_Init
 void
 Draw_Init(void)
 {
-    int i;
     dpic8_t *dpic;
     qpic8_t *pic;
     char version[5];
@@ -381,17 +377,13 @@ Draw_Init(void)
     // by hand, because we need to write the version
     // string into the background before turning
     // it into a texture
-    byte *chars = W_GetLumpName(&host_gfx, "conchars");
-    for (i = 0; i < 256 * 64; i++)
-	if (chars[i] == 0)
-	    chars[i] = 255; /* Use the proper transparent colour */
-    draw_chars = chars;
+    draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
     // now turn them into textures
-    const qpic8_t chars_pic = { 128, 128, 128, true, draw_chars };
-    charset_texture = GL_LoadTexture("charset", &chars_pic, false);
-    const qpic8_t cs_pic = { 8, 8, 8, true, crosshair_data };
-    crosshair_texture = GL_LoadTexture("crosshair", &cs_pic, false);
+    const qpic8_t chars_pic = { 128, 128, 128, draw_chars };
+    charset_texture = GL_LoadTexture_Alpha("charset", &chars_pic, false, 0);
+    const qpic8_t cs_pic = { 8, 8, 8, crosshair_data };
+    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &cs_pic, false, 255);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
@@ -402,7 +394,6 @@ Draw_Init(void)
     pic = &conback->pic;
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->alpha = false;
     pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */

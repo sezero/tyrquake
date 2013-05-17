@@ -82,7 +82,6 @@ Draw_PicFromWad(const char *name)
     pic = Hunk_AllocName(sizeof(*pic), "qpic8_t");
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->alpha = true;
     pic->pixels = dpic->data;
 
     return pic;
@@ -146,7 +145,6 @@ Draw_CachePic(const char *path)
 
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->alpha = true;
     pic->pixels = dpic->data;
 
     return pic;
@@ -187,7 +185,6 @@ Draw_CacheConback(void)
 
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
-    pic->alpha = false;
     pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */
@@ -215,14 +212,12 @@ Draw_Init(void)
     dpic = W_GetLumpName(&host_gfx, "disc");
     draw_disc_pic.width = draw_disc_pic.stride = dpic->width;
     draw_disc_pic.height = dpic->height;
-    draw_disc_pic.alpha = true;
     draw_disc_pic.pixels = dpic->data;
     draw_disc = &draw_disc_pic;
 
     dpic = W_GetLumpName(&host_gfx, "backtile");
     draw_backtile_pic.width = draw_backtile_pic.stride = dpic->width;
     draw_backtile_pic.height = dpic->height;
-    draw_backtile_pic.alpha = false;
     draw_backtile_pic.pixels = dpic->data;
     draw_backtile = &draw_backtile_pic;
 

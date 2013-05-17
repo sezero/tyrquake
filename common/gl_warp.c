@@ -409,7 +409,6 @@ R_InitSky(texture_t *mt)
     pic32 = QPic32_Alloc(128, 128);
 
     /* Create the solid layer */
-    pic.alpha = false;
     pic.pixels = src + 128;
     QPic_8to32(&pic, pic32);
 
@@ -422,9 +421,8 @@ R_InitSky(texture_t *mt)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     /* Create the alpha layer */
-    pic.alpha = true;
     pic.pixels = src;
-    QPic_8to32(&pic, pic32);
+    QPic_8to32_Alpha(&pic, pic32, 0);
 
     glGenTextures(1, &mt->gl_texturenum_alpha);
     GL_Bind(mt->gl_texturenum_alpha);

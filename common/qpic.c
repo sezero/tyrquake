@@ -142,21 +142,29 @@ QPic_8to32(const qpic8_t *in, qpic32_t *out)
     qpixel32_t *out_p = out->pixels;
     int x, y;
 
-    if (in->alpha) {
-	/* index 255 is transparent */
-	for (y = 0; y < height; y++) {
-	    for (x = 0; x < width; x++, in_p++, out_p++)
-		out_p->rgba = (*in_p == 255) ? 0 : d_8to24table[*in_p];
-	    in_p += stride - width;
-	}
-	QPic32_AlphaFix(out);
-    } else {
-	for (y = 0; y < height; y++) {
-	    for (x = 0; x < width; x++, in_p++, out_p++)
-		out_p->rgba = d_8to24table[*in_p];
-	    in_p += stride - width;
-	}
+    for (y = 0; y < height; y++) {
+	for (x = 0; x < width; x++, in_p++, out_p++)
+	    out_p->rgba = d_8to24table[*in_p];
+	in_p += stride - width;
     }
+}
+
+void
+QPic_8to32_Alpha(const qpic8_t *in, qpic32_t *out, byte alpha)
+{
+    const int width = in->width;
+    const int height = in->height;
+    const int stride = in->stride;
+    const byte *in_p = in->pixels;
+    qpixel32_t *out_p = out->pixels;
+    int x, y;
+
+    for (y = 0; y < height; y++) {
+	for (x = 0; x < width; x++, in_p++, out_p++)
+	    out_p->rgba = (*in_p == alpha) ? 0 : d_8to24table[*in_p];
+	in_p += stride - width;
+    }
+    QPic32_AlphaFix(out);
 }
 
 /*

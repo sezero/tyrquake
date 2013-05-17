@@ -26,14 +26,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "qtypes.h"
 
-/*
- * QPic8 - if alpha is true, palette index 255 is transparent
- */
 typedef struct {
     int width;
     int height;
     int stride;
-    qboolean alpha;
     const byte *pixels;
 } qpic8_t;
 
@@ -56,8 +52,9 @@ typedef struct {
 /* Allocate hunk space for a texture */
 qpic32_t *QPic32_Alloc(int width, int height);
 
-/* Create 32 bit texture from 8 bit source */
+/* Create 32 bit texture from 8 bit source, alpha is palette index to mask */
 void QPic_8to32(const qpic8_t *in, qpic32_t *out);
+void QPic_8to32_Alpha(const qpic8_t *in, qpic32_t *out, byte alpha);
 
 /* Stretch from in size to out size */
 void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);

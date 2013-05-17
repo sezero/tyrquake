@@ -45,7 +45,7 @@ static int gl_filter_max = GL_LINEAR;
 
 typedef struct {
     GLuint texnum;
-    char identifier[MAX_QPATH];
+    char name[MAX_QPATH];
     int width, height;
     qboolean mipmap;
     unsigned short crc;		// CRC for texture cache matching
@@ -152,13 +152,13 @@ GL_FindTexture
 ================
 */
 int
-GL_FindTexture(const char *identifier)
+GL_FindTexture(const char *name)
 {
     int i;
     gltexture_t *glt;
 
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-	if (!strcmp(identifier, glt->identifier))
+	if (!strcmp(name, glt->name))
 	    return gltextures[i].texnum;
     }
 
@@ -244,18 +244,40 @@ GL_Upload8(const qpic8_t *pic, qboolean mipmap)
 
     pic32 = QPic32_Alloc(pic->width, pic->height);
     QPic_8to32(pic, pic32);
-    GL_Upload32(pic32, mipmap, pic->alpha);
+    GL_Upload32(pic32, mipmap, false);
+
+    Hunk_FreeToLowMark(mark);
+}
+
+/*
+===============
+GL_Upload8_Alpha
+===============
+*/
+void
+GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha)
+{
+    qpic32_t *pic32;
+    int mark;
+
+    mark = Hunk_LowMark();
+
+    pic32 = QPic32_Alloc(pic->width, pic->height);
+    QPic_8to32_Alpha(pic, pic32, alpha);
+    GL_Upload32(pic32, mipmap, true);
 
     Hunk_FreeToLowMark(mark);
 }
 
 /*
 ================
-GL_LoadTexture
+GL_LoadTexture_
+FIXME - ugly multiplexer for alpha...
 ================
 */
-int
-GL_LoadTexture(const char *identifier, const qpic8_t *pic, qboolean mipmap)
+static int
+GL_LoadTexture_(const char *name, const qpic8_t *pic, qboolean mipmap,
+		qboolean alpha, byte alphabyte)
 {
     int i;
     gltexture_t *glt;
@@ -264,9 +286,9 @@ GL_LoadTexture(const char *identifier, const qpic8_t *pic, qboolean mipmap)
     crc = CRC_Block(pic->pixels, pic->width * pic->height);
 
     // see if the texture is already present
-    if (identifier[0]) {
+    if (name[0]) {
 	for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-	    if (!strcmp(identifier, glt->identifier)) {
+	    if (!strcmp(name, glt->name)) {
 		if (crc != glt->crc)
 		    goto GL_LoadTexture_setup;
 		if (pic->width != glt->width || pic->height != glt->height)
@@ -282,8 +304,8 @@ GL_LoadTexture(const char *identifier, const qpic8_t *pic, qboolean mipmap)
     glt = &gltextures[numgltextures];
     numgltextures++;
 
-    strncpy(glt->identifier, identifier, sizeof(glt->identifier) - 1);
-    glt->identifier[sizeof(glt->identifier) - 1] = '\0';
+    strncpy(glt->name, name, sizeof(glt->name) - 1);
+    glt->name[sizeof(glt->name) - 1] = '\0';
 
     glGenTextures(1, &glt->texnum);
 
@@ -296,14 +318,33 @@ GL_LoadTexture(const char *identifier, const qpic8_t *pic, qboolean mipmap)
 #ifdef NQ_HACK
     if (!isDedicated) {
 	GL_Bind(glt->texnum);
-	GL_Upload8(pic, mipmap);
+	if (alpha)
+	    GL_Upload8_Alpha(pic, mipmap, alphabyte);
+	else
+	    GL_Upload8(pic, mipmap);
     }
 #else
     GL_Bind(glt->texnum);
-    GL_Upload8(pic, mipmap);
+    if (alpha)
+	GL_Upload8_Alpha(pic, mipmap, alphabyte);
+    else
+	GL_Upload8(pic, mipmap);
 #endif
 
     return glt->texnum;
+}
+
+int
+GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
+{
+    return GL_LoadTexture_(name, pic, mipmap, false, 0);
+}
+
+int
+GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap,
+		     byte alpha)
+{
+    return GL_LoadTexture_(name, pic, mipmap, true, alpha);
 }
 
 void

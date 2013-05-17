@@ -558,7 +558,7 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 #ifdef GLQUAKE
 	else {
 	    byte *pixels = (byte *)(tx + 1);
-	    qpic8_t pic = { tx->width, tx->height, tx->width, false, pixels };
+	    qpic8_t pic = { tx->width, tx->height, tx->width, pixels };
 	    tx->gl_texturenum =	GL_LoadTexture(mt->name, &pic, true);
 	}
 #endif

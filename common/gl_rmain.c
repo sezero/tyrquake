@@ -197,11 +197,10 @@ void R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
 
     pic.width = pic.stride = frame->width;
     pic.height = frame->height;
-    pic.alpha = true;
     pic.pixels = pixels;
 
     snprintf(name, sizeof(name), "%s_%i", modelname, framenum);
-    spritedata->texture = GL_LoadTexture(name, &pic, true);
+    spritedata->texture = GL_LoadTexture_Alpha(name, &pic, true, 255);
 }
 
 /*
@@ -401,7 +400,6 @@ GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr,
 
 	pic.width = pic.stride = aliashdr->skinwidth;
 	pic.height = aliashdr->skinheight;
-	pic.alpha = false;
 	pic.pixels = skindata->data[i];
 
 	COM_FileBase(model->name, hunkname, sizeof(hunkname));
