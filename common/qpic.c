@@ -482,4 +482,6 @@ QPic32_MipMap(qpic32_t *in)
 
     in->width >>= 1;
     in->height >>= 1;
+
+    QPic32_AlphaFix(in);
 }
