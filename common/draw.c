@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // draw.c -- this is the only file outside the refresh that touches the
 // vid buffer
 
+#include <stdint.h>
+
 #include "common.h"
 #include "console.h"
 #include "d_iface.h"
@@ -245,7 +247,7 @@ Draw_Character(int x, int y, int num)
 {
     byte *dest;
     const byte *source;
-    unsigned short *pusdest;
+    uint16_t *pusdest;
     int drawline;
     int row, col;
 
@@ -302,8 +304,7 @@ Draw_Character(int x, int y, int num)
 	    dest += vid.conrowbytes;
 	}
     } else {
-	// FIXME: pre-expand to native format?
-	pusdest = (unsigned short *)
+	pusdest = (uint16_t *)
 	    ((byte *)vid.conbuffer + y * vid.conrowbytes + (x << 1));
 
 	while (drawline--) {
@@ -364,14 +365,13 @@ static void
 Draw_Pixel(int x, int y, byte color)
 {
     byte *dest;
-    unsigned short *pusdest;
+    uint16_t *pusdest;
 
     if (r_pixbytes == 1) {
 	dest = vid.conbuffer + y * vid.conrowbytes + x;
 	*dest = color;
     } else {
-	// FIXME: pre-expand to native format?
-	pusdest = (unsigned short *)
+	pusdest = (uint16_t *)
 	    ((byte *)vid.conbuffer + y * vid.conrowbytes + (x << 1));
 	*pusdest = d_8to16table[color];
     }
@@ -412,7 +412,7 @@ Draw_Pic(int x, int y, const qpic8_t *pic)
 {
     byte *dest;
     const byte *source;
-    unsigned short *pusdest;
+    uint16_t *pusdest;
     int v, u;
 
     if (x < 0 || x + pic->width > vid.width ||
@@ -431,8 +431,7 @@ Draw_Pic(int x, int y, const qpic8_t *pic)
 	    source += pic->width;
 	}
     } else {
-	// FIXME: pretranslate at load time?
-	pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes / 2) + x;
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
 
 	for (v = 0; v < pic->height; v++) {
 	    for (u = 0; u < pic->width; u++) {
@@ -457,7 +456,7 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 {
     const byte *source;
     byte *dest;
-    unsigned short *pusdest;
+    uint16_t *pusdest;
     int v, u;
 
     if (x < 0 || x + width > vid.width ||
@@ -476,8 +475,7 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 	    source += pic->width;
 	}
     } else {
-	// FIXME: pretranslate at load time?
-	pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes / 2) + x;
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
 
 	for (v = 0; v < height; v++) {
 	    for (u = srcx; u < (srcx + width); u++) {
@@ -501,7 +499,7 @@ Draw_TransPic(int x, int y, const qpic8_t *pic)
 {
     byte *dest, tbyte;
     const byte *source;
-    unsigned short *pusdest;
+    uint16_t *pusdest;
     int v, u;
 
     if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
@@ -548,8 +546,7 @@ Draw_TransPic(int x, int y, const qpic8_t *pic)
 	    }
 	}
     } else {
-	// FIXME: pretranslate at load time?
-	pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes / 2) + x;
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
 
 	for (v = 0; v < pic->height; v++) {
 	    for (u = 0; u < pic->width; u++) {
@@ -577,7 +574,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
 {
     byte *dest, tbyte;
     const byte *source;
-    unsigned short *pusdest;
+    uint16_t *pusdest;
     int v, u;
 
     if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
@@ -625,7 +622,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
 	}
     } else {
 	// FIXME: pretranslate at load time?
-	pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes / 2) + x;
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
 
 	for (v = 0; v < pic->height; v++) {
 	    for (u = 0; u < pic->width; u++) {
@@ -740,7 +737,7 @@ Draw_ConsoleBackground(int lines)
 	    }
 	}
     } else {
-	unsigned short *pusdest = (unsigned short *)vid.conbuffer;
+	uint16_t *pusdest = (uint16_t *)vid.conbuffer;
 
 	for (y = 0; y < lines; y++, pusdest += vid.conrowbytes / 2) {
 	    // FIXME: pre-expand to native format?
@@ -816,11 +813,11 @@ R_DrawRect16(vrect_t *prect, int rowbytes, const byte *psrc, int transparent)
 {
     byte t;
     int i, j, srcdelta, destdelta;
-    unsigned short *pdest;
+    uint16_t *pdest;
 
 // FIXME: would it be better to pre-expand native-format versions?
 
-    pdest = (unsigned short *)vid.buffer;
+    pdest = (uint16_t *)vid.buffer;
     pdest += prect->y * (vid.rowbytes / 2) + prect->x;
 
     srcdelta = rowbytes - prect->width;
@@ -941,8 +938,8 @@ void
 Draw_Fill(int x, int y, int w, int h, int c)
 {
     byte *dest;
-    unsigned short *pusdest;
-    unsigned uc;
+    uint16_t *pusdest;
+    uint16_t uc;
     int u, v;
 
     if (x < 0 || x + w > vid.width || y < 0 || y + h > vid.height) {
@@ -958,7 +955,7 @@ Draw_Fill(int x, int y, int w, int h, int c)
     } else {
 	uc = d_8to16table[c];
 
-	pusdest = (unsigned short *)vid.buffer + y * (vid.rowbytes / 2) + x;
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
 	for (v = 0; v < h; v++, pusdest += vid.rowbytes / 2)
 	    for (u = 0; u < w; u++)
 		pusdest[u] = uc;
