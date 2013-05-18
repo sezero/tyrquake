@@ -78,7 +78,6 @@ viddef_t vid; /* global video state */
 
 #ifdef _WIN32
 static HICON hIcon;
-RECT window_rect;
 #endif
 
 void VID_Shutdown(void)
@@ -277,26 +276,6 @@ VID_IsFullScreen()
     return !!vid_modenum;
 }
 
-/*
-================
-VID_UpdateWindowStatus
-================
-*/
-static void
-VID_UpdateWindowStatus(void)
-{
-#ifdef _WIN32
-    window_rect.left = window_x;
-    window_rect.top = window_y;
-    window_rect.right = window_x + window_width;
-    window_rect.bottom = window_y + window_height;
-    window_center_x = (window_rect.left + window_rect.right) / 2;
-    window_center_y = (window_rect.top + window_rect.bottom) / 2;
-
-    IN_UpdateClipCursor();
-#endif
-}
-
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -366,7 +345,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     window_width = vid.width;
     window_height = vid.height;
-    VID_UpdateWindowStatus();
 
     vid_modenum = mode - modelist;
     Cvar_SetValue("vid_mode", vid_modenum);
