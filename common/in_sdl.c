@@ -698,6 +698,7 @@ void IN_Move(usercmd_t *cmd)
     IN_MouseMove(cmd);
     //IN_JoyMove(cmd);
 }
+
 void IN_Commands(void)
 {
     if (mouse_available) {
