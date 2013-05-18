@@ -386,7 +386,6 @@ VID_SetPalette(const byte *palette)
 	    pixel = (0xff << 24) | (r << 0) | (g << 8) | (b << 16);
 	    d_8to24table[i] = LittleLong(pixel);
 	}
-	d_8to24table[255] &= LittleLong(0xffffff);	// 255 is transparent
 	break;
     default:
 	Sys_Error("%s: unsupported texture format (%d)", __func__,

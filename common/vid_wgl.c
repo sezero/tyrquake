@@ -604,13 +604,9 @@ VID_SetPalette(const byte *palette)
 	g = pal[1];
 	b = pal[2];
 	pal += 3;
-
-//              v = (255<<24) + (r<<16) + (g<<8) + (b<<0);
-//              v = (255<<0) + (r<<8) + (g<<16) + (b<<24);
 	v = (255 << 24) + (r << 0) + (g << 8) + (b << 16);
 	*table++ = v;
     }
-    d_8to24table[255] &= 0xffffff;	// 255 is transparent
 
     // JACK: 3D distance calcs - k is last closest, l is the distance.
     // FIXME: Precalculate this and cache to disk.

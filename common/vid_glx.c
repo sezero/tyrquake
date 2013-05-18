@@ -480,7 +480,6 @@ VID_SetPalette(const byte *palette)
 	v = (255 << 24) + (r << 0) + (g << 8) + (b << 16);
 	*table++ = LittleLong(v);
     }
-    d_8to24table[255] &= LittleLong(0xffffff);	// 255 is transparent
 
     for (i = 0; i < (1 << 15); i++) {
 	/*
