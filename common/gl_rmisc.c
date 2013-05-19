@@ -66,7 +66,7 @@ R_InitTextures(void)
     }
 }
 
-static byte dottexture[8][8] = {
+static const byte dottexture[8][8] = {
     {0, 1, 1, 0, 0, 0, 0, 0},
     {1, 1, 1, 1, 0, 0, 0, 0},
     {1, 1, 1, 1, 0, 0, 0, 0},
