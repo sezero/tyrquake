@@ -373,17 +373,18 @@ Draw_Init(void)
 
     Cvar_RegisterVariable(&gl_constretch);
 
-    // load the console background and the charset
-    // by hand, because we need to write the version
-    // string into the background before turning
-    // it into a texture
+    /*
+     * Load the console background and the charset by hand, because we
+     * need to write the version string into the background before
+     * turning it into a texture.
+     */
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
-    // now turn them into textures
-    const qpic8_t chars_pic = { 128, 128, 128, draw_chars };
-    charset_texture = GL_LoadTexture_Alpha("charset", &chars_pic, false, 0);
-    const qpic8_t cs_pic = { 8, 8, 8, crosshair_data };
-    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &cs_pic, false, 255);
+    /* now turn them into textures */
+    const qpic8_t charset_pic = { 128, 128, 128, draw_chars };
+    charset_texture = GL_LoadTexture_Alpha("charset", &charset_pic, false, 0);
+    const qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
+    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, false, 255);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
