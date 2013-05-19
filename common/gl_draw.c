@@ -265,7 +265,7 @@ Draw_CachePic(const char *path)
     cachepic_t *cachepic;
     dpic8_t *dpic;
     qpic8_t *pic;
-    int i;
+    int i, mark;
 
     cachepic = menu_cachepics;
     for (i = 0; i < menu_numcachepics; i++, cachepic++)
@@ -275,6 +275,8 @@ Draw_CachePic(const char *path)
     if (menu_numcachepics == MAX_CACHED_PICS)
 	Sys_Error("menu_numcachepics == MAX_CACHED_PICS");
     menu_numcachepics++;
+
+    mark = Hunk_LowMark();
 
     /* load the pic from disk */
     snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
@@ -309,6 +311,8 @@ Draw_CachePic(const char *path)
     cachepic->glpic.sh = 1;
     cachepic->glpic.tl = 0;
     cachepic->glpic.th = 1;
+
+    Hunk_FreeToLowMark(mark);
 
     return pic;
 }
