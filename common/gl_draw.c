@@ -196,7 +196,8 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-static byte menuplyr_pixels[4096];
+/* FIXME - don't need to keep these pixels around... */
+static byte menuplyr_pixels[48 * 56];
 
 static int
 GL_LoadPicTexture(const qpic8_t *pic)
@@ -287,11 +288,21 @@ Draw_CachePic(const char *path)
     pic->height = dpic->height;
     pic->pixels = dpic->data;
 
-    // HACK HACK HACK --- we need to keep the bytes for
-    // the translatable player picture just for the menu
-    // configuration dialog
-    if (!strcmp(path, "gfx/menuplyr.lmp"))
-	memcpy(menuplyr_pixels, pic->pixels, pic->width * pic->height);
+    /*
+     * HACK HACK HACK --- we need to keep the bytes for the
+     * translatable player picture just for the multiplayer
+     * configuration dialog
+     */
+    if (!strcmp(path, "gfx/menuplyr.lmp")) {
+	int picsize;
+
+	if (pic->width != 48 || pic->height != 56)
+	    Con_DPrintf("WARNING: %s: odd sized %s (%dx%d)\n",
+			__func__, path, pic->width, pic->height);
+	picsize = pic->width * pic->height;
+	picsize = qmin(picsize, (int)sizeof(menuplyr_pixels));
+	memcpy(menuplyr_pixels, pic->pixels, picsize);
+    }
 
     cachepic->glpic.texnum = GL_LoadPicTexture(pic);
     cachepic->glpic.sl = 0;
@@ -632,6 +643,10 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
     unsigned trans[64 * 64], *dest;
     byte *src;
     int p;
+
+    /* Don't crash if we have a bad menupic */
+    if (pic->width > 48 || pic->height > 56)
+	return;
 
     GL_Bind(translate_texture);
 
