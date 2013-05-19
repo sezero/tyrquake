@@ -1411,8 +1411,6 @@ typedef struct {
     int dirlen;
 } dpackheader_t;
 
-#define MAX_FILES_IN_PACK 2048
-
 char com_gamedir[MAX_OSPATH];
 char com_basedir[MAX_OSPATH];
 
@@ -1825,13 +1823,12 @@ of the list so they override previous pack files.
 static pack_t *
 COM_LoadPackFile(const char *packfile)
 {
-    dpackheader_t header;
-    int i;
-    packfile_t *newfiles;
-    int numpackfiles;
-    pack_t *pack;
     FILE *packhandle;
-    dpackfile_t info[MAX_FILES_IN_PACK];
+    dpackheader_t header;
+    dpackfile_t *dfiles;
+    packfile_t *mfiles;
+    pack_t *pack;
+    int i, numfiles;
     unsigned short crc;
 
     if (COM_FileOpenRead(packfile, &packhandle) == -1)
@@ -1844,26 +1841,26 @@ COM_LoadPackFile(const char *packfile)
     header.dirofs = LittleLong(header.dirofs);
     header.dirlen = LittleLong(header.dirlen);
 
-    numpackfiles = header.dirlen / sizeof(dpackfile_t);
+    numfiles = header.dirlen / sizeof(dpackfile_t);
 
-    if (numpackfiles > MAX_FILES_IN_PACK)
-	Sys_Error("%s has %i files", packfile, numpackfiles);
-
-    if (numpackfiles != ID1_PAK0_COUNT)
+    if (numfiles != ID1_PAK0_COUNT)
 	com_modified = true;	// not the original file
 
 #ifdef NQ_HACK
-    newfiles = Hunk_AllocName(numpackfiles * sizeof(packfile_t), "packfile");
+    mfiles = Hunk_AllocName(numfiles * sizeof(*mfiles), "packfile");
+    int mark = Hunk_LowMark();
+    dfiles = Hunk_AllocName(numfiles * sizeof(*dfiles), "packfile");
 #endif
 #ifdef QW_HACK
-    newfiles = Z_Malloc(numpackfiles * sizeof(packfile_t));
+    mfiles = Z_Malloc(numfiles * sizeof(*mfiles));
+    dfiles = Z_Malloc(numfiles * sizeof(*dfiles));
 #endif
 
     fseek(packhandle, header.dirofs, SEEK_SET);
-    fread(&info, 1, header.dirlen, packhandle);
+    fread(dfiles, 1, header.dirlen, packhandle);
 
-// crc the directory to check for modifications
-    crc = CRC_Block((byte *)info, header.dirlen);
+    /* crc the directory to check for modifications */
+    crc = CRC_Block((byte *)dfiles, header.dirlen);
     switch (crc) {
 #ifdef NQ_HACK
     case ID1_PAK0_CRC_V100:
@@ -1880,24 +1877,27 @@ COM_LoadPackFile(const char *packfile)
 	break;
     }
 
-// parse the directory
-    for (i = 0; i < numpackfiles; i++) {
-	strcpy(newfiles[i].name, info[i].name);
-	newfiles[i].filepos = LittleLong(info[i].filepos);
-	newfiles[i].filelen = LittleLong(info[i].filelen);
+    /* parse the directory */
+    for (i = 0; i < numfiles; i++) {
+	snprintf(mfiles[i].name, sizeof(mfiles[i].name), "%s", dfiles[i].name);
+	mfiles[i].filepos = LittleLong(dfiles[i].filepos);
+	mfiles[i].filelen = LittleLong(dfiles[i].filelen);
     }
 
 #ifdef NQ_HACK
+    Hunk_FreeToLowMark(mark);
     pack = Hunk_Alloc(sizeof(pack_t));
 #endif
 #ifdef QW_HACK
+    Z_Free(dfiles);
     pack = Z_Malloc(sizeof(pack_t));
 #endif
-    strcpy(pack->filename, packfile);
-    pack->numfiles = numpackfiles;
-    pack->files = newfiles;
+    snprintf(pack->filename, sizeof(pack->filename), "%s", packfile);
+    pack->numfiles = numfiles;
+    pack->files = mfiles;
 
-    Con_Printf("Added packfile %s (%i files)\n", packfile, numpackfiles);
+    Con_Printf("Added packfile %s (%i files)\n", packfile, numfiles);
+
     return pack;
 }
 
