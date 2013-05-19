@@ -40,9 +40,6 @@ int gl_lightmap_format = GL_RGBA;	// 4
 int gl_solid_format = GL_RGB;	// 3
 int gl_alpha_format = GL_RGBA;	// 4
 
-static int gl_filter_min = GL_LINEAR_MIPMAP_NEAREST;
-static int gl_filter_max = GL_LINEAR;
-
 typedef struct {
     GLuint texnum;
     char name[MAX_QPATH];
@@ -70,17 +67,21 @@ GL_Bind(int texnum)
 
 typedef struct {
     const char *name;
-    int minimize, maximize;
+    GLenum min_filter;
+    GLenum mag_filter;
 } glmode_t;
 
+static glmode_t *glmode;
+
 static glmode_t gl_texturemodes[] = {
-    { "GL_NEAREST", GL_NEAREST, GL_NEAREST },
-    { "GL_LINEAR", GL_LINEAR, GL_LINEAR },
-    { "GL_NEAREST_MIPMAP_NEAREST", GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST },
-    { "GL_LINEAR_MIPMAP_NEAREST", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR },
-    { "GL_NEAREST_MIPMAP_LINEAR", GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST },
-    { "GL_LINEAR_MIPMAP_LINEAR", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR }
+    { "gl_nearest", GL_NEAREST, GL_NEAREST },
+    { "gl_linear", GL_LINEAR, GL_LINEAR },
+    { "gl_nearest_mipmap_nearest", GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST },
+    { "gl_linear_mipmap_nearest", GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR },
+    { "gl_nearest_mipmap_linear", GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST },
+    { "gl_linear_mipmap_linear", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR }
 };
+
 
 /*
 ===============
@@ -94,35 +95,29 @@ GL_TextureMode_f(void)
     gltexture_t *glt;
 
     if (Cmd_Argc() == 1) {
-	for (i = 0; i < ARRAY_SIZE(gl_texturemodes); i++)
-	    if (gl_filter_min == gl_texturemodes[i].minimize) {
-		Con_Printf("%s\n", gl_texturemodes[i].name);
-		return;
-	    }
-	Con_Printf("current filter is unknown???\n");
+	Con_Printf("%s\n", glmode->name);
 	return;
     }
 
     for (i = 0; i < ARRAY_SIZE(gl_texturemodes); i++) {
-	if (!strcasecmp(gl_texturemodes[i].name, Cmd_Argv(1)))
+	if (!strcasecmp(gl_texturemodes[i].name, Cmd_Argv(1))) {
+	    glmode = &gl_texturemodes[i];
 	    break;
+	}
     }
     if (i == ARRAY_SIZE(gl_texturemodes)) {
 	Con_Printf("bad filter name\n");
 	return;
     }
 
-    gl_filter_min = gl_texturemodes[i].minimize;
-    gl_filter_max = gl_texturemodes[i].maximize;
-
-    // change all the existing mipmap texture objects
+    /* change all the existing mipmap texture objects */
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
 	if (glt->mipmap) {
 	    GL_Bind(glt->texnum);
 	    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-			    gl_filter_min);
+			    glmode->min_filter);
 	    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-			    gl_filter_max);
+			    glmode->mag_filter);
 	}
     }
 }
@@ -216,14 +211,18 @@ GL_Upload32(qpic32_t *pic, qboolean mipmap, qboolean alpha)
 	    QPic32_MipMap(scaled);
 	    miplevel++;
 	}
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_min);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+			glmode->min_filter);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+			glmode->mag_filter);
     } else {
 	glTexImage2D(GL_TEXTURE_2D, 0, format,
 		     scaled->width, scaled->height, 0,
 		     GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter_max);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter_max);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+			glmode->mag_filter);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
+			glmode->mag_filter);
     }
 
     Hunk_FreeToLowMark(mark);
@@ -351,6 +350,8 @@ void
 GL_InitTextures(void)
 {
     GLint max_size;
+
+    glmode = gl_texturemodes;
 
     Cvar_RegisterVariable(&gl_nobind);
     Cvar_RegisterVariable(&gl_max_size);
