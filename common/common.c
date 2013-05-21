@@ -1276,7 +1276,7 @@ COM_InitArgv(int argc, const char **argv)
 	standard_quake = false;
     }
 
-    if (COM_CheckParm("-hipnotic")) {
+    if (COM_CheckParm("-hipnotic") || COM_CheckParm("-quoth")) {
 	hipnotic = true;
 	standard_quake = false;
     }
@@ -2068,6 +2068,10 @@ COM_InitFilesystem(void)
     if (COM_CheckParm("-hipnotic")) {
 	COM_AddGameDirectory(com_basedir, "hipnotic");
 	COM_AddGameDirectory(home, ".tyrquake/hipnotic");
+    }
+    if (COM_CheckParm("-quoth")) {
+	COM_AddGameDirectory(com_basedir, "quoth");
+	COM_AddGameDirectory(home, ".tyrquake/quoth");
     }
 
 //
