@@ -475,13 +475,7 @@ M_AdjustSliders(int dir)
 	Cvar_SetValue("volume", volume.value);
 	break;
     case M_OPTIONS_CURSOR_ALWAYSRUN:
-	if (cl_forwardspeed.value > 200) {
-	    Cvar_SetValue("cl_forwardspeed", 200);
-	    Cvar_SetValue("cl_backspeed", 200);
-	} else {
-	    Cvar_SetValue("cl_forwardspeed", 400);
-	    Cvar_SetValue("cl_backspeed", 400);
-	}
+	Cvar_SetValue("cl_run", !cl_run.value);
 	break;
     case M_OPTIONS_CURSOR_MOUSEINVERT:
 	Cvar_SetValue("m_pitch", -m_pitch.value);
@@ -566,7 +560,7 @@ M_Options_Draw(void)
     M_DrawSlider(220, height, slider);
 
     M_Print(16, height += 8, "            Always Run");
-    M_DrawCheckbox(220, height, cl_forwardspeed.value > 200);
+    M_DrawCheckbox(220, height, cl_run.value);
 
     M_Print(16, height += 8, "          Invert Mouse");
     M_DrawCheckbox(220, height, m_pitch.value < 0);

@@ -1015,7 +1015,7 @@ IN_JoyMove(usercmd_t *cmd)
 	return;
     }
 
-    if (in_speed.state & 1)
+    if ((in_speed.state & 1) ^ (int)cl_run.value)
 	speed = cl_movespeedkey.value;
     else
 	speed = 1;
