@@ -137,13 +137,15 @@ void
 IN_MLookDown(void)
 {
     KeyDown(&in_mlook);
+    if (!((in_mlook.state & 1) ^ (int)m_freelook.value) && lookspring.value)
+	V_StartPitchDrift();
 }
 
 void
 IN_MLookUp(void)
 {
     KeyUp(&in_mlook);
-    if (!(in_mlook.state & 1) && lookspring.value)
+    if (!((in_mlook.state & 1) ^ (int)m_freelook.value) && lookspring.value)
 	V_StartPitchDrift();
 }
 

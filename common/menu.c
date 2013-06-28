@@ -416,6 +416,7 @@ typedef enum {
     M_OPTIONS_CURSOR_SOUNDVOLUME,
     M_OPTIONS_CURSOR_ALWAYSRUN,
     M_OPTIONS_CURSOR_MOUSEINVERT,
+    M_OPTIONS_CURSOR_MOUSELOOK,
     M_OPTIONS_CURSOR_LOOKSPRING,
     M_OPTIONS_CURSOR_LOOKSTRAFE,
 #ifdef QW_HACK
@@ -479,6 +480,9 @@ M_AdjustSliders(int dir)
 	break;
     case M_OPTIONS_CURSOR_MOUSEINVERT:
 	Cvar_SetValue("m_pitch", -m_pitch.value);
+	break;
+    case M_OPTIONS_CURSOR_MOUSELOOK:
+	Cvar_SetValue("m_freelook", !m_freelook.value);
 	break;
     case M_OPTIONS_CURSOR_LOOKSPRING:
 	Cvar_SetValue("lookspring", !lookspring.value);
@@ -564,6 +568,9 @@ M_Options_Draw(void)
 
     M_Print(16, height += 8, "          Invert Mouse");
     M_DrawCheckbox(220, height, m_pitch.value < 0);
+
+    M_Print(16, height += 8, "            Mouse Look");
+    M_DrawCheckbox(220, height, m_freelook.value);
 
     M_Print(16, height += 8, "            Lookspring");
     M_DrawCheckbox(220, height, lookspring.value);

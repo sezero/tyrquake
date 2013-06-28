@@ -657,16 +657,16 @@ IN_MouseMove(usercmd_t *cmd)
     mouse_y *= sensitivity.value;
 
 // add mouse X/Y movement to cmd
-    if ((in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1)))
+    if ((in_strafe.state & 1) || (lookstrafe.value && ((in_mlook.state & 1) ^ (int)m_freelook.value)))
 	cmd->sidemove += m_side.value * mouse_x;
     else
 	cl.viewangles[YAW] -= m_yaw.value * mouse_x;
 
-    if (in_mlook.state & 1)
+    if ((in_mlook.state & 1) ^ (int)m_freelook.value)
 	if (mouse_x || mouse_y)
 	    V_StopPitchDrift();
 
-    if ((in_mlook.state & 1) && !(in_strafe.state & 1)) {
+    if (((in_mlook.state & 1) ^ (int)m_freelook.value) && !(in_strafe.state & 1)) {
 	cl.viewangles[PITCH] += m_pitch.value * mouse_y;
 	if (cl.viewangles[PITCH] > 80)
 	    cl.viewangles[PITCH] = 80;
@@ -1046,7 +1046,7 @@ IN_JoyMove(usercmd_t *cmd)
 
 	switch (dwAxisMap[i]) {
 	case AxisForward:
-	    if ((joy_advanced.value == 0.0) && (in_mlook.state & 1)) {
+	    if ((joy_advanced.value == 0.0) && ((in_mlook.state & 1) ^ (int)m_freelook.value)) {
 		// user wants forward control to become look control
 		if (fabs(fAxisValue) > joy_pitchthreshold.value) {
 		    // if mouse invert is on, invert the joystick pitch value
@@ -1082,7 +1082,7 @@ IN_JoyMove(usercmd_t *cmd)
 
 	case AxisTurn:
 	    if ((in_strafe.state & 1)
-		|| (lookstrafe.value && (in_mlook.state & 1))) {
+		|| (lookstrafe.value && ((in_mlook.state & 1) ^ (int)m_freelook.value)) {
 		// user wants turn control to become side control
 		if (fabs(fAxisValue) > joy_sidethreshold.value) {
 		    cmd->sidemove -=
@@ -1107,7 +1107,7 @@ IN_JoyMove(usercmd_t *cmd)
 	    break;
 
 	case AxisLook:
-	    if (in_mlook.state & 1) {
+	    if ((in_mlook.state & 1) ^ (int)m_freelook.value) {
 		if (fabs(fAxisValue) > joy_pitchthreshold.value) {
 		    // pitch movement detected and pitch movement desired by user
 		    if (dwControlMap[i] == JOY_ABSOLUTE_AXIS) {
