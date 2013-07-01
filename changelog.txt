@@ -12,6 +12,7 @@ Unreleased
 * Improved build system including new OSX, Win64, SDL targets
 * Lots more code sharing between NQ/QW
 * Use non-power-of-two OpenGL textures when extension is available
+* New cvar "m_freelook" to replace need for manual editing "+mlook" in config
 
 2009-07-05 TyrQuake v0.61
 

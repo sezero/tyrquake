@@ -262,6 +262,10 @@ every memory block in the zone is printed.
 .IP "\fB+jump, \-jump\fP"
 .IP "\fB+klook, \-klook\fP"
 .IP "\fB+mlook, \-mlook\fP"
+When the mlook key is depressed, mouse movement controls the view
+orientation instead of direction of movement.  If cvar "m_freelook" is
+1, then the reverse is true, with mouse look enabled by default and
+the mlook key activates mouse movement instead.
 .IP "\fBimpulse\fP"
 .IP "\fBentities\fP"
 .IP "\fBdisconnect\fP"
@@ -554,6 +558,10 @@ to their defaults after reloading the engine. Default 1.
 .IP "\fBm_yaw\fP"
 .IP "\fBm_forward\fP"
 .IP "\fBm_side\fP"
+.IP "\fBm_freelook\fP"
+If 1, view orientation is controlled by mouse and the "mouse look" key
+(+mlook) has the inverse effect of temporarily disabling free look
+mode while depressed.
 .IP "\fBhost_speeds\fP"
 .IP "\fBsys_ticrate\fP"
 .IP "\fBserverprofile\fP"
