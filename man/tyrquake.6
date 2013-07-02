@@ -187,7 +187,38 @@ to use this (and it probably doesn't even work anymore!)
 
 .SH "CONSOLE COMMANDS"
 
-.IP "\fBcd\fP"
+.IP "\fBcd\fP [command] [arguments]"
+Passes commands to the CD audio subsystem.  Sub-commands are listed below.
+.RS
+.IP "\fBon\fP"
+Enable the CD audio subsystem.
+.IP "\fBoff\fP"
+Disable the CD audio subsystem.
+.IP "\fBplay n\fP" 
+Play CD audio track \fIn\fP.
+.IP "\fBloop n\fP"
+Play CD audio track \fIn\fP in a loop.
+.IP "\fBstop\fP"
+Stop playing CD audio.
+.IP "\fBpause\fP"
+Pause CD audio playback.
+.IP "\fBresume\fP"
+Resume playing CD audio (if currently paused).
+.IP "\fBeject\fP"
+Eject the CD media.
+.IP "\fBclose\fP"
+Request the CD tray to close.
+.IP "\fBremap x y\fP"
+Given two track numbers \fIx\fP and \fIy\fP, remap a CD track number such that
+a request to play track \fIx\fP will result in real track \fIy\fP being
+played.  Remappings can be reset with the \fIcd reset\fP command.
+.IP "\fBreset\fP"
+Stop playing audio, remove any CD track remappings and re-read the CD table of
+contents.
+.IP "\fBinfo\fP"
+Displays number of tracks on the currently loaded CD, which track is currently
+playing or paused (if any) and the current CD audio volume.
+.RE
 .IP "\fBstuffcmds\fP"
 .IP "\fBexec\fP"
 .IP "\fBecho\fP"
@@ -378,6 +409,8 @@ listip.cfg which can later be restored with 'exec listip.cfg'.
 .SH "CONSOLE VARIABLES"
 
 .IP "\fBbgmvolume\fP"
+Set volume level for background music.  Valid values are between 0 (off) and 1
+(full volume).  Default 1.
 .IP "\fBregistered\fP"
 .IP "\fBcmdline\fP"
 .IP "\fBcon_notifytime\fP"
