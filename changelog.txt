@@ -4,7 +4,7 @@ Unreleased
 * SDL video/input/sound target, now default for MacOS instead of X11.
 * sndio sound target for OpenBSD (thanks Tony Spets/Jacob Meuser)
 * Support for BJP1/2/3 and FITZ(666) network/demo protocols
-* Support for RMQ style BSP2 file format
+* Support for Darkplaces and RMQ style BSP2/2PSB file formats
 * Work around buggy timers on some windows systems/drivers (thanks MH!)
 * Removed vid_win dependency on SciTech MGL (thanks MH!)
 * Netmasks can be used with qwsv's addip/removeip; e.g. "addip 192.168.0.0/24"
