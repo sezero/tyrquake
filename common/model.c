@@ -648,6 +648,28 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 }
 
 /*
+ * Mod_LoadBytes
+ * - Common code for loading lighting, visibility and entities
+ */
+static void *
+Mod_LoadBytes(brushmodel_t *brushmodel, dheader_t *header, int lumpnum)
+{
+    const model_t *model = &brushmodel->model;
+    const lump_t *headerlump = &header->lumps[lumpnum];
+    const byte *in;
+    byte *out;
+
+    if (!headerlump->filelen)
+	return NULL;
+
+    in = (byte *)header + headerlump->fileofs;
+    out = Mod_AllocName(headerlump->filelen, model->name);
+    memcpy(out, in, headerlump->filelen);
+
+    return out;
+}
+
+/*
 =================
 Mod_LoadLighting
 =================
@@ -655,17 +677,7 @@ Mod_LoadLighting
 static void
 Mod_LoadLighting(brushmodel_t *brushmodel, dheader_t *header)
 {
-    const model_t *model = &brushmodel->model;
-    const lump_t *headerlump = &header->lumps[LUMP_LIGHTING];
-    const byte *lightdata;
-
-    if (!headerlump->filelen) {
-	brushmodel->lightdata = NULL;
-	return;
-    }
-    lightdata = (byte *)header + headerlump->fileofs;
-    brushmodel->lightdata = Mod_AllocName(headerlump->filelen, model->name);
-    memcpy(brushmodel->lightdata, lightdata, headerlump->filelen);
+    brushmodel->lightdata = Mod_LoadBytes(brushmodel, header, LUMP_LIGHTING);
 }
 
 
@@ -677,17 +689,7 @@ Mod_LoadVisibility
 static void
 Mod_LoadVisibility(brushmodel_t *brushmodel, dheader_t *header)
 {
-    const model_t *model = &brushmodel->model;
-    const lump_t *headerlump = &header->lumps[LUMP_VISIBILITY];
-    const byte *visdata;
-
-    if (!headerlump->filelen) {
-	brushmodel->visdata = NULL;
-	return;
-    }
-    visdata = (byte *)header + headerlump->fileofs;
-    brushmodel->visdata = Mod_AllocName(headerlump->filelen, model->name);
-    memcpy(brushmodel->visdata, visdata, headerlump->filelen);
+    brushmodel->visdata = Mod_LoadBytes(brushmodel, header, LUMP_VISIBILITY);
 }
 
 
@@ -699,17 +701,7 @@ Mod_LoadEntities
 static void
 Mod_LoadEntities(brushmodel_t *brushmodel, dheader_t *header)
 {
-    const model_t *model = &brushmodel->model;
-    const lump_t *headerlump = &header->lumps[LUMP_ENTITIES];
-    const byte *entities;
-
-    if (!headerlump->filelen) {
-	brushmodel->entities = NULL;
-	return;
-    }
-    entities = (byte *)header + headerlump->fileofs;
-    brushmodel->entities = Mod_AllocName(headerlump->filelen, model->name);
-    memcpy(brushmodel->entities, entities, headerlump->filelen);
+    brushmodel->entities = Mod_LoadBytes(brushmodel, header, LUMP_ENTITIES);
 }
 
 
