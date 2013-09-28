@@ -58,8 +58,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 //=============================================================================
 
-#define BSPVERSION	29
-#define BSP2VERSION	(('B' << 24) | ('S' << 16) | ('P' << 8) | '2')
+#define BSPVERSION     29
+#define BSP2RMQVERSION (('B' << 24) | ('S' << 16) | ('P' << 8) | '2')
+#define BSP2VERSION    ('B' | ('S' << 8) | ('P' << 16) | ('2' << 24))
 
 typedef struct {
     int32_t fileofs;
@@ -163,6 +164,15 @@ typedef struct {
     int16_t maxs[3];
     uint32_t firstface;
     uint32_t numfaces;	// counting both sides
+} bsp2rmq_dnode_t;
+
+typedef struct {
+    int32_t planenum;
+    int32_t children[2];	// negative numbers are -(leafs+1), not nodes
+    float mins[3];		// for sphere culling
+    float maxs[3];
+    uint32_t firstface;
+    uint32_t numfaces;	// counting both sides
 } bsp2_dnode_t;
 
 /*
@@ -262,6 +272,19 @@ typedef struct {
 
     int16_t mins[3];		// for frustum culling
     int16_t maxs[3];
+
+    uint32_t firstmarksurface;
+    uint32_t nummarksurfaces;
+
+    uint8_t ambient_level[NUM_AMBIENTS];
+} bsp2rmq_dleaf_t;
+
+typedef struct {
+    int32_t contents;
+    int32_t visofs;			// -1 = no visibility info
+
+    float mins[3];		// for frustum culling
+    float maxs[3];
 
     uint32_t firstmarksurface;
     uint32_t nummarksurfaces;

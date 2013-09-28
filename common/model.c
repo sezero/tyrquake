@@ -1128,7 +1128,7 @@ Mod_SetParent(mnode_t *node, mnode_t *parent)
 /*
 =================
 Mod_LoadNodes
- => Two versions for the different BSP file formats
+ => Three versions for the different BSP file formats
 =================
 */
 static void
@@ -1170,15 +1170,15 @@ Mod_LoadNodes_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 }
 
 static void
-Mod_LoadNodes_BSP2(brushmodel_t *brushmodel, dheader_t *header)
+Mod_LoadNodes_BSP2rmq(brushmodel_t *brushmodel, dheader_t *header)
 {
     const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_NODES];
-    const bsp2_dnode_t *in;
+    const bsp2rmq_dnode_t *in;
     mnode_t *out;
     int i, j, count;
 
-    in = (bsp2_dnode_t *)((byte *)header + headerlump->fileofs);
+    in = (bsp2rmq_dnode_t *)((byte *)header + headerlump->fileofs);
     if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = headerlump->filelen / sizeof(*in);
@@ -1207,10 +1207,48 @@ Mod_LoadNodes_BSP2(brushmodel_t *brushmodel, dheader_t *header)
     Mod_SetParent(brushmodel->nodes, NULL);
 }
 
+static void
+Mod_LoadNodes_BSP2(brushmodel_t *brushmodel, dheader_t *header)
+{
+    const model_t *model = &brushmodel->model;
+    const lump_t *headerlump = &header->lumps[LUMP_NODES];
+    const bsp2_dnode_t *in;
+    mnode_t *out;
+    int i, j, count;
+
+    in = (bsp2_dnode_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
+	SV_Error("%s: funny lump size in %s", __func__, model->name);
+    count = headerlump->filelen / sizeof(*in);
+    out = Mod_AllocName(count * sizeof(*out), model->name);
+
+    brushmodel->nodes = out;
+    brushmodel->numnodes = count;
+
+    for (i = 0; i < count; i++, in++, out++) {
+	out->plane = brushmodel->planes + LittleLong(in->planenum);
+	out->firstsurface = (uint32_t)LittleLong(in->firstface);
+	out->numsurfaces = (uint32_t)LittleLong(in->numfaces);
+	for (j = 0; j < 3; j++) {
+	    out->mins[j] = LittleFloat(in->mins[j]);
+	    out->maxs[j] = LittleFloat(in->maxs[j]);
+	}
+	for (j = 0; j < 2; j++) {
+	    const int nodenum = LittleLong(in->children[j]);
+	    if (nodenum >= 0)
+		out->children[j] = brushmodel->nodes + nodenum;
+	    else
+		out->children[j] = (mnode_t *)(brushmodel->leafs - nodenum - 1);
+	}
+    }
+
+    Mod_SetParent(brushmodel->nodes, NULL);
+}
+
 /*
 =================
 Mod_LoadLeafs
- => Two versions for the different BSP file formats
+ => Three versions for the different BSP file formats
 =================
 */
 static void
@@ -1237,6 +1275,69 @@ Mod_LoadLeafs_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 	out->firstmarksurface = brushmodel->marksurfaces +
 	    (uint16_t)LittleShort(in->firstmarksurface);
 	out->nummarksurfaces = (uint16_t)LittleShort(in->nummarksurfaces);
+
+	visofs = LittleLong(in->visofs);
+	if (visofs == -1)
+	    out->compressed_vis = NULL;
+	else
+	    out->compressed_vis = brushmodel->visdata + visofs;
+
+	for (j = 0; j < 3; j++) {
+	    out->mins[j] = LittleShort(in->mins[j]);
+	    out->maxs[j] = LittleShort(in->maxs[j]);
+	}
+	for (j = 0; j < 4; j++)
+	    out->ambient_sound_level[j] = in->ambient_level[j];
+
+#ifdef GLQUAKE
+	// FIXME - gl underwater warp
+	// this warping is ugly, these ifdefs are ugly - get rid of it all?
+	if (out->contents != CONTENTS_EMPTY) {
+	    for (j = 0; j < out->nummarksurfaces; j++)
+		out->firstmarksurface[j]->flags |= SURF_UNDERWATER;
+	}
+
+#ifdef QW_HACK
+	{
+	    char mapmodel[MAX_QPATH];
+	    snprintf(mapmodel, sizeof(mapmodel), "maps/%s.bsp",
+		     Info_ValueForKey(cl.serverinfo, "map"));
+	    if (strcmp(mapmodel, model->name)) {
+#endif
+		for (j = 0; j < out->nummarksurfaces; j++)
+		    out->firstmarksurface[j]->flags |= SURF_DONTWARP;
+#ifdef QW_HACK
+	    }
+	}
+#endif
+#endif
+    }
+}
+
+static void
+Mod_LoadLeafs_BSP2rmq(brushmodel_t *brushmodel, dheader_t *header)
+{
+    const model_t *model = &brushmodel->model;
+    const lump_t *headerlump = &header->lumps[LUMP_LEAFS];
+    const bsp2rmq_dleaf_t *in;
+    mleaf_t *out;
+    int i, j, count, visofs;
+
+    in = (bsp2rmq_dleaf_t *)((byte *)header + headerlump->fileofs);
+    if (headerlump->filelen % sizeof(*in))
+	SV_Error("%s: funny lump size in %s", __func__, model->name);
+    count = headerlump->filelen / sizeof(*in);
+    out = Mod_AllocName(count * sizeof(*out), model->name);
+
+    brushmodel->leafs = out;
+    brushmodel->numleafs = count;
+
+    for (i = 0; i < count; i++, in++, out++) {
+	out->efrags = NULL;
+	out->contents = LittleLong(in->contents);
+	out->firstmarksurface = brushmodel->marksurfaces +
+	    (uint32_t)LittleLong(in->firstmarksurface);
+	out->nummarksurfaces = (uint32_t)LittleLong(in->nummarksurfaces);
 
 	visofs = LittleLong(in->visofs);
 	if (visofs == -1)
@@ -1308,8 +1409,8 @@ Mod_LoadLeafs_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 	    out->compressed_vis = brushmodel->visdata + visofs;
 
 	for (j = 0; j < 3; j++) {
-	    out->mins[j] = LittleShort(in->mins[j]);
-	    out->maxs[j] = LittleShort(in->maxs[j]);
+	    out->mins[j] = LittleFloat(in->mins[j]);
+	    out->maxs[j] = LittleFloat(in->maxs[j]);
 	}
 	for (j = 0; j < 4; j++)
 	    out->ambient_sound_level[j] = in->ambient_level[j];
@@ -1650,6 +1751,38 @@ Mod_SetupSubmodels(brushmodel_t *world)
     }
 }
 
+static const char *
+BSPVersionString(int32_t version)
+{
+    static char buffers[2][20];
+    static int index;
+    char *buffer;
+
+    switch (version) {
+    case BSP2RMQVERSION:
+	return "BSP2rmq";
+    case BSP2VERSION:
+	return "BSP2";
+    default:
+	buffer = buffers[1 & ++index];
+	snprintf(buffer, sizeof(buffers[0]), "%d", version);
+	return buffer;
+    }
+}
+
+static qboolean
+BSPVersionSupported(int32_t version)
+{
+    switch (version) {
+    case BSPVERSION:
+    case BSP2VERSION:
+    case BSP2RMQVERSION:
+	return true;
+    default:
+	return false;
+    }
+}
+
 /*
 =================
 Mod_LoadBrushModel
@@ -1671,10 +1804,9 @@ Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
 	header->lumps[i].filelen = LittleLong(header->lumps[i].filelen);
     }
 
-    if (header->version != BSPVERSION && header->version != BSP2VERSION)
-	SV_Error("%s: %s has wrong version number (%i should be %i or %i)",
-		 __func__, model->name, header->version,
-		 BSPVERSION, BSP2VERSION);
+    if (!BSPVersionSupported(header->version))
+	SV_Error("%s: %s has unsupported version %s",
+		 __func__, model->name, BSPVersionString(header->version));
 
     /*
      * Check the lump extents
@@ -1753,8 +1885,13 @@ Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
 	Mod_LoadNodes_BSP29(brushmodel, header);
 	Mod_LoadClipnodes_BSP29(brushmodel, header);
     } else {
-	Mod_LoadLeafs_BSP2(brushmodel, header);
-	Mod_LoadNodes_BSP2(brushmodel, header);
+	if (header->version == BSP2RMQVERSION) {
+	    Mod_LoadLeafs_BSP2rmq(brushmodel, header);
+	    Mod_LoadNodes_BSP2rmq(brushmodel, header);
+	} else {
+	    Mod_LoadLeafs_BSP2(brushmodel, header);
+	    Mod_LoadNodes_BSP2(brushmodel, header);
+	}
 	Mod_LoadClipnodes_BSP2(brushmodel, header);
     }
     Mod_LoadEntities(brushmodel, header);
