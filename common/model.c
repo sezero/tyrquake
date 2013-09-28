@@ -799,7 +799,7 @@ Mod_LoadEdges_BSP29(brushmodel_t *brushmodel, dheader_t *header)
     if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = headerlump->filelen / sizeof(*in);
-    out = Mod_AllocName((count + 1) * sizeof(*out), model->name);
+    out = Mod_AllocName(count * sizeof(*out), model->name);
 
     brushmodel->edges = out;
     brushmodel->numedges = count;
@@ -823,7 +823,7 @@ Mod_LoadEdges_BSP2(brushmodel_t *brushmodel, dheader_t *header)
     if (headerlump->filelen % sizeof(*in))
 	SV_Error("%s: funny lump size in %s", __func__, model->name);
     count = headerlump->filelen / sizeof(*in);
-    out = Mod_AllocName((count + 1) * sizeof(*out), model->name);
+    out = Mod_AllocName(count * sizeof(*out), model->name);
 
     brushmodel->edges = out;
     brushmodel->numedges = count;
