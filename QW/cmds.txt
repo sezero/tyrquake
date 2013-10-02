@@ -173,6 +173,7 @@ cl_movespeedkey
 cl_yawspeed
 cl_pitchspeed
 cl_anglespeedkey
+cl_run
 cl_shownet
 cl_timeout
 cl_hightrack

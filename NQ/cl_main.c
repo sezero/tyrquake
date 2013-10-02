@@ -53,6 +53,8 @@ cvar_t m_yaw = { "m_yaw", "0.022", true };
 cvar_t m_forward = { "m_forward", "1", true };
 cvar_t m_side = { "m_side", "0.8", true };
 
+cvar_t m_freelook = { "m_freelook", "0", true };
+
 
 client_static_t cls;
 client_state_t cl;
@@ -826,6 +828,7 @@ CL_Init(void)
     Cvar_RegisterVariable(&cl_yawspeed);
     Cvar_RegisterVariable(&cl_pitchspeed);
     Cvar_RegisterVariable(&cl_anglespeedkey);
+    Cvar_RegisterVariable(&cl_run);
     Cvar_RegisterVariable(&cl_shownet);
     Cvar_RegisterVariable(&cl_nolerp);
     Cvar_RegisterVariable(&lookspring);
@@ -836,6 +839,8 @@ CL_Init(void)
     Cvar_RegisterVariable(&m_yaw);
     Cvar_RegisterVariable(&m_forward);
     Cvar_RegisterVariable(&m_side);
+
+    Cvar_RegisterVariable(&m_freelook);
 
     Cmd_AddCommand("entities", CL_PrintEntities_f);
     Cmd_AddCommand("disconnect", CL_Disconnect_f);

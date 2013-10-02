@@ -292,16 +292,16 @@ IN_MouseMove(usercmd_t *cmd)
     mouse_y *= sensitivity.value;
 
     /* add mouse X/Y movement to cmd */
-    if ((in_strafe.state & 1) || (lookstrafe.value && (in_mlook.state & 1)))
+    if ((in_strafe.state & 1) || (lookstrafe.value && ((in_mlook.state & 1) ^ (int)m_freelook.value)))
 	cmd->sidemove += m_side.value * mouse_x;
     else
 	cl.viewangles[YAW] -= m_yaw.value * mouse_x;
 
-    if (in_mlook.state & 1)
+    if ((in_mlook.state & 1) ^ (int)m_freelook.value)
 	if (mouse_x || mouse_y)
 	    V_StopPitchDrift ();
 
-    if ((in_mlook.state & 1) && !(in_strafe.state & 1)) {
+    if (((in_mlook.state & 1) ^ (int)m_freelook.value) && !(in_strafe.state & 1)) {
 	cl.viewangles[PITCH] += m_pitch.value * mouse_y;
 	if (cl.viewangles[PITCH] > 80)
 	    cl.viewangles[PITCH] = 80;

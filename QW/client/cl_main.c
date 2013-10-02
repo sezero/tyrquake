@@ -88,6 +88,8 @@ cvar_t m_yaw = { "m_yaw", "0.022" };
 cvar_t m_forward = { "m_forward", "1" };
 cvar_t m_side = { "m_side", "0.8" };
 
+cvar_t m_freelook = { "m_freelook", "0", true };
+
 cvar_t entlatency = { "entlatency", "20" };
 cvar_t cl_predict_players = { "cl_predict_players", "1" };
 cvar_t cl_predict_players2 = { "cl_predict_players2", "1" };
@@ -1059,6 +1061,7 @@ CL_Init(void)
     Cvar_RegisterVariable(&cl_yawspeed);
     Cvar_RegisterVariable(&cl_pitchspeed);
     Cvar_RegisterVariable(&cl_anglespeedkey);
+    Cvar_RegisterVariable(&cl_run);
     Cvar_RegisterVariable(&cl_shownet);
     Cvar_RegisterVariable(&cl_sbar);
     Cvar_RegisterVariable(&cl_hudswap);
@@ -1072,6 +1075,8 @@ CL_Init(void)
     Cvar_RegisterVariable(&m_yaw);
     Cvar_RegisterVariable(&m_forward);
     Cvar_RegisterVariable(&m_side);
+
+    Cvar_RegisterVariable(&m_freelook);
 
     Cvar_RegisterVariable(&rcon_password);
     Cvar_RegisterVariable(&rcon_address);
@@ -1239,10 +1244,6 @@ Host_WriteConfiguration(void)
 
 	Key_WriteBindings(f);
 	Cvar_WriteVariables(f);
-
-	/* Save the mlook state (rarely used as an actual key binding) */
-	if (in_mlook.state & 1)
-	    fprintf(f, "+mlook\n");
 
 	fclose(f);
     }

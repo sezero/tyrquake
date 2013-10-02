@@ -234,6 +234,8 @@ extern cvar_t cl_pitchspeed;
 
 extern cvar_t cl_anglespeedkey;
 
+extern cvar_t cl_run;
+
 extern cvar_t cl_autofire;
 
 extern cvar_t cl_shownet;
@@ -248,6 +250,8 @@ extern cvar_t m_pitch;
 extern cvar_t m_yaw;
 extern cvar_t m_forward;
 extern cvar_t m_side;
+
+extern cvar_t m_freelook;
 
 
 #define	MAX_TEMP_ENTITIES	64	// lightning bolts, etc

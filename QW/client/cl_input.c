@@ -135,13 +135,15 @@ static void
 IN_MLookDown(void)
 {
     KeyDown(&in_mlook);
+    if (!((in_mlook.state & 1) ^ (int)m_freelook.value) && lookspring.value)
+	V_StartPitchDrift();
 }
 
 static void
 IN_MLookUp(void)
 {
     KeyUp(&in_mlook);
-    if (!(in_mlook.state & 1) && lookspring.value)
+    if (!((in_mlook.state & 1) ^ (int)m_freelook.value) && lookspring.value)
 	V_StartPitchDrift();
 }
 
@@ -388,8 +390,8 @@ CL_KeyState(kbutton_t *key)
 //==========================================================================
 
 cvar_t cl_upspeed = { "cl_upspeed", "200" };
-cvar_t cl_forwardspeed = { "cl_forwardspeed", "200", true };
-cvar_t cl_backspeed = { "cl_backspeed", "200", true };
+cvar_t cl_forwardspeed = { "cl_forwardspeed", "200" };
+cvar_t cl_backspeed = { "cl_backspeed", "200" };
 cvar_t cl_sidespeed = { "cl_sidespeed", "350" };
 
 cvar_t cl_movespeedkey = { "cl_movespeedkey", "2.0" };
@@ -398,6 +400,8 @@ cvar_t cl_yawspeed = { "cl_yawspeed", "140" };
 cvar_t cl_pitchspeed = { "cl_pitchspeed", "150" };
 
 cvar_t cl_anglespeedkey = { "cl_anglespeedkey", "1.5" };
+
+cvar_t cl_run = { "cl_run", "0", true };
 
 
 /*
@@ -413,7 +417,7 @@ CL_AdjustAngles(void)
     float speed;
     float up, down;
 
-    if (in_speed.state & 1)
+    if ((in_speed.state & 1) ^ (int)cl_run.value)
 	speed = host_frametime * cl_anglespeedkey.value;
     else
 	speed = host_frametime;
@@ -487,7 +491,7 @@ CL_BaseMove(usercmd_t *cmd)
 //
 // adjust for speed key
 //
-    if (in_speed.state & 1) {
+    if ((in_speed.state & 1) ^ (int)cl_run.value) {
 	cmd->forwardmove *= cl_movespeedkey.value;
 	cmd->sidemove *= cl_movespeedkey.value;
 	cmd->upmove *= cl_movespeedkey.value;
