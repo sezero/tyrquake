@@ -1082,7 +1082,7 @@ IN_JoyMove(usercmd_t *cmd)
 
 	case AxisTurn:
 	    if ((in_strafe.state & 1)
-		|| (lookstrafe.value && ((in_mlook.state & 1) ^ (int)m_freelook.value)) {
+		|| (lookstrafe.value && ((in_mlook.state & 1) ^ (int)m_freelook.value))) {
 		// user wants turn control to become side control
 		if (fabs(fAxisValue) > joy_sidethreshold.value) {
 		    cmd->sidemove -=
