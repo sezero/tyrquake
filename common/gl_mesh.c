@@ -332,7 +332,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     int i, j, tmp, err;
     int *cmds;
     trivertx_t *verts;
-    char cache[MAX_QPATH];
+    char cache[MAX_OSPATH];
     FILE *f;
     qboolean cached = false;
     const char *name;
