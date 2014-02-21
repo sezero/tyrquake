@@ -1319,8 +1319,12 @@ SV_SpawnServer(char *server)
 	sv.active = false;
 	return;
     }
+
     sv.worldmodel = BrushModel(model);
     sv.models[1] = model;
+    if (sv.worldmodel->numsubmodels >= MAX_MODELS)
+	Host_Error("Total models (%d) exceeds MAX_MODELS (%d)\n",
+		   sv.worldmodel->numsubmodels, MAX_MODELS - 1);
 
 //
 // clear world interaction links
