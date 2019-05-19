@@ -110,7 +110,7 @@ SV_Logfile_f(void)
 	return;
     }
 
-    sprintf(name, "%s/qconsole.log", com_gamedir);
+    qsnprintf(name, sizeof(name), "%s/qconsole.log", com_gamedir);
     Con_Printf("Logging text to %s.\n", name);
     sv_logfile = fopen(name, "w");
     if (!sv_logfile)
@@ -137,7 +137,7 @@ SV_Fraglogfile_f(void)
     }
     // find an unused name
     for (i = 0; i < 1000; i++) {
-	sprintf(name, "%s/frag_%i.log", com_gamedir, i);
+	qsnprintf(name, sizeof(name), "%s/frag_%i.log", com_gamedir, i);
 	sv_fraglogfile = fopen(name, "r");
 	if (!sv_fraglogfile) {	// can't read it, so create this one
 	    sv_fraglogfile = fopen(name, "w");
@@ -325,7 +325,7 @@ SV_Map_f(void)
 #endif
 
     // check to make sure the level exists
-    sprintf(expanded, "maps/%s.bsp", level);
+    qsnprintf(expanded, sizeof(expanded), "maps/%s.bsp", level);
     COM_FOpenFile(expanded, &f);
     if (!f) {
 	Con_Printf("Can't find %s\n", expanded);
@@ -723,7 +723,7 @@ SV_Floodprotmsg_f(void)
 	Con_Printf("Usage: floodprotmsg \"<message>\"\n");
 	return;
     }
-    sprintf(fp_msg, "%s", Cmd_Argv(1));
+    qsnprintf(fp_msg, sizeof(fp_msg), "%s", Cmd_Argv(1));
 }
 
 /*
@@ -784,16 +784,16 @@ SV_Snap(int uid)
 	return;
     }
 
-    sprintf(pcxname, "%d-00.pcx", uid);
+    qsnprintf(pcxname, sizeof(pcxname), "%d-00.pcx", uid);
 
-    sprintf(checkname, "%s/snap", gamedirfile);
+    qsnprintf(checkname, sizeof(checkname), "%s/snap", gamedirfile);
     Sys_mkdir(gamedirfile);
     Sys_mkdir(checkname);
 
     for (i = 0; i <= 99; i++) {
 	pcxname[strlen(pcxname) - 6] = i / 10 + '0';
 	pcxname[strlen(pcxname) - 5] = i % 10 + '0';
-	sprintf(checkname, "%s/snap/%s", gamedirfile, pcxname);
+	qsnprintf(checkname, sizeof(checkname), "%s/snap/%s", gamedirfile, pcxname);
 	if (Sys_FileTime(checkname) == -1)
 	    break;		// file doesn't exist
     }

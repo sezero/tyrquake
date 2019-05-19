@@ -156,7 +156,7 @@ SV_Init(void)
     Cmd_SetCompletion("sv_protocol", SV_Protocol_Arg_f);
 
     for (i = 0; i < MAX_MODELS; i++)
-	sprintf(localmodels[i], "*%i", i);
+	qsnprintf(localmodels[i], sizeof(localmodels[0]), "*%i", i);
 }
 
 /*
@@ -1311,7 +1311,7 @@ SV_SpawnServer(char *server)
     sv.time = 1.0;
 
     strcpy(sv.name, server);
-    sprintf(sv.modelname, "maps/%s.bsp", server);
+    qsnprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", server);
     model = Mod_ForName(sv.modelname, false);
     if (!model) {
 	Con_Printf("Couldn't spawn server %s\n", sv.modelname);

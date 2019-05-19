@@ -373,9 +373,9 @@ CL_ParseDownload(void)
     // open the file if not opened yet
     if (!cls.download) {
 	if (strncmp(cls.downloadtempname, "skins/", 6))
-	    sprintf(name, "%s/%s", com_gamedir, cls.downloadtempname);
+	    qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, cls.downloadtempname);
 	else
-	    sprintf(name, "qw/%s", cls.downloadtempname);
+	    qsnprintf(name, sizeof(name), "qw/%s", cls.downloadtempname);
 
 	COM_CreatePath(name);
 
@@ -418,11 +418,11 @@ CL_ParseDownload(void)
 	// rename the temp file to it's final name
 	if (strcmp(cls.downloadtempname, cls.downloadname)) {
 	    if (strncmp(cls.downloadtempname, "skins/", 6)) {
-		sprintf(oldn, "%s/%s", com_gamedir, cls.downloadtempname);
-		sprintf(newn, "%s/%s", com_gamedir, cls.downloadname);
+		qsnprintf(oldn, sizeof(oldn), "%s/%s", com_gamedir, cls.downloadtempname);
+		qsnprintf(newn, sizeof(newn), "%s/%s", com_gamedir, cls.downloadname);
 	    } else {
-		sprintf(oldn, "qw/%s", cls.downloadtempname);
-		sprintf(newn, "qw/%s", cls.downloadname);
+		qsnprintf(oldn, sizeof(oldn), "qw/%s", cls.downloadtempname);
+		qsnprintf(newn, sizeof(newn), "qw/%s", cls.downloadname);
 	    }
 	    r = rename(oldn, newn);
 	    if (r)

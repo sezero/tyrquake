@@ -436,7 +436,7 @@ SVC_Log(void)
     Con_DPrintf("sending log %i to %s\n", svs.logsequence - 1,
 		NET_AdrToString(net_from));
 
-    sprintf(data, "stdlog %i\n", svs.logsequence - 1);
+    qsnprintf(data, sizeof(data), "stdlog %i\n", svs.logsequence - 1);
     strcat(data, (char *)svs.log_buf[((svs.logsequence - 1) & 1)]);
 
     NET_SendPacket(strlen(data) + 1, data, net_from);
@@ -1010,7 +1010,7 @@ SV_WriteIP_f(void)
     char name[MAX_OSPATH];
     int i;
 
-    sprintf(name, "%s/listip.cfg", com_gamedir);
+    qsnprintf(name, sizeof(name), "%s/listip.cfg", com_gamedir);
 
     Con_Printf("Writing %s.\n", name);
 
@@ -1411,7 +1411,7 @@ Master_Heartbeat(void)
 	    active++;
 
     svs.heartbeat_sequence++;
-    sprintf(string, "%c\n%i\n%i\n", S2M_HEARTBEAT,
+    qsnprintf(string, sizeof(string), "%c\n%i\n%i\n", S2M_HEARTBEAT,
 	    svs.heartbeat_sequence, active);
 
     // send to group master
@@ -1436,7 +1436,7 @@ Master_Shutdown(void)
     char string[2048];
     int i;
 
-    sprintf(string, "%c\n", S2M_SHUTDOWN);
+    qsnprintf(string, sizeof(string), "%c\n", S2M_SHUTDOWN);
 
     // send to group master
     for (i = 0; i < MAX_MASTERS; i++)
@@ -1517,7 +1517,7 @@ SV_ExtractFromUserinfo(client_t *cl)
 		    p = val + 4;
 	    }
 
-	    sprintf(newname, "(%d)%-.40s", dupc++, p);
+	    qsnprintf(newname, sizeof(newname), "(%d)%-.40s", dupc++, p);
 	    Info_SetValueForKey(cl->userinfo, "name", newname,
 				MAX_INFO_STRING);
 	    val = Info_ValueForKey(cl->userinfo, "name");

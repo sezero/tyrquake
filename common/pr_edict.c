@@ -1075,7 +1075,7 @@ PR_LoadProgs(void)
 #endif
 #if defined(QW_HACK) && defined(SERVERONLY)
 // add prog crc to the serverinfo
-    sprintf(num, "%i", CRC_Block((byte *)progs, com_filesize));
+    qsnprintf(num, sizeof(num), "%i", CRC_Block((byte *)progs, com_filesize));
     Info_SetValueForStarKey(svs.info, "*progs", num, MAX_SERVERINFO_STRING);
 #endif
 

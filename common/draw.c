@@ -188,7 +188,7 @@ Draw_CacheConback(void)
     pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */
-    snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    qsnprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
     Draw_ConbackString(pic, dpic->data, version);
 
     return pic;

@@ -236,7 +236,7 @@ SCR_DrawFPS(void)
 	lastframetime = t;
     }
 
-    sprintf(st, "%3d FPS", lastfps);
+    qsnprintf(st, sizeof(st), "%3d FPS", lastfps);
     x = vid.width - strlen(st) * 8 - 8;
     y = vid.height - sb_lines - 8;
     Draw_String(x, y, st);
@@ -1074,7 +1074,7 @@ SCR_ScreenShot_f(void)
     for (i = 0; i <= 99; i++) {
 	tganame[5] = i / 10 + '0';
 	tganame[6] = i % 10 + '0';
-	sprintf(checkname, "%s/%s", com_gamedir, tganame);
+	qsnprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, tganame);
 	if (Sys_FileTime(checkname) == -1)
 	    break;		// file doesn't exist
     }
@@ -1120,7 +1120,7 @@ SCR_ScreenShot_f(void)
     for (i = 0; i <= 99; i++) {
 	pcxname[5] = i / 10 + '0';
 	pcxname[6] = i % 10 + '0';
-	sprintf(checkname, "%s/%s", com_gamedir, pcxname);
+	qsnprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, pcxname);
 	if (Sys_FileTime(checkname) == -1)
 	    break;		// file doesn't exist
     }

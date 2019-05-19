@@ -41,6 +41,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define stringify__(x) #x
 #define stringify(x) stringify__(x)
 
+//============================================================================
+
+int qvsnprintf(char *str, size_t size, const char *format, va_list argptr);
+int qsnprintf(char *str, size_t size, const char *format, ...);
+
+//============================================================================
+
 #ifdef QW_HACK
 #define	MAX_INFO_STRING 196
 #define	MAX_SERVERINFO_STRING 512

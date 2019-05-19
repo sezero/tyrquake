@@ -31,11 +31,11 @@ AdrToString(netadr_t a)
 {
     static char s[64];
 
-    sprintf(s, "%i.%i.%i.%i:%i",
-	    a.sin_addr.S_un.S_un_b.s_b1,
-	    a.sin_addr.S_un.S_un_b.s_b2,
-	    a.sin_addr.S_un.S_un_b.s_b3,
-	    a.sin_addr.S_un.S_un_b.s_b4, ntohs(a.sin_port));
+    qsnprintf(s, sizeof(s), "%i.%i.%i.%i:%i",
+	      a.sin_addr.S_un.S_un_b.s_b1,
+	      a.sin_addr.S_un.S_un_b.s_b2,
+	      a.sin_addr.S_un.S_un_b.s_b3,
+	      a.sin_addr.S_un.S_un_b.s_b4, ntohs(a.sin_port));
 
     return s;
 }
@@ -384,7 +384,7 @@ Info_SetValueForKey(char *s, char *key, char *value)
     if (!value || !strlen(value))
 	return;
 
-    sprintf(new, "\\%s\\%s", key, value);
+    qsnprintf(new, sizeof(new), "\\%s\\%s", key, value);
 
     if (strlen(new) + strlen(s) > MAX_INFO_STRING) {
 	printf("Info string length exceeded\n");

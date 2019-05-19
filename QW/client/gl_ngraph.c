@@ -114,7 +114,7 @@ R_NetGraph(void)
     M_DrawTextBox(x, y, NET_TIMINGS / 8, NET_GRAPHHEIGHT / 8 + 1);
     y += 8;
 
-    sprintf(st, "%3i%% packet loss", lost);
+    qsnprintf(st, sizeof(st), "%3i%% packet loss", lost);
     Draw_String(8, y, st);
     y += 8;
 

@@ -80,7 +80,7 @@ NET_AdrToString(const netadr_t *a)
     static char s[64];
     const byte *b = a->ip.b;
 
-    sprintf(s, "%i.%i.%i.%i:%i", b[0], b[1], b[2], b[3], ntohs(a->port));
+    qsnprintf(s, sizeof(s), "%i.%i.%i.%i:%i", b[0], b[1], b[2], b[3], ntohs(a->port));
 
     return s;
 }

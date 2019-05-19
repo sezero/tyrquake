@@ -413,7 +413,7 @@ Draw_Init(void)
     pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */
-    snprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    qsnprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
     Draw_ConbackString(pic, dpic->data, version);
 
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);

@@ -50,6 +50,38 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "zone.h"
 
+
+// ======================================================================
+// STRING HANDLING
+// ======================================================================
+
+int
+qvsnprintf(char *str, size_t size, const char *format, va_list argptr)
+{
+    int written;
+
+    written = vsnprintf(str, size, format, argptr);
+    if (written >= size)
+        str[size - 1] = 0;
+
+    return written;
+}
+
+int
+qsnprintf(char *str, size_t size, const char *format, ...)
+{
+    va_list argptr;
+    int written;
+
+    va_start(argptr, format);
+    written = qvsnprintf(str, size, format, argptr);
+    va_end(argptr);
+
+    return written;
+}
+
+// ======================================================================
+
 #define NUM_SAFE_ARGVS 7
 
 static const char *largv[MAX_NUM_ARGVS + NUM_SAFE_ARGVS + 1];

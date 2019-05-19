@@ -907,7 +907,7 @@ VID_Init(const byte *palette)
 
     InitSig();			// trap evil signals
 
-    sprintf(gldir, "%s/glquake", com_gamedir);
+    qsnprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
     Sys_mkdir(gldir);
 }
 

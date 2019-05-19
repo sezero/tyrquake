@@ -201,7 +201,7 @@ R_TimeGraph(void)
 	    i += MAX_TIMINGS;
 	R_LineGraph(x + w - 1 - a, y, r_timings[i]);
     }
-    sprintf(st, "Render time %dms", r_timings[timex]);
+    qsnprintf(st, sizeof(st), "Render time %dms", r_timings[timex]);
     Draw_String(8, y2, st);
 
     timex = (timex + 1) % MAX_TIMINGS;
@@ -239,7 +239,7 @@ R_NetGraph(void)
 	i = (cls.netchan.outgoing_sequence - a) & NET_TIMINGSMASK;
 	R_LineGraph(x + w - 1 - a, y, packet_latency[i]);
     }
-    sprintf(st, "%3i%% packet loss", lost);
+    snprintf(st, sizeof(st), "%3i%% packet loss", lost);
     Draw_String(8, y2, st);
 }
 

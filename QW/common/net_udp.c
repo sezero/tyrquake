@@ -80,7 +80,7 @@ NET_AdrToString(netadr_t a)
     static char s[64];
     const byte *b = a.ip.b;
 
-    sprintf(s, "%i.%i.%i.%i:%i", b[0], b[1], b[2], b[3], ntohs(a.port));
+    qsnprintf(s, sizeof(s), "%i.%i.%i.%i:%i", b[0], b[1], b[2], b[3], ntohs(a.port));
 
     return s;
 }
@@ -90,7 +90,7 @@ NET_BaseAdrToString(netadr_t a)
 {
     static char s[64];
 
-    sprintf(s, "%i.%i.%i.%i", a.ip.b[0], a.ip.b[1], a.ip.b[2], a.ip.b[3]);
+    qsnprintf(s, sizeof(s), "%i.%i.%i.%i", a.ip.b[0], a.ip.b[1], a.ip.b[2], a.ip.b[3]);
 
     return s;
 }
