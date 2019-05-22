@@ -540,11 +540,9 @@ Hunk_AllocName(int size, const char *name)
     Cache_FreeLow(hunkstate.lowbytes);
 
     memset(hunk, 0, size);
-
     hunk->size = size;
     hunk->sentinal = HUNK_SENTINAL;
-    memset(hunk->name, 0, HUNK_NAMELEN);
-    memcpy(hunk->name, name, qmin((int)strlen(name), HUNK_NAMELEN));
+    memcpy(hunk->name, name, qmin((int)sizeof(hunk->name), HUNK_NAMELEN));
 
     /* Save a copy of the allocated address */
     hunkstate.lowbase = hunk + 1;
@@ -691,7 +689,7 @@ Hunk_HighAllocName(int size, const char *name)
     memset(hunk, 0, size);
     hunk->size = size;
     hunk->sentinal = HUNK_SENTINAL;
-    snprintf(hunk->name, sizeof(hunk->name), "%s", name);
+    memcpy(hunk->name, name, qmin((int)sizeof(hunk->name), HUNK_NAMELEN));
 
     return (void *)(hunk + 1);
 }
