@@ -293,9 +293,11 @@ Z_Print(const memzone_t *zone, qboolean detailed)
 
     block = zone->blocklist.next;
     while (block) {
-	if (detailed)
-	    Con_Printf("block:%p    size:%7i    tag:%3i\n",
-		       block, block->size, block->tag);
+	if (detailed) {
+	    const char *rover = (block == zone->rover) ? " <<" : "";
+	    Con_Printf("block:%p    size:%7i    tag:%3i %s\n",
+		       block, block->size, block->tag, rover);
+	}
 
 	/* Update totals */
 	if (!block->tag) {
