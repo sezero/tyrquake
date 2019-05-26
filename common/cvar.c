@@ -260,7 +260,7 @@ Adds a freestanding variable to the variable list.
 void
 Cvar_RegisterVariable(cvar_t *variable)
 {
-    char value[512];		// FIXME - magic numbers...
+    const char *initial_string;
     float old_developer;
 
     /* first check to see if it has already been defined */
@@ -279,11 +279,6 @@ Cvar_RegisterVariable(cvar_t *variable)
     variable->stree.string = variable->name;
     STree_Insert(&cvar_tree, &variable->stree);
 
-// copy the value off, because future sets will Z_Free it
-    strncpy(value, variable->string, 511);
-    value[511] = '\0';
-    variable->string = Z_Malloc(1);
-
     /*
      * FIXME (BARF) - readonly cvars need to be initialised
      *                developer 1 allows set
@@ -291,7 +286,12 @@ Cvar_RegisterVariable(cvar_t *variable)
     /* set it through the function to be consistant */
     old_developer = developer.value;
     developer.value = 1;
-    Cvar_Set(variable->name, value);
+
+    /* The string will be Z_Free/Zalloc'd, so zero the pointer first */
+    initial_string = variable->string;
+    variable->string = NULL;
+    Cvar_Set(variable->name, initial_string);
+
     developer.value = old_developer;
 }
 
