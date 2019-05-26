@@ -52,6 +52,9 @@ TOPDIR := $(shell pwd)
 ifneq (,$(findstring MINGW32,$(SYSNAME)))
 HOST_OS = WIN32
 else
+ifneq (,$(findstring MINGW64,$(SYSNAME)))
+HOST_OS = WIN64
+else
 ifneq (,$(findstring $(SYSNAME),FreeBSD NetBSD))
 HOST_OS = UNIX
 HOST_UNIX = bsd
@@ -69,6 +72,7 @@ HOST_OS = UNIX
 HOST_UNIX = linux
 else
 $(error OS type not detected.)
+endif
 endif
 endif
 endif
