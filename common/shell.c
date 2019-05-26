@@ -210,19 +210,12 @@ STree_MaxMatch(struct stree_root *root, const char *pfx)
 
     if (root->entries == 1) {
 	match = strlen(sn->string);
-	result = Z_Malloc(match + 2);
-	if (result) {
-	    strncpy(result, sn->string, match);
-	    result[match] = ' ';
-	    result[match + 1] = 0;
-	}
+	result = Z_StrnDup(sn->string, match + 1);
+	result[match] = ' ';
+	result[match + 1] = 0;
     } else if (root->entries > 1) {
 	match = ST_node_match(n, sn->string, min_match, max_match);
-	result = Z_Malloc(match + 1);
-	if (result) {
-	    strncpy(result, sn->string, match);
-	    result[match] = 0;
-	}
+	result = Z_StrnDup(sn->string, match);
     }
 
     return result;

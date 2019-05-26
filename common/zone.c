@@ -341,6 +341,24 @@ Z_Zone_f(void)
     Con_Printf("Usage: zone print\n");
 }
 
+char *
+Z_StrDup(const char *string)
+{
+    char *dup = Z_Malloc(strlen(string) + 1);
+    strcpy(dup, string);
+
+    return dup;
+}
+
+char *
+Z_StrnDup(const char *string, size_t size)
+{
+    char *dup = Z_Malloc(size + 1);
+    qstrncpy(dup, string, size + 1);
+
+    return dup;
+}
+
 /* ======================================================================= */
 
 #define HUNK_SENTINAL 0x1df001ed

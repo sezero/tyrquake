@@ -171,8 +171,7 @@ void
 Cvar_Set(const char *var_name, const char *value)
 {
     cvar_t *var;
-    char *newstring;
-    qboolean changed;
+    qboolean changed = false;
 
     var = Cvar_FindVar(var_name);
     if (!var) {
@@ -186,38 +185,37 @@ Cvar_Set(const char *var_name, const char *value)
 	return;
     }
 
-    changed = strcmp(var->string, value);
+    if (var->string) {
+	changed = strcmp(var->string, value);
 
-    /* Check for developer-only cvar */
-    if (changed && (var->flags & CVAR_DEVELOPER) && !developer.value) {
-	Con_Printf("%s is settable only in developer mode.\n", var_name);
-	return;
-    }
+	/* Check for developer-only cvar */
+	if (changed && (var->flags & CVAR_DEVELOPER) && !developer.value) {
+	    Con_Printf("%s is settable only in developer mode.\n", var_name);
+	    return;
+	}
 
 #ifdef SERVERONLY
-    if (var->info) {
-	Info_SetValueForKey(svs.info, var_name, value, MAX_SERVERINFO_STRING);
-	SV_SendServerInfoChange(var_name, value);
-//              SV_BroadcastCommand ("fullserverinfo \"%s\"\n", svs.info);
-    }
+	if (var->info) {
+	    Info_SetValueForKey(svs.info, var_name, value, MAX_SERVERINFO_STRING);
+	    SV_SendServerInfoChange(var_name, value);
+	}
 #else
 #ifdef QW_HACK
-    if (var->info) {
-	Info_SetValueForKey(cls.userinfo, var_name, value, MAX_INFO_STRING);
-	if (cls.state >= ca_connected) {
-	    MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
-	    MSG_WriteStringf(&cls.netchan.message, "setinfo \"%s\" \"%s\"\n",
-			     var_name, value);
+	if (var->info) {
+	    Info_SetValueForKey(cls.userinfo, var_name, value, MAX_INFO_STRING);
+	    if (cls.state >= ca_connected) {
+		MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
+		MSG_WriteStringf(&cls.netchan.message, "setinfo \"%s\" \"%s\"\n",
+				 var_name, value);
+	    }
 	}
+#endif
+#endif
+
+	Z_Free(var->string);
     }
-#endif
-#endif
 
-    Z_Free(var->string);	// free the old value string
-
-    newstring = Z_Malloc(strlen(value) + 1);
-    strcpy(newstring, value);
-    var->string = newstring;
+    var->string = Z_StrDup(value);
     var->value = Q_atof(var->string);
 
 #ifdef NQ_HACK

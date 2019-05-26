@@ -378,7 +378,6 @@ Cmd_Alias_f(void)
     char cmd[1024];
     int i, c;
     const char *s;
-    char *newval;
     size_t cmd_len;
     struct stree_node *node;
 
@@ -428,9 +427,7 @@ Cmd_Alias_f(void)
     }
     strcat(cmd, "\n");
 
-    newval = Z_Malloc(strlen(cmd) + 1);
-    strcpy(newval, cmd);
-    a->value = newval;
+    a->value = Z_StrDup(cmd);
 }
 
 /*
@@ -531,7 +528,6 @@ void
 Cmd_TokenizeString(const char *text)
 {
     int i;
-    char *arg;
 
 // clear the args from the last string
     for (i = 0; i < cmd_argc; i++)
@@ -562,9 +558,7 @@ Cmd_TokenizeString(const char *text)
 	    return;
 
 	if (cmd_argc < MAX_ARGS) {
-	    arg = Z_Malloc(strlen(com_token) + 1);
-	    strcpy(arg, com_token);
-	    cmd_argv[cmd_argc] = arg;
+	    cmd_argv[cmd_argc] = Z_StrDup(com_token);
 	    cmd_argc++;
 	}
     }

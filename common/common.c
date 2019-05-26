@@ -80,6 +80,15 @@ qsnprintf(char *str, size_t size, const char *format, ...)
     return written;
 }
 
+char *
+qstrncpy(char *dest, const char *src, size_t size)
+{
+    strncpy(dest, src, size - 1);
+    dest[size - 1] = 0;
+
+    return dest;
+}
+
 // ======================================================================
 
 #define NUM_SAFE_ARGVS 7
@@ -1648,19 +1657,17 @@ COM_ScanDirDir(struct stree_root *root, DIR *dir, const char *pfx,
     ext_len = ext ? strlen(ext) : 0;
 
     while ((d = readdir(dir))) {
-	if ((!pfx || !strncasecmp(d->d_name, pfx, pfx_len)) &&
-	    (!ext || COM_CheckExtension(d->d_name, ext))) {
-	    int len = strlen(d->d_name);
-	    if (ext && stripext)
-		len -= ext_len;
-	    fname = Z_Malloc(len + 1);
-	    if (fname) {
-		strncpy(fname, d->d_name, len);
-		fname[len] = '\0';
-		STree_InsertAlloc(root, fname, true);
-		Z_Free(fname);
-	    }
-	}
+	if (pfx && pfx_len && strncasecmp(d->d_name, pfx, pfx_len))
+	    continue;
+	if (ext && ext_len && !COM_CheckExtension(d->d_name, ext))
+	    continue;
+
+	int len = strlen(d->d_name);
+	if (ext && stripext)
+	    len -= ext_len;
+	fname = Z_StrnDup(d->d_name, len);
+	STree_InsertAlloc(root, fname, true);
+	Z_Free(fname);
     }
 }
 
@@ -1700,13 +1707,9 @@ COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
 	len = strlen(pak_f);
 	if (ext && stripext)
 	    len -= ext_len;
-	fname = Z_Malloc(len + 1);
-	if (fname) {
-	    strncpy(fname, pak_f, len);
-	    fname[len] = '\0';
-	    STree_InsertAlloc(root, fname, true);
-	    Z_Free(fname);
-	}
+	fname = Z_StrnDup(pak_f, len);
+	STree_InsertAlloc(root, fname, true);
+	Z_Free(fname);
     }
 }
 

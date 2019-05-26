@@ -240,9 +240,7 @@ CompleteCommand(void)
 	cmd = strchr(s, ' ');
 	if (cmd) {
 	    len = cmd - s;
-	    newcmd = Z_Malloc(len + 1);
-	    strncpy(newcmd, s, len);
-	    newcmd[len] = 0;
+	    newcmd = Z_StrnDup(s, len);
 
 	    completion = NULL;
 	    if (Cmd_Exists(newcmd)) {
@@ -286,9 +284,7 @@ ShowCompletions(void)
 	char *cmd = strchr(s, ' ');
 	if (cmd) {
 	    len = cmd - s;
-	    cmd = Z_Malloc(len + 1);
-	    strncpy(cmd, s, len);
-	    cmd[len] = 0;
+	    cmd = Z_StrnDup(s, len);
 
 	    if (Cmd_Exists(cmd)) {
 		struct stree_root *root;
@@ -600,8 +596,6 @@ Key_SetBinding
 void
 Key_SetBinding(knum_t keynum, const char *binding)
 {
-    char *newbinding;
-
     if (keynum == K_UNKNOWN)
 	return;
 
@@ -611,11 +605,9 @@ Key_SetBinding(knum_t keynum, const char *binding)
 	keybindings[keynum] = NULL;
     }
 
+    /* allocate memory for new binding */
     if (binding) {
-	/* allocate memory for new binding */
-	newbinding = Z_Malloc(strlen(binding) + 1);
-	strcpy(newbinding, binding);
-	keybindings[keynum] = newbinding;
+	keybindings[keynum] = Z_StrDup(binding);
     }
 }
 
