@@ -135,6 +135,14 @@ Z_Free(const void *ptr)
 	if (other == mainzone->rover)
 	    mainzone->rover = block;
     }
+
+    /*
+     * Always start looking from the first available free block.
+     * Slower, but not too bad and we don't fragment nearly as much.
+     */
+    if (block < mainzone->rover) {
+	mainzone->rover = block;
+    }
 }
 
 
@@ -182,9 +190,13 @@ Z_TagMalloc(int size, int tag)
     size += sizeof(int);	/* space for memory trash tester */
     size = (size + 7) & ~7;	/* align to 8-byte boundary */
 
-    base = rover = mainzone->rover;
-    start = base->prev;
+    /* If we ended on an allocated block, skip forward to the first free block */
+    start = mainzone->rover->prev;
+    while (mainzone->rover->tag && mainzone->rover != start) {
+	mainzone->rover = mainzone->rover->next;
+    }
 
+    base = rover = mainzone->rover;
     do {
 	if (rover == start)	/* scaned all the way around the list */
 	    return NULL;
@@ -194,9 +206,7 @@ Z_TagMalloc(int size, int tag)
 	    rover = rover->next;
     } while (base->tag || base->size < size);
 
-    /*
-     * found a block big enough
-     */
+    /* found a block big enough */
     extra = base->size - size;
     if (extra > MINFRAGMENT) {
 	/* there will be a free fragment after the allocated block */
@@ -212,7 +222,14 @@ Z_TagMalloc(int size, int tag)
     }
 
     base->tag = tag;		   /* no longer a free block */
-    mainzone->rover = base->next;  /* next allocation starts looking here */
+
+    /*
+     * If we just allocated the first available block, the next
+     * allocation starts looking after this one.
+     */
+    if (base == mainzone->rover) {
+	mainzone->rover = base->next;
+    }
 
     base->id = ZONEID;
 
