@@ -1276,16 +1276,16 @@ M_ScanSaves(void)
     int version;
 
     for (i = 0; i < MAX_SAVEGAMES; i++) {
-	snprintf(m_filenames[i], sizeof(m_filenames[i]), "--- UNUSED SLOT ---");
+	qsnprintf(m_filenames[i], sizeof(m_filenames[i]), "--- UNUSED SLOT ---");
 	loadable[i] = false;
-	snprintf(name, sizeof(name), "%s/s%i.sav", com_gamedir, i);
+	qsnprintf(name, sizeof(name), "%s/s%i.sav", com_gamedir, i);
 	f = fopen(name, "r");
 	if (!f)
 	    continue;
 
 	fscanf(f, "%i\n", &version);
 	fscanf(f, "%79s\n", name);
-	snprintf(m_filenames[i], sizeof(m_filenames[i]), "%s", name);
+	qsnprintf(m_filenames[i], sizeof(m_filenames[i]), "%s", name);
 
 	// change _ back to space
 	for (j = 0; j < SAVEGAME_COMMENT_LENGTH; j++)
@@ -1930,7 +1930,7 @@ M_LanConfig_Key(knum_t keynum)
 
     port = Q_atoi(lanConfig_portname);
     lanConfig_port = qmin(port, 65535);
-    snprintf(lanConfig_portname, sizeof(lanConfig_portname), "%u",
+    qsnprintf(lanConfig_portname, sizeof(lanConfig_portname), "%u",
 	     lanConfig_port);
 }
 

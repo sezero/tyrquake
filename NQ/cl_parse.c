@@ -294,7 +294,7 @@ CL_ParseServerInfo(void)
 // parse signon message
     level = cl.levelname;
     maxlen = sizeof(cl.levelname);
-    snprintf(level, maxlen, "%s", MSG_ReadString());
+    qsnprintf(level, maxlen, "%s", MSG_ReadString());
 
 // seperate the printfs so the server message can have a color
     Con_Printf("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36"
@@ -322,7 +322,7 @@ CL_ParseServerInfo(void)
 	}
 	model = model_precache[nummodels];
 	maxlen = sizeof(model_precache[0]);
-	snprintf(model, maxlen, "%s", in);
+	qsnprintf(model, maxlen, "%s", in);
 	Mod_TouchModel(model);
     }
 
@@ -340,7 +340,7 @@ CL_ParseServerInfo(void)
 	}
 	sound = sound_precache[numsounds];
 	maxlen = sizeof(sound_precache[0]);
-	snprintf(sound, maxlen, "%s", in);
+	qsnprintf(sound, maxlen, "%s", in);
 	S_TouchSound(sound);
     }
 
@@ -1053,7 +1053,7 @@ CL_ParseServerMessage(void)
 		Sys_Error("svc_lightstyle > MAX_LIGHTSTYLES");
 	    stylemap = MSG_ReadString();
 	    style = cl_lightstyle + stylenum;
-	    snprintf(style->map, MAX_STYLESTRING, "%s", stylemap);
+	    qsnprintf(style->map, MAX_STYLESTRING, "%s", stylemap);
 	    style->length = strlen(style->map);
 	    break;
 
@@ -1075,7 +1075,7 @@ CL_ParseServerMessage(void)
 		Host_Error("%s: svc_updatename > MAX_SCOREBOARD", __func__);
 	    name = MSG_ReadString();
 	    player = cl.players + playernum;
-	    snprintf(player->name, MAX_SCOREBOARDNAME, "%s", name);
+	    qsnprintf(player->name, MAX_SCOREBOARDNAME, "%s", name);
 	    break;
 
 	case svc_updatefrags:

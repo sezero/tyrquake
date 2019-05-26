@@ -193,7 +193,7 @@ CL_CheckOrDownloadFile(char *filename)
     if (cls.demoplayback)
 	return true;
 
-    snprintf(cls.downloadname, sizeof(cls.downloadname), "%s", filename);
+    qsnprintf(cls.downloadname, sizeof(cls.downloadname), "%s", filename);
     Con_Printf("Downloading %s...\n", cls.downloadname);
 
     /*
@@ -571,7 +571,7 @@ CL_ParseServerData(void)
     //ZOID--run the autoexec.cfg in the gamedir
     //if it exists
     if (cflag) {
-	snprintf(fn, sizeof(fn), "%s/%s", com_gamedir, "config.cfg");
+	qsnprintf(fn, sizeof(fn), "%s/%s", com_gamedir, "config.cfg");
 	if ((f = fopen(fn, "r")) != NULL) {
 	    fclose(f);
 	    Cbuf_AddText("cl_warncmd 0\n");
@@ -588,7 +588,7 @@ CL_ParseServerData(void)
     }
     // get the full level name
     str = MSG_ReadString();
-    snprintf(cl.levelname, sizeof(cl.levelname), "%s", str);
+    qsnprintf(cl.levelname, sizeof(cl.levelname), "%s", str);
 
     // get the movevars
     movevars.gravity = MSG_ReadFloat();
@@ -640,7 +640,7 @@ CL_ParseSoundlist(void)
 	if (numsounds == MAX_SOUNDS)
 	    Host_EndGame("Server sent too many sound_precache");
 	name = cl.sound_name[numsounds];
-	snprintf(name, NAMELEN, "%s", str);
+	qsnprintf(name, NAMELEN, "%s", str);
     }
 
     n = MSG_ReadByte();
@@ -680,7 +680,7 @@ CL_ParseModellist(void)
 	if (nummodels == MAX_MODELS)
 	    Host_EndGame("Server sent too many model_precache");
 	name = cl.model_name[nummodels];
-	snprintf(name, NAMELEN, "%s", str);
+	qsnprintf(name, NAMELEN, "%s", str);
 
 	if (!strcmp(name, "progs/spike.mdl"))
 	    cl_spikeindex = nummodels;
@@ -953,7 +953,7 @@ CL_ProcessUserInfo(int slot, player_info_t * player)
     char *name;
 
     name = Info_ValueForKey(player->userinfo, "name");
-    snprintf(player->name, sizeof(player->name), "%s", name);
+    qsnprintf(player->name, sizeof(player->name), "%s", name);
 
     player->topcolor = atoi(Info_ValueForKey(player->userinfo, "topcolor"));
     player->bottomcolor =
@@ -990,7 +990,7 @@ CL_UpdateUserinfo(void)
     player->userid = MSG_ReadLong();
 
     info = MSG_ReadString();
-    snprintf(player->userinfo, sizeof(player->userinfo), "%s", info);
+    qsnprintf(player->userinfo, sizeof(player->userinfo), "%s", info);
     CL_ProcessUserInfo(slot, player);
 }
 
@@ -1012,8 +1012,8 @@ CL_SetInfo(void)
 	Host_EndGame("%s: svc_setinfo > MAX_SCOREBOARD", __func__);
 
     player = &cl.players[slot];
-    snprintf(key, sizeof(key), "%s", MSG_ReadString());
-    snprintf(value, sizeof(value), "%s", MSG_ReadString());
+    qsnprintf(key, sizeof(key), "%s", MSG_ReadString());
+    qsnprintf(value, sizeof(value), "%s", MSG_ReadString());
 
     Con_DPrintf("SETINFO %s: %s=%s\n", player->name, key, value);
 
@@ -1033,8 +1033,8 @@ CL_ServerInfo(void)
     char key[MAX_MSGLEN];
     char value[MAX_MSGLEN];
 
-    snprintf(key, sizeof(key), "%s", MSG_ReadString());
-    snprintf(value, sizeof(value), "%s", MSG_ReadString());
+    qsnprintf(key, sizeof(key), "%s", MSG_ReadString());
+    qsnprintf(value, sizeof(value), "%s", MSG_ReadString());
 
     Con_DPrintf("SERVERINFO: %s=%s\n", key, value);
 
@@ -1206,7 +1206,7 @@ CL_ParseServerMessage(void)
 	    if (i >= MAX_LIGHTSTYLES)
 		Sys_Error("svc_lightstyle > MAX_LIGHTSTYLES");
 	    s = MSG_ReadString();
-	    snprintf(cl_lightstyle[i].map, MAX_STYLESTRING, "%s", s);
+	    qsnprintf(cl_lightstyle[i].map, MAX_STYLESTRING, "%s", s);
 	    cl_lightstyle[i].length = strlen(cl_lightstyle[i].map);
 	    break;
 

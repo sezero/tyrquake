@@ -279,7 +279,7 @@ Draw_CachePic(const char *path)
     mark = Hunk_LowMark();
 
     /* load the pic from disk */
-    snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
+    qsnprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
     dpic = COM_LoadHunkFile(path);
     if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);

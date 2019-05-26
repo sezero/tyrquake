@@ -946,7 +946,7 @@ VID_Init(const byte *palette)
     VID_SetMode(mode, gamma_palette);
     Gamma_Init();
 
-    snprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
+    qsnprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
     Sys_mkdir(gldir);
 
     vid_realmode = vid_modenum;

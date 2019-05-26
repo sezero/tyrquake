@@ -431,13 +431,13 @@ Mod_LoadModel(const char *name, qboolean crash)
 #ifndef SERVERONLY
     case IDPOLYHEADER:
 	model = Mod_NewAliasModel();
-	snprintf(model->name, sizeof(model->name), "%s", name);
+	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	Mod_LoadAliasModel(mod_loader, model, buf);
 	break;
 
     case IDSPRITEHEADER:
 	model = Mod_AllocName(sizeof(*model), name);
-	snprintf(model->name, sizeof(model->name), "%s", name);
+	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	model->next = loaded_sprites;
 	loaded_sprites = model;
 	Mod_LoadSpriteModel(model, buf);
@@ -448,7 +448,7 @@ Mod_LoadModel(const char *name, qboolean crash)
 	brushmodel->next = loaded_models;
 	loaded_models = brushmodel;
 	model = &brushmodel->model;
-	snprintf(model->name, sizeof(model->name), "%s", name);
+	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	Mod_LoadBrushModel(brushmodel, buf, size);
 	break;
     }
@@ -480,7 +480,7 @@ Mod_ForName(const char *name, qboolean crash)
 
 	buffer = COM_LoadTempFile(name);
 	model = Mod_NewAliasModel();
-	snprintf(model->name, sizeof(model->name), "%s", name);
+	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	Mod_LoadAliasModel(mod_loader, model, buffer);
 #endif
 	return model;
@@ -1270,7 +1270,7 @@ Mod_SetLeafFlags(const model_t *model, mleaf_t *leaf)
 #ifdef QW_HACK
     {
 	char mapmodel[MAX_QPATH];
-	snprintf(mapmodel, sizeof(mapmodel), "maps/%s.bsp",
+	qsnprintf(mapmodel, sizeof(mapmodel), "maps/%s.bsp",
 		 Info_ValueForKey(cl.serverinfo, "map"));
 	if (strcmp(mapmodel, model->name)) {
 #endif
@@ -1704,7 +1704,7 @@ Mod_SetupSubmodels(brushmodel_t *world)
 	    submodel = Hunk_AllocName(sizeof(*submodel), "submodel");
 	    model = &submodel->model;
 	    *submodel = *world; /* start with world info */
-	    snprintf(model->name, sizeof(model->name), "*%d", i);
+	    qsnprintf(model->name, sizeof(model->name), "*%d", i);
 	    submodel->next = loaded_models;
 	    loaded_models = submodel;
 	}
@@ -1740,7 +1740,7 @@ BSPVersionString(int32_t version)
 	return "BSP2";
     default:
 	buffer = buffers[1 & ++index];
-	snprintf(buffer, sizeof(buffers[0]), "%d", version);
+	qsnprintf(buffer, sizeof(buffers[0]), "%d", version);
 	return buffer;
     }
 }

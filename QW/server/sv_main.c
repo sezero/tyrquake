@@ -134,7 +134,7 @@ SV_Error(const char *fmt, ...)
     inerror = true;
 
     va_start(argptr, fmt);
-    vsnprintf(string, sizeof(string), fmt, argptr);
+    qvsnprintf(string, sizeof(string), fmt, argptr);
     va_end(argptr);
 
     Con_Printf("%s: %s\n", __func__, string);

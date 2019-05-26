@@ -135,7 +135,7 @@ CL_PredictMove(physent_stack_t *pestack)
 	char text[1024];
 
 	cls.state = ca_active;
-	snprintf(text, sizeof(text), "QuakeWorld: %s", cls.servername);
+	qsnprintf(text, sizeof(text), "QuakeWorld: %s", cls.servername);
 #ifdef _WIN32
 	SetWindowText(mainwindow, text);
 #endif

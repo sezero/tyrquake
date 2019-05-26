@@ -550,7 +550,7 @@ OutofBandPrintf(netadr_t where, const char *fmt, ...)
     send[3] = 0xff;
     send[4] = A2C_PRINT;
     va_start(argptr, fmt);
-    vsnprintf(send + 5, sizeof(send) - 5, fmt, argptr);
+    qvsnprintf(send + 5, sizeof(send) - 5, fmt, argptr);
     va_end(argptr);
 
     NET_SendPacket(strlen(send) + 1, send, where);
@@ -635,7 +635,7 @@ SV_BeginDownload_f(client_t *client)
     char name[MAX_OSPATH], *p;
 
     /* Lowercase name (needed for casesen file systems) */
-    snprintf(name, sizeof(name), "%s", Cmd_Argv(1));
+    qsnprintf(name, sizeof(name), "%s", Cmd_Argv(1));
     for (p = name; *p; p++)
 	*p = tolower(*p);
 

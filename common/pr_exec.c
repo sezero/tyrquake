@@ -262,7 +262,7 @@ PR_RunError(const char *error, ...)
     char string[MAX_PRINTMSG];
 
     va_start(argptr, error);
-    vsnprintf(string, sizeof(string), error, argptr);
+    qvsnprintf(string, sizeof(string), error, argptr);
     va_end(argptr);
 
     PR_PrintStatement(pr_statements + pr_xstatement);

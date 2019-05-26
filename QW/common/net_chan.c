@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "net.h"
 #include "quakedef.h"
+#include "sys.h"
 
 #ifdef _WIN32
 #include "winquake.h"
@@ -150,10 +151,10 @@ void
 Netchan_OutOfBandPrint(netadr_t adr, const char *format, ...)
 {
     va_list argptr;
-    static char string[8192];	/* FIXME - ??? why static? - stack probs? */
+    char string[MAX_PRINTMSG];
 
     va_start(argptr, format);
-    vsnprintf(string, sizeof(string), format, argptr);
+    qvsnprintf(string, sizeof(string), format, argptr);
     va_end(argptr);
 
     Netchan_OutOfBand(adr, strlen(string), (byte *)string);

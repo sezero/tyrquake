@@ -430,7 +430,7 @@ SV_Name_f(client_t *client)
 
     /* See if the name has changed */
     arg = (Cmd_Argc() == 2) ? Cmd_Argv(1) : Cmd_Args();
-    snprintf(new_name, sizeof(new_name), "%s", arg);
+    qsnprintf(new_name, sizeof(new_name), "%s", arg);
     if (!strcmp(client->name, new_name))
 	return;
 
@@ -1047,9 +1047,9 @@ SV_Say(client_t *client, qboolean teamonly)
 
     /* turn on color set 1 */
     if (!fromServer)
-	snprintf(text, sizeof(text), "%c%s: ", 1, client->name);
+	qsnprintf(text, sizeof(text), "%c%s: ", 1, client->name);
     else
-	snprintf(text, sizeof(text), "%c<%s> ", 1, hostname.string);
+	qsnprintf(text, sizeof(text), "%c<%s> ", 1, hostname.string);
 
     len = strlen(text);
     space = sizeof(text) - len - 2; /* -2 for \n and null terminator */
@@ -1101,7 +1101,7 @@ SV_Tell_f(client_t *client)
     if (Cmd_Argc() < 3)
 	return;
 
-    snprintf(text, sizeof(text), "%s: ", client->name);
+    qsnprintf(text, sizeof(text), "%s: ", client->name);
 
     len = strlen(text);
     space = sizeof(text) - len - 2; /* -2 for \n and null terminator */

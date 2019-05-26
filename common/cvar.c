@@ -250,7 +250,7 @@ Cvar_SetValue(const char *var_name, float value)
 {
     char val[32];
 
-    snprintf(val, sizeof(val), "%f", value);
+    qsnprintf(val, sizeof(val), "%f", value);
     Cvar_Set(var_name, val);
 }
 

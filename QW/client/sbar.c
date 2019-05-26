@@ -1206,7 +1206,7 @@ Sbar_MiniDeathmatchOverlay(void)
 
 	/* draw frags */
 	char frags[4];
-	snprintf(frags, sizeof(frags), "%3d", player->frags);
+	qsnprintf(frags, sizeof(frags), "%3d", player->frags);
 	Draw_Character(x + 8, y, frags[0]);
 	Draw_Character(x + 16, y, frags[1]);
 	Draw_Character(x + 24, y, frags[2]);
@@ -1219,13 +1219,13 @@ Sbar_MiniDeathmatchOverlay(void)
 	if (teamplay) {
 	    const char *playerteam = Info_ValueForKey(player->userinfo, "team");
 	    char short_team[5];
-	    snprintf(short_team, sizeof(short_team), "%-4s", playerteam);
+	    qsnprintf(short_team, sizeof(short_team), "%-4s", playerteam);
 	    Draw_String(x + 48, y, short_team);
 	}
 
 	/* draw name */
 	char name[17];
-	snprintf(name, sizeof(name), "%-16s", player->name);
+	qsnprintf(name, sizeof(name), "%-16s", player->name);
 	if (teamplay)
 	    Draw_String(x + 48 + 40, y, name);
 	else
@@ -1254,12 +1254,12 @@ Sbar_MiniDeathmatchOverlay(void)
 
 	/* draw teamname */
 	char short_team[5];
-	snprintf(short_team, sizeof(short_team), "%-4s", team->team);
+	qsnprintf(short_team, sizeof(short_team), "%-4s", team->team);
 	Draw_String(x, y, short_team);
 
 	/* draw frags */
 	char frags[4];
-	snprintf(frags, sizeof(frags), "%3d", team->frags);
+	qsnprintf(frags, sizeof(frags), "%3d", team->frags);
 	Draw_String(x + 40, y, frags);
 	if (!strncmp(team->team, playerteam, 16)) {
 	    Draw_Character(x - 8, y, 16);

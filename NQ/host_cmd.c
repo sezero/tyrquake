@@ -316,7 +316,7 @@ Host_Savegame_f(void)
 	}
     }
 
-    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    length = qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
     err = COM_DefaultExtension(name, ".sav", name, sizeof(name));
     if (length >= sizeof(name) || err) {
 	Con_Printf("ERROR: couldn't save, filename too long.\n");
@@ -390,7 +390,7 @@ Host_Loadgame_f(void)
 
     cls.demonum = -1;		// stop demo loop in case this fails
 
-    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    length = qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
     err = COM_DefaultExtension(name, ".sav", name, sizeof(name));
     if (length >= sizeof(name) || err) {
 	Con_Printf("ERROR: couldn't open save game, filename too long.\n");

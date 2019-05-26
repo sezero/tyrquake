@@ -40,7 +40,7 @@ SV_ModelInit(void)
     int i;
 
     for (i = 0; i < MAX_MODELS; i++)
-	snprintf(localmodels[i], sizeof(localmodels[i]), "*%d", i);
+	qsnprintf(localmodels[i], sizeof(localmodels[i]), "*%d", i);
 }
 
 /*
@@ -349,8 +349,8 @@ SV_SpawnServer(const char *server)
 
     sv.time = 1.0;
 
-    snprintf(sv.name, sizeof(sv.name), "%s", server);
-    snprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", server);
+    qsnprintf(sv.name, sizeof(sv.name), "%s", server);
+    qsnprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", server);
     model = Mod_ForName(sv.modelname, true);
     sv.worldmodel = BrushModel(model);
     SV_CalcPHS();

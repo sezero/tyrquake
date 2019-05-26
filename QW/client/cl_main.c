@@ -1179,7 +1179,7 @@ Host_EndGame(const char *message, ...)
     char string[MAX_PRINTMSG];
 
     va_start(argptr, message);
-    vsnprintf(string, sizeof(string), message, argptr);
+    qvsnprintf(string, sizeof(string), message, argptr);
     va_end(argptr);
     Con_Printf("\n===========================\n");
     Con_Printf("Host_EndGame: %s\n", string);
@@ -1209,7 +1209,7 @@ Host_Error(const char *error, ...)
     inerror = true;
 
     va_start(argptr, error);
-    vsnprintf(string, sizeof(string), error, argptr);
+    qvsnprintf(string, sizeof(string), error, argptr);
     va_end(argptr);
     Con_Printf("Host_Error: %s\n", string);
 

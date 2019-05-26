@@ -80,7 +80,7 @@ Skin_Find(player_info_t *player)
     numskins++;
 
     memset(skin, 0, sizeof(*skin));
-    snprintf(skin->name, sizeof(skin->name), "%s", name);
+    qsnprintf(skin->name, sizeof(skin->name), "%s", name);
 }
 
 
@@ -117,11 +117,11 @@ Skin_Cache(skin_t * skin)
 //
 // load the pic from disk
 //
-    snprintf(name, sizeof(name), "skins/%s.pcx", skin->name);
+    qsnprintf(name, sizeof(name), "skins/%s.pcx", skin->name);
     pcx = COM_LoadTempFile(name);
     if (!pcx) {
 	Con_Printf("Couldn't load skin %s\n", name);
-	snprintf(name, sizeof(name), "skins/%s.pcx", baseskin.string);
+	qsnprintf(name, sizeof(name), "skins/%s.pcx", baseskin.string);
 	pcx = COM_LoadTempFile(name);
 	if (!pcx)
 	    goto Fail;

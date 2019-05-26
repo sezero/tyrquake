@@ -42,7 +42,7 @@ GL_ExtensionCheck(const char *extension)
 	    return true;
     }
 
-    snprintf(buf, sizeof(buf), " %s", extension);
+    qsnprintf(buf, sizeof(buf), " %s", extension);
     length++;
     while (1) {
 	check = strstr(gl_extensions, buf);

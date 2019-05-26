@@ -111,7 +111,7 @@ Con_Printf(const char *fmt, ...)
     char msg[MAX_PRINTMSG];
 
     va_start(argptr, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, argptr);
+    qvsnprintf(msg, sizeof(msg), fmt, argptr);
     va_end(argptr);
 
     // add to redirected message
@@ -144,7 +144,7 @@ Con_DPrintf(const char *fmt, ...)
 	return;
 
     va_start(argptr, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, argptr);
+    qvsnprintf(msg, sizeof(msg), fmt, argptr);
     va_end(argptr);
 
     Con_Printf("%s", msg);
@@ -184,7 +184,7 @@ SV_ClientPrintf(client_t *cl, int level, const char *fmt, ...)
 	return;
 
     va_start(argptr, fmt);
-    vsnprintf(string, sizeof(string), fmt, argptr);
+    qvsnprintf(string, sizeof(string), fmt, argptr);
     va_end(argptr);
 
     SV_PrintToClient(cl, level, string);
@@ -206,7 +206,7 @@ SV_BroadcastPrintf(int level, const char *fmt, ...)
     int i;
 
     va_start(argptr, fmt);
-    vsnprintf(string, sizeof(string), fmt, argptr);
+    qvsnprintf(string, sizeof(string), fmt, argptr);
     va_end(argptr);
 
     Sys_Printf("%s", string);	// print to the console
@@ -237,7 +237,7 @@ SV_BroadcastCommand(const char *fmt, ...)
     if (!sv.state)
 	return;
     va_start(argptr, fmt);
-    vsnprintf(string, sizeof(string), fmt, argptr);
+    qvsnprintf(string, sizeof(string), fmt, argptr);
     va_end(argptr);
 
     MSG_WriteByte(&sv.reliable_datagram, svc_stufftext);

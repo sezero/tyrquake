@@ -331,7 +331,7 @@ CL_Name_f(void)
 	return;
     }
     arg = (Cmd_Argc() == 2) ? Cmd_Argv(1) : Cmd_Args();
-    snprintf(new_name, sizeof(new_name), "%s", arg);
+    qsnprintf(new_name, sizeof(new_name), "%s", arg);
     if (!strcmp(cl_name.string, new_name))
 	return;
 

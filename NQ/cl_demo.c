@@ -234,7 +234,7 @@ CL_Record_f(void)
 	track = -1;
 
     /* Grab the filename before our cmd args disappear */
-    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    length = qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
     err = COM_DefaultExtension(name, ".dem", name, sizeof(name));
     if (length >= sizeof(name) || err) {
 	Con_Printf("Error: demo path name too long.\n");

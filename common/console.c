@@ -311,7 +311,7 @@ Con_Printf(const char *fmt, ...)
     static qboolean inupdate;
 
     va_start(argptr, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, argptr);
+    qvsnprintf(msg, sizeof(msg), fmt, argptr);
     va_end(argptr);
 
 // also echo to debugging console
@@ -373,7 +373,7 @@ Con_DPrintf(const char *fmt, ...)
 	if (debuglog) {
 	    strcpy(msg, "DEBUG: ");
 	    va_start(argptr, fmt);
-	    vsnprintf(msg + 7, sizeof(msg) - 7, fmt, argptr);
+	    qvsnprintf(msg + 7, sizeof(msg) - 7, fmt, argptr);
 	    va_end(argptr);
 	    Sys_DebugLog(va("%s/qconsole.log", com_gamedir), "%s", msg);
 	}
@@ -381,7 +381,7 @@ Con_DPrintf(const char *fmt, ...)
     }
 
     va_start(argptr, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, argptr);
+    qvsnprintf(msg, sizeof(msg), fmt, argptr);
     va_end(argptr);
 
     Con_Printf("%s", msg);
@@ -539,9 +539,9 @@ Con_DrawDLBar(void)
     totalchars = qmin(con_linewidth - 2, (int)sizeof(dlbar) - 1);
 
     if (strlen(dlname) > namespace) {
-	len = snprintf(buf, bufspace, "%.*s... ", namespace - 2, dlname);
+	len = qsnprintf(buf, bufspace, "%.*s... ", namespace - 2, dlname);
     } else {
-	len = snprintf(buf, bufspace, "%-*s ", namespace + 1, dlname);
+	len = qsnprintf(buf, bufspace, "%-*s ", namespace + 1, dlname);
     }
     buf += len;
     totalchars -= len;
@@ -556,7 +556,7 @@ Con_DrawDLBar(void)
 	    *buf++ = '\x81';
     }
     *buf++ = '\x82';
-    snprintf(buf, 6, " %3d%%", cls.downloadpercent);
+    qsnprintf(buf, 6, " %3d%%", cls.downloadpercent);
 
     /* draw it */
     Draw_String(8, con_vislines - 22 + 8, dlbar);
@@ -671,7 +671,7 @@ Con_SafePrintf(const char *fmt, ...)
     int temp;
 
     va_start(argptr, fmt);
-    vsnprintf(msg, sizeof(msg), fmt, argptr);
+    qvsnprintf(msg, sizeof(msg), fmt, argptr);
     va_end(argptr);
 
     temp = scr_disabled_for_loading;

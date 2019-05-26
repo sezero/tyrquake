@@ -171,11 +171,11 @@ R_ReadPointFile_f(void)
     char name[MAX_OSPATH];
 
 #ifdef NQ_HACK
-    snprintf(name, sizeof(name), "maps/%s.pts", sv.name);
+    qsnprintf(name, sizeof(name), "maps/%s.pts", sv.name);
 #endif
 #ifdef QW_HACK
-    snprintf(name, sizeof(name), "maps/%s.pts",
-	     Info_ValueForKey(cl.serverinfo, "map"));
+    qsnprintf(name, sizeof(name), "maps/%s.pts",
+	      Info_ValueForKey(cl.serverinfo, "map"));
 #endif
 
     COM_FOpenFile(name, &f);

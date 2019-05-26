@@ -61,9 +61,9 @@ StrAddr(netadr_t *addr)
 {
     static char buf[32];
 
-    snprintf(buf, sizeof(buf), "%d.%d.%d.%d:%d",
-	    addr->ip.b[0], addr->ip.b[1], addr->ip.b[2], addr->ip.b[3],
-	    ntohs(addr->port));
+    qsnprintf(buf, sizeof(buf), "%d.%d.%d.%d:%d",
+	      addr->ip.b[0], addr->ip.b[1], addr->ip.b[2], addr->ip.b[3],
+	      ntohs(addr->port));
     return buf;
 }
 #endif
@@ -1065,8 +1065,8 @@ _Datagram_SearchForHosts(qboolean xmit, net_landriver_t *driver)
 	// add it
 	hostCacheCount++;
 
-	snprintf(host->name, sizeof(host->name), "%s", MSG_ReadString());
-	snprintf(host->map, sizeof(host->map), "%s", MSG_ReadString());
+	qsnprintf(host->name, sizeof(host->name), "%s", MSG_ReadString());
+	qsnprintf(host->map, sizeof(host->map), "%s", MSG_ReadString());
 	host->users = MSG_ReadByte();
 	host->maxusers = MSG_ReadByte();
 	if (MSG_ReadByte() != NET_PROTOCOL_VERSION) {
@@ -1250,7 +1250,7 @@ _Datagram_Connect(const char *host, net_landriver_t *driver)
 
   ErrorReturn:
     Con_Printf("%s\n", reason);
-    snprintf(m_return_reason, sizeof(m_return_reason), "%s", reason);
+    qsnprintf(m_return_reason, sizeof(m_return_reason), "%s", reason);
     NET_FreeQSocket(sock);
   ErrorReturn2:
     driver->CloseSocket(newsock);

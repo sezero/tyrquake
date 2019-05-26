@@ -199,7 +199,7 @@ void R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
     pic.height = frame->height;
     pic.pixels = pixels;
 
-    snprintf(name, sizeof(name), "%s_%i", modelname, framenum);
+    qsnprintf(name, sizeof(name), "%s_%i", modelname, framenum);
     spritedata->texture = GL_LoadTexture_Alpha(name, &pic, true, 255);
 }
 

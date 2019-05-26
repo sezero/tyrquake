@@ -107,7 +107,7 @@ Draw_FindCache(const char *path)
 	if (menu_numcachepics == MAX_CACHED_PICS)
 	    Sys_Error("menu_numcachepics == MAX_CACHED_PICS");
 	menu_numcachepics++;
-	snprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
+	qsnprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
     }
 
     Cache_Check(&cachepic->cache);

@@ -339,7 +339,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
 
     /* look for a cached version */
     name = COM_SkipPath(model->name);
-    snprintf(cache, sizeof(cache), "%s/glquake/%s", com_gamedir, name);
+    qsnprintf(cache, sizeof(cache), "%s/glquake/%s", com_gamedir, name);
     err = COM_DefaultExtension(cache, ".ms2", cache, sizeof(cache));
     if (err)
 	Sys_Error("%s: model pathname too long (%s)", __func__, model->name);
@@ -377,7 +377,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
 	    char gldir[MAX_OSPATH];
 
 	    /* Maybe the directory wasn't present, try again */
-	    snprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
+	    qsnprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
 	    Sys_mkdir(gldir);
 	    f = fopen(cache, "wb");
 	}

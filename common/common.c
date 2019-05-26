@@ -527,7 +527,7 @@ MSG_WriteStringvf(sizebuf_t *sb, const char *fmt, va_list ap)
      * hand. Update the SZ interface?
      */
     maxlen = sb->maxsize - sb->cursize;
-    len = vsnprintf((char *)sb->data + sb->cursize, maxlen, fmt, ap);
+    len = qvsnprintf((char *)sb->data + sb->cursize, maxlen, fmt, ap);
 
     /* Use SZ_GetSpace to check for overflow */
     SZ_GetSpace(sb, len + 1);
@@ -1038,7 +1038,7 @@ COM_FileBase(const char *in, char *out, size_t buflen)
 	in = "?model?";
 	copylen = strlen(in);
     }
-    snprintf(out, buflen, "%.*s", copylen, in);
+    qsnprintf(out, buflen, "%.*s", copylen, in);
 }
 
 
@@ -1392,7 +1392,7 @@ va(const char *format, ...)
 
     buf = COM_GetStrBuf();
     va_start(argptr, format);
-    len = vsnprintf(buf, COM_STRBUF_LEN, format, argptr);
+    len = qvsnprintf(buf, COM_STRBUF_LEN, format, argptr);
     va_end(argptr);
 
     if (len > COM_STRBUF_LEN - 1)
@@ -1529,7 +1529,7 @@ COM_WriteFile(const char *filename, const void *data, int len)
     FILE *f;
     char name[MAX_OSPATH];
 
-    snprintf(name, sizeof(name), "%s/%s", com_gamedir, filename);
+    qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, filename);
 
     f = fopen(name, "wb");
     if (!f) {
@@ -1618,7 +1618,7 @@ COM_FOpenFile(const char *filename, FILE **file)
 		if (strchr(filename, '/') || strchr(filename, '\\'))
 		    continue;
 	    }
-	    snprintf(path, sizeof(path), "%s/%s", search->filename, filename);
+	    qsnprintf(path, sizeof(path), "%s/%s", search->filename, filename);
 	    findtime = Sys_FileTime(path);
 	    if (findtime == -1)
 		continue;
@@ -1731,7 +1731,7 @@ COM_ScanDir(struct stree_root *root, const char *path, const char *pfx,
 	if (search->pack) {
 	    COM_ScanDirPak(root, search->pack, path, pfx, ext, stripext);
 	} else {
-	    snprintf(fullpath, MAX_OSPATH, "%s/%s", search->filename, path);
+	    qsnprintf(fullpath, sizeof(fullpath), "%s/%s", search->filename, path);
 	    fullpath[MAX_OSPATH - 1] = '\0';
 	    dir = opendir(fullpath);
 	    if (dir) {
@@ -1911,7 +1911,7 @@ COM_LoadPackFile(const char *packfile)
 
     /* parse the directory */
     for (i = 0; i < numfiles; i++) {
-	snprintf(mfiles[i].name, sizeof(mfiles[i].name), "%s", dfiles[i].name);
+	qsnprintf(mfiles[i].name, sizeof(mfiles[i].name), "%s", dfiles[i].name);
 	mfiles[i].filepos = LittleLong(dfiles[i].filepos);
 	mfiles[i].filelen = LittleLong(dfiles[i].filelen);
     }
@@ -1924,7 +1924,7 @@ COM_LoadPackFile(const char *packfile)
     Z_Free(dfiles);
     pack = Z_Malloc(sizeof(pack_t));
 #endif
-    snprintf(pack->filename, sizeof(pack->filename), "%s", packfile);
+    qsnprintf(pack->filename, sizeof(pack->filename), "%s", packfile);
     pack->numfiles = numfiles;
     pack->files = mfiles;
 
@@ -1974,7 +1974,7 @@ COM_AddGameDirectory(const char *base, const char *dir)
 // add any pak files in the format pak0.pak pak1.pak, ...
 //
     for (i = 0;; i++) {
-	snprintf(pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
+	qsnprintf(pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
 	pak = COM_LoadPackFile(pakfile);
 	if (!pak)
 	    break;
@@ -2034,7 +2034,7 @@ COM_Gamedir(const char *dir)
     if (!strcmp(dir, "id1") || !strcmp(dir, "qw"))
 	return;
 
-    snprintf(com_gamedir, sizeof(com_gamedir), "%s/%s", com_basedir, dir);
+    qsnprintf(com_gamedir, sizeof(com_gamedir), "%s/%s", com_basedir, dir);
 
     //
     // add the directory to the search path
@@ -2048,7 +2048,7 @@ COM_Gamedir(const char *dir)
     // add any pak files in the format pak0.pak pak1.pak, ...
     //
     for (i = 0;; i++) {
-	snprintf(pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
+	qsnprintf(pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
 	pak = COM_LoadPackFile(pakfile);
 	if (!pak)
 	    break;
@@ -2369,7 +2369,7 @@ Info_SetValueForStarKey(char *infostring, const char *key, const char *value,
     if (!value || !strlen(value))
 	return;
 
-    len = snprintf(buffer, sizeof(buffer), "\\%s\\%s", key, value);
+    len = qsnprintf(buffer, sizeof(buffer), "\\%s\\%s", key, value);
     if (len > sizeof(buffer) - 1)
 	goto ErrTooLong;
 

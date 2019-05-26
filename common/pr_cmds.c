@@ -1935,11 +1935,11 @@ PF_infokey(void)
     } else if (e1 <= MAX_CLIENTS) {
 	if (!strcmp(key, "ip")) {
 	    netadr_t addr = svs.clients[e1 - 1].netchan.remote_address;
-	    snprintf(buf, sizeof(buf), "%s", NET_BaseAdrToString(addr));
+	    qsnprintf(buf, sizeof(buf), "%s", NET_BaseAdrToString(addr));
 	    value = buf;
 	} else if (!strcmp(key, "ping")) {
 	    int ping = SV_CalcPing(&svs.clients[e1 - 1]);
-	    snprintf(buf, sizeof(buf), "%d", ping);
+	    qsnprintf(buf, sizeof(buf), "%d", ping);
 	    value = buf;
 	} else
 	    value = Info_ValueForKey(svs.clients[e1 - 1].userinfo, key);

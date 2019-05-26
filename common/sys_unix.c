@@ -79,7 +79,7 @@ Sys_Printf(const char *fmt, ...)
     unsigned char *p;
 
     va_start(argptr, fmt);
-    vsnprintf(text, sizeof(text), fmt, argptr);
+    qvsnprintf(text, sizeof(text), fmt, argptr);
     va_end(argptr);
 
 #ifdef SERVERONLY
@@ -140,7 +140,7 @@ Sys_Error(const char *error, ...)
 #endif
 
     va_start(argptr, error);
-    vsnprintf(string, sizeof(string), error, argptr);
+    qvsnprintf(string, sizeof(string), error, argptr);
     va_end(argptr);
     fprintf(stderr, "Error: %s\n", string);
 
@@ -269,7 +269,7 @@ Sys_DebugLog(const char *file, const char *fmt, ...)
     int fd;
 
     va_start(argptr, fmt);
-    vsnprintf(data, sizeof(data), fmt, argptr);
+    qvsnprintf(data, sizeof(data), fmt, argptr);
     va_end(argptr);
     fd = open(file, O_WRONLY | O_CREAT | O_APPEND, 0666);
     write(fd, data, strlen(data));

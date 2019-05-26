@@ -44,7 +44,7 @@ Mod_LoadAliasFrame(aliashdr_t *aliashdr, void *buffer,
     float *intervals = (float *)((byte *)aliashdr + aliashdr->poseintervals);
     int i;
 
-    snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
+    qsnprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
     frame->firstpose = posedata->numposes;
     frame->numposes = 1;
     for (i = 0; i < 3; i++) {
@@ -87,7 +87,7 @@ Mod_LoadAliasFrameGroup(aliashdr_t *aliashdr, void *buffer,
 
     /* Group frames start after the interval data */
     dframe = (const daliasframe_t *)&group->intervals[frame->numposes];
-    snprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
+    qsnprintf(frame->name, sizeof(frame->name), "%s", dframe->name);
 
     vert = &posedata->verts[posedata->numposes];
     interval += posedata->numposes;

@@ -410,7 +410,7 @@ CL_Record_f(void)
     if (cls.demorecording)
 	CL_Stop_f();
 
-    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    length = qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
     err = COM_DefaultExtension(name, ".qwd", name, sizeof(name));
     if (length >= sizeof(name) || err) {
 	Con_Printf("ERROR: couldn't open demo, filename too long.\n");
@@ -690,7 +690,7 @@ CL_ReRecord_f(void)
     if (cls.demorecording)
 	CL_Stop_f();
 
-    length = snprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
+    length = qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, Cmd_Argv(1));
     err = COM_DefaultExtension(name, ".qwd", name, sizeof(name));
     if (length >= sizeof(name) || err) {
 	Con_Printf("ERROR: open demo file, filename too long.\n");

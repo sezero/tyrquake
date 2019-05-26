@@ -239,7 +239,7 @@ R_NetGraph(void)
 	i = (cls.netchan.outgoing_sequence - a) & NET_TIMINGSMASK;
 	R_LineGraph(x + w - 1 - a, y, packet_latency[i]);
     }
-    snprintf(st, sizeof(st), "%3i%% packet loss", lost);
+    qsnprintf(st, sizeof(st), "%3i%% packet loss", lost);
     Draw_String(8, y2, st);
 }
 

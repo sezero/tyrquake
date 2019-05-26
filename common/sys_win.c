@@ -201,11 +201,11 @@ Sys_Error(const char *error, ...)
     }
 
     va_start(argptr, error);
-    vsnprintf(text, sizeof(text), error, argptr);
+    qvsnprintf(text, sizeof(text), error, argptr);
     va_end(argptr);
 
     if (isDedicated) {
-	snprintf(text2, sizeof(text2), "ERROR: %s\n", text);
+	qsnprintf(text2, sizeof(text2), "ERROR: %s\n", text);
 	if (text2[sizeof(text2) - 2])
 	    strcpy(text2 + sizeof(text2) - 2, "\n"); /* in case we truncated */
 	WriteFile(houtput, text5, strlen(text5), &dummy, NULL);
@@ -259,7 +259,7 @@ Sys_Error(const char *error, ...)
 #endif
 
     va_start(argptr, error);
-    vsnprintf(text, sizeof(text), error, argptr);
+    qvsnprintf(text, sizeof(text), error, argptr);
     va_end(argptr);
 
 #ifndef SERVERONLY
@@ -283,7 +283,7 @@ Sys_Printf(const char *fmt, ...)
 
     if (isDedicated) {
 	va_start(argptr, fmt);
-	vsnprintf(text, sizeof(text), fmt, argptr);
+	qvsnprintf(text, sizeof(text), fmt, argptr);
 	va_end(argptr);
 	WriteFile(houtput, text, strlen(text), &dummy, NULL);
 	return;
@@ -550,7 +550,7 @@ Sys_DebugLog(const char *file, const char *fmt, ...)
     int fd;
 
     va_start(argptr, fmt);
-    vsnprintf(data, sizeof(data), fmt, argptr);
+    qvsnprintf(data, sizeof(data), fmt, argptr);
     va_end(argptr);
     fd = open(file, O_WRONLY | O_CREAT | O_APPEND, 0666);
     write(fd, data, strlen(data));

@@ -340,35 +340,35 @@ PR_ValueString(etype_t type, eval_t *val)
 
     switch (type) {
     case ev_string:
-	snprintf(line, sizeof(line), "%s", PR_GetString(val->string));
+	qsnprintf(line, sizeof(line), "%s", PR_GetString(val->string));
 	break;
     case ev_entity:
-	snprintf(line, sizeof(line), "entity %i",
-		 NUM_FOR_EDICT(PROG_TO_EDICT(val->edict)));
+	qsnprintf(line, sizeof(line), "entity %i",
+		  NUM_FOR_EDICT(PROG_TO_EDICT(val->edict)));
 	break;
     case ev_function:
 	f = pr_functions + val->function;
-	snprintf(line, sizeof(line), "%s()", PR_GetString(f->s_name));
+	qsnprintf(line, sizeof(line), "%s()", PR_GetString(f->s_name));
 	break;
     case ev_field:
 	def = ED_FieldAtOfs(val->_int);
-	snprintf(line, sizeof(line), ".%s", PR_GetString(def->s_name));
+	qsnprintf(line, sizeof(line), ".%s", PR_GetString(def->s_name));
 	break;
     case ev_void:
-	snprintf(line, sizeof(line), "void");
+	qsnprintf(line, sizeof(line), "void");
 	break;
     case ev_float:
-	snprintf(line, sizeof(line), "%5.1f", val->_float);
+	qsnprintf(line, sizeof(line), "%5.1f", val->_float);
 	break;
     case ev_vector:
-	snprintf(line, sizeof(line), "'%5.1f %5.1f %5.1f'",
-		 val->vector[0], val->vector[1], val->vector[2]);
+	qsnprintf(line, sizeof(line), "'%5.1f %5.1f %5.1f'",
+		  val->vector[0], val->vector[1], val->vector[2]);
 	break;
     case ev_pointer:
-	snprintf(line, sizeof(line), "pointer");
+	qsnprintf(line, sizeof(line), "pointer");
 	break;
     default:
-	snprintf(line, sizeof(line), "bad type %i", type);
+	qsnprintf(line, sizeof(line), "bad type %i", type);
 	break;
     }
 
@@ -394,32 +394,32 @@ PR_UglyValueString(etype_t type, eval_t *val)
 
     switch (type) {
     case ev_string:
-	snprintf(line, sizeof(line), "%s", PR_GetString(val->string));
+	qsnprintf(line, sizeof(line), "%s", PR_GetString(val->string));
 	break;
     case ev_entity:
-	snprintf(line, sizeof(line), "%i",
-		 NUM_FOR_EDICT(PROG_TO_EDICT(val->edict)));
+	qsnprintf(line, sizeof(line), "%i",
+		  NUM_FOR_EDICT(PROG_TO_EDICT(val->edict)));
 	break;
     case ev_function:
 	f = pr_functions + val->function;
-	snprintf(line, sizeof(line), "%s", PR_GetString(f->s_name));
+	qsnprintf(line, sizeof(line), "%s", PR_GetString(f->s_name));
 	break;
     case ev_field:
 	def = ED_FieldAtOfs(val->_int);
-	snprintf(line, sizeof(line), "%s", PR_GetString(def->s_name));
+	qsnprintf(line, sizeof(line), "%s", PR_GetString(def->s_name));
 	break;
     case ev_void:
-	snprintf(line, sizeof(line), "void");
+	qsnprintf(line, sizeof(line), "void");
 	break;
     case ev_float:
-	snprintf(line, sizeof(line), "%f", val->_float);
+	qsnprintf(line, sizeof(line), "%f", val->_float);
 	break;
     case ev_vector:
-	snprintf(line, sizeof(line), "%f %f %f",
-		 val->vector[0], val->vector[1], val->vector[2]);
+	qsnprintf(line, sizeof(line), "%f %f %f",
+		  val->vector[0], val->vector[1], val->vector[2]);
 	break;
     default:
-	snprintf(line, sizeof(line), "bad type %i", type);
+	qsnprintf(line, sizeof(line), "bad type %i", type);
 	break;
     }
 
@@ -446,11 +446,11 @@ PR_GlobalString(int ofs)
     val = (void *)&pr_globals[ofs];
     def = ED_GlobalAtOfs(ofs);
     if (!def)
-	snprintf(line, sizeof(line), "%i(???"")", ofs);
+	qsnprintf(line, sizeof(line), "%i(???"")", ofs);
     else {
 	s = PR_ValueString(def->type, val);
-	snprintf(line, sizeof(line), "%i(%s)%s", ofs,
-		 PR_GetString(def->s_name), s);
+	qsnprintf(line, sizeof(line), "%i(%s)%s", ofs,
+		  PR_GetString(def->s_name), s);
     }
 
     for (i = strlen(line); i < 20; i++)
@@ -469,9 +469,9 @@ PR_GlobalStringNoContents(int ofs)
 
     def = ED_GlobalAtOfs(ofs);
     if (!def)
-	snprintf(line, sizeof(line), "%i(???"")", ofs);
+	qsnprintf(line, sizeof(line), "%i(???"")", ofs);
     else
-	snprintf(line, sizeof(line), "%i(%s)", ofs, PR_GetString(def->s_name));
+	qsnprintf(line, sizeof(line), "%i(%s)", ofs, PR_GetString(def->s_name));
 
     i = strlen(line);
     for (; i < 20; i++)
@@ -895,7 +895,7 @@ ED_ParseEdict(const char *data, edict_t *ent)
 	} else {
 	    keysource = com_token;
 	}
-	snprintf(keyname, sizeof(keyname), "%s", keysource);
+	qsnprintf(keyname, sizeof(keyname), "%s", keysource);
 
 	/* another hack to fix keynames with trailing spaces */
 	n = strlen(keyname);
@@ -925,7 +925,7 @@ ED_ParseEdict(const char *data, edict_t *ent)
 
 	if (anglehack) {
 	    char temp[32];
-	    snprintf(temp, sizeof(temp), "0 %s 0", com_token);
+	    qsnprintf(temp, sizeof(temp), "0 %s 0", com_token);
 	    ok = ED_ParseEpair((void *)&ent->v, key, temp);
 	} else {
 	    ok = ED_ParseEpair((void *)&ent->v, key, com_token);

@@ -123,7 +123,7 @@ SV_Protocol_Arg_f(const char *arg)
 	for (i = 0; i < ARRAY_SIZE(sv_protocols); i++) {
 	    if (!arg || !strncasecmp(sv_protocols[i].name, arg, arg_len))
 		STree_InsertAlloc(root, sv_protocols[i].name, false);
-	    snprintf(digits, sizeof(digits), "%d", sv_protocols[i].version);
+	    qsnprintf(digits, sizeof(digits), "%d", sv_protocols[i].version);
 	    if (arg_len && !strncmp(digits, arg, arg_len))
 		STree_InsertAlloc(root, digits, true);
 	}

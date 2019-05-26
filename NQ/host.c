@@ -115,7 +115,7 @@ Host_EndGame(const char *message, ...)
     char string[MAX_PRINTMSG];
 
     va_start(argptr, message);
-    vsnprintf(string, sizeof(string), message, argptr);
+    qvsnprintf(string, sizeof(string), message, argptr);
     va_end(argptr);
     Con_DPrintf("%s: %s\n", __func__, string);
 
@@ -154,7 +154,7 @@ Host_Error(const char *error, ...)
     SCR_EndLoadingPlaque();	// reenable screen updates
 
     va_start(argptr, error);
-    vsnprintf(string, sizeof(string), error, argptr);
+    qvsnprintf(string, sizeof(string), error, argptr);
     va_end(argptr);
     Con_Printf("%s: %s\n", __func__, string);
 
