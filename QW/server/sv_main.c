@@ -1469,8 +1469,7 @@ SV_ExtractFromUserinfo(client_t *cl)
     val = Info_ValueForKey(cl->userinfo, "name");
 
     // trim user name
-    strncpy(newname, val, sizeof(newname) - 1);
-    newname[sizeof(newname) - 1] = 0;
+    qstrncpy(newname, val, sizeof(newname));
 
     for (p = newname; (*p == ' ' || *p == '\r' || *p == '\n') && *p; p++);
 
@@ -1546,7 +1545,7 @@ SV_ExtractFromUserinfo(client_t *cl)
     }
 
 
-    strncpy(cl->name, val, sizeof(cl->name) - 1);
+    qstrncpy(cl->name, val, sizeof(cl->name));
 
     // rate command
     val = Info_ValueForKey(cl->userinfo, "rate");

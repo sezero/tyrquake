@@ -968,8 +968,7 @@ Sbar_TeamOverlay(void)
 	Draw_String(x, y, num);
 
 	// draw team
-	team[4] = 0;
-	strncpy(team, tm->team, 4);
+	qstrncpy(team, tm->team, sizeof(team));
 	Draw_String(x + 104, y, team);
 
 	// draw total

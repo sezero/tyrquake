@@ -397,7 +397,7 @@ Key_Console(knum_t key)
 	} while (history_line != edit_line && !key_lines[history_line][1]);
 	if (history_line == edit_line)
 	    history_line = (edit_line + 1) & 31;
-	strcpy(key_lines[edit_line], key_lines[history_line]);
+	qstrncpy(key_lines[edit_line], key_lines[history_line], sizeof(key_lines[edit_line]));
 	key_linepos = strlen(key_lines[edit_line]);
 	return;
     }
@@ -413,7 +413,7 @@ Key_Console(knum_t key)
 	    key_lines[edit_line][0] = ']';
 	    key_linepos = 1;
 	} else {
-	    strcpy(key_lines[edit_line], key_lines[history_line]);
+	    qstrncpy(key_lines[edit_line], key_lines[history_line], sizeof(key_lines[edit_line]));
 	    key_linepos = strlen(key_lines[edit_line]);
 	}
 	return;
