@@ -53,7 +53,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	MAX_LM_BLOCKS	256
 
 static int lightmap_bytes;		// 1, 2, or 4
-static int lightmap_textures_initialised = 0;
 
 #define	BLOCK_WIDTH	128
 #define	BLOCK_HEIGHT	128
@@ -1278,15 +1277,6 @@ GL_BuildLightmaps(void *hunkbase)
 
     r_framecount = 1;		// no dlightcache
 
-    // FIXME - move this to one of the init functions...
-    if (!lightmap_textures_initialised) {
-	GLuint textures[MAX_LM_BLOCKS];
-	glGenTextures(MAX_LM_BLOCKS, textures);
-	for (i = 0; i < MAX_LM_BLOCKS; i++)
-	    lm_blocks[i].texture = textures[i];
-	lightmap_textures_initialised = 1;
-    }
-
     gl_lightmap_format = GL_LUMINANCE;
     if (COM_CheckParm("-lm_1"))
 	gl_lightmap_format = GL_LUMINANCE;
@@ -1355,6 +1345,16 @@ GL_BuildLightmaps(void *hunkbase)
 	block->rectchange.t = BLOCK_HEIGHT;
 	block->rectchange.w = 0;
 	block->rectchange.h = 0;
+
+        if (!block->texture) {
+            qpic8_t lightmap = {
+                .width = BLOCK_WIDTH,
+                .height = BLOCK_HEIGHT,
+                .pixels = block->data,
+            };
+            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &lightmap, false);
+        }
+
 	GL_Bind(block->texture);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);

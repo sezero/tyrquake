@@ -106,7 +106,7 @@ Scrap_Init(void)
 	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
 	scrap->pic.height = BLOCK_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-	glGenTextures(1, &scrap->glnum);
+        scrap->glnum = GL_AllocateTexture(va("@conscrap_%02d", i), &scrap->pic, false);
     }
 }
 
