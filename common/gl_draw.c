@@ -200,9 +200,9 @@ static int menu_numcachepics;
 static byte menuplyr_pixels[48 * 56];
 
 static int
-GL_LoadPicTexture(const qpic8_t *pic)
+GL_LoadPicTexture(const qpic8_t *pic, const char *name)
 {
-    return GL_LoadTexture_Alpha("", pic, false, 255);
+    return GL_LoadTexture_Alpha(name, pic, false, 255);
 }
 
 const qpic8_t *
@@ -244,7 +244,7 @@ Draw_PicFromWad(const char *name)
 	return pic;
     }
 
-    glpic->texnum = GL_LoadPicTexture(pic);
+    glpic->texnum = GL_LoadPicTexture(pic, name);
     glpic->sl = 0;
     glpic->sh = 1;
     glpic->tl = 0;
@@ -306,7 +306,7 @@ Draw_CachePic(const char *path)
 	memcpy(menuplyr_pixels, pic->pixels, picsize);
     }
 
-    cachepic->glpic.texnum = GL_LoadPicTexture(pic);
+    cachepic->glpic.texnum = GL_LoadPicTexture(pic, path);
     cachepic->glpic.sl = 0;
     cachepic->glpic.sh = 1;
     cachepic->glpic.tl = 0;
