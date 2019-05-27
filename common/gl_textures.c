@@ -354,6 +354,18 @@ GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap,
 }
 
 
+static void
+GL_PrintTextures_f(void)
+{
+    int i;
+    gltexture_t *texture;
+
+    for (i = 0, texture = gltextures; i < numgltextures; i++, texture++) {
+	Con_Printf(" %s\n", texture->name);
+    }
+    Con_Printf("%d textures loaded\n", numgltextures);
+}
+
 void
 GL_InitTextures(void)
 {
@@ -376,4 +388,5 @@ GL_InitTextures(void)
 
     Cmd_AddCommand("gl_texturemode", GL_TextureMode_f);
     Cmd_SetCompletion("gl_texturemode", GL_TextureMode_Arg_f);
+    Cmd_AddCommand("gl_printtextures", GL_PrintTextures_f);
 }
