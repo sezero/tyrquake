@@ -512,12 +512,10 @@ A connection request that did not come from the master
 static void
 SVC_DirectConnect(void)
 {
-    char userinfo[1024];
     static int userid;
     netadr_t adr;
     int i;
-    client_t *cl, *newcl;
-    client_t temp;
+    client_t *cl, *newcl, temp;
     edict_t *ent;
     int edictnum;
     char *s;
@@ -526,6 +524,7 @@ SVC_DirectConnect(void)
     int qport;
     int version;
     int challenge;
+    char userinfo[sizeof(newcl->userinfo)];
 
     version = atoi(Cmd_Argv(1));
     if (version != PROTOCOL_VERSION) {
@@ -536,12 +535,8 @@ SVC_DirectConnect(void)
     }
 
     qport = atoi(Cmd_Argv(2));
-
     challenge = atoi(Cmd_Argv(3));
-
-    // note an extra byte is needed to replace spectator key
-    strncpy(userinfo, Cmd_Argv(4), sizeof(userinfo) - 2);
-    userinfo[sizeof(userinfo) - 2] = 0;
+    qstrncpy(userinfo, Cmd_Argv(4), sizeof(userinfo));
 
     // see if the challenge is valid
     for (i = 0; i < MAX_CHALLENGES; i++) {
@@ -597,18 +592,19 @@ SVC_DirectConnect(void)
 
     newcl->userid = userid;
 
-    // works properly
     if (!sv_highchars.value) {
-	byte *p, *q;
-
-	for (p = (byte *)newcl->userinfo, q = (byte *)userinfo;
-	     *q
-	     && p < (byte *)newcl->userinfo + sizeof(newcl->userinfo) - 1;
-	     q++)
-	    if (*q > 31 && *q <= 127)
-		*p++ = *q;
-    } else
-	strncpy(newcl->userinfo, userinfo, sizeof(newcl->userinfo) - 1);
+        /* Custom strcpy which drops any chars outside ascii range */
+        byte *src = (byte *)userinfo;
+        byte *dst = (byte *)newcl->userinfo;
+        for (i = 0; *src && i < sizeof(newcl->userinfo) - 1; src++, i++) {
+            if (*src > 31 && *src <= 127) {
+                *dst++ = *src;
+            }
+        }
+        *dst = 0;
+    } else {
+        qstrncpy(newcl->userinfo, userinfo, sizeof(newcl->userinfo));
+    }
 
     // if there is already a slot for this ip, drop it
     for (i = 0, cl = svs.clients; i < MAX_CLIENTS; i++, cl++) {
