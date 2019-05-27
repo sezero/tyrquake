@@ -275,11 +275,12 @@ GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha)
 ================
 GL_AllocateTexture
 
-Return an existing gltexture if the CRC matches, otherwise allocate
-and configure a new one.
+Return an existing texture reference if we already have one for this
+name (and the CRC matches).  Otherwise allocate and configure a new
+one.
 ================
 */
-static gltexture_t *
+int
 GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
 {
     int i;
@@ -288,15 +289,21 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
 
     crc = CRC_Block(pic->pixels, pic->width * pic->height);
 
-    // see if the texture is already present
-    if (name[0]) {
+    /*
+     * Check if the texture is already present, if so then return it.
+     *
+     * We will reserve the '@' prefix for engine-internal textures,
+     * such as lightmaps and the mini-atlas for status bar textures,
+     * etc.  These don't need CRC or duplicate checks.
+     */
+    if (name[0] && name[0] != '@') {
 	for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
 	    if (!strcmp(name, glt->name)) {
 		if (crc != glt->crc)
 		    goto GL_LoadTexture_setup;
 		if (pic->width != glt->width || pic->height != glt->height)
 		    goto GL_LoadTexture_setup;
-		return glt;
+		return glt->texnum;
 	    }
 	}
     }
@@ -314,33 +321,33 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
     glt->height = pic->height;
     glt->mipmap = mipmap;
 
-    return glt;
+    return glt->texnum;
 }
 
 int
 GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
 {
-    gltexture_t *texture = GL_AllocateTexture(name, pic, mipmap);
+    int texnum = GL_AllocateTexture(name, pic, mipmap);
 
     if (!isDedicated) {
-	GL_Bind(texture->texnum);
+	GL_Bind(texnum);
 	GL_Upload8(pic, mipmap);
     }
 
-    return texture->texnum;
+    return texnum;
 }
 
 int
 GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap, byte alpha)
 {
-    gltexture_t *texture = GL_AllocateTexture(name, pic, mipmap);
+    int texnum = GL_AllocateTexture(name, pic, mipmap);
 
     if (!isDedicated) {
-	GL_Bind(texture->texnum);
+	GL_Bind(texnum);
 	GL_Upload8_Alpha(pic, mipmap, alpha);
     }
 
-    return texture->texnum;
+    return texnum;
 }
 
 

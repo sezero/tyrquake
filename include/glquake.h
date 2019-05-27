@@ -63,10 +63,9 @@ extern float gldepthmin, gldepthmax;
 void GL_Upload8(const qpic8_t *pic, qboolean mipmap);
 void GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha);
 int GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap);
-int GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap,
-			 byte alpha);
-int GL_FindTexture(const char *naem);
-
+int GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap, byte alpha);
+int GL_FindTexture(const char *name);
+int GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap);
 void GL_SelectTexture(GLenum);
 
 extern int glx, gly, glwidth, glheight;
