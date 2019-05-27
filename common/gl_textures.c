@@ -270,13 +270,14 @@ GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha)
 
 /*
 ================
-GL_LoadTexture_
-FIXME - ugly multiplexer for alpha...
+GL_AllocateTexture
+
+Return an existing gltexture if the CRC matches, otherwise allocate
+and configure a new one.
 ================
 */
-static int
-GL_LoadTexture_(const char *name, const qpic8_t *pic, qboolean mipmap,
-		qboolean alpha, byte alphabyte)
+static gltexture_t *
+GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
 {
     int i;
     gltexture_t *glt;
@@ -292,7 +293,7 @@ GL_LoadTexture_(const char *name, const qpic8_t *pic, qboolean mipmap,
 		    goto GL_LoadTexture_setup;
 		if (pic->width != glt->width || pic->height != glt->height)
 		    goto GL_LoadTexture_setup;
-		return glt->texnum;
+		return glt;
 	    }
 	}
     }
@@ -314,37 +315,44 @@ GL_LoadTexture_(const char *name, const qpic8_t *pic, qboolean mipmap,
     glt->height = pic->height;
     glt->mipmap = mipmap;
 
-#ifdef NQ_HACK
-    if (!isDedicated) {
-	GL_Bind(glt->texnum);
-	if (alpha)
-	    GL_Upload8_Alpha(pic, mipmap, alphabyte);
-	else
-	    GL_Upload8(pic, mipmap);
-    }
-#else
-    GL_Bind(glt->texnum);
-    if (alpha)
-	GL_Upload8_Alpha(pic, mipmap, alphabyte);
-    else
-	GL_Upload8(pic, mipmap);
-#endif
-
-    return glt->texnum;
+    return glt;
 }
 
 int
 GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
 {
-    return GL_LoadTexture_(name, pic, mipmap, false, 0);
+    gltexture_t *texture = GL_AllocateTexture(name, pic, mipmap);
+
+#ifdef NQ_HACK
+    if (!isDedicated) {
+#endif
+	GL_Bind(texture->texnum);
+	GL_Upload8(pic, mipmap);
+#ifdef NQ_HACK
+    }
+#endif
+
+    return texture->texnum;
 }
 
 int
 GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap,
 		     byte alpha)
 {
-    return GL_LoadTexture_(name, pic, mipmap, true, alpha);
+    gltexture_t *texture = GL_AllocateTexture(name, pic, mipmap);
+
+#ifdef NQ_HACK
+    if (!isDedicated) {
+#endif
+	GL_Bind(texture->texnum);
+	GL_Upload8_Alpha(pic, mipmap, alpha);
+#ifdef NQ_HACK
+    }
+#endif
+
+    return texture->texnum;
 }
+
 
 void
 GL_InitTextures(void)
