@@ -59,6 +59,8 @@ void MaskExceptions(void);
 void Sys_PushFPCW_SetHigh(void);
 void Sys_PopFPCW(void);
 
+qboolean isDedicated;
+
 #ifdef SERVERONLY
 static cvar_t sys_nostdout = { "sys_nostdout", "0" };
 #else
@@ -70,7 +72,6 @@ qboolean WinNT;
 static HANDLE tevent;
 
 #ifdef NQ_HACK
-qboolean isDedicated;
 static qboolean sc_return_on_enter = false;
 static HANDLE hinput, houtput;
 static HANDLE hFile;
@@ -701,11 +702,16 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
 #ifdef NQ_HACK
     isDedicated = (COM_CheckParm("-dedicated") != 0);
-    if (!isDedicated) {
 #endif
-	hwnd_dialog =
-	    CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, NULL);
-
+#ifdef QW_HACK
+#ifdef SERVERONLY
+    isDedicated = true;
+#else
+    isDedicated = false;
+#endif
+#endif
+    if (!isDedicated) {
+	hwnd_dialog = CreateDialog(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, NULL);
 	if (hwnd_dialog) {
 	    if (GetWindowRect(hwnd_dialog, &rect)) {
 		if (rect.left > (rect.top * 2)) {
@@ -720,9 +726,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 	    UpdateWindow(hwnd_dialog);
 	    SetForegroundWindow(hwnd_dialog);
 	}
-#ifdef NQ_HACK
     }
-#endif
 
     parms.memsize = Memory_GetSize();
     parms.membase = malloc(parms.memsize);

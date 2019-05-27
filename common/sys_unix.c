@@ -52,8 +52,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef NQ_HACK
 #include "client.h"
 #include "host.h"
-qboolean isDedicated;
 #endif
+
+qboolean isDedicated;
 
 #ifdef SERVERONLY
 static cvar_t sys_nostdout = { "sys_nostdout", "0" };

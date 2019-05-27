@@ -29,6 +29,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifdef NQ_HACK
 #include "host.h"
 #endif
+#ifdef QW_HACK
+#include "client.h"
+#endif
 
 // FIXME - should I let this get larger, with view to enhancements?
 cvar_t gl_max_size = { "gl_max_size", "1024" };
@@ -323,32 +326,23 @@ GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
 {
     gltexture_t *texture = GL_AllocateTexture(name, pic, mipmap);
 
-#ifdef NQ_HACK
     if (!isDedicated) {
-#endif
 	GL_Bind(texture->texnum);
 	GL_Upload8(pic, mipmap);
-#ifdef NQ_HACK
     }
-#endif
 
     return texture->texnum;
 }
 
 int
-GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap,
-		     byte alpha)
+GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap, byte alpha)
 {
     gltexture_t *texture = GL_AllocateTexture(name, pic, mipmap);
 
-#ifdef NQ_HACK
     if (!isDedicated) {
-#endif
 	GL_Bind(texture->texnum);
 	GL_Upload8_Alpha(pic, mipmap, alpha);
-#ifdef NQ_HACK
     }
-#endif
 
     return texture->texnum;
 }

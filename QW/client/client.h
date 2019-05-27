@@ -388,6 +388,7 @@ extern entity_t cl_visedicts[];
 
 extern int fps_count;
 extern int minimum_memory;
+extern qboolean isDedicated;
 
 //
 // cl_input
