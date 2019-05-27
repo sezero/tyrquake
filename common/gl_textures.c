@@ -304,12 +304,8 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
     if (numgltextures == MAX_GLTEXTURES)
 	Sys_Error("numgltextures == MAX_GLTEXTURES");
 
-    glt = &gltextures[numgltextures];
-    numgltextures++;
-
-    strncpy(glt->name, name, sizeof(glt->name) - 1);
-    glt->name[sizeof(glt->name) - 1] = '\0';
-
+    glt = &gltextures[numgltextures++];
+    qstrncpy(glt->name, name, sizeof(glt->name));
     glGenTextures(1, &glt->texnum);
 
   GL_LoadTexture_setup:
