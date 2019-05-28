@@ -799,9 +799,15 @@ CL_ParseClientdata(void)
 CL_NewTranslation
 =====================
 */
-void
+static void
 CL_NewTranslation(int slot)
 {
+#ifdef GLQUAKE
+    if (slot > MAX_CLIENTS)
+	Sys_Error("%s: slot > MAX_CLIENTS", __func__);
+
+    R_TranslatePlayerSkin(slot);
+#else
     int i, j;
     int top, bottom;
     byte *dest, *source;
@@ -813,12 +819,10 @@ CL_NewTranslation(int slot)
     memcpy(dest, vid.colormap, sizeof(cl.players[slot].translations));
     top = cl.players[slot].topcolor;
     bottom = cl.players[slot].bottomcolor;
-#ifdef GLQUAKE
-    R_TranslatePlayerSkin(slot);
-#endif
 
     for (i = 0; i < VID_GRADES; i++, dest += 256, source += 256) {
-	if (top < 128)		// the artists made some backwards ranges.  sigh.
+        /* the artists made some backwards ranges.  sigh. */
+	if (top < 128)
 	    memcpy(dest + TOP_RANGE, source + top, 16);
 	else
 	    for (j = 0; j < 16; j++)
@@ -830,6 +834,7 @@ CL_NewTranslation(int slot)
 	    for (j = 0; j < 16; j++)
 		dest[BOTTOM_RANGE + j] = source[bottom + 15 - j];
     }
+#endif
 }
 
 /*
