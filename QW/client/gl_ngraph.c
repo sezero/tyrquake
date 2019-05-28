@@ -33,10 +33,7 @@ static void
 R_LineGraph(int x, int h)
 {
     int i;
-    int s;
-    int color;
-
-    s = NET_GRAPHHEIGHT;
+    byte color;
 
     if (h == 10000)
 	color = 0x6f;		// yellow
@@ -47,39 +44,16 @@ R_LineGraph(int x, int h)
     else
 	color = 0xfe;		// white
 
-    if (h > s)
-	h = s;
+    if (h > NET_GRAPHHEIGHT)
+	h = NET_GRAPHHEIGHT;
 
-    for (i = 0; i < h; i++)
-	if (i & 1)
-	    netgraph_pixels[NET_GRAPHHEIGHT - i - 1][x] = 0xff;
-	else
-	    netgraph_pixels[NET_GRAPHHEIGHT - i - 1][x] = (byte)color;
-
-    for (; i < s; i++)
-	netgraph_pixels[NET_GRAPHHEIGHT - i - 1][x] = (byte)0xff;
-}
-
-void
-Draw_CharToNetGraph(int x, int y, int num)
-{
-    int row, col;
-    const byte *source;
-    int drawline;
-    int nx;
-
-    row = num >> 4;
-    col = num & 15;
-    source = draw_chars + (row << 10) + (col << 3);
-
-    for (drawline = 8; drawline; drawline--, y++) {
-	for (nx = 0; nx < 8; nx++)
-	    if (source[nx] != 255)
-		netgraph_pixels[y][nx + x] = 0x60 + source[nx];
-	source += 128;
+    for (i = 0; i < h; i++) {
+        netgraph_pixels[NET_GRAPHHEIGHT - 1 - i][x] = (i & 1) ? 0xff : color;
+    }
+    for (; i < NET_GRAPHHEIGHT; i++) {
+	netgraph_pixels[NET_GRAPHHEIGHT - 1 - i][x] = 0xff;
     }
 }
-
 
 /*
 ==============

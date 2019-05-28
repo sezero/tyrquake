@@ -1355,8 +1355,7 @@ CL_ParseServerMessage(void)
 	case svc_chokecount:	// some preceding packets were choked
 	    i = MSG_ReadByte();
 	    for (j = 0; j < i; j++)
-		cl.frames[(cls.netchan.incoming_acknowledged - 1 -
-			   j) & UPDATE_MASK].receivedtime = -2;
+		cl.frames[(cls.netchan.incoming_acknowledged - 1 - j) & UPDATE_MASK].receivedtime = -2;
 	    break;
 
 	case svc_modellist:
