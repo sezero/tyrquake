@@ -196,8 +196,10 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-/* FIXME - don't need to keep these pixels around... */
-static byte menuplyr_pixels[48 * 56];
+/* Copy of the player skin before translation of pants/shirt colour */
+#define MENUPLYR_WIDTH 48
+#define MENUPLYR_HEIGHT 56
+static byte menuplyr_pixels[MENUPLYR_WIDTH * MENUPLYR_HEIGHT];
 
 static int
 GL_LoadPicTexture(const qpic8_t *pic, const char *name)
@@ -298,7 +300,7 @@ Draw_CachePic(const char *path)
     if (!strcmp(path, "gfx/menuplyr.lmp")) {
 	int picsize;
 
-	if (pic->width != 48 || pic->height != 56)
+	if (pic->width != MENUPLYR_WIDTH || pic->height != MENUPLYR_HEIGHT)
 	    Con_DPrintf("WARNING: %s: odd sized %s (%dx%d)\n",
 			__func__, path, pic->width, pic->height);
 	picsize = pic->width * pic->height;
@@ -435,7 +437,12 @@ Draw_Init(void)
 #endif
 
     // save a texture slot for translated picture
-    glGenTextures(1, &translate_texture);
+    const qpic8_t menuplyr = {
+        .width = MENUPLYR_WIDTH,
+        .height = MENUPLYR_HEIGHT,
+        .pixels = menuplyr_pixels,
+    };
+    translate_texture = GL_AllocateTexture("@menuplyr_translate", &menuplyr, false);
 
     // create textures for scraps
     Scrap_Init();
@@ -649,7 +656,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
     int p;
 
     /* Don't crash if we have a bad menupic */
-    if (pic->width > 48 || pic->height > 56)
+    if (pic->width > MENUPLYR_WIDTH || pic->height > MENUPLYR_HEIGHT)
 	return;
 
     GL_Bind(translate_texture);
