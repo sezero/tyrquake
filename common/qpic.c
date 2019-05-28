@@ -137,7 +137,7 @@ QPic_8to32(const qpic8_t *in, qpic32_t *out)
 {
     const int width = in->width;
     const int height = in->height;
-    const int stride = in->stride;
+    const int stride = in->stride ? in->stride : in->width;
     const byte *in_p = in->pixels;
     qpixel32_t *out_p = out->pixels;
     int x, y;
@@ -154,7 +154,7 @@ QPic_8to32_Alpha(const qpic8_t *in, qpic32_t *out, byte alpha)
 {
     const int width = in->width;
     const int height = in->height;
-    const int stride = in->stride;
+    const int stride = in->stride ? in->stride : in->width;
     const byte *in_p = in->pixels;
     qpixel32_t *out_p = out->pixels;
     int x, y;
