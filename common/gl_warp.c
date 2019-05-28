@@ -397,40 +397,17 @@ R_InitSky(texture_t *mt)
 {
     byte *src = (byte *)mt + mt->offsets[0];
     qpic8_t pic;
-    qpic32_t *pic32;
-    int mark;
 
     /* Set up the pic to describe the sky texture */
     pic.width = 128;
     pic.height = 128;
     pic.stride = 256;
 
-    mark = Hunk_LowMark();
-    pic32 = QPic32_Alloc(128, 128);
-
     /* Create the solid layer */
     pic.pixels = src + 128;
-    QPic_8to32(&pic, pic32);
-
-    glGenTextures(1, &mt->gl_texturenum);
-    GL_Bind(mt->gl_texturenum);
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_solid_format,
-		 128, 128, 0,
-		 GL_RGBA, GL_UNSIGNED_BYTE, pic32->pixels);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    mt->gl_texturenum = GL_LoadTexture("@sky_background", &pic, false);
 
     /* Create the alpha layer */
     pic.pixels = src;
-    QPic_8to32_Alpha(&pic, pic32, 0);
-
-    glGenTextures(1, &mt->gl_texturenum_alpha);
-    GL_Bind(mt->gl_texturenum_alpha);
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format,
-		 128, 128, 0,
-		 GL_RGBA, GL_UNSIGNED_BYTE, pic32->pixels);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    Hunk_FreeToLowMark(mark);
+    mt->gl_texturenum_alpha = GL_LoadTexture_Alpha("@sky_foreground", &pic, false, 0);
 }
