@@ -80,25 +80,31 @@ static const byte dottexture[8][8] = {
 static void
 R_InitParticleTexture(void)
 {
+    byte pixels[8][8][4];
     int x, y;
-    byte data[8][8][4];
 
     //
     // particle texture
     //
-    glGenTextures(1, &particletexture);
-    GL_Bind(particletexture);
-
     for (x = 0; x < 8; x++) {
 	for (y = 0; y < 8; y++) {
-	    data[y][x][0] = 255;
-	    data[y][x][1] = 255;
-	    data[y][x][2] = 255;
-	    data[y][x][3] = dottexture[x][y] * 255;
+	    pixels[y][x][0] = 255;
+	    pixels[y][x][1] = 255;
+	    pixels[y][x][2] = 255;
+	    pixels[y][x][3] = dottexture[x][y] * 255;
 	}
     }
+
+    const qpic8_t particle = {
+        .width = 8,
+        .height = 8,
+        .pixels = &dottexture[0][0],
+    };
+    particletexture = GL_AllocateTexture("@particle", &particle, false);
+    GL_Bind(particletexture);
+
     glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 8, 8, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, data);
+		 GL_UNSIGNED_BYTE, pixels);
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
