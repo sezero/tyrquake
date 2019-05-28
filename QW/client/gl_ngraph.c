@@ -91,10 +91,10 @@ R_NetGraph(void)
 {
     static GLuint netgraphtexture;
 
-    int i, time_index, x, y, lost;
+    int i, time_index, x, y, loss_percent;
     char message[80];
 
-    lost = CL_CalcNet();
+    loss_percent = CL_CalcNet();
     for (i = 0; i < NET_TIMINGS; i++) {
 	time_index = (cls.netchan.outgoing_sequence - i) & NET_TIMINGSMASK;
 	R_LineGraph(NET_TIMINGS - 1 - i, packet_latency[time_index]);
@@ -106,7 +106,7 @@ R_NetGraph(void)
     M_DrawTextBox(x, y, NET_TIMINGS / 8, NET_GRAPHHEIGHT / 8 + 1);
     y += 8;
 
-    qsnprintf(message, sizeof(message), "%3i%% packet loss", lost);
+    qsnprintf(message, sizeof(message), "%3i%% packet loss", loss_percent);
     Draw_String(8, y, message);
     y += 8;
 

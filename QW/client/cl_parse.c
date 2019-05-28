@@ -130,31 +130,37 @@ int packet_latency[NET_TIMINGS];
 int
 CL_CalcNet(void)
 {
-    int a, i;
+    int seq_no, i;
     frame_t *frame;
-    int lost;
+    int packets_lost;
 
-    for (i = cls.netchan.outgoing_sequence - UPDATE_BACKUP + 1;
-	 i <= cls.netchan.outgoing_sequence; i++) {
-	frame = &cl.frames[i & UPDATE_MASK];
-	if (frame->receivedtime == -1)
-	    packet_latency[i & NET_TIMINGSMASK] = 9999;	// dropped
-	else if (frame->receivedtime == -2)
-	    packet_latency[i & NET_TIMINGSMASK] = 10000;	// choked
-	else if (frame->invalid)
-	    packet_latency[i & NET_TIMINGSMASK] = 9998;	// invalid delta
-	else
-	    packet_latency[i & NET_TIMINGSMASK] =
-		(frame->receivedtime - frame->senttime) * 20;
+    seq_no = cls.netchan.outgoing_sequence - UPDATE_BACKUP + 1;
+    for (; seq_no <= cls.netchan.outgoing_sequence; seq_no++) {
+	frame = &cl.frames[seq_no & UPDATE_MASK];
+
+	if (frame->receivedtime == -1) {
+            /* Not yet received, potentially dropped... */
+            if (seq_no > cls.netchan.incoming_sequence) {
+                packet_latency[seq_no & NET_TIMINGSMASK] = (realtime - frame->senttime) * 20;
+            } else {
+                packet_latency[seq_no & NET_TIMINGSMASK] = 9999;  // dropped
+            }
+        } else if (frame->receivedtime == -2) {
+	    packet_latency[seq_no & NET_TIMINGSMASK] = 10000; // choked
+        } else if (frame->invalid) {
+	    packet_latency[seq_no & NET_TIMINGSMASK] = 9998;  // invalid delta
+        } else {
+	    packet_latency[seq_no & NET_TIMINGSMASK] = (frame->receivedtime - frame->senttime) * 20;
+        }
     }
 
-    lost = 0;
-    for (a = 0; a < NET_TIMINGS; a++) {
-	i = (cls.netchan.outgoing_sequence - a) & NET_TIMINGSMASK;
+    packets_lost = 0;
+    for (i = 0; i < NET_TIMINGS; i++) {
 	if (packet_latency[i] == 9999)
-	    lost++;
+	    packets_lost++;
     }
-    return lost * 100 / NET_TIMINGS;
+
+    return packets_lost * 100 / NET_TIMINGS;
 }
 
 //=============================================================================
