@@ -884,8 +884,10 @@ R_AliasDrawModel(entity_t *entity)
 #ifdef NQ_HACK
     if (entity->colormap != vid.colormap && !gl_nocolors.value) {
 	const int playernum = CL_PlayerEntity(entity);
-	if (playernum)
+	if (playernum) {
+            assert(playertextures[playernum - 1]);
 	    GL_Bind(playertextures[playernum - 1]);
+        }
     }
 #endif
 #ifdef QW_HACK
@@ -895,8 +897,10 @@ R_AliasDrawModel(entity_t *entity)
 	    Skin_Find(entity->scoreboard);
 	    R_TranslatePlayerSkin(playernum);
 	}
-	if (playernum >= 0 && playernum < MAX_CLIENTS)
+	if (playernum >= 0 && playernum < MAX_CLIENTS) {
+            assert(playertextures[playernum]);
 	    GL_Bind(playertextures[playernum]);
+        }
     }
 #endif
 

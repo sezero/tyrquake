@@ -247,8 +247,6 @@ R_Init(void)
 
     R_InitParticles();
     R_InitParticleTexture();
-
-    glGenTextures(MAX_CLIENTS, playertextures);
 }
 
 
@@ -457,6 +455,15 @@ R_TranslatePlayerSkin(int playernum)
 
     // because this happens during gameplay, do it fast
     // instead of sending it through gl_upload 8
+    if (!playertextures[playernum]) {
+        const qpic8_t playertexture = {
+            .width = inwidth,
+            .height = inheight,
+            .stride = instride,
+            .pixels = original,
+        };
+        playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playertexture, false);
+    }
     GL_Bind(playertextures[playernum]);
 
     // allow users to crunch sizes down
