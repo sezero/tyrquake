@@ -26,11 +26,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "sbar.h"
 
-GLuint netgraphtexture;		// netgraph texture
-
 #define NET_GRAPHHEIGHT 32
-
-static byte ngraph_texels[NET_GRAPHHEIGHT][NET_TIMINGS];
+static byte netgraph_pixels[NET_GRAPHHEIGHT][NET_TIMINGS];
 
 static void
 R_LineGraph(int x, int h)
@@ -55,12 +52,12 @@ R_LineGraph(int x, int h)
 
     for (i = 0; i < h; i++)
 	if (i & 1)
-	    ngraph_texels[NET_GRAPHHEIGHT - i - 1][x] = 0xff;
+	    netgraph_pixels[NET_GRAPHHEIGHT - i - 1][x] = 0xff;
 	else
-	    ngraph_texels[NET_GRAPHHEIGHT - i - 1][x] = (byte)color;
+	    netgraph_pixels[NET_GRAPHHEIGHT - i - 1][x] = (byte)color;
 
     for (; i < s; i++)
-	ngraph_texels[NET_GRAPHHEIGHT - i - 1][x] = (byte)0xff;
+	netgraph_pixels[NET_GRAPHHEIGHT - i - 1][x] = (byte)0xff;
 }
 
 void
@@ -78,7 +75,7 @@ Draw_CharToNetGraph(int x, int y, int num)
     for (drawline = 8; drawline; drawline--, y++) {
 	for (nx = 0; nx < 8; nx++)
 	    if (source[nx] != 255)
-		ngraph_texels[y][nx + x] = 0x60 + source[nx];
+		netgraph_pixels[y][nx + x] = 0x60 + source[nx];
 	source += 128;
     }
 }
@@ -92,21 +89,16 @@ R_NetGraph
 void
 R_NetGraph(void)
 {
-    int a, x, i, y;
-    int lost;
-    char st[80];
-    unsigned ngraph_pixels[NET_GRAPHHEIGHT][NET_TIMINGS];
+    static GLuint netgraphtexture;
+
+    int i, time_index, x, y, lost;
+    char message[80];
 
     lost = CL_CalcNet();
-    for (a = 0; a < NET_TIMINGS; a++) {
-	i = (cls.netchan.outgoing_sequence - a) & NET_TIMINGSMASK;
-	R_LineGraph(NET_TIMINGS - 1 - a, packet_latency[i]);
+    for (i = 0; i < NET_TIMINGS; i++) {
+	time_index = (cls.netchan.outgoing_sequence - i) & NET_TIMINGSMASK;
+	R_LineGraph(NET_TIMINGS - 1 - i, packet_latency[time_index]);
     }
-
-    // now load the netgraph texture into gl and draw it
-    for (y = 0; y < NET_GRAPHHEIGHT; y++)
-	for (x = 0; x < NET_TIMINGS; x++)
-	    ngraph_pixels[y][x] = d_8to24table[ngraph_texels[y][x]];
 
     x = -((vid.width - 320) >> 1);
     y = vid.height - sb_lines - 24 - NET_GRAPHHEIGHT - 1;
@@ -114,19 +106,21 @@ R_NetGraph(void)
     M_DrawTextBox(x, y, NET_TIMINGS / 8, NET_GRAPHHEIGHT / 8 + 1);
     y += 8;
 
-    qsnprintf(st, sizeof(st), "%3i%% packet loss", lost);
-    Draw_String(8, y, st);
+    qsnprintf(message, sizeof(message), "%3i%% packet loss", lost);
+    Draw_String(8, y, message);
     y += 8;
 
+    // now load the netgraph texture into gl and draw it
+    const qpic8_t netgraph = {
+        .width = NET_TIMINGS,
+        .height = NET_GRAPHHEIGHT,
+        .pixels = &netgraph_pixels[0][0],
+    };
+    if (!netgraphtexture) {
+        netgraphtexture = GL_AllocateTexture("@netgraph", &netgraph, true);
+    }
     GL_Bind(netgraphtexture);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format,
-		 NET_TIMINGS, NET_GRAPHHEIGHT, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, ngraph_pixels);
-
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    GL_Upload8_Alpha(&netgraph, false, 255);
 
     x = 8;
     glColor3f(1, 1, 1);

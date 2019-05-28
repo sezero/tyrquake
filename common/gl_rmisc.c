@@ -248,9 +248,6 @@ R_Init(void)
     R_InitParticles();
     R_InitParticleTexture();
 
-#ifdef QW_HACK
-    glGenTextures(1, &netgraphtexture);
-#endif
     glGenTextures(MAX_CLIENTS, playertextures);
 }
 
