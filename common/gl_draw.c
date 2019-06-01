@@ -46,7 +46,6 @@ const qpic8_t *draw_disc;
 static const qpic8_t *draw_backtile;
 
 GLuint charset_texture;
-static GLuint translate_texture;
 static GLuint crosshair_texture;
 
 static const byte crosshair_data[64] = {
@@ -196,11 +195,6 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-/* Copy of the player skin before translation of pants/shirt colour */
-#define MENUPLYR_WIDTH 48
-#define MENUPLYR_HEIGHT 56
-static byte menuplyr_pixels[MENUPLYR_WIDTH * MENUPLYR_HEIGHT];
-
 static int
 GL_LoadPicTexture(const qpic8_t *pic, const char *name)
 {
@@ -291,22 +285,6 @@ Draw_CachePic(const char *path)
     pic->width = pic->stride = dpic->width;
     pic->height = dpic->height;
     pic->pixels = dpic->data;
-
-    /*
-     * HACK HACK HACK --- we need to keep the bytes for the
-     * translatable player picture just for the multiplayer
-     * configuration dialog
-     */
-    if (!strcmp(path, "gfx/menuplyr.lmp")) {
-	int picsize;
-
-	if (pic->width != MENUPLYR_WIDTH || pic->height != MENUPLYR_HEIGHT)
-	    Con_DPrintf("WARNING: %s: odd sized %s (%dx%d)\n",
-			__func__, path, pic->width, pic->height);
-	picsize = pic->width * pic->height;
-	picsize = qmin(picsize, (int)sizeof(menuplyr_pixels));
-	memcpy(menuplyr_pixels, pic->pixels, picsize);
-    }
 
     cachepic->glpic.texnum = GL_LoadPicTexture(pic, path);
     cachepic->glpic.sl = 0;
@@ -435,14 +413,6 @@ Draw_Init(void)
     pic->width = vid.conwidth;
     pic->height = vid.conheight;
 #endif
-
-    // save a texture slot for translated picture
-    const qpic8_t menuplyr = {
-        .width = MENUPLYR_WIDTH,
-        .height = MENUPLYR_HEIGHT,
-        .pixels = menuplyr_pixels,
-    };
-    translate_texture = GL_AllocateTexture("@menuplyr_translate", &menuplyr, TEXTURE_TYPE_HUD);
 
     // create textures for scraps
     Scrap_Init();
@@ -640,6 +610,25 @@ Draw_TransPic(int x, int y, const qpic8_t *pic)
 }
 
 
+static const qpic8_t *
+Draw_GetMenuplayerPic()
+{
+    static qpic8_t pic;
+    static cache_user_t menuplyr_cache;
+
+    dpic8_t *dpic = Cache_Check(&menuplyr_cache);
+    if (!dpic) {
+        COM_LoadCacheFile("gfx/menuplyr.lmp", &menuplyr_cache);
+        dpic = menuplyr_cache.data;
+        SwapDPic(dpic);
+    }
+    pic.width = pic.stride = dpic->width;
+    pic.height = dpic->height;
+    pic.pixels = dpic->data;
+
+    return &pic;
+}
+
 /*
 =============
 Draw_TransPicTranslate
@@ -650,34 +639,38 @@ Only used for the player color selection menu
 void
 Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
 {
-    int v, u;
-    unsigned trans[64 * 64], *dest;
-    byte *src;
-    int p;
+    static GLuint translate_texture;
 
-    /* Don't crash if we have a bad menupic */
-    if (pic->width > MENUPLYR_WIDTH || pic->height > MENUPLYR_HEIGHT)
-	return;
+    const byte *src;
+    byte *dest, *buffer;
+    int i, buffersize, mark;
+    qpic8_t translated;
+    const qpic8_t *menupic;
 
-    GL_Bind(translate_texture);
+    menupic = Draw_GetMenuplayerPic();
+    mark = Hunk_LowMark();
 
-    dest = trans;
-    for (v = 0; v < 64; v++, dest += 64) {
-	src = &menuplyr_pixels[((v * pic->height) >> 6) * pic->width];
-	for (u = 0; u < 64; u++) {
-	    p = src[(u * pic->width) >> 6];
-	    if (p == 255)
-		dest[u] = p;
-	    else
-		dest[u] = d_8to24table[translation[p]];
-	}
+    buffersize = menupic->width * menupic->height;
+    buffer = Hunk_AllocName(buffersize, "menuplyr");
+
+    dest = buffer;
+    src = menupic->pixels;
+    for (i = 0; i < buffersize; i++) {
+        *dest++ = translation[*src++];
     }
 
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 64, 64, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, trans);
+    translated.width = menupic->width;
+    translated.height = menupic->height;
+    translated.stride = menupic->stride;
+    translated.pixels = buffer;
 
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    if (!translate_texture) {
+        translate_texture = GL_AllocateTexture("@menuplyr_translate", pic, TEXTURE_TYPE_HUD);
+    }
+    GL_Bind(translate_texture);
+    GL_Upload8_Alpha(&translated, TEXTURE_TYPE_HUD, 255);
+
+    Hunk_FreeToLowMark(mark);
 
     glColor3f(1, 1, 1);
     glBegin(GL_QUADS);
