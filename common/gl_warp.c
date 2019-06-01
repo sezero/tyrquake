@@ -405,9 +405,9 @@ R_InitSky(texture_t *mt)
 
     /* Create the solid layer */
     pic.pixels = src + 128;
-    mt->gl_texturenum = GL_LoadTexture("@sky_background", &pic, false);
+    mt->gl_texturenum = GL_LoadTexture("@sky_background", &pic, TEXTURE_TYPE_SKY);
 
     /* Create the alpha layer */
     pic.pixels = src;
-    mt->gl_texturenum_alpha = GL_LoadTexture_Alpha("@sky_foreground", &pic, false, 0);
+    mt->gl_texturenum_alpha = GL_LoadTexture_Alpha("@sky_foreground", &pic, TEXTURE_TYPE_SKY, 0);
 }

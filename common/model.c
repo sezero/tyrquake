@@ -559,7 +559,7 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	else {
 	    byte *pixels = (byte *)(tx + 1);
 	    qpic8_t pic = { tx->width, tx->height, tx->width, pixels };
-	    tx->gl_texturenum =	GL_LoadTexture(mt->name, &pic, true);
+	    tx->gl_texturenum =	GL_LoadTexture(mt->name, &pic, TEXTURE_TYPE_WORLD);
 	}
 #endif
 #endif

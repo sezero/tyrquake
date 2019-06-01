@@ -106,7 +106,7 @@ Scrap_Init(void)
 	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
 	scrap->pic.height = BLOCK_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-        scrap->glnum = GL_AllocateTexture(va("@conscrap_%02d", i), &scrap->pic, false);
+        scrap->glnum = GL_AllocateTexture(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
     }
 }
 
@@ -177,7 +177,7 @@ Scrap_Flush(GLuint texnum)
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	if (scrap->dirty && texnum == scrap->glnum) {
 	    GL_Bind(scrap->glnum);
-	    GL_Upload8_Alpha(&scrap->pic, false, 255);
+	    GL_Upload8_Alpha(&scrap->pic, TEXTURE_TYPE_HUD, 255);
 	    scrap->dirty = false;
 	    return;
 	}
@@ -204,7 +204,7 @@ static byte menuplyr_pixels[MENUPLYR_WIDTH * MENUPLYR_HEIGHT];
 static int
 GL_LoadPicTexture(const qpic8_t *pic, const char *name)
 {
-    return GL_LoadTexture_Alpha(name, pic, false, 255);
+    return GL_LoadTexture_Alpha(name, pic, TEXTURE_TYPE_HUD, 255);
 }
 
 const qpic8_t *
@@ -399,9 +399,9 @@ Draw_Init(void)
 
     /* now turn them into textures */
     const qpic8_t charset_pic = { 128, 128, 128, draw_chars };
-    charset_texture = GL_LoadTexture_Alpha("charset", &charset_pic, false, 0);
+    charset_texture = GL_LoadTexture_Alpha("charset", &charset_pic, TEXTURE_TYPE_HUD, 0);
     const qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
-    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, false, 255);
+    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD, 255);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp");
@@ -421,7 +421,7 @@ Draw_Init(void)
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-    conback->texnum = GL_LoadTexture("conback", pic, false);
+    conback->texnum = GL_LoadTexture("conback", pic, TEXTURE_TYPE_HUD);
     conback->sl = 0;
     conback->sh = 1;
     conback->tl = 0;
@@ -442,7 +442,7 @@ Draw_Init(void)
         .height = MENUPLYR_HEIGHT,
         .pixels = menuplyr_pixels,
     };
-    translate_texture = GL_AllocateTexture("@menuplyr_translate", &menuplyr, false);
+    translate_texture = GL_AllocateTexture("@menuplyr_translate", &menuplyr, TEXTURE_TYPE_HUD);
 
     // create textures for scraps
     Scrap_Init();

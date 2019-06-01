@@ -100,7 +100,7 @@ R_InitParticleTexture(void)
         .height = 8,
         .pixels = &dottexture[0][0],
     };
-    particletexture = GL_AllocateTexture("@particle", &particle, false);
+    particletexture = GL_AllocateTexture("@particle", &particle, TEXTURE_TYPE_PARTICLE);
     GL_Bind(particletexture);
 
     glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 8, 8, 0, GL_RGBA,
@@ -462,7 +462,7 @@ R_TranslatePlayerSkin(int playernum)
             .stride = instride,
             .pixels = original,
         };
-        playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playertexture, false);
+        playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playertexture, TEXTURE_TYPE_SKIN);
     }
     GL_Bind(playertextures[playernum]);
 

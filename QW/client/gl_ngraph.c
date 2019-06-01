@@ -91,10 +91,10 @@ R_NetGraph(void)
         .pixels = &netgraph_pixels[0][0],
     };
     if (!netgraphtexture) {
-        netgraphtexture = GL_AllocateTexture("@netgraph", &netgraph, true);
+        netgraphtexture = GL_AllocateTexture("@netgraph", &netgraph, TEXTURE_TYPE_HUD);
     }
     GL_Bind(netgraphtexture);
-    GL_Upload8_Alpha(&netgraph, false, 255);
+    GL_Upload8_Alpha(&netgraph, TEXTURE_TYPE_HUD, 255);
 
     x = 8;
     glColor3f(1, 1, 1);

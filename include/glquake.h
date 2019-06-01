@@ -60,12 +60,28 @@ extern unsigned char d_15to8table[65536];
 
 extern float gldepthmin, gldepthmax;
 
-void GL_Upload8(const qpic8_t *pic, qboolean mipmap);
-void GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha);
-int GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap);
-int GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap, byte alpha);
+/*
+ * Classify types of texture which may have different settings for mipmap,
+ * alpha, filters, etc.
+ */
+enum texture_type {
+    TEXTURE_TYPE_HUD,
+    TEXTURE_TYPE_WORLD,
+    TEXTURE_TYPE_SKY,
+    TEXTURE_TYPE_SKIN,
+    TEXTURE_TYPE_LIGHTMAP,
+    TEXTURE_TYPE_PARTICLE,
+    TEXTURE_TYPE_SPRITE,
+};
+
+
+
+void GL_Upload8(const qpic8_t *pic, enum texture_type type);
+void GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha);
+int GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type);
+int GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, enum texture_type type, byte alpha);
 int GL_FindTexture(const char *name);
-int GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap);
+int GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type);
 void GL_SelectTexture(GLenum);
 
 extern int glx, gly, glwidth, glheight;

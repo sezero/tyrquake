@@ -45,10 +45,10 @@ int gl_alpha_format = GL_RGBA;	// 4
 
 typedef struct {
     GLuint texnum;
-    char name[MAX_QPATH];
     int width, height;
-    qboolean mipmap;
+    enum texture_type type;
     unsigned short crc;		// CRC for texture cache matching
+    char name[MAX_QPATH];
 } gltexture_t;
 
 #define	MAX_GLTEXTURES	4096
@@ -115,12 +115,24 @@ GL_TextureMode_f(void)
 
     /* change all the existing mipmap texture objects */
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-	if (glt->mipmap) {
-	    GL_Bind(glt->texnum);
-	    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-			    glmode->min_filter);
-	    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-			    glmode->mag_filter);
+        switch (glt->type) {
+            case TEXTURE_TYPE_WORLD:
+            case TEXTURE_TYPE_SKIN:
+            case TEXTURE_TYPE_SPRITE:
+                GL_Bind(glt->texnum);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+                break;
+            case TEXTURE_TYPE_SKY:
+            case TEXTURE_TYPE_HUD:
+            case TEXTURE_TYPE_PARTICLE:
+                GL_Bind(glt->texnum);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
+                glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+                break;
+            case TEXTURE_TYPE_LIGHTMAP:
+                // Always linear/linear, doesn't change
+                break;
 	}
     }
 }
@@ -169,11 +181,11 @@ GL_Upload32
 ===============
 */
 static void
-GL_Upload32(qpic32_t *pic, qboolean mipmap, qboolean alpha)
+GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
 {
     const int format = alpha ? gl_alpha_format : gl_solid_format;
     qpic32_t *scaled;
-    int width, height, mark;
+    int width, height, mark, miplevel;
 
     if (!gl_npotable || !gl_npot.value) {
 	/* find the next power-of-two size up */
@@ -202,30 +214,31 @@ GL_Upload32(qpic32_t *pic, qboolean mipmap, qboolean alpha)
 	scaled = pic;
     }
 
-    if (mipmap) {
-	int miplevel = 0;
-	while (1) {
-	    glTexImage2D(GL_TEXTURE_2D, miplevel, format,
-			 scaled->width, scaled->height, 0,
-			 GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
-	    if (scaled->width == 1 && scaled->height == 1)
-		break;
+    switch (type) {
+        case TEXTURE_TYPE_WORLD:
+        case TEXTURE_TYPE_SKIN:
+        case TEXTURE_TYPE_SPRITE:
+            miplevel = 0;
+            while (1) {
+                glTexImage2D(GL_TEXTURE_2D, miplevel, format,
+                             scaled->width, scaled->height, 0,
+                             GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
+                if (scaled->width == 1 && scaled->height == 1)
+                    break;
 
-	    QPic32_MipMap(scaled);
-	    miplevel++;
-	}
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-			glmode->min_filter);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-			glmode->mag_filter);
-    } else {
-	glTexImage2D(GL_TEXTURE_2D, 0, format,
-		     scaled->width, scaled->height, 0,
-		     GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-			glmode->mag_filter);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,
-			glmode->mag_filter);
+                QPic32_MipMap(scaled);
+                miplevel++;
+            }
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+            break;
+        default:
+            glTexImage2D(GL_TEXTURE_2D, 0, format,
+                         scaled->width, scaled->height, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+            break;
     }
 
     Hunk_FreeToLowMark(mark);
@@ -237,7 +250,7 @@ GL_Upload8
 ===============
 */
 void
-GL_Upload8(const qpic8_t *pic, qboolean mipmap)
+GL_Upload8(const qpic8_t *pic, enum texture_type type)
 {
     qpic32_t *pic32;
     int mark;
@@ -246,7 +259,7 @@ GL_Upload8(const qpic8_t *pic, qboolean mipmap)
 
     pic32 = QPic32_Alloc(pic->width, pic->height);
     QPic_8to32(pic, pic32);
-    GL_Upload32(pic32, mipmap, false);
+    GL_Upload32(pic32, type, false);
 
     Hunk_FreeToLowMark(mark);
 }
@@ -257,7 +270,7 @@ GL_Upload8_Alpha
 ===============
 */
 void
-GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha)
+GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha)
 {
     qpic32_t *pic32;
     int mark;
@@ -266,7 +279,7 @@ GL_Upload8_Alpha(const qpic8_t *pic, qboolean mipmap, byte alpha)
 
     pic32 = QPic32_Alloc(pic->width, pic->height);
     QPic_8to32_Alpha(pic, pic32, alpha);
-    GL_Upload32(pic32, mipmap, true);
+    GL_Upload32(pic32, type, true);
 
     Hunk_FreeToLowMark(mark);
 }
@@ -281,7 +294,7 @@ one.
 ================
 */
 int
-GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
+GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type)
 {
     int i;
     gltexture_t *glt;
@@ -319,32 +332,32 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
     glt->crc = crc;
     glt->width = pic->width;
     glt->height = pic->height;
-    glt->mipmap = mipmap;
+    glt->type = type;
 
     return glt->texnum;
 }
 
 int
-GL_LoadTexture(const char *name, const qpic8_t *pic, qboolean mipmap)
+GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type)
 {
-    int texnum = GL_AllocateTexture(name, pic, mipmap);
+    int texnum = GL_AllocateTexture(name, pic, type);
 
     if (!isDedicated) {
 	GL_Bind(texnum);
-	GL_Upload8(pic, mipmap);
+	GL_Upload8(pic, type);
     }
 
     return texnum;
 }
 
 int
-GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, qboolean mipmap, byte alpha)
+GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, enum texture_type type, byte alpha)
 {
-    int texnum = GL_AllocateTexture(name, pic, mipmap);
+    int texnum = GL_AllocateTexture(name, pic, type);
 
     if (!isDedicated) {
 	GL_Bind(texnum);
-	GL_Upload8_Alpha(pic, mipmap, alpha);
+	GL_Upload8_Alpha(pic, type, alpha);
     }
 
     return texnum;

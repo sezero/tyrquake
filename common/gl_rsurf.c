@@ -1352,7 +1352,7 @@ GL_BuildLightmaps(void *hunkbase)
                 .height = BLOCK_HEIGHT,
                 .pixels = block->data,
             };
-            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &lightmap, false);
+            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &lightmap, TEXTURE_TYPE_LIGHTMAP);
         }
 
 	GL_Bind(block->texture);
