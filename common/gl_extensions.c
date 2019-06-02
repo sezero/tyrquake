@@ -33,25 +33,16 @@ static qboolean
 GL_ExtensionCheck(const char *extension)
 {
     int length = strlen(extension);
-    char *check;
-    char buf[1024];
+    const char *check;
 
-    if (!strncmp(gl_extensions, extension, length)) {
-	char end = gl_extensions[length];
-	if (!end || end == ' ')
-	    return true;
-    }
-
-    qsnprintf(buf, sizeof(buf), " %s", extension);
-    length++;
-    while (1) {
-	check = strstr(gl_extensions, buf);
-	if (!check)
-	    return false;
+    check = gl_extensions;
+    while ((check = strstr(check, extension))) {
 	if (!check[length] || check[length] == ' ')
 	    return true;
 	check += length;
     }
+
+    return false;
 }
 
 void
