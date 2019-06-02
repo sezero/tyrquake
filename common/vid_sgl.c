@@ -39,6 +39,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
+void *
+GL_GetProcAddress(const char *name)
+{
+    return SDL_GL_GetProcAddress(name);
+}
+
 #define WARP_WIDTH 320
 #define WARP_HEIGHT 200
 
@@ -69,7 +75,6 @@ void VID_UnlockBuffer(void) {}
 void (*VID_SetGammaRamp)(unsigned short ramp[3][256]) = NULL;
 
 float gldepthmin, gldepthmax;
-qboolean gl_mtexable;
 cvar_t gl_ztrick = { "gl_ztrick", "1" };
 
 void VID_Update(vrect_t *rects) {}
@@ -169,28 +174,9 @@ const char *gl_vendor;
 const char *gl_renderer;
 const char *gl_version;
 const char *gl_extensions;
-static int gl_num_texture_units;
 
-static qboolean
-VID_GL_CheckExtn(const char *extn)
-{
-    const char *found;
-    const int len = strlen(extn);
-    char nextc;
-
-    found = strstr(gl_extensions, extn);
-    while (found) {
-	nextc = found[len];
-	if (nextc == ' ' || !nextc)
-	    return true;
-	found = strstr(found + len, extn);
-    }
-
-    return false;
-}
-
-static void
-VID_InitGL(void)
+void
+GL_Init(void)
 {
     Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&gl_npot);
@@ -206,20 +192,7 @@ VID_InitGL(void)
     printf("GL_VERSION: %s\n", gl_version);
     printf("GL_EXTENSIONS: %s\n", gl_extensions);
 
-    gl_mtexable = false;
-    if (!COM_CheckParm("-nomtex") && VID_GL_CheckExtn("GL_ARB_multitexture")) {
-	qglMultiTexCoord2fARB = SDL_GL_GetProcAddress("glMultiTexCoord2fARB");
-	qglActiveTextureARB = SDL_GL_GetProcAddress("glActiveTextureARB");
-
-	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_num_texture_units);
-	if (gl_num_texture_units >= 2 &&
-	    qglMultiTexCoord2fARB && qglActiveTextureARB)
-	    gl_mtexable = true;
-	Con_Printf("ARB multitexture extension enabled\n"
-		   "-> %i texture units available\n",
-		   gl_num_texture_units);
-    }
-
+    GL_ExtensionCheck_MultiTexture();
     GL_ExtensionCheck_NPoT();
 
     glClearColor(0.5, 0.5, 0.5, 0);
@@ -274,7 +247,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	Sys_Error("%s: SDL_GL_MakeCurrent() failed: %s",
 		  __func__, SDL_GetError());
 
-    VID_InitGL();
+    GL_Init();
 
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;

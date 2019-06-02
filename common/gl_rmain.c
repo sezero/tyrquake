@@ -137,6 +137,9 @@ cvar_t r_lerpmodels = { "r_lerpmodels", "0", false };
 cvar_t r_lerpmove = { "r_lerpmove", "0", false };
 #endif
 
+qboolean gl_mtexable = false;
+int gl_num_texture_units;
+
 /*
 =================
 R_CullBox

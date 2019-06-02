@@ -57,3 +57,36 @@ GL_ExtensionCheck_NPoT(void)
     Con_DPrintf("Non-power-of-two textures available.\n");
     gl_npotable = true;
 }
+
+void
+GL_ExtensionCheck_MultiTexture()
+{
+    gl_mtexable = false;
+    if (COM_CheckParm("-nomtex"))
+        return;
+    if (!GL_ExtensionCheck("GL_ARB_multitexture"))
+        return;
+
+    Con_Printf("ARB multitexture extensions found.\n");
+
+    /* Check how many texture units there actually are */
+    glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_num_texture_units);
+    if (gl_num_texture_units < 2) {
+        Con_Printf("Only %i texture units, multitexture disabled.\n", gl_num_texture_units);
+        return;
+    }
+
+    /* Retrieve function pointers for multitexture methods */
+    qglMultiTexCoord2fARB = (lpMultiTexFUNC)GL_GetProcAddress("glMultiTexCoord2fARB");
+    qglActiveTextureARB = (lpActiveTextureFUNC)GL_GetProcAddress("glActiveTextureARB");
+    if (!qglMultiTexCoord2fARB || !qglActiveTextureARB) {
+        Con_Printf("ARB Multitexture symbols not found, disabled.\n");
+        return;
+    }
+
+    Con_Printf("ARB multitexture extension enabled\n"
+               "-> %i texture units available\n",
+               gl_num_texture_units);
+
+    gl_mtexable = true;
+}

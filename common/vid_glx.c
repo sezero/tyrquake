@@ -59,10 +59,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 #define glXGetProcAddress glXGetProcAddressARB
 
-/*
- * Ignore the fact that our char type may be signed
- */
-#define qglXGetProcAddress(s) glXGetProcAddress((GLubyte *)(s))
+void *
+GL_GetProcAddress(const char *name)
+{
+    return glXGetProcAddress((GLubyte *)name);
+}
 
 #define MAXWIDTH    100000
 #define MAXHEIGHT   100000
@@ -103,9 +104,6 @@ const char *gl_vendor;
 const char *gl_renderer;
 const char *gl_version;
 const char *gl_extensions;
-
-qboolean gl_mtexable = false;
-static int gl_num_texture_units;
 
 /*-----------------------------------------------------------------------*/
 void
@@ -507,37 +505,6 @@ VID_SetPalette(const byte *palette)
     }
 }
 
-void
-CheckMultiTextureExtensions(void)
-{
-    // FIXME - no space at end of string? Check properly...
-    gl_mtexable = false;
-    if (!COM_CheckParm("-nomtex")
-	&& strstr(gl_extensions, "GL_ARB_multitexture ")) {
-	Con_Printf("ARB multitexture extensions found.\n");
-
-	qglMultiTexCoord2fARB =
-	    (lpMultiTexFUNC)qglXGetProcAddress("glMultiTexCoord2fARB");
-	qglActiveTextureARB =
-	    (lpActiveTextureFUNC)qglXGetProcAddress("glActiveTextureARB");
-
-	/* Check how many texture units there actually are */
-	glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_num_texture_units);
-
-	if (gl_num_texture_units < 2) {
-	    Con_Printf("Only %i texture units, multitexture disabled.\n",
-		       gl_num_texture_units);
-	} else if (!qglMultiTexCoord2fARB || !qglActiveTextureARB) {
-	    Con_Printf("ARB Multitexture symbols not found, disabled.\n");
-	} else {
-	    Con_Printf("ARB multitexture extension enabled\n"
-		       "-> %i texture units available\n",
-		       gl_num_texture_units);
-	    gl_mtexable = true;
-	}
-    }
-}
-
 static void
 VID_SetXF86GammaRamp(unsigned short ramp[3][256])
 {
@@ -611,7 +578,7 @@ GL_Init(void)
     gl_extensions = (char *)glGetString(GL_EXTENSIONS);
     Con_DPrintf("GL_EXTENSIONS: %s\n", gl_extensions);
 
-    CheckMultiTextureExtensions();
+    GL_ExtensionCheck_MultiTexture();
     GL_ExtensionCheck_NPoT();
 
     glClearColor(0.5, 0.5, 0.5, 0);

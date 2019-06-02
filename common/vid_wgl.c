@@ -44,6 +44,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
+void *
+GL_GetProcAddress(const char *name)
+{
+    return wglGetProcAddress(name);
+}
+
 #define WARP_WIDTH	320
 #define WARP_HEIGHT	200
 #define MAXWIDTH	10000
@@ -85,7 +91,6 @@ const char *gl_renderer;
 const char *gl_extensions;
 static const char *gl_vendor;
 static const char *gl_version;
-static int gl_num_texture_units;
 
 static qboolean fullsbardraw = false;
 
@@ -114,7 +119,6 @@ static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 			       LPARAM lParam);
 
 static void ClearAllStates(void);
-static void GL_Init(void);
 
 // FIXME - Shouldn't use the exact names from the library?
 #ifndef GL_VERSION_1_2
@@ -123,8 +127,6 @@ static PROC glColorPointerEXT;
 static PROC glTexCoordPointerEXT;
 static PROC glVertexPointerEXT;
 #endif
-
-qboolean gl_mtexable = false;
 
 static BOOL bSetupPixelFormat(HDC hDC);
 
@@ -458,46 +460,12 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     return true;
 }
 
-static void
-CheckMultiTextureExtensions(void)
-{
-    // FIXME - Do proper substring testing (could be last extension, no space)
-    // FIXME - Check for wglGetProcAddress errors...
-    gl_mtexable = false;
-    if (COM_CheckParm("-nomtex"))
-	return;
-    if (!strstr(gl_extensions, "GL_ARB_multitexture "))
-	return;
-
-    Con_Printf("ARB multitexture extensions found.\n");
-    qglMultiTexCoord2fARB = (void *)wglGetProcAddress("glMultiTexCoord2fARB");
-    qglActiveTextureARB = (void *)wglGetProcAddress("glActiveTextureARB");
-
-    /* Check how many texture units there actually are */
-    glGetIntegerv(GL_MAX_TEXTURE_UNITS, &gl_num_texture_units);
-
-    if (gl_num_texture_units < 2) {
-	Con_Printf("Only %i texture units, multitexture disabled.\n",
-		   gl_num_texture_units);
-	return;
-    }
-    if (!qglMultiTexCoord2fARB || !qglActiveTextureARB) {
-	Con_Printf("ARB Multitexture symbols not found, disabled.\n");
-	return;
-    }
-
-    Con_Printf("ARB multitexture extension enabled\n"
-	       "-> %i texture units available\n",
-	       gl_num_texture_units);
-    gl_mtexable = true;
-}
-
 /*
 ===============
 GL_Init
 ===============
 */
-static void
+void
 GL_Init(void)
 {
     gl_vendor = (char *)glGetString(GL_VENDOR);
@@ -510,10 +478,9 @@ GL_Init(void)
     gl_extensions = (char *)glGetString(GL_EXTENSIONS);
     Con_DPrintf("GL_EXTENSIONS: %s\n", gl_extensions);
 
-    CheckMultiTextureExtensions();
+    GL_ExtensionCheck_MultiTexture();
     GL_ExtensionCheck_NPoT();
 
-    //glClearColor(1, 0, 0, 0);
     glClearColor(0.5, 0.5, 0.5, 0);
     glCullFace(GL_FRONT);
     glEnable(GL_TEXTURE_2D);
@@ -531,7 +498,6 @@ GL_Init(void)
 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-//      glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 }
 

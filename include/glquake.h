@@ -239,6 +239,9 @@ extern float r_world_matrix[16];
 
 extern const char *gl_renderer;
 extern const char *gl_extensions;
+extern int gl_num_texture_units;
+
+void GL_Init();
 
 void GL_InitTextures(void);
 
@@ -256,7 +259,9 @@ extern lpActiveTextureFUNC qglActiveTextureARB;
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;
 
+void *GL_GetProcAddress(const char *name);
 void GL_ExtensionCheck_NPoT(void);
+void GL_ExtensionCheck_MultiTexture(void);
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 
