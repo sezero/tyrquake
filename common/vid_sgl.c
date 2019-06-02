@@ -115,6 +115,14 @@ typedef struct {
 static SDL_PixelFormat *sdl_desktop_format = NULL;
 
 static void
+VID_InitCvars(void)
+{
+    Cvar_RegisterVariable(&vid_mode);
+    Cvar_RegisterVariable(&gl_npot);
+    Cvar_RegisterVariable(&gl_ztrick);
+}
+
+static void
 VID_InitModeList(void)
 {
     int i, err;
@@ -169,51 +177,6 @@ VID_InitModeList(void)
 }
 
 static SDL_GLContext gl_context = NULL;
-
-const char *gl_vendor;
-const char *gl_renderer;
-const char *gl_version;
-const char *gl_extensions;
-
-void
-GL_Init(void)
-{
-    Cvar_RegisterVariable(&vid_mode);
-    Cvar_RegisterVariable(&gl_npot);
-    Cvar_RegisterVariable(&gl_ztrick);
-
-    gl_vendor = (const char *)glGetString(GL_VENDOR);
-    gl_renderer = (const char *)glGetString(GL_RENDERER);
-    gl_version = (const char *)glGetString(GL_VERSION);
-    gl_extensions = (const char *)glGetString(GL_EXTENSIONS);
-
-    printf("GL_VENDOR: %s\n", gl_vendor);
-    printf("GL_RENDERER: %s\n", gl_renderer);
-    printf("GL_VERSION: %s\n", gl_version);
-    printf("GL_EXTENSIONS: %s\n", gl_extensions);
-
-    GL_ExtensionCheck_MultiTexture();
-    GL_ExtensionCheck_NPoT();
-
-    glClearColor(0.5, 0.5, 0.5, 0);
-    glCullFace(GL_FRONT);
-    glEnable(GL_TEXTURE_2D);
-
-    glEnable(GL_ALPHA_TEST);
-    glAlphaFunc(GL_GREATER, 0.666);
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glShadeModel(GL_FLAT);
-
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-}
 
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
@@ -276,6 +239,7 @@ VID_Init(const byte *palette)
     qvidformat_t *format;
     const qvidmode_t *setmode;
 
+    VID_InitCvars();
     VID_InitModeCvars();
 
     Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);

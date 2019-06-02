@@ -87,11 +87,6 @@ static qboolean vid_canalttab = false;
 static qboolean vid_wassuspended = false;
 static int windowed_mouse;
 
-const char *gl_renderer;
-const char *gl_extensions;
-static const char *gl_vendor;
-static const char *gl_version;
-
 static qboolean fullsbardraw = false;
 
 static float vid_gamma = 1.0;
@@ -461,47 +456,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 }
 
 /*
-===============
-GL_Init
-===============
-*/
-void
-GL_Init(void)
-{
-    gl_vendor = (char *)glGetString(GL_VENDOR);
-    Con_Printf("GL_VENDOR: %s\n", gl_vendor);
-    gl_renderer = (char *)glGetString(GL_RENDERER);
-    Con_Printf("GL_RENDERER: %s\n", gl_renderer);
-
-    gl_version = (char *)glGetString(GL_VERSION);
-    Con_Printf("GL_VERSION: %s\n", gl_version);
-    gl_extensions = (char *)glGetString(GL_EXTENSIONS);
-    Con_DPrintf("GL_EXTENSIONS: %s\n", gl_extensions);
-
-    GL_ExtensionCheck_MultiTexture();
-    GL_ExtensionCheck_NPoT();
-
-    glClearColor(0.5, 0.5, 0.5, 0);
-    glCullFace(GL_FRONT);
-    glEnable(GL_TEXTURE_2D);
-
-    glEnable(GL_ALPHA_TEST);
-    glAlphaFunc(GL_GREATER, 0.666);
-
-    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    glShadeModel(GL_FLAT);
-
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-}
-
-/*
 =================
 GL_BeginRendering
 =================
@@ -836,6 +790,22 @@ Check_Gamma(const byte *palette, byte *newpalette)
     }
 }
 
+static void
+VID_InitCvars()
+{
+    Cvar_RegisterVariable(&vid_mode);
+    Cvar_RegisterVariable(&vid_wait);
+    Cvar_RegisterVariable(&vid_nopageflip);
+    Cvar_RegisterVariable(&_vid_wait_override);
+    Cvar_RegisterVariable(&_vid_default_mode);
+    Cvar_RegisterVariable(&_vid_default_mode_win);
+    Cvar_RegisterVariable(&vid_config_x);
+    Cvar_RegisterVariable(&vid_config_y);
+    Cvar_RegisterVariable(&vid_stretch_by_2);
+    Cvar_RegisterVariable(&gl_ztrick);
+    Cvar_RegisterVariable(&gl_npot);
+}
+
 /*
 ===================
 VID_Init
@@ -850,19 +820,10 @@ VID_Init(const byte *palette)
     DEVMODE devmode;
     const qvidmode_t *mode;
 
-    memset(&devmode, 0, sizeof(devmode));
+    VID_InitCvars();
+    VID_InitModeCvars();
 
-    Cvar_RegisterVariable(&vid_mode);
-    Cvar_RegisterVariable(&vid_wait);
-    Cvar_RegisterVariable(&vid_nopageflip);
-    Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&_vid_default_mode);
-    Cvar_RegisterVariable(&_vid_default_mode_win);
-    Cvar_RegisterVariable(&vid_config_x);
-    Cvar_RegisterVariable(&vid_config_y);
-    Cvar_RegisterVariable(&vid_stretch_by_2);
-    Cvar_RegisterVariable(&gl_ztrick);
-    Cvar_RegisterVariable(&gl_npot);
+    memset(&devmode, 0, sizeof(devmode));
 
     Cmd_AddCommand("vid_nummodes", VID_NumModes_f);
     Cmd_AddCommand("vid_describecurrentmode", VID_DescribeCurrentMode_f);

@@ -33,13 +33,12 @@ static qboolean
 GL_ExtensionCheck(const char *extension)
 {
     int length = strlen(extension);
-    const char *check;
+    const char *search = (const char *)glGetString(GL_EXTENSIONS);
 
-    check = gl_extensions;
-    while ((check = strstr(check, extension))) {
-	if (!check[length] || check[length] == ' ')
+    while ((search = strstr(search, extension))) {
+	if (!search[length] || search[length] == ' ')
 	    return true;
-	check += length;
+	search += length;
     }
 
     return false;
