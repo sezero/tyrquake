@@ -1738,60 +1738,6 @@ COM_ScanDir(struct stree_root *root, const char *path, const char *pfx,
     }
 }
 
-/*
-============
-COM_LoadFile
-
-Filename are reletive to the quake directory.
-Optionally return length; set null if you don't want it.
-Always appends a 0 byte to the loaded data.
-============
-*/
-static cache_user_t *loadcache;
-
-static void *
-COM_LoadFile(const char *path, int usehunk, size_t *size)
-{
-    FILE *f;
-    byte *buf;
-    char base[32];
-    size_t filesize;
-
-    buf = NULL;			// quiet compiler warning
-
-// look for it in the filesystem or pack files
-    filesize = COM_FOpenFile(path, &f);
-    if (!filesize)
-	return NULL;
-
-    if (size)
-	*size = filesize;
-
-// extract the filename base name for hunk tag
-    COM_FileBase(path, base, sizeof(base));
-
-    if (usehunk == 3)
-	buf = Cache_Alloc(loadcache, filesize + 1, base);
-    else
-	Sys_Error("%s: bad usehunk", __func__);
-
-    if (!buf)
-	Sys_Error("%s: not enough space for %s", __func__, path);
-
-    buf[filesize] = 0;
-
-#ifndef SERVERONLY
-    Draw_BeginDisc();
-#endif
-    fread(buf, 1, filesize, f);
-    fclose(f);
-#ifndef SERVERONLY
-    Draw_EndDisc();
-#endif
-
-    return buf;
-}
-
 static void
 COM_ReadFileAndClose(byte *buffer, size_t filesize, FILE *f)
 {
@@ -1848,10 +1794,19 @@ COM_LoadTempFile(const char *path, size_t *size)
 }
 
 void
-COM_LoadCacheFile(const char *path, struct cache_user_s *cu)
+COM_LoadCacheFile(const char *path, struct cache_user_s *cache)
 {
-    loadcache = cu;
-    COM_LoadFile(path, 3, NULL);
+    FILE *f;
+    byte *buffer;
+    size_t filesize;
+
+    filesize = COM_FOpenFile(path, &f);
+    if (!filesize)
+        Sys_Error("%s: Unable to load %s\n", __func__, path);
+
+    buffer = Cache_Alloc(cache, filesize + 1, path);
+    COM_ReadFileAndClose(buffer, filesize, f);
+    buffer[filesize] = 0;
 }
 
 // uses temp hunk if larger than bufsize
