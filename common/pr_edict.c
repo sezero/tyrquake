@@ -1049,6 +1049,8 @@ void
 PR_LoadProgs(void)
 {
     int i;
+    size_t progs_size;
+
 #if defined(QW_HACK) && defined(SERVERONLY)
     char num[32];
     dfunction_t *f;
@@ -1059,23 +1061,23 @@ PR_LoadProgs(void)
 	gefvCache[i].field[0] = 0;
 
 #ifdef NQ_HACK
-    progs = COM_LoadHunkFile("progs.dat");
+    progs = COM_LoadHunkFile("progs.dat", &progs_size);
 #endif
 #if defined(QW_HACK) && defined(SERVERONLY)
-    progs = COM_LoadHunkFile("qwprogs.dat");
+    progs = COM_LoadHunkFile("qwprogs.dat", &progs_size);
     if (!progs)
-	progs = COM_LoadHunkFile("progs.dat");
+	progs = COM_LoadHunkFile("progs.dat", &progs_size);
 #endif
     if (!progs)
 	SV_Error("%s: couldn't load progs.dat", __func__);
-    Con_DPrintf("Programs occupy %iK.\n", com_filesize / 1024);
+    Con_DPrintf("Programs occupy %iK.\n", (int)(progs_size / 1024));
 
 #ifdef NQ_HACK
-    pr_crc = CRC_Block((byte *)progs, com_filesize);
+    pr_crc = CRC_Block((byte *)progs, progs_size);
 #endif
 #if defined(QW_HACK) && defined(SERVERONLY)
 // add prog crc to the serverinfo
-    qsnprintf(num, sizeof(num), "%i", CRC_Block((byte *)progs, com_filesize));
+    qsnprintf(num, sizeof(num), "%i", CRC_Block((byte *)progs, progs_size));
     Info_SetValueForStarKey(svs.info, "*progs", num, MAX_SERVERINFO_STRING);
 #endif
 
@@ -1098,7 +1100,7 @@ PR_LoadProgs(void)
     pr_functions = (dfunction_t *)((byte *)progs + progs->ofs_functions);
     pr_strings = (char *)progs + progs->ofs_strings;
     pr_strings_size = progs->strings_size;
-    if (progs->ofs_strings + pr_strings_size >= com_filesize)
+    if (progs->ofs_strings + pr_strings_size >= progs_size)
 #ifdef NQ_HACK
 	Host_Error("progs.dat strings extend past end of file\n");
 #endif

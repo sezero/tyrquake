@@ -69,7 +69,7 @@ W_LoadWadFile(wad_t *wad, const char *filename)
     unsigned i;
     int infotableofs;
 
-    wad->base = COM_LoadHunkFile(filename);
+    wad->base = COM_LoadHunkFile(filename, NULL);
     if (!wad->base)
 	Sys_Error("%s: couldn't load %s", __func__, filename);
 

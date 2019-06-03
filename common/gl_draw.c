@@ -276,7 +276,7 @@ Draw_CachePic(const char *path)
 
     /* load the pic from disk */
     qsnprintf(cachepic->name, sizeof(cachepic->name), "%s", path);
-    dpic = COM_LoadHunkFile(path);
+    dpic = COM_LoadHunkFile(path, NULL);
     if (!dpic)
 	Sys_Error("%s: failed to load %s", __func__, path);
     SwapDPic(dpic);
@@ -382,7 +382,7 @@ Draw_Init(void)
     crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD, 255);
 
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
-    dpic = COM_LoadHunkFile("gfx/conback.lmp");
+    dpic = COM_LoadHunkFile("gfx/conback.lmp", NULL);
     if (!dpic)
 	Sys_Error("Couldn't load gfx/conback.lmp");
     SwapDPic(dpic);

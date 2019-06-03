@@ -311,24 +311,23 @@ Cmd_Exec_f
 void
 Cmd_Exec_f(void)
 {
-    char *f;
+    char *script;
     int mark;
 
     if (Cmd_Argc() != 2) {
 	Con_Printf("exec <filename> : execute a script file\n");
 	return;
     }
-    // FIXME: is this safe freeing the hunk here???
     mark = Hunk_LowMark();
-    f = COM_LoadHunkFile(Cmd_Argv(1));
-    if (!f) {
+    script = COM_LoadHunkFile(Cmd_Argv(1), NULL);
+    if (!script) {
 	Con_Printf("couldn't exec %s\n", Cmd_Argv(1));
 	return;
     }
     if (cl_warncmd.value || developer.value)
 	Con_Printf("execing %s\n", Cmd_Argv(1));
 
-    Cbuf_InsertText(f);
+    Cbuf_InsertText(script);
     Hunk_FreeToLowMark(mark);
 }
 
