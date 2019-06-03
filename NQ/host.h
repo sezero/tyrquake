@@ -27,8 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // FIXME - some of this is out of place or badly named...
 
-extern wad_t host_gfx; /* "gfx.wad" */
-
 extern quakeparms_t host_parms;
 
 extern cvar_t sys_ticrate;

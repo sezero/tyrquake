@@ -51,8 +51,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "d_iface.h"
 #endif
 
-wad_t host_gfx; /* "gfx.wad" */
-
 /* Argument completion function for the skin cvar */
 static struct stree_root * CL_Skin_Arg_f(const char *arg);
 
@@ -1419,7 +1417,6 @@ Host_Init(quakeparms_t *parms)
     NET_Init(PORT_CLIENT);
     Netchan_Init();
 
-    W_LoadWadFile(&host_gfx, "gfx.wad");
     Key_Init();
     Con_Init();
     M_Init();

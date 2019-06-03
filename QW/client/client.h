@@ -354,7 +354,6 @@ extern dlight_t cl_dlights[MAX_DLIGHTS];
 //
 // cl_main
 //
-extern wad_t host_gfx; /* "gfx.wad" */
 
 dlight_t *CL_AllocDlight(int key);
 

@@ -54,7 +54,8 @@ typedef struct {
 
 static rectdesc_t r_rectdesc;
 
-const byte *draw_chars;		/* 8*8 graphic characters */
+static wad_t host_gfx; /* gfx.wad */
+const byte *draw_chars; /* 8*8 graphic characters */
 const qpic8_t *draw_disc;
 
 static const qpic8_t *draw_backtile;
@@ -206,6 +207,9 @@ Draw_Init(void)
     static qpic8_t draw_disc_pic;
     static qpic8_t draw_backtile_pic;
     dpic8_t *dpic;
+
+    /* Load the graphics wad onto the hunk */
+    W_LoadWadFile(&host_gfx, "gfx.wad");
 
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
