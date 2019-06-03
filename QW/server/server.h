@@ -367,8 +367,6 @@ extern int sv_playermodel;
 extern int fp_messages, fp_persecond, fp_secondsdead;
 extern char fp_msg[];
 
-extern int file_from_pak;
-
 //===========================================================
 
 //

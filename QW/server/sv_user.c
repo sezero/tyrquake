@@ -634,59 +634,56 @@ SV_BeginDownload_f(client_t *client)
 {
     char name[MAX_OSPATH], *p;
 
+    /* Ensure we have closed any existing download */
+    if (client->download) {
+	fclose(client->download);
+	client->download = NULL;
+    }
+    client->downloadcount = 0;
+
     /* Lowercase name (needed for casesen file systems) */
     qsnprintf(name, sizeof(name), "%s", Cmd_Argv(1));
     for (p = name; *p; p++)
 	*p = tolower(*p);
 
-    // first off, no .. or global allow check
-    if (strstr(name, "..") || !allow_download.value
-	// leading dot is no good
-	|| *name == '.'
-	// leading slash bad as well, must be in subdir
-	|| *name == '/'
-	// next up, skin check
-	|| (strncmp(name, "skins/", 6) == 0 && !allow_download_skins.value)
-	// now models
-	|| (strncmp(name, "progs/", 6) == 0 && !allow_download_models.value)
-	// now sounds
-	|| (strncmp(name, "sound/", 6) == 0 && !allow_download_sounds.value)
-	// now maps (note special case for maps, must not be in pak)
-	|| (strncmp(name, "maps/", 6) == 0 && !allow_download_maps.value)
-	// MUST be in a subdirectory
-	|| !strstr(name, "/")) {	// don't allow anything with .. path
-	ClientReliableWrite_Begin(client, svc_download, 4);
-	ClientReliableWrite_Short(client, -1);
-	ClientReliableWrite_Byte(client, 0);
-	return;
-    }
+    // Global check
+    if (!allow_download.value)
+        goto ErrorOut;
 
-    if (client->download) {
-	fclose(client->download);
-	client->download = NULL;
-    }
+    // No .., leading '.' or leading '/'.  Must contain a slash (be a subdir).
+    if (strstr(name, "..") || *name == '.' || *name == '/' || !strstr(name, "/"))
+        goto ErrorOut;
+
+    // Check if skins, progs, sound, maps allowed
+    if (!strncmp(name, "skins/", 6) && !allow_download_skins.value)
+        goto ErrorOut;
+    if (!strncmp(name, "progs/", 6) && !allow_download_models.value)
+        goto ErrorOut;
+    if (!strncmp(name, "sound/", 6) && !allow_download_sounds.value)
+        goto ErrorOut;
+    if (!strncmp(name, "maps/", 5) && !allow_download_maps.value)
+        goto ErrorOut;
+
+    /*
+     * Special check for maps, if it came from a pak file, don't allow download
+     * We use a non-zero file position to decide if the file handle s pointing inside a pak file.
+     */
+    if (!strncmp(name, "maps/", 5) && ftell(client->download))
+        goto ErrorOut;
 
     client->downloadsize = COM_FOpenFile(name, &client->download);
-    client->downloadcount = 0;
-
-    if (!client->download
-	// special check for maps, if it came from a pak file, don't allow
-	// download  ZOID
-	|| (strncmp(name, "maps/", 5) == 0 && file_from_pak)) {
-	if (client->download) {
-	    fclose(client->download);
-	    client->download = NULL;
-	}
-
-	Sys_Printf("Couldn't upload %s to %s\n", name, client->name);
-	ClientReliableWrite_Begin(client, svc_download, 4);
-	ClientReliableWrite_Short(client, -1);
-	ClientReliableWrite_Byte(client, 0);
-	return;
-    }
+    if (!client->download)
+        goto ErrorOut;
 
     SV_NextDownload_f(client);
     Sys_Printf("Uploading %s to %s\n", name, client->name);
+    return;
+
+ErrorOut:
+    Sys_Printf("Couldn't upload %s to %s\n", name, client->name);
+    ClientReliableWrite_Begin(client, svc_download, 4);
+    ClientReliableWrite_Short(client, -1);
+    ClientReliableWrite_Byte(client, 0);
 }
 
 //=============================================================================

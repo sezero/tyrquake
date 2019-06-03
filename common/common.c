@@ -1584,8 +1584,6 @@ If the requested file is inside a packfile, a new FILE * will be opened
 into the file.
 ===========
 */
-int file_from_pak;	// global indicating file came from pack file
-
 int
 COM_FOpenFile(const char *filename, FILE **file)
 {
@@ -1594,8 +1592,6 @@ COM_FOpenFile(const char *filename, FILE **file)
     pack_t *pak;
     int i;
     int findtime;
-
-    file_from_pak = 0;
 
 //
 // search through the path, one element at a time
@@ -1612,7 +1608,6 @@ COM_FOpenFile(const char *filename, FILE **file)
 		    if (!*file)
 			Sys_Error("Couldn't reopen %s", pak->filename);
 		    fseek(*file, pak->files[i].filepos, SEEK_SET);
-		    file_from_pak = 1;
 		    return pak->files[i].filelen;
 		}
 	} else {
