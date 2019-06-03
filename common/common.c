@@ -1419,9 +1419,6 @@ QUAKE FILESYSTEM
 =============================================================================
 */
 
-int com_filesize;
-
-
 //
 // in memory
 //
@@ -1583,7 +1580,6 @@ COM_CreatePath(const char *path)
 COM_FOpenFile
 
 Finds the file in the search path.
-Sets com_filesize
 If the requested file is inside a packfile, a new FILE * will be opened
 into the file.
 ===========
@@ -1616,9 +1612,8 @@ COM_FOpenFile(const char *filename, FILE **file)
 		    if (!*file)
 			Sys_Error("Couldn't reopen %s", pak->filename);
 		    fseek(*file, pak->files[i].filepos, SEEK_SET);
-		    com_filesize = pak->files[i].filelen;
 		    file_from_pak = 1;
-		    return com_filesize;
+		    return pak->files[i].filelen;
 		}
 	} else {
 	    // check a file in the directory tree
@@ -1633,14 +1628,12 @@ COM_FOpenFile(const char *filename, FILE **file)
 		continue;
 
 	    *file = fopen(path, "rb");
-	    com_filesize = COM_filelength(*file);
-	    return com_filesize;
+	    return COM_filelength(*file);
 	}
     }
 
     Sys_Printf("FindFile: can't find %s\n", filename);
     *file = NULL;
-    com_filesize = -1;
 
     return -1;
 }
@@ -1755,8 +1748,6 @@ Always appends a 0 byte to the loaded data.
 ============
 */
 static cache_user_t *loadcache;
-static byte *loadbuf;
-static int loadsize;
 
 static void *
 COM_LoadFile(const char *path, int usehunk, size_t *size)
@@ -1764,40 +1755,35 @@ COM_LoadFile(const char *path, int usehunk, size_t *size)
     FILE *f;
     byte *buf;
     char base[32];
-    int len;
+    size_t filesize;
 
     buf = NULL;			// quiet compiler warning
 
 // look for it in the filesystem or pack files
-    len = com_filesize = COM_FOpenFile(path, &f);
-    if (!f)
+    filesize = COM_FOpenFile(path, &f);
+    if (!filesize)
 	return NULL;
 
     if (size)
-	*size = len;
+	*size = filesize;
 
 // extract the filename base name for hunk tag
     COM_FileBase(path, base, sizeof(base));
 
     if (usehunk == 3)
-	buf = Cache_Alloc(loadcache, len + 1, base);
-    else if (usehunk == 4) {
-	if (len + 1 > loadsize)
-	    buf = Hunk_TempAlloc(len + 1);
-	else
-	    buf = loadbuf;
-    } else
+	buf = Cache_Alloc(loadcache, filesize + 1, base);
+    else
 	Sys_Error("%s: bad usehunk", __func__);
 
     if (!buf)
 	Sys_Error("%s: not enough space for %s", __func__, path);
 
-    buf[len] = 0;
+    buf[filesize] = 0;
 
 #ifndef SERVERONLY
     Draw_BeginDisc();
 #endif
-    fread(buf, 1, len, f);
+    fread(buf, 1, filesize, f);
     fclose(f);
 #ifndef SERVERONLY
     Draw_EndDisc();
@@ -1871,15 +1857,24 @@ COM_LoadCacheFile(const char *path, struct cache_user_s *cu)
 // uses temp hunk if larger than bufsize
 // size is size of loaded file in bytes
 void *
-COM_LoadStackFile(const char *path, void *buffer, int bufsize, size_t *size)
+COM_LoadStackFile(const char *path, void *buffer, size_t buffersize, size_t *size)
 {
-    byte *buf;
+    FILE *f;
+    byte *bytebuffer;
+    size_t filesize;
 
-    loadbuf = (byte *)buffer;
-    loadsize = bufsize;
-    buf = COM_LoadFile(path, 4, size);
+    filesize = COM_FOpenFile(path, &f);
+    if (!f)
+        return NULL;
+    if (size)
+        *size = filesize;
 
-    return buf;
+    /* Fall back to temp allocation if too large */
+    bytebuffer = (buffersize < filesize + 1) ? Hunk_TempAlloc(filesize + 1) : buffer;
+    COM_ReadFileAndClose(bytebuffer, filesize, f);
+    bytebuffer[filesize] = 0;
+
+    return bytebuffer;
 }
 
 /*

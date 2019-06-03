@@ -203,7 +203,6 @@ char *va(const char *format, ...) __attribute__((format(printf,1,2)));
 
 //============================================================================
 
-extern int com_filesize;
 struct cache_user_s;
 
 extern char com_basedir[MAX_OSPATH];
@@ -214,8 +213,7 @@ int COM_FOpenFile(const char *filename, FILE **file);
 void COM_ScanDir(struct stree_root *root, const char *path,
 		 const char *pfx, const char *ext, qboolean stripext);
 
-void *COM_LoadStackFile(const char *path, void *buffer, int bufsize,
-			size_t *size);
+void *COM_LoadStackFile(const char *path, void *buffer, size_t buffersize, size_t *size);
 void *COM_LoadTempFile(const char *path, size_t *size);
 void *COM_LoadHunkFile(const char *path, size_t *size);
 void COM_LoadCacheFile(const char *path, struct cache_user_s *cu);
