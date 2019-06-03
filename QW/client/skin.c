@@ -97,6 +97,7 @@ Skin_Cache(skin_t * skin)
     char name[MAX_QPATH];
     byte *raw, *out, *pix;
     pcx_t *pcx;
+    size_t pcxsize;
     int x, y;
     int dataByte;
     int runLength;
@@ -118,11 +119,11 @@ Skin_Cache(skin_t * skin)
 // load the pic from disk
 //
     qsnprintf(name, sizeof(name), "skins/%s.pcx", skin->name);
-    pcx = COM_LoadTempFile(name);
+    pcx = COM_LoadTempFile(name, &pcxsize);
     if (!pcx) {
 	Con_Printf("Couldn't load skin %s\n", name);
 	qsnprintf(name, sizeof(name), "skins/%s.pcx", baseskin.string);
-	pcx = COM_LoadTempFile(name);
+	pcx = COM_LoadTempFile(name, &pcxsize);
 	if (!pcx)
 	    goto Fail;
     }
@@ -147,14 +148,14 @@ Skin_Cache(skin_t * skin)
 
     for (y = 0; y < pcx->ymax; y++, pix += 320) {
 	for (x = 0; x <= pcx->xmax;) {
-	    if (raw - (byte *)pcx > com_filesize)
+	    if (raw - (byte *)pcx > pcxsize)
 		goto Fail_Malformed;
 
 	    dataByte = *raw++;
 
 	    if ((dataByte & 0xC0) == 0xC0) {
 		runLength = dataByte & 0x3F;
-		if (raw - (byte *)pcx > com_filesize)
+		if (raw - (byte *)pcx > pcxsize)
 		    goto Fail_Malformed;
 
 		dataByte = *raw++;
@@ -171,7 +172,7 @@ Skin_Cache(skin_t * skin)
 
     }
 
-    if (raw - (byte *)pcx > com_filesize)
+    if (raw - (byte *)pcx > pcxsize)
 	goto Fail_Malformed;
 
     skin->failedload = false;

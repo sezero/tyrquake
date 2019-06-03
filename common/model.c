@@ -432,7 +432,7 @@ Mod_LoadModel(const char *name, qboolean crash)
     case IDPOLYHEADER:
 	model = Mod_NewAliasModel();
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
-	Mod_LoadAliasModel(mod_loader, model, buf);
+	Mod_LoadAliasModel(mod_loader, model, buf, size);
 	break;
 
     case IDSPRITEHEADER:
@@ -472,16 +472,17 @@ Mod_ForName(const char *name, qboolean crash)
     if (model) {
 #ifndef SERVERONLY
 	void *buffer;
+        size_t buffersize;
 
 	if (model->type != mod_alias)
 	    return model;
 	if (Cache_Check(&model->cache))
 	    return model;
 
-	buffer = COM_LoadTempFile(name);
+	buffer = COM_LoadTempFile(name, &buffersize);
 	model = Mod_NewAliasModel();
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
-	Mod_LoadAliasModel(mod_loader, model, buffer);
+	Mod_LoadAliasModel(mod_loader, model, buffer, buffersize);
 #endif
 	return model;
     }
@@ -1911,13 +1912,14 @@ void *
 Mod_Extradata(model_t *model)
 {
     void *buffer;
+    size_t buffersize;
 
     buffer = Cache_Check(&model->cache);
     if (buffer)
 	return buffer;
 
-    buffer = COM_LoadTempFile(model->name);
-    Mod_LoadAliasModel(mod_loader, model, buffer);
+    buffer = COM_LoadTempFile(model->name, &buffersize);
+    Mod_LoadAliasModel(mod_loader, model, buffer, buffersize);
     if (!model->cache.data)
 	Sys_Error("%s: caching failed", __func__);
 

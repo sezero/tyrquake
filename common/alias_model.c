@@ -371,7 +371,7 @@ Mod_LoadAliasModel
 =================
 */
 void
-Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
+Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer, size_t buffersize)
 {
     const mdl_t *mdl = buffer;
     aliashdr_t *aliashdr;
@@ -393,7 +393,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer)
 		  model->name, version, ALIAS_VERSION);
 
     /* Before any swapping, CRC models for QW client */
-    Mod_AliasCRC(model, buffer, com_filesize);
+    Mod_AliasCRC(model, buffer, buffersize);
 
     /* Allocate loader temporary space */
     lowmark = Hunk_LowMark();

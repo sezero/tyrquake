@@ -1779,9 +1779,7 @@ COM_LoadFile(const char *path, int usehunk, size_t *size)
 // extract the filename base name for hunk tag
     COM_FileBase(path, base, sizeof(base));
 
-    if (usehunk == 2)
-	buf = Hunk_TempAlloc(len + 1);
-    else if (usehunk == 3)
+    if (usehunk == 3)
 	buf = Cache_Alloc(loadcache, len + 1, base);
     else if (usehunk == 4) {
 	if (len + 1 > loadsize)
@@ -1844,9 +1842,23 @@ COM_LoadHunkFile(const char *path, size_t *size)
 }
 
 void *
-COM_LoadTempFile(const char *path)
+COM_LoadTempFile(const char *path, size_t *size)
 {
-    return COM_LoadFile(path, 2, NULL);
+    FILE *f;
+    byte *buffer;
+    size_t filesize;
+
+    filesize = COM_FOpenFile(path, &f);
+    if (!f)
+        return NULL;
+    if (size)
+        *size = filesize;
+
+    buffer = Hunk_TempAlloc(filesize + 1);
+    COM_ReadFileAndClose(buffer, filesize, f);
+    buffer[filesize] = 0;
+
+    return buffer;
 }
 
 void

@@ -601,7 +601,7 @@ int Mod_CountLeafBits(const leafbits_t *leafbits);
 texture_t *R_TextureAnimation(const struct entity_s *e, texture_t *base);
 
 void Mod_LoadAliasModel(const model_loader_t *loader, model_t *model,
-			void *buffer);
+			void *buffer, size_t buffersize);
 void Mod_LoadSpriteModel(model_t *model, const void *buffer);
 
 const mspriteframe_t *Mod_GetSpriteFrame(const struct entity_s *entity,

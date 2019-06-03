@@ -216,7 +216,7 @@ void COM_ScanDir(struct stree_root *root, const char *path,
 
 void *COM_LoadStackFile(const char *path, void *buffer, int bufsize,
 			size_t *size);
-void *COM_LoadTempFile(const char *path);
+void *COM_LoadTempFile(const char *path, size_t *size);
 void *COM_LoadHunkFile(const char *path, size_t *size);
 void COM_LoadCacheFile(const char *path, struct cache_user_s *cu);
 #ifdef QW_HACK
