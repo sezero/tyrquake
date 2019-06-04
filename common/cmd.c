@@ -601,7 +601,7 @@ Cmd_AddCommand(const char *cmd_name, xcommand_t function)
 	return;
     }
 
-    cmd = Hunk_Alloc(sizeof(cmd_function_t));
+    cmd = Hunk_AllocName(sizeof(cmd_function_t), "commands");
     cmd->name = cmd_name;
     cmd->function = function;
     cmd->completion = NULL;

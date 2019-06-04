@@ -398,11 +398,11 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     /* save the data out to the in-memory model */
     hdr->numverts = numorder;
 
-    cmds = Hunk_Alloc(numcommands * 4);
+    cmds = Hunk_AllocName(numcommands * 4, "glmesh");
     GL_Aliashdr(hdr)->commands = (byte *)cmds - (byte *)hdr;
     memcpy(cmds, commands, numcommands * 4);
 
-    verts = Hunk_Alloc(hdr->numposes * hdr->numverts * sizeof(trivertx_t));
+    verts = Hunk_AllocName(hdr->numposes * hdr->numverts * sizeof(trivertx_t), "glmesh");
     hdr->posedata = (byte *)verts - (byte *)hdr;
     for (i = 0; i < hdr->numposes; i++)
 	for (j = 0; j < numorder; j++)

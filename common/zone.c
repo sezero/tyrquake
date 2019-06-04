@@ -632,17 +632,6 @@ Hunk_AllocExtend(const void *base, int size)
     return memptr;
 }
 
-/*
- * ===================
- * Hunk_Alloc
- * ===================
- */
-void *
-Hunk_Alloc(int size)
-{
-    return Hunk_AllocName(size, "unknown");
-}
-
 int
 Hunk_LowMark(void)
 {

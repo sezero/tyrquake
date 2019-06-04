@@ -102,7 +102,7 @@ SW_LoadSkinData(model_t *model, aliashdr_t *ahdr,
     byte *pixels;
 
     skinsize = ahdr->skinwidth * ahdr->skinheight;
-    pixels = Hunk_Alloc(skindata->numskins * skinsize * r_pixbytes);
+    pixels = Hunk_AllocName(skindata->numskins * skinsize * r_pixbytes, "modeltmp");
     ahdr->skindata = (byte *)pixels - (byte *)ahdr;
 
     for (i = 0; i < skindata->numskins; i++) {
@@ -133,7 +133,7 @@ SW_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     /*
      * Save the pose vertex data
      */
-    verts = Hunk_Alloc(hdr->numposes * hdr->numverts * sizeof(*verts));
+    verts = Hunk_AllocName(hdr->numposes * hdr->numverts * sizeof(*verts), "modeltmp");
     hdr->posedata = (byte *)verts - (byte *)hdr;
     for (i = 0; i < hdr->numposes; i++) {
 	memcpy(verts, posedata->verts[i], hdr->numverts * sizeof(*verts));
@@ -144,7 +144,7 @@ SW_LoadMeshData(const model_t *model, aliashdr_t *hdr,
      * Save the s/t verts
      * => put s and t in 16.16 format
      */
-    stverts = Hunk_Alloc(hdr->numverts * sizeof(*stverts));
+    stverts = Hunk_AllocName(hdr->numverts * sizeof(*stverts), "modeltmp");
     SW_Aliashdr(hdr)->stverts = (byte *)stverts - (byte *)hdr;
     for (i = 0; i < hdr->numverts; i++) {
 	stverts[i].onseam = meshdata->stverts[i].onseam;
@@ -155,7 +155,7 @@ SW_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     /*
      * Save the triangle data
      */
-    triangles = Hunk_Alloc(hdr->numtris * sizeof(*triangles));
+    triangles = Hunk_AllocName(hdr->numtris * sizeof(*triangles), "modeltmp");
     SW_Aliashdr(hdr)->triangles = (byte *)triangles - (byte *)hdr;
     memcpy(triangles, meshdata->triangles, hdr->numtris * sizeof(*triangles));
 }

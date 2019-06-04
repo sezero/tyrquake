@@ -1903,7 +1903,7 @@ COM_LoadPackFile(const char *packfile)
 
 #ifdef NQ_HACK
     Hunk_FreeToLowMark(mark);
-    pack = Hunk_Alloc(sizeof(pack_t));
+    pack = Hunk_AllocName(sizeof(pack_t), "pakheadr");
 #endif
 #ifdef QW_HACK
     Z_Free(dfiles);
@@ -1950,7 +1950,7 @@ COM_AddGameDirectory(const char *base, const char *dir)
 //
 // add the directory to the search path
 //
-    search = Hunk_Alloc(sizeof(searchpath_t));
+    search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
     strcpy(search->filename, com_gamedir);
     search->next = com_searchpaths;
     com_searchpaths = search;
@@ -1963,7 +1963,7 @@ COM_AddGameDirectory(const char *base, const char *dir)
 	pak = COM_LoadPackFile(pakfile);
 	if (!pak)
 	    break;
-	search = Hunk_Alloc(sizeof(searchpath_t));
+	search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
 	search->pack = pak;
 	search->next = com_searchpaths;
 	com_searchpaths = search;
@@ -2127,7 +2127,7 @@ COM_InitFilesystem(void)
 		|| com_argv[i][0] == '-')
 		break;
 
-	    search = Hunk_Alloc(sizeof(searchpath_t));
+	    search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
 	    if (!strcmp(COM_FileExtension(com_argv[i]), "pak")) {
 		search->pack = COM_LoadPackFile(com_argv[i]);
 		if (!search->pack)

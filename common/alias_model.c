@@ -332,15 +332,15 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
 	}
     }
     skindata->numskins = count; /* to be incremented as data is filled in */
-    skindata->data = Hunk_Alloc(count * sizeof(byte *));
+    skindata->data = Hunk_AllocName(count * sizeof(byte *), "modeltmp");
 
     /* Verticies and triangles are simple */
     numverts = LittleLong(mdl->numverts);
     buffer = (const byte *)buffer + numverts * sizeof(stvert_t);
     count = LittleLong(mdl->numtris);
     buffer = (const byte *)buffer + count * sizeof(dtriangle_t);
-    meshdata->stverts = Hunk_Alloc(numverts * sizeof(*meshdata->stverts));
-    meshdata->triangles = Hunk_Alloc(count * sizeof(*meshdata->triangles));
+    meshdata->stverts = Hunk_AllocName(numverts * sizeof(*meshdata->stverts), "modeltmp");
+    meshdata->triangles = Hunk_AllocName(count * sizeof(*meshdata->triangles), "modeltmp");
 
     /* Expand frame groups to get total pose count */
     count = 0;
@@ -362,7 +362,7 @@ Mod_AliasLoaderAlloc(const mdl_t *mdl, alias_meshdata_t *meshdata,
 	}
     }
     posedata->numposes = count;
-    posedata->verts = Hunk_Alloc(count * sizeof(trivertx_t *));
+    posedata->verts = Hunk_AllocName(count * sizeof(trivertx_t *), "modeltmp");
 }
 
 /*

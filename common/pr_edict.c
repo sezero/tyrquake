@@ -753,21 +753,18 @@ static char *
 ED_NewString(const char *string)
 {
     char *new, *new_p;
-    int i, l;
+    int i, length;
 
-    l = strlen(string) + 1;
-    new = Hunk_Alloc(l);
-    new_p = new;
+    length = strlen(string) + 1;
+    new_p = new = Hunk_AllocName(length, "progstr");
 
-    for (i = 0; i < l; i++) {
-	if (string[i] == '\\' && i < l - 1) {
+    for (i = 0; i < length; i++) {
+	if (string[i] == '\\' && i < length - 1) {
 	    i++;
-	    if (string[i] == 'n')
-		*new_p++ = '\n';
-	    else
-		*new_p++ = '\\';
-	} else
+            *new_p++ = (string[i] == 'n') ? '\n' : '\\';
+	} else {
 	    *new_p++ = string[i];
+        }
     }
 
     return new;

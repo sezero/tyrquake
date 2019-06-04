@@ -445,7 +445,7 @@ Host_Loadgame_f(void)
 
     for (i = 0; i < MAX_LIGHTSTYLES; i++) {
 	fscanf(f, "%s\n", str);
-	lightstyle = Hunk_Alloc(strlen(str) + 1);
+	lightstyle = Hunk_AllocName(strlen(str) + 1, "lightstyle");
 	strcpy(lightstyle, str);
 	sv.lightstyles[i] = lightstyle;
     }

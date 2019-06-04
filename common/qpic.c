@@ -35,7 +35,7 @@ qpic32_t *
 QPic32_Alloc(int width, int height)
 {
     const int memsize = offsetof(qpic32_t, pixels[width * height]);
-    qpic32_t *pic = Hunk_Alloc(memsize);
+    qpic32_t *pic = Hunk_AllocName(memsize, "qp32tmp");
 
     if (pic) {
 	pic->width = width;
