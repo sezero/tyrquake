@@ -75,6 +75,7 @@ enum texture_type {
 };
 
 
+void GL_FreeTextures();
 
 void GL_Upload8(const qpic8_t *pic, enum texture_type type);
 void GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha);
@@ -239,6 +240,7 @@ extern mplane_t *mirror_plane;
 extern float r_world_matrix[16];
 
 void GL_Init();
+void GL_Shutdown();
 
 void GL_InitTextures(void);
 

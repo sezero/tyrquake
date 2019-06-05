@@ -184,6 +184,15 @@ GL_Init(void)
 }
 
 /*
+ * Call before deleting the OpenGL context
+ */
+void
+GL_Shutdown()
+{
+    GL_FreeTextures();
+}
+
+/*
 =================
 R_CullBox
 

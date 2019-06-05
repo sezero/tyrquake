@@ -181,6 +181,7 @@ VID_DestroyWindow(void)
 	DestroyWindow(mainwindow);
     mainwindow = NULL;
 
+    GL_Shutdown();
     wglDeleteContext(hrc);
 }
 

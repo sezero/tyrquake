@@ -184,8 +184,10 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     Uint32 flags;
     int err;
 
-    if (gl_context)
+    if (gl_context) {
+        GL_Shutdown();
 	SDL_GL_DeleteContext(gl_context);
+    }
     if (sdl_window)
 	SDL_DestroyWindow(sdl_window);
 

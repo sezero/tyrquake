@@ -55,6 +55,17 @@ typedef struct {
 static gltexture_t gltextures[MAX_GLTEXTURES];
 static int numgltextures;
 
+void GL_FreeTextures()
+{
+    int i;
+
+    for (i = 0; i < numgltextures; i++) {
+        glDeleteTextures(1, &gltextures[i].texnum);
+    }
+
+    numgltextures = 0;
+}
+
 void
 GL_Bind(int texnum)
 {

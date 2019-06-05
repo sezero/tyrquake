@@ -653,6 +653,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     /* Free the existing structures */
     if (ctx) {
+        GL_Shutdown();
 	glXDestroyContext(x_disp, ctx);
 	ctx = NULL;
     }
