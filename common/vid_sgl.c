@@ -183,10 +183,12 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
     Uint32 flags;
     int err;
+    qboolean reload_textures = false;
 
     if (gl_context) {
         GL_Shutdown();
 	SDL_GL_DeleteContext(gl_context);
+        reload_textures = true;
     }
     if (sdl_window)
 	SDL_DestroyWindow(sdl_window);
@@ -213,6 +215,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 		  __func__, SDL_GetError());
 
     GL_Init();
+    if (reload_textures) {
+        Draw_InitGLTextures();
+    }
 
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;

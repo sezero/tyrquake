@@ -339,5 +339,9 @@ extern cvar_t gl_ztrick;
 //
 extern float r_avertexnormals[][3];
 
+//
+// gl_draw.c
+//
+void Draw_InitGLTextures(void);
 
 #endif /* GLQUAKE_H */

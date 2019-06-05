@@ -108,6 +108,7 @@ unsigned d_8to24table[256];
 byte d_15to8table[65536];
 
 float gldepthmin, gldepthmax;
+static qboolean reload_textures; // Flag to set/test on gl context destroy/create
 
 static void AppActivate(BOOL fActive, BOOL minimize);
 static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
@@ -183,6 +184,7 @@ VID_DestroyWindow(void)
 
     GL_Shutdown();
     wglDeleteContext(hrc);
+    reload_textures = true;
 }
 
 /*
@@ -290,6 +292,9 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 	Sys_Error("wglMakeCurrent failed");
 
     GL_Init();
+    if (reload_textures) {
+        Draw_InitGLTextures();
+    }
 
     return true;
 }
@@ -370,6 +375,9 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 	Sys_Error("wglMakeCurrent failed");
 
     GL_Init();
+    if (reload_textures) {
+        Draw_InitGLTextures();
+    }
 
     return true;
 }

@@ -379,12 +379,6 @@ Draw_Init(void)
      */
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
-    /* now turn them into textures */
-    const qpic8_t charset_pic = { 128, 128, 128, draw_chars };
-    charset_texture = GL_LoadTexture_Alpha("charset", &charset_pic, TEXTURE_TYPE_HUD, 0);
-    const qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
-    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD, 255);
-
     conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
     dpic = COM_LoadHunkFile("gfx/conback.lmp", NULL);
     if (!dpic)
@@ -400,33 +394,36 @@ Draw_Init(void)
     qsnprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
     Draw_ConbackString(pic, dpic->data, version);
 
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    conback->texnum = GL_LoadTexture("conback", pic, TEXTURE_TYPE_HUD);
     conback->sl = 0;
     conback->sh = 1;
     conback->tl = 0;
     conback->th = 1;
-
-#ifdef NQ_HACK
-    pic->width = vid.width;
-    pic->height = vid.height;
-#endif
-#ifdef QW_HACK
-    pic->width = vid.conwidth;
-    pic->height = vid.conheight;
-#endif
-
-    // create textures for scraps
-    Scrap_Init();
 
     //
     // get the other pics we need
     //
     draw_disc = Draw_PicFromWad("disc");
     draw_backtile = Draw_PicFromWad("backtile");
+
+    Draw_InitGLTextures();
 }
+
+void
+Draw_InitGLTextures()
+{
+    /* Upload the charset and crosshair textures */
+    const qpic8_t charset_pic = { 128, 128, 128, draw_chars };
+    charset_texture = GL_LoadTexture_Alpha("charset", &charset_pic, TEXTURE_TYPE_HUD, 0);
+    const qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
+    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD, 255);
+
+    /* Upload the console background texture */
+    conback->texnum = GL_LoadTexture("conback", &conback->pic, TEXTURE_TYPE_HUD);
+
+    /* create textures for scraps */
+    Scrap_Init();
+}
+
 
 /*
 ================

@@ -647,6 +647,7 @@ VID_InitModeList(void)
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
+    qboolean reload_textures = false;
     unsigned long valuemask;
     XSetWindowAttributes attributes;
     Window root;
@@ -656,6 +657,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
         GL_Shutdown();
 	glXDestroyContext(x_disp, ctx);
 	ctx = NULL;
+        reload_textures = true;
     }
     if (x_win) {
 	XDestroyWindow(x_disp, x_win);
@@ -743,8 +745,10 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid_modenum = mode - modelist;
 
     GL_Init();
-
     VID_SetPalette(palette);
+    if (reload_textures) {
+        Draw_InitGLTextures();
+    }
 
     Con_SafePrintf("Video mode %dx%d initialized.\n", mode->width, mode->height);
 
