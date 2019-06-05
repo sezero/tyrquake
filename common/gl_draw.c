@@ -399,12 +399,6 @@ Draw_Init(void)
     conback->tl = 0;
     conback->th = 1;
 
-    //
-    // get the other pics we need
-    //
-    draw_disc = Draw_PicFromWad("disc");
-    draw_backtile = Draw_PicFromWad("backtile");
-
     Draw_InitGLTextures();
 }
 
@@ -422,6 +416,10 @@ Draw_InitGLTextures()
 
     /* create textures for scraps */
     Scrap_Init();
+
+    /* get the other pics we need */
+    draw_disc = Draw_PicFromWad("disc");
+    draw_backtile = Draw_PicFromWad("backtile");
 }
 
 

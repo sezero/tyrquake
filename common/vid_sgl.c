@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "glquake.h"
 #include "input.h"
 #include "quakedef.h"
+#include "sbar.h"
 #include "sdl_common.h"
 #include "sys.h"
 #include "vid.h"
@@ -217,6 +218,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     GL_Init();
     if (reload_textures) {
         Draw_InitGLTextures();
+        Sbar_InitPics();
     }
 
     vid.numpages = 1;

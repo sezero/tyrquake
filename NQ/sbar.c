@@ -127,13 +127,15 @@ Sbar_Changed(void)
     sb_updates = 0;		// update next frame
 }
 
-/*
-===============
-Sbar_Init
-===============
-*/
+static void
+Sbar_InitCommands()
+{
+    Cmd_AddCommand("+showscores", Sbar_ShowScores);
+    Cmd_AddCommand("-showscores", Sbar_DontShowScores);
+}
+
 void
-Sbar_Init(void)
+Sbar_InitPics()
 {
     int i;
 
@@ -211,9 +213,6 @@ Sbar_Init(void)
     sb_face_invis_invuln = Draw_PicFromWad("face_inv2");
     sb_face_quad = Draw_PicFromWad("face_quad");
 
-    Cmd_AddCommand("+showscores", Sbar_ShowScores);
-    Cmd_AddCommand("-showscores", Sbar_DontShowScores);
-
     sb_sbar = Draw_PicFromWad("sbar");
     sb_ibar = Draw_PicFromWad("ibar");
     sb_scorebar = Draw_PicFromWad("scorebar");
@@ -271,6 +270,17 @@ Sbar_Init(void)
     }
 }
 
+/*
+===============
+Sbar_Init
+===============
+*/
+void
+Sbar_Init(void)
+{
+    Sbar_InitCommands();
+    Sbar_InitPics();
+}
 
 //=============================================================================
 

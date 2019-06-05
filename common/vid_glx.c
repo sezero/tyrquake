@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "glquake.h"
 #include "keys.h"
 #include "quakedef.h"
+#include "sbar.h"
 #include "sys.h"
 #include "vid.h"
 
@@ -748,6 +749,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     VID_SetPalette(palette);
     if (reload_textures) {
         Draw_InitGLTextures();
+        Sbar_InitPics();
     }
 
     Con_SafePrintf("Video mode %dx%d initialized.\n", mode->width, mode->height);
