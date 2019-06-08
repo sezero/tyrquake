@@ -650,7 +650,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
     qboolean reload_textures = false;
     unsigned long valuemask;
-    XSetWindowAttributes attributes;
+    XSetWindowAttributes attributes = {};
     Window root;
 
     /* Free the existing structures */

@@ -465,7 +465,7 @@ qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
     unsigned long valuemask;
-    XSetWindowAttributes attributes;
+    XSetWindowAttributes attributes = {};
     Window root;
 
     /* Free the existing structures */
@@ -544,7 +544,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     /* Create the GC */
     {
-	XGCValues xgcvalues;
+	XGCValues xgcvalues = {};
 	int valuemask = GCGraphicsExposures;
 
 	xgcvalues.graphics_exposures = False;
@@ -641,7 +641,7 @@ void
 VID_Init(const byte *palette)
 {
     int i;
-    XVisualInfo template;
+    XVisualInfo template = {};
     int num_visuals;
     int template_mask;
     int MajorVersion, MinorVersion;
