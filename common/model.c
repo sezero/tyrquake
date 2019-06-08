@@ -2014,6 +2014,7 @@ Mod_ReloadTextures()
     for (brushmodel = loaded_models; brushmodel; brushmodel = brushmodel->next) {
         GL_LoadBrushmodelTextures(brushmodel);
     }
+    GL_ReloadLightmapTextures();
 }
 #endif
 

@@ -1250,6 +1250,40 @@ GL_CreateSurfaceLightmap(msurface_t *surf)
     R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
 }
 
+static
+void GL_UploadLightmaps()
+{
+    int i;
+    lm_block_t *block;
+    qpic8_t pic;
+
+    for (i = 0; i < MAX_LM_BLOCKS; i++) {
+	block = &lm_blocks[i];
+	if (!block->allocated[0])
+	    return; // no more used
+
+	block->modified = false;
+	block->rectchange.l = BLOCK_WIDTH;
+	block->rectchange.t = BLOCK_HEIGHT;
+	block->rectchange.w = 0;
+	block->rectchange.h = 0;
+
+        if (!block->texture) {
+            pic.width = pic.stride = BLOCK_WIDTH;
+            pic.height = BLOCK_HEIGHT;
+            pic.pixels = block->data;
+            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
+        }
+
+	GL_Bind(block->texture);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, lightmap_bytes, BLOCK_WIDTH,
+		     BLOCK_HEIGHT, 0, gl_lightmap_format, GL_UNSIGNED_BYTE,
+		     block->data);
+    }
+
+}
 
 /*
 ==================
@@ -1267,7 +1301,6 @@ GL_BuildLightmaps(void *hunkbase)
     model_t *model;
     brushmodel_t *brushmodel;
     msurface_t *surf;
-    lm_block_t *block;
 
     for (i = 0; i < MAX_LM_BLOCKS; i++)
 	memset(lm_blocks[i].allocated, 0, sizeof(lm_blocks[i].allocated));
@@ -1336,32 +1369,17 @@ GL_BuildLightmaps(void *hunkbase)
     // upload all lightmaps that were filled
     //
     t1 = Sys_DoubleTime();
-    for (i = 0; i < MAX_LM_BLOCKS; i++) {
-	block = &lm_blocks[i];
-	if (!block->allocated[0])
-	    break;		// no more used
-	block->modified = false;
-	block->rectchange.l = BLOCK_WIDTH;
-	block->rectchange.t = BLOCK_HEIGHT;
-	block->rectchange.w = 0;
-	block->rectchange.h = 0;
-
-        if (!block->texture) {
-            qpic8_t lightmap = {
-                .width = BLOCK_WIDTH,
-                .height = BLOCK_HEIGHT,
-                .pixels = block->data,
-            };
-            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &lightmap, TEXTURE_TYPE_LIGHTMAP);
-        }
-
-	GL_Bind(block->texture);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, lightmap_bytes, BLOCK_WIDTH,
-		     BLOCK_HEIGHT, 0, gl_lightmap_format, GL_UNSIGNED_BYTE,
-		     block->data);
-    }
+    GL_UploadLightmaps();
     t2 = Sys_DoubleTime();
     Con_DPrintf("Uploaded %i lightmap blocks in %f seconds.\n", i, t2 - t1);
+}
+
+void
+GL_ReloadLightmapTextures()
+{
+    int i;
+
+    for (i = 0; i < MAX_LM_BLOCKS; i++)
+        lm_blocks[i].texture = 0;
+    GL_UploadLightmaps();
 }
