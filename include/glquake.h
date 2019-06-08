@@ -313,6 +313,7 @@ void GL_LoadMeshData(const model_t *m, aliashdr_t *hdr,
 // gl_rmisc.c
 //
 void R_InitBubble(void);
+void R_InitParticleTexture(void);
 
 //
 // gl_rsurf.c

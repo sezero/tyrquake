@@ -77,7 +77,7 @@ static const byte dottexture[8][8] = {
     {0, 0, 0, 0, 0, 0, 0, 0},
 };
 
-static void
+void
 R_InitParticleTexture(void)
 {
     byte pixels[8][8][4];

@@ -423,6 +423,9 @@ Draw_InitGLTextures()
 
     /* Reset the menu cachepics */
     menu_numcachepics = 0;
+
+    /* Init the particle texture */
+    R_InitParticleTexture();
 }
 
 
