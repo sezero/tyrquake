@@ -420,6 +420,9 @@ Draw_InitGLTextures()
     /* get the other pics we need */
     draw_disc = Draw_PicFromWad("disc");
     draw_backtile = Draw_PicFromWad("backtile");
+
+    /* Reset the menu cachepics */
+    menu_numcachepics = 0;
 }
 
 
