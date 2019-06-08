@@ -59,10 +59,10 @@ void GL_FreeTextures()
 {
     int i;
 
+    GL_Bind(0); /* sets currenttexture to zero */
     for (i = 0; i < numgltextures; i++) {
         glDeleteTextures(1, &gltextures[i].texnum);
     }
-
     numgltextures = 0;
 }
 
