@@ -734,6 +734,13 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     ctx = glXCreateContext(x_disp, x_visinfo, NULL, True);
     glXMakeCurrent(x_disp, x_win, ctx);
 
+    GL_Init();
+    if (reload_textures) {
+        Draw_InitGLTextures();
+        Sbar_InitPics();
+        Mod_ReloadTextures();
+    }
+
     vid.width = vid.conwidth = scr_width = mode->width;
     vid.height = vid.conheight = scr_height = mode->height;
     vid.maxwarpwidth = WARP_WIDTH;
@@ -744,13 +751,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
     vid_modenum = mode - modelist;
-
-    GL_Init();
-    VID_SetPalette(palette);
-    if (reload_textures) {
-        Draw_InitGLTextures();
-        Sbar_InitPics();
-    }
 
     Con_SafePrintf("Video mode %dx%d initialized.\n", mode->width, mode->height);
 
@@ -830,6 +830,8 @@ VID_Init(const byte *palette)
 	setmode = &modelist[0];
 
     VID_SetMode(setmode, palette);
+
+    VID_SetPalette(palette);
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;

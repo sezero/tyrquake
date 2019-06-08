@@ -240,22 +240,60 @@ int R_SpriteDataSize(int numpixels)
     return offsetof(gl_spritedata_t, pixels[numpixels]);
 }
 
-void R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
-		       int framenum, byte *pixels)
+static void
+GL_LoadSpriteTexture(const char *name, const mspriteframe_t *frame)
 {
-    char name[MAX_QPATH];
     gl_spritedata_t *spritedata;
     qpic8_t pic;
 
     spritedata = (gl_spritedata_t *)frame->rdata;
-    memcpy(spritedata->pixels, pixels, frame->width * frame->height);
 
     pic.width = pic.stride = frame->width;
     pic.height = frame->height;
-    pic.pixels = pixels;
+    pic.pixels = spritedata->pixels;
 
-    qsnprintf(name, sizeof(name), "%s_%i", modelname, framenum);
     spritedata->texture = GL_LoadTexture_Alpha(name, &pic, TEXTURE_TYPE_SPRITE, 255);
+}
+
+void
+GL_LoadSpriteTextures(const model_t *model)
+{
+    char hunkname[HUNK_NAMELEN + 1];
+    msprite_t *sprite;
+    mspriteframedesc_t *framedesc;
+    mspriteframe_t *frame;
+    mspritegroup_t *group;
+    int i, j;
+
+    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    sprite = model->cache.data;
+    for (i = 0; i < sprite->numframes; i++) {
+        framedesc = &sprite->frames[i];
+
+        /* Single frame */
+        if (framedesc->type == SPR_SINGLE) {
+            frame = framedesc->frame.frame;
+            GL_LoadSpriteTexture(va("%s_%i", hunkname, i), frame);
+            continue;
+        }
+
+        /* Frame group */
+        group = framedesc->frame.group;
+        for (j = 0; j < group->numframes; j++) {
+            frame = group->frames[j];
+            GL_LoadSpriteTexture(va("%s_%i", hunkname, i * 100 + j), frame);
+        }
+    }
+}
+
+void
+R_SpriteDataStore(mspriteframe_t *frame, const char *modelname, int framenum, byte *pixels)
+{
+    gl_spritedata_t *spritedata;
+
+    spritedata = (gl_spritedata_t *)frame->rdata;
+    memcpy(spritedata->pixels, pixels, frame->width * frame->height);
+    GL_LoadSpriteTexture(va("%s_%i", modelname, framenum), frame);
 }
 
 /*
@@ -432,15 +470,44 @@ GL_FloodFillSkin(byte *skin, int skinwidth, int skinheight)
     }
 }
 
-static void
-GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr,
-		const alias_skindata_t *skindata)
+/*
+ * Upload alias skin textures
+ */
+void
+GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
 {
-    char hunkname[HUNK_NAMELEN + 1];
     int i, skinsize;
     GLuint *textures;
     byte *pixels;
     qpic8_t pic;
+
+    if (!aliashdr) {
+        aliashdr = Cache_Check(&model->cache);
+        if (!aliashdr)
+            return;
+    }
+
+    skinsize = aliashdr->skinwidth * aliashdr->skinheight;
+    textures = (GLuint *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
+    pixels = (byte *)aliashdr + aliashdr->skindata;
+
+    pic.width = pic.stride = aliashdr->skinwidth;
+    pic.height = aliashdr->skinheight;
+    pic.pixels = pixels;
+
+    for (i = 0; i < aliashdr->numskins; i++) {
+        textures[i] = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_SKIN);
+        pic.pixels += skinsize;
+    }
+}
+
+static void
+GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr,
+		const alias_skindata_t *skindata)
+{
+    int i, skinsize;
+    GLuint *textures;
+    byte *pixels;
 
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
     pixels = Mod_AllocName(skindata->numskins * skinsize, model->name);
@@ -451,15 +518,10 @@ GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr,
     for (i = 0; i < skindata->numskins; i++) {
 	GL_FloodFillSkin(skindata->data[i], aliashdr->skinwidth, aliashdr->skinheight);
 	memcpy(pixels, skindata->data[i], skinsize);
-	pixels += skinsize;
-
-	pic.width = pic.stride = aliashdr->skinwidth;
-	pic.height = aliashdr->skinheight;
-	pic.pixels = skindata->data[i];
-
-	COM_FileBase(model->name, hunkname, sizeof(hunkname));
-	textures[i] = GL_LoadTexture(va("%s_%i", hunkname, i), &pic, TEXTURE_TYPE_SKIN);
+        pixels += skinsize;
     }
+
+    GL_LoadAliasSkinTextures(model, aliashdr);
 }
 
 static model_loader_t GL_Model_Loader = {

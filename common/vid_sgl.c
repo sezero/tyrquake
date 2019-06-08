@@ -219,6 +219,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     if (reload_textures) {
         Draw_InitGLTextures();
         Sbar_InitPics();
+        Mod_ReloadTextures();
     }
 
     vid.numpages = 1;

@@ -525,6 +525,12 @@ void *Mod_Extradata(model_t *model);	// handles caching
 void Mod_TouchModel(const char *name);
 void Mod_Print(void);
 
+#ifdef GLQUAKE
+void GL_LoadSpriteTextures(const model_t *model);
+void Mod_ReloadTextures();
+#endif
+
+
 /*
  * PVS/PHS information
  */

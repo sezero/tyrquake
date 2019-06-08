@@ -1894,6 +1894,28 @@ Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
     Mod_SetupSubmodels(brushmodel);
 }
 
+#ifdef GLQUAKE
+void GL_LoadBrushmodelTextures(const brushmodel_t *brushmodel)
+{
+    qpic8_t pic;
+    texture_t *texture;
+    int i;
+
+    for (i = 0; i < brushmodel->numtextures; i++) {
+        texture = brushmodel->textures[i];
+        if (!strncmp(texture->name, "sky", 3)) {
+	    R_InitSky(texture);
+            continue;
+        }
+
+        pic.width = pic.stride = texture->width;
+        pic.height = texture->height;
+        pic.pixels = (byte *)(texture + 1);
+        texture->gl_texturenum = GL_LoadTexture(texture->name, &pic, TEXTURE_TYPE_WORLD);
+    }
+}
+#endif
+
 /*
  * =========================================================================
  *                          CLIENT ONLY FUNCTIONS
@@ -1967,6 +1989,33 @@ Mod_Print(void)
     Con_Printf("%d models: %d alias, %d bsp, %d sprite\n",
 	       alias + bsp + sprite, alias, bsp, sprite);
 }
+
+#ifdef GLQUAKE
+void
+Mod_ReloadTextures()
+{
+    const model_t *model;
+    const brushmodel_t *brushmodel;
+
+    /* Alias models */
+    for (model = Mod_AliasCache(); model; model = model->next) {
+        GL_LoadAliasSkinTextures(model, NULL);
+    }
+    for (model = Mod_AliasOverflow(); model; model = model->next) {
+        GL_LoadAliasSkinTextures(model, NULL);
+    }
+
+    /* Sprites */
+    for (model = loaded_sprites; model; model = model->next) {
+        GL_LoadSpriteTextures(model);
+    }
+
+    /* Brush models */
+    for (brushmodel = loaded_models; brushmodel; brushmodel = brushmodel->next) {
+        GL_LoadBrushmodelTextures(brushmodel);
+    }
+}
+#endif
 
 /*
 ==================
