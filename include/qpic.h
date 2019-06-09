@@ -59,6 +59,9 @@ void QPic_8to32_Alpha(const qpic8_t *in, qpic32_t *out, byte alpha);
 /* Stretch from in size to out size */
 void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);
 
+/* Copy smaller texture into top left of larger texture */
+void QPic32_Expand(const qpic32_t *in, qpic32_t *out);
+
 /* Shrink texture in place to next mipmap level */
 void QPic32_MipMap(qpic32_t *pic);
 

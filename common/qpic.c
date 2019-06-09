@@ -201,6 +201,49 @@ QPic32_Stretch(const qpic32_t *in, qpic32_t *out)
     }
 }
 
+/*
+============
+Expand the texture size, copying the source texture into the top left corner.
+============
+*/
+void
+QPic32_Expand(const qpic32_t *in, qpic32_t *out)
+{
+    int i, j;
+    const qpixel32_t *src;
+    qpixel32_t *dst;
+    qpixel32_t fill;
+
+    assert(in->width <= out->width);
+    assert(in->height <= out->height);
+
+    src = in->pixels;
+    dst = out->pixels;
+    i = 0;
+    while (i < in->height) {
+	/* Copy source pixels in */
+	j = 0;
+	while (j < in->width) {
+	    *dst++ = *src++;
+	    j++;
+	}
+	/* Fill space with colour matching last source pixel */
+	fill = *(src - 1);
+	while (j < out->width) {
+	    *dst++ = fill;
+	    j++;
+	}
+	i++;
+    }
+    /* Fill remaining rows with colour matching the pixel above */
+    src = dst - out->width;
+    while (i < out->height) {
+	*dst++ = *src++;
+	i++;
+    }
+}
+
+
 /* --------------------------------------------------------------------------*/
 /* Mipmaps - Handle all variations of even/odd dimensions                    */
 /* --------------------------------------------------------------------------*/
