@@ -36,7 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sound.h"
 #endif
 
-#define CON_TEXTSIZE 16384
+#define CON_TEXTSIZE 65536
 #define	NUM_CON_TIMES 4
 
 console_t *con;			// point to current console
