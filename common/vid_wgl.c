@@ -182,9 +182,11 @@ VID_DestroyWindow(void)
 	DestroyWindow(mainwindow);
     mainwindow = NULL;
 
-    GL_Shutdown();
-    wglDeleteContext(hrc);
-    reload_textures = true;
+    if (hrc) {
+        GL_Shutdown();
+        wglDeleteContext(hrc);
+        reload_textures = true;
+    }
 }
 
 /*
@@ -296,6 +298,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
         Draw_InitGLTextures();
         Draw_ReloadPicTextures();
         Mod_ReloadTextures();
+        reload_textures = false;
     }
 
     return true;
@@ -379,7 +382,9 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     GL_Init();
     if (reload_textures) {
         Draw_InitGLTextures();
-        Sbar_InitPics();
+        Draw_ReloadPicTextures();
+        Mod_ReloadTextures();
+        reload_textures = false;
     }
 
     return true;
