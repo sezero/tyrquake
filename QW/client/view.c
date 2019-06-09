@@ -206,7 +206,7 @@ V_DriftPitch(void)
 // don't count small mouse motion
     if (cl.nodrift) {
 	const int seq = cls.netchan.outgoing_sequence - 1;
-	if (fabs(cl.frames[seq & UPDATE_MASK].cmd.forwardmove) < 200)
+	if (abs(cl.frames[seq & UPDATE_MASK].cmd.forwardmove) < 200)
 	    cl.driftmove = 0;
 	else
 	    cl.driftmove += host_frametime;

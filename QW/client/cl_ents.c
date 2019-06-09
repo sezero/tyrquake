@@ -504,7 +504,7 @@ CL_LinkPacketEntities(void)
 	    continue;		// not in last message
 
 	for (i = 0; i < 3; i++)
-	    if (abs(old_origin[i] - ent->origin[i]) > 128) {	// no trail if too far
+	    if (fabsf(old_origin[i] - ent->origin[i]) > 128) {	// no trail if too far
 		VectorCopy(ent->origin, old_origin);
 		break;
 	    }
