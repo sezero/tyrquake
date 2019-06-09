@@ -325,10 +325,10 @@ CL_Rcon_f(void)
 	return;
     }
 
-    message[0] = 255;
-    message[1] = 255;
-    message[2] = 255;
-    message[3] = 255;
+    message[0] = '\xff';
+    message[1] = '\xff';
+    message[2] = '\xff';
+    message[3] = '\xff';
     message[4] = 0;
 
     strcat(message, "rcon ");
