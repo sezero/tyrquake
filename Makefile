@@ -163,7 +163,7 @@ GROFF ?= groff
 ifneq (,$(filter sdl,$(VID_TARGET) $(SND_TARGET) $(IN_TARGET)))
 ifeq (,$(filter-out UNIX,$(TARGET_OS))$(filter-out darwin,$(TARGET_UNIX)))
 SDL_CFLAGS_DEFAULT := -iquote /Library/Frameworks/SDL2.framework/Versions/Current/Headers
-SDL_LFLAGS_DEFAULT := -framework SDL2
+SDL_LFLAGS_DEFAULT := -F/Library/Frameworks -framework SDL2 -Xlinker -rpath -Xlinker @executable_path/../Frameworks
 else
 SDL_CFLAGS_DEFAULT := $(shell sdl2-config --cflags)
 SDL_LFLAGS_DEFAULT := $(shell sdl2-config --libs)
@@ -552,11 +552,8 @@ $(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwsw,$$(ALL_QWSW_CPPFLAGS),))
 $(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwgl,$$(ALL_QWGL_CPPFLAGS),))
 $(eval $(call QWSV_RULES,$$(BUILD_DIR)/qwsv,$$(ALL_QWSV_CPPFLAGS),))
 
-# OSX building for two intel archs, two ppc archs
-$(eval $(call TARGET_RULES,osx-intel-32,-arch i386 -mmacosx-version-min=10.5))
-$(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.5))
-$(eval $(call TARGET_RULES,osx-ppc-32,-arch ppc))
-$(eval $(call TARGET_RULES,osx-ppc-64,-arch ppc64))
+# OSX building for x86_64 (used to have x86, x86_64, ppc-32 and ppc64, but time moves on...)
+$(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.6))
 
 # Win32 and Win64 builds ?? - cross compiler...
 $(eval $(call TARGET_RULES,win32,))
@@ -1191,11 +1188,9 @@ $$(BUILD_DIR)/$(1)/qwgl/Launcher: $$(call launcher-objs,$(1),qwgl,QWGL) ; $$(cal
 endef
 
 # Rules to build the individual architecture launchers
-$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-32,-arch i386 -mmacosx-version-min=10.5))
-$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.5))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.6))
 
 launcher-arch-files = \
-	$(BUILD_DIR)/osx-intel-32/$(1)/Launcher \
 	$(BUILD_DIR)/osx-intel-64/$(1)/Launcher
 
 $(OSX_DIR)/Tyr-Quake.app/Contents/MacOS/Launcher:   $(call launcher-arch-files,nqsw) ; $(do_lipo)
