@@ -2,43 +2,66 @@
  Tyr-Quake
 -----------
 
-Date:		2009-07-05
-Version: 	0.61
+Date:		2019-06-09
+Version: 	0.62
 Author:		Kevin Shanahan (aka. Tyrann)
 Webpage:	http://disenchant.net
-email:		tyrann@disenchant.net
+email:		kevin@shanahan.id.au
 
 Why?
 ----
-This is meant to be a fairly conservative branch of the Quake source
-code. It's intended to support Quake and Quakeworld in both software and GL
-versions, as well as the Quakeworld Server; all on both MS Windows and Linux
-(BSD supported as best I can manage with some help from some other users). I
-don't intend on changing the look or feel of the game by adding lots of
-rendering enhancements, etc, but rather just fixing little bugs that I've come
-across over the years. I'll be adding small enhancements and may even rewrite
-substantial portions of the code, but I don't want to change the fundamental
-feel of the game.
+At this point, it's just to exercise my brain with some low-level programming.
+I want this to be a version of Quake that basically looks like the Quake of
+old, but one that works on current operating systems.  Some enhancements may
+be added, as long as they don't completely change the look and feel of the
+original game.
 
 Building:
 ---------
 All you should need to do to get a regular build for your system is type
-'make'. This should build all five executable targets and place them in a ./bin
-subdirectory. Windows builds can be done using MinGW and Msys on a Windows host,
-or by cross compiling with a suitable MinGW cross compiler. As long as your
-cross compiler is in your path somewhere, "make TARGET_OS=WIN32" should be all
-you need.
+'make'. This should build all five executable targets and place them in a
+./bin subdirectory. Windows builds can be done using MinGW64 and Msys2 on a
+Windows host, or by cross compiling with a suitable MinGW cross compiler. As
+long as your cross compiler is in your path somewhere, "make TARGET_OS=WIN32"
+(or WIN64) should be all you need.  Parallel builds work well too, e.g. "make
+-j8"
 
-If you're in a hurry and only want to build one target, you can type
-'make bin/<target>' - where <target> is the name of the executable you want to
+If you're in a hurry and only want to build one target, you can type 'make
+bin/<target>' - where <target> is the name of the executable you want to
 build.
 
 To build a debug version or one without the intel assembly, there are options
 you can select by setting Makefile variables:
-  e.g. make DEBUG=Y prepare tyr-glquake
-    or make USE_X86_ASM=N prepare tyr-qwcl
+  e.g. make DEBUG=Y bin/tyr-glquake
+    or make USE_X86_ASM=N bin/tyr-qwcl
+
+On OSX, you will need XCode and the SDL2 framework installed to build.
+Install the SDL2 framework to /Library/Frameworks/, then in the tyrquake
+directory simply type "make bundles".  The OSX bundles will be output to
+dist/osx/.  The OSX launcher needs a little more polish, but the main thing
+remember is to add '-basedir /path/to/Quake' to the command line parameters in
+the Launcher.
 
 Version History:
+
+v0.62
+=====
+- Model animation/movement interpolation (r_lerpmodels, r_lerpmove cvars)
+- SDL video/input/sound target, now default for MacOS instead of X11.
+- sndio sound target for OpenBSD (thanks Tony Spets/Jacob Meuser)
+- Support for BJP1/2/3 and FITZ(666) network/demo protocols
+- Support for Darkplaces and RMQ style BSP2/2PSB file formats
+- Work around buggy timers on some windows systems/drivers (thanks MH!)
+- Removed vid_win dependency on SciTech MGL (thanks MH!)
+- Netmasks can be used with qwsv's addip/removeip; e.g. "addip 192.168.0.0/24"
+- Fixed remote screenshots from QWSV
+- Improved build system including new OSX, Win64, SDL targets
+- Lots more code sharing between NQ/QW
+- Use non-power-of-two OpenGL textures when extension is available
+- New cvar "m_freelook" to replace need for manual editing "+mlook" in config
+- Improvements to handling of GL textures
+- Support changing video mode in GLQuake/GLQWCL (finally!)
+- Ten years since v0.61!
 
 v0.61
 =====
