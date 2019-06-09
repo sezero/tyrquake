@@ -187,10 +187,15 @@ GL_FindTexture(const char *name)
 }
 
 /*
-===============
-GL_Upload32
-===============
-*/
+ * Uploads a 32-bit RGBA texture.  The original pixels are destroyed during
+ * the scaling/mipmap process.  When done, the width and height the source pic
+ * are set to the values used to upload the (miplevel 0) texture.
+ *
+ * This really only matters in the case of non-power-of-two HUD textures
+ * getting expanded, since the texture coordinates need to be adjusted
+ * accordingly when drawing.
+ *
+ */
 static void
 GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
 {
@@ -220,7 +225,11 @@ GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
 
     if (width != pic->width || height != pic->height) {
 	scaled = QPic32_Alloc(width, height);
-	QPic32_Stretch(pic, scaled);
+	if (type == TEXTURE_TYPE_HUD && width >= pic->width && height >= pic->height) {
+	    QPic32_Expand(pic, scaled);
+	} else {
+	    QPic32_Stretch(pic, scaled);
+	}
     } else {
 	scaled = pic;
     }
@@ -253,6 +262,10 @@ GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
     }
 
     Hunk_FreeToLowMark(mark);
+
+    /* Pass back the width and height used on the scaled texture that was uploaded */
+    pic->width = width;
+    pic->height = height;
 }
 
 /*
@@ -291,6 +304,26 @@ GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha)
     pic32 = QPic32_Alloc(pic->width, pic->height);
     QPic_8to32_Alpha(pic, pic32, alpha);
     GL_Upload32(pic32, type, true);
+
+    Hunk_FreeToLowMark(mark);
+}
+
+void
+GL_Upload8_GLPic(glpic_t *glpic)
+{
+    qpic32_t *pic32;
+    int mark;
+
+    mark = Hunk_LowMark();
+
+    pic32 = QPic32_Alloc(glpic->pic.width, glpic->pic.height);
+    QPic_8to32_Alpha(&glpic->pic, pic32, 255);
+    GL_Upload32(pic32, TEXTURE_TYPE_HUD, true);
+
+    glpic->sl = 0;
+    glpic->sh = qmin(1.0f, (float)glpic->pic.width / (float)pic32->width);
+    glpic->tl = 0;
+    glpic->th = qmin(1.0f, (float)glpic->pic.height / (float)pic32->height);
 
     Hunk_FreeToLowMark(mark);
 }
@@ -369,6 +402,19 @@ GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, enum texture_type typ
     if (!isDedicated) {
 	GL_Bind(texnum);
 	GL_Upload8_Alpha(pic, type, alpha);
+    }
+
+    return texnum;
+}
+
+int
+GL_LoadTexture_GLPic(const char *name, glpic_t *glpic)
+{
+    int texnum = GL_AllocateTexture(name, &glpic->pic, TEXTURE_TYPE_HUD);
+
+    if (!isDedicated) {
+	GL_Bind(texnum);
+	GL_Upload8_GLPic(glpic);
     }
 
     return texnum;

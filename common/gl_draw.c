@@ -60,12 +60,6 @@ static const byte crosshair_data[64] = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
 
-typedef struct {
-    int texnum;
-    float sl, tl, sh, th;
-    qpic8_t pic;
-} glpic_t;
-
 static glpic_t *conback;
 
 /*
@@ -201,12 +195,6 @@ typedef struct cachepic_s {
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
-static int
-GL_LoadPicTexture(const qpic8_t *pic, const char *name)
-{
-    return GL_LoadTexture_Alpha(name, pic, TEXTURE_TYPE_HUD, 255);
-}
-
 /* Save pointers to all loaded draw pics so we can re-upload them if gl context changes */
 #define MAX_DRAW_GLPICS 32
 #define MAX_DRAW_GLPIC_NAME 32
@@ -225,7 +213,7 @@ Draw_ReloadPicTextures()
 
     for (i = 0; i < num_draw_glpics; i++) {
         drawpic = &draw_glpics[i];
-        drawpic->glpic->texnum = GL_LoadPicTexture(&drawpic->glpic->pic, drawpic->name);
+        drawpic->glpic->texnum = GL_LoadTexture_GLPic(drawpic->name, drawpic->glpic);
     }
 }
 
@@ -276,11 +264,7 @@ Draw_PicFromWad(const char *name)
     qstrncpy(drawpic->name, name, sizeof(drawpic->name));
     drawpic->glpic = glpic;
 
-    glpic->texnum = GL_LoadPicTexture(pic, name);
-    glpic->sl = 0;
-    glpic->sh = 1;
-    glpic->tl = 0;
-    glpic->th = 1;
+    glpic->texnum = GL_LoadTexture_GLPic(name, glpic);
 
     return pic;
 }
@@ -322,11 +306,7 @@ Draw_CachePic(const char *path)
     pic->height = dpic->height;
     pic->pixels = dpic->data;
 
-    cachepic->glpic.texnum = GL_LoadPicTexture(pic, path);
-    cachepic->glpic.sl = 0;
-    cachepic->glpic.sh = 1;
-    cachepic->glpic.tl = 0;
-    cachepic->glpic.th = 1;
+    cachepic->glpic.texnum = GL_LoadTexture_GLPic(path, &cachepic->glpic);
 
     Hunk_FreeToLowMark(mark);
 
@@ -414,7 +394,7 @@ Draw_Init(void)
      */
     draw_chars = W_GetLumpName(&host_gfx, "conchars");
 
-    conback = Hunk_AllocName(sizeof(*conback), "qpic8_t");
+    conback = Hunk_AllocName(sizeof(*conback), "conback");
     dpic = COM_LoadHunkFile("gfx/conback.lmp", NULL);
     if (!dpic)
 	Sys_Error("Couldn't load gfx/conback.lmp");
@@ -428,11 +408,6 @@ Draw_Init(void)
     /* hack the version number directly into the pic */
     qsnprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
     Draw_ConbackString(pic, dpic->data, version);
-
-    conback->sl = 0;
-    conback->sh = 1;
-    conback->tl = 0;
-    conback->th = 1;
 
     Scrap_Init();
     Draw_InitGLTextures();
@@ -452,7 +427,7 @@ Draw_InitGLTextures()
     crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD, 255);
 
     /* Upload the console background texture */
-    conback->texnum = GL_LoadTexture("conback", &conback->pic, TEXTURE_TYPE_HUD);
+    conback->texnum = GL_LoadTexture_GLPic("conback", conback);
 
     /* create textures for scraps */
     Scrap_InitGLTextures();
@@ -734,11 +709,8 @@ Draw_ConsoleBackground
 ================
 */
 static void
-Draw_ConsolePic(int lines, float offset, const qpic8_t *pic, float alpha)
+Draw_ConsolePic(int lines, float offset, const glpic_t *glpic, float alpha)
 {
-    const glpic_t *glpic;
-
-    glpic = const_container_of(pic, glpic_t, pic);
     Scrap_Flush(glpic->texnum);
 
     glDisable(GL_ALPHA_TEST);
@@ -748,13 +720,13 @@ Draw_ConsolePic(int lines, float offset, const qpic8_t *pic, float alpha)
     GL_Bind(glpic->texnum);
 
     glBegin (GL_QUADS);
-    glTexCoord2f (0, offset);
+    glTexCoord2f (glpic->sl, offset * glpic->th);
     glVertex2f (0, 0);
-    glTexCoord2f (1, offset);
+    glTexCoord2f (glpic->sh, offset * glpic->th);
     glVertex2f (vid.conwidth, 0);
-    glTexCoord2f (1, 1);
+    glTexCoord2f (glpic->sh, glpic->th);
     glVertex2f (vid.conwidth, lines);
-    glTexCoord2f (0, 1);
+    glTexCoord2f (glpic->sl, glpic->th);
     glVertex2f (0, lines);
     glEnd();
 
@@ -781,7 +753,7 @@ Draw_ConsoleBackground(int lines)
     else
 	alpha = (float) 1.1 * lines / y;
 
-    Draw_ConsolePic(lines, offset, &conback->pic, alpha);
+    Draw_ConsolePic(lines, offset, conback, alpha);
 
 #ifdef QW_HACK
     {

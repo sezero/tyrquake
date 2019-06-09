@@ -74,6 +74,11 @@ enum texture_type {
     TEXTURE_TYPE_SPRITE,
 };
 
+typedef struct {
+    int texnum;
+    float sl, tl, sh, th;
+    qpic8_t pic;
+} glpic_t;
 
 void GL_FreeTextures();
 
@@ -81,6 +86,7 @@ void GL_Upload8(const qpic8_t *pic, enum texture_type type);
 void GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha);
 int GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type);
 int GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, enum texture_type type, byte alpha);
+int GL_LoadTexture_GLPic(const char *name, glpic_t *glpic);
 int GL_FindTexture(const char *name);
 int GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type);
 void GL_SelectTexture(GLenum);
