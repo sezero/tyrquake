@@ -95,19 +95,24 @@ typedef struct {
 static scrap_t gl_scraps[MAX_SCRAPS];
 
 static void
-Scrap_Init(void)
+Scrap_InitGLTextures()
 {
     int i;
     scrap_t *scrap;
 
-    memset(gl_scraps, 0, sizeof(gl_scraps));
     scrap = gl_scraps;
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
 	scrap->pic.height = BLOCK_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-        scrap->glnum = GL_AllocateTexture(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
+        scrap->glnum = GL_LoadTexture_Alpha(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD, 255);
     }
+}
+
+static void
+Scrap_Init(void)
+{
+    memset(gl_scraps, 0, sizeof(gl_scraps));
 }
 
 /*
@@ -202,6 +207,28 @@ GL_LoadPicTexture(const qpic8_t *pic, const char *name)
     return GL_LoadTexture_Alpha(name, pic, TEXTURE_TYPE_HUD, 255);
 }
 
+/* Save pointers to all loaded draw pics so we can re-upload them if gl context changes */
+#define MAX_DRAW_GLPICS 32
+#define MAX_DRAW_GLPIC_NAME 32
+struct draw_glpic {
+    char name[MAX_DRAW_GLPIC_NAME];
+    glpic_t *glpic;
+};
+static struct draw_glpic draw_glpics[MAX_DRAW_GLPICS];
+static int num_draw_glpics;
+
+void
+Draw_ReloadPicTextures()
+{
+    int i;
+    struct draw_glpic *drawpic;
+
+    for (i = 0; i < num_draw_glpics; i++) {
+        drawpic = &draw_glpics[i];
+        drawpic->glpic->texnum = GL_LoadPicTexture(&drawpic->glpic->pic, drawpic->name);
+    }
+}
+
 const qpic8_t *
 Draw_PicFromWad(const char *name)
 {
@@ -209,8 +236,9 @@ Draw_PicFromWad(const char *name)
     dpic8_t *dpic;
     glpic_t *glpic;
     scrap_t *scrap;
+    struct draw_glpic *drawpic;
 
-    glpic = Hunk_AllocName(sizeof(*glpic), "qpic8_t");
+    glpic = Hunk_AllocName(sizeof(*glpic), name);
     dpic = W_GetLumpName(&host_gfx, name);
 
     /* Set up the embedded pic */
@@ -240,6 +268,13 @@ Draw_PicFromWad(const char *name)
 
 	return pic;
     }
+
+    /* Larger pics upload on their own.  Keep track for reloading. */
+    if (num_draw_glpics == MAX_DRAW_GLPICS)
+        Sys_Error("%s: Exceeded MAX_DRAW_GLPICS (%d)", __func__, MAX_DRAW_GLPICS);
+    drawpic = &draw_glpics[num_draw_glpics++];
+    qstrncpy(drawpic->name, name, sizeof(drawpic->name));
+    drawpic->glpic = glpic;
 
     glpic->texnum = GL_LoadPicTexture(pic, name);
     glpic->sl = 0;
@@ -399,7 +434,12 @@ Draw_Init(void)
     conback->tl = 0;
     conback->th = 1;
 
+    Scrap_Init();
     Draw_InitGLTextures();
+
+    /* get the other pics we need */
+    draw_disc = Draw_PicFromWad("disc");
+    draw_backtile = Draw_PicFromWad("backtile");
 }
 
 void
@@ -415,11 +455,7 @@ Draw_InitGLTextures()
     conback->texnum = GL_LoadTexture("conback", &conback->pic, TEXTURE_TYPE_HUD);
 
     /* create textures for scraps */
-    Scrap_Init();
-
-    /* get the other pics we need */
-    draw_disc = Draw_PicFromWad("disc");
-    draw_backtile = Draw_PicFromWad("backtile");
+    Scrap_InitGLTextures();
 
     /* Reset the menu cachepics */
     menu_numcachepics = 0;

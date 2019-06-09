@@ -294,7 +294,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     GL_Init();
     if (reload_textures) {
         Draw_InitGLTextures();
-        Sbar_InitPics();
+        Draw_ReloadPicTextures();
         Mod_ReloadTextures();
     }
 
