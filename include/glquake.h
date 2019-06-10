@@ -225,9 +225,9 @@ extern cvar_t gl_doubleeyes;
 #endif
 
 #ifdef QW_HACK
-extern GLuint netgraphtexture;	// netgraph texture
 extern cvar_t r_netgraph;
 void R_NetGraph(void);
+void R_ResetNetGraphTexture(void);
 #endif
 
 extern int gl_lightmap_format;

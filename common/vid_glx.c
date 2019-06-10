@@ -739,6 +739,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
         Draw_InitGLTextures();
         Draw_ReloadPicTextures();
         Mod_ReloadTextures();
+#ifdef QW_HACK
+	R_ResetNetGraphTexture();
+#endif
     }
 
     vid.width = vid.conwidth = scr_width = mode->width;

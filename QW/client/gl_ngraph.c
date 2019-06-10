@@ -28,6 +28,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define NET_GRAPHHEIGHT 32
 static byte netgraph_pixels[NET_GRAPHHEIGHT][NET_TIMINGS];
+static GLuint netgraphtexture;
+
+void
+R_ResetNetGraphTexture()
+{
+    netgraphtexture = 0;
+}
 
 static void
 R_LineGraph(int x, int h)
@@ -63,8 +70,6 @@ R_NetGraph
 void
 R_NetGraph(void)
 {
-    static GLuint netgraphtexture;
-
     int i, time_index, x, y, loss_percent;
     char message[80];
 
