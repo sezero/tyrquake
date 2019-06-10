@@ -127,7 +127,11 @@ CD_TARGET ?= win
 VID_TARGET ?= win
 IN_TARGET ?= win
 SND_TARGET ?= win
+ifneq (,$(findstring $(TARGET_OS),WIN64))
+SNAPSHOT_TARGET = $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win64.zip
+else
 SNAPSHOT_TARGET = $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win32.zip
+endif
 endif
 
 # --------------------------------------------------------------
@@ -1259,6 +1263,25 @@ DIST_FILES_WIN32 = \
 
 $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win32.zip: $(DIST_FILES_WIN32)
 	$(call do_zip,$(DIST_DIR)/win32)
+
+# ----------------------------------------------------------------------------
+# WIN64
+
+$(DIST_DIR)/win64/%.txt:	%.txt			; $(do_cp)
+$(DIST_DIR)/win64/doc/%.txt:	doc/%.txt		; $(do_cp)
+$(DIST_DIR)/win64/doc/%.html:	doc/%.html		; $(do_cp)
+$(DIST_DIR)/win64/%.exe:	$(BIN_DIR)/%.exe	; $(do_cp)
+
+DIST_FILES_WIN64 = \
+	$(patsubst %,$(DIST_DIR)/win64/%,$(APPS))	\
+	$(DIST_DIR)/win64/readme.txt			\
+	$(DIST_DIR)/win64/changelog.txt			\
+	$(DIST_DIR)/win64/gnu.txt			\
+	$(DIST_DIR)/win64/doc/tyrquake.txt		\
+	$(DIST_DIR)/win64/doc/tyrquake.html
+
+$(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-win64.zip: $(DIST_FILES_WIN64)
+	$(call do_zip,$(DIST_DIR)/win64)
 
 # ----------------------------------------------------------------------------
 # Source tarball creation
