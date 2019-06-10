@@ -220,6 +220,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
         Draw_InitGLTextures();
         Draw_ReloadPicTextures();
         Mod_ReloadTextures();
+	R_ResetPlayerTextures();
 #ifdef QW_HACK
 	R_ResetNetGraphTexture();
 #endif

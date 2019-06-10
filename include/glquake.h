@@ -290,6 +290,7 @@ void Draw_ReloadPicTextures(void);
 //
 qboolean R_CullBox(const vec3_t mins, const vec3_t maxs);
 void R_RotateForEntity(const vec3_t origin, const vec3_t angles);
+void R_ResetPlayerTextures(void);
 
 /*
  * The renderer supplies callbacks to the model loader

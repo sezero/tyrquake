@@ -1052,6 +1052,19 @@ R_AliasDrawModel(entity_t *entity)
     }
 }
 
+void
+R_ResetPlayerTextures()
+{
+    int playernum;
+
+    for (playernum = 0; playernum < MAX_CLIENTS; playernum++) {
+	if (playertextures[playernum]) {
+	    playertextures[playernum] = 0;
+	    R_TranslatePlayerSkin(playernum);
+	}
+    }
+}
+
 //=============================================================================
 
 /*
