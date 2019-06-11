@@ -401,8 +401,9 @@ typedef struct model_s {
 //
 // volume occupied by the model graphics
 //
-    vec3_t mins, maxs;
-    float radius;
+    vec3_t mins, maxs; // Unrotated bounding box
+    float xy_radius;   // Bounding radius in the xy plane (zero pitch/roll)
+    float radius;      // Bounding radius under arbitrary rotation
 
 //
 // additional model data
