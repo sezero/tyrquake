@@ -950,12 +950,30 @@ R_AliasDrawModel(entity_t *entity)
 {
     const model_t *model = entity->model;
     vec3_t origin, angles, mins, maxs;
+    int i;
+    float radius;
     aliashdr_t *aliashdr;
 
     /* Calculate position and cull if out of view */
     R_AliasCalcLerp(entity, origin, angles);
-    VectorAdd(origin, model->mins, mins);
-    VectorAdd(origin, model->maxs, maxs);
+    if (entity->angles[0] || entity->angles[2]) {
+	radius = model->radius;
+	for (i = 0; i < 3; i++) {
+	    mins[i] = origin[i] - radius;
+	    maxs[i] = origin[i] + radius;
+	}
+    } else if (entity->angles[1]) {
+	radius = model->xy_radius;
+	mins[0] = origin[0] - radius;
+	mins[1] = origin[1] - radius;
+	mins[2] = origin[2] + model->mins[2];
+	maxs[0] = origin[0] + radius;
+	maxs[1] = origin[1] + radius;
+	maxs[2] = origin[2] + model->maxs[2];
+    } else {
+	VectorAdd(origin, model->mins, mins);
+	VectorAdd(origin, model->maxs, maxs);
+    }
     if (R_CullBox(mins, maxs))
 	return;
 

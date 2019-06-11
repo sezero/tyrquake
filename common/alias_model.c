@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include <float.h>
 #include <string.h>
 
 #include "common.h"
@@ -133,6 +134,40 @@ Mod_LoadAliasFrames(aliashdr_t *aliashdr, void *buffer,
     }
 
     return buffer;
+}
+
+/*
+ * Calculate the model bounding box from the pose data
+ */
+static void
+Mod_CalculateAliasModelBounds(model_t *model, const aliashdr_t *aliashdr)
+{
+    vec3_t v, mins, maxs;
+    float radius, xy_radius, dist;
+    int i, j, numverts;
+    const trivertx_t *pv;
+
+    mins[0] = mins[1] = mins[2] = FLT_MAX;
+    maxs[0] = maxs[1] = maxs[2] = -FLT_MAX;
+
+    numverts = aliashdr->numposes *  aliashdr->numverts;
+    pv = (const trivertx_t *)((const byte *)aliashdr + aliashdr->posedata);
+    for (i = 0; i < numverts; i++, pv++) {
+	for (j = 0; j < 3; j++) {
+	    v[j] = pv->v[j] * aliashdr->scale[j] + aliashdr->scale_origin[j];
+	    mins[j] = qmin(mins[j], v[j]);
+	    maxs[j] = qmax(maxs[j], v[j]);
+	}
+	dist = v[0] * v[0] + v[1] * v[1];
+	xy_radius = qmax(xy_radius, dist);
+	dist += v[2] * v[2];
+	radius = qmax(radius, dist);
+    }
+
+    VectorCopy(mins, model->mins);
+    VectorCopy(maxs, model->maxs);
+    model->xy_radius = xy_radius;
+    model->radius = radius;
 }
 
 /*
@@ -448,9 +483,8 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer, s
     buffer = Mod_LoadAliasTriangles(aliashdr, buffer, &meshdata, model);
     buffer = Mod_LoadAliasFrames(aliashdr, buffer, &posedata);
 
-// FIXME: do this right
-    model->mins[0] = model->mins[1] = model->mins[2] = -16;
-    model->maxs[0] = model->maxs[1] = model->maxs[2] = 16;
+    /* Fill in the bounds used for frustum culling */
+    Mod_CalculateAliasModelBounds(model, aliashdr);
 
     /* Get the driver to save the mesh data */
     loader->LoadMeshData(model, aliashdr, &meshdata, &posedata);
