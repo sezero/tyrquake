@@ -106,6 +106,17 @@ extern int glx, gly, glwidth, glheight;
 
 #define BACKFACE_EPSILON	0.01
 
+/* There isn't really a limit on the width/height of the video buffer under OpenGL */
+#define MAXWIDTH 100000
+#define MAXHEIGHT 100000
+
+/*
+ * Water warping paramters - not actually used in GLQuake, but they
+ * are filled out in the global vid struct
+ */
+#define WARP_WIDTH 320
+#define WARP_HEIGHT 200
+
 void R_TimeRefresh_f(void);
 void R_ReadPointFile_f(void);
 

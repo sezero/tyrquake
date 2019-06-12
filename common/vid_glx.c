@@ -66,11 +66,6 @@ GL_GetProcAddress(const char *name)
     return glXGetProcAddress((GLubyte *)name);
 }
 
-#define MAXWIDTH    100000
-#define MAXHEIGHT   100000
-#define WARP_WIDTH  320
-#define WARP_HEIGHT 200
-
 /* compatibility cludges for new menu code */
 qboolean VID_CheckAdequateMem(int width, int height) { return true; }
 int vid_modenum;

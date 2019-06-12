@@ -50,13 +50,6 @@ GL_GetProcAddress(const char *name)
     return wglGetProcAddress(name);
 }
 
-#define WARP_WIDTH	320
-#define WARP_HEIGHT	200
-#define MAXWIDTH	10000
-#define MAXHEIGHT	10000
-#define BASEWIDTH	320
-#define BASEHEIGHT	200
-
 qboolean VID_CheckAdequateMem(int width, int height) { return true; }
 
 static qboolean Minimized;

@@ -374,10 +374,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
 /* ------------------------------------------------------------------------- */
 
-// The original defaults
-#define BASEWIDTH 320
-#define BASEHEIGHT 200
-
 byte *VGA_pagebase;
 int VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
 
