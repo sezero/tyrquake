@@ -46,9 +46,6 @@ GL_GetProcAddress(const char *name)
     return SDL_GL_GetProcAddress(name);
 }
 
-#define WARP_WIDTH 320
-#define WARP_HEIGHT 200
-
 int vid_modenum = VID_MODE_NONE;
 
 static cvar_t vid_mode = {
