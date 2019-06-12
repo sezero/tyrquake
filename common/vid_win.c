@@ -403,6 +403,8 @@ VID_InitModeList(void)
     S_ClearBuffer();
 
     /* Query the desktop mode */
+    memset(&devmode, 0, sizeof(devmode));
+    devmode.dmSize = sizeof(devmode);
     success = EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &devmode);
     if (!success)
 	Sys_Error("Unable to query desktop display settings");
@@ -417,7 +419,12 @@ VID_InitModeList(void)
     nummodes = 1;
 
     testmodenum = 0;
-    while (EnumDisplaySettings(NULL, testmodenum++, &devmode)) {
+    for (;;) {
+	memset(&devmode, 0, sizeof(devmode));
+	devmode.dmSize = sizeof(devmode);
+	success = EnumDisplaySettings(NULL, testmodenum++, &devmode);
+	if (!success)
+	    break;
 	if (nummodes == MAX_MODE_LIST)
 	    break;
 	if (devmode.dmPelsWidth > MAXWIDTH || devmode.dmPelsHeight > MAXHEIGHT)
@@ -427,8 +434,7 @@ VID_InitModeList(void)
 	if (devmode.dmBitsPerPel < 15)
 	    continue;
 
-	devmode.dmFields =
-	    DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
 	if (result != DISP_CHANGE_SUCCESSFUL)
 	    continue;
@@ -463,6 +469,7 @@ VID_SetDisplayMode(const qvidmode_t *mode)
 	return;
     }
 
+    memset(&gdevmode, 0, sizeof(gdevmode));
     gdevmode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
     gdevmode.dmFields |= DM_BITSPERPEL | DM_DISPLAYFREQUENCY;
     gdevmode.dmPelsWidth = mode->width;
