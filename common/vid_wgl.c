@@ -383,6 +383,11 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
         Draw_InitGLTextures();
         Draw_ReloadPicTextures();
         Mod_ReloadTextures();
+	R_ResetPlayerTextures();
+#ifdef QW_HACK
+	R_ResetNetGraphTexture();
+#endif
+
         reload_textures = false;
     }
 
