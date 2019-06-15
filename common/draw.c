@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "vid.h"
 #include "view.h"
+#include "screen.h"
 #include "wad.h"
 #include "zone.h"
 
