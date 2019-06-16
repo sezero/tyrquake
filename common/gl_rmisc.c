@@ -256,7 +256,7 @@ R_SetVrect
 ===============
 */
 void
-R_SetVrect(const vrect_t *pvrectin, vrect_t *pvrect, int lineadj)
+R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
 {
     int h;
     float size;
@@ -279,30 +279,30 @@ R_SetVrect(const vrect_t *pvrectin, vrect_t *pvrect, int lineadj)
     size /= 100.0;
 
     if (full)
-	h = pvrectin->height;
+	h = in->height;
     else
-	h = pvrectin->height - lineadj;
+	h = in->height - lineadj;
 
-    pvrect->width = pvrectin->width * size;
-    if (pvrect->width < 96) {
-	size = 96.0 / pvrectin->width;
-	pvrect->width = 96;	// min for icons
+    out->width = in->width * size;
+    if (out->width < 96) {
+	size = 96.0 / in->width;
+	out->width = 96;	// min for icons
     }
-    //pvrect->width &= ~7;
+    //out->width &= ~7;
 
-    pvrect->height = pvrectin->height * size;
+    out->height = in->height * size;
     if (!full) {
-	if (pvrect->height > pvrectin->height - lineadj)
-	    pvrect->height = pvrectin->height - lineadj;
-    } else if (pvrect->height > pvrectin->height)
-	pvrect->height = pvrectin->height;
-    //pvrect->height &= ~1;
+	if (out->height > in->height - lineadj)
+	    out->height = in->height - lineadj;
+    } else if (out->height > in->height)
+	out->height = in->height;
+    //out->height &= ~1;
 
-    pvrect->x = (pvrectin->width - pvrect->width) / 2;
+    out->x = (in->width - out->width) / 2;
     if (full)
-	pvrect->y = 0;
+	out->y = 0;
     else
-	pvrect->y = (h - pvrect->height) / 2;
+	out->y = (h - out->height) / 2;
 }
 
 /*
