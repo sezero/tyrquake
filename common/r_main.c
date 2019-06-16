@@ -395,14 +395,14 @@ Guaranteed to be called before the first refresh
 ===============
 */
 void
-R_ViewChanged(vrect_t *pvrect, int lineadj, float aspect)
+R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
 {
     int i;
     float res_scale;
 
     r_viewchanged = true;
 
-    R_SetVrect(pvrect, &r_refdef.vrect, lineadj);
+    R_SetVrect(vrect, &r_refdef.vrect, lineadj);
 
     r_refdef.horizontalFieldOfView = 2.0 * tan(r_refdef.fov_x / 360 * M_PI);
     r_refdef.fvrectx = (float)r_refdef.vrect.x;

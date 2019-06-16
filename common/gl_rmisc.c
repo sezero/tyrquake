@@ -306,6 +306,20 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
 }
 
 /*
+===============
+R_ViewChanged
+
+Called every time the vid structure or r_refdef changes.
+Guaranteed to be called before the first refresh
+===============
+*/
+void
+R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
+{
+    R_SetVrect(vrect, &r_refdef.vrect, lineadj);
+}
+
+/*
  * ================
  * ResampleXlate
  * ================

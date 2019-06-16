@@ -611,19 +611,11 @@ SCR_CalcRefdef(void)
     vrect.width = vid.width;
     vrect.height = vid.height;
 
-#ifdef GLQUAKE
-    R_SetVrect(&vrect, &r_refdef.vrect, sb_lines);
-#else
     R_SetVrect(&vrect, &scr_vrect, sb_lines);
-#endif
 
     r_refdef.fov_x = scr_fov.value;
-    r_refdef.fov_y =
-	CalcFov(r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height);
+    r_refdef.fov_y = CalcFov(r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height);
 
-#ifdef GLQUAKE
-    scr_vrect = r_refdef.vrect;
-#else
 // guard against going from one mode to another that's less than half the
 // vertical resolution
     if (scr_con_current > vid.height)
@@ -631,7 +623,6 @@ SCR_CalcRefdef(void)
 
 // notify the refresh of the change
     R_ViewChanged(&vrect, sb_lines, vid.aspect);
-#endif
 }
 
 /*
