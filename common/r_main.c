@@ -342,6 +342,10 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
     float size;
     qboolean full;
 
+    if (scr_scale != 1.0f) {
+        lineadj = (int)(lineadj * scr_scale);
+    }
+
 #ifdef NQ_HACK
     full = (scr_viewsize.value >= 120.0f);
 #endif

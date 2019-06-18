@@ -53,11 +53,11 @@ static const byte crosshair_data[64] = {
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
-    0xfe, 0xff, 0xfe, 0xff, 0xfe, 0xff, 0xfe, 0xff,
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 };
 
 static glpic_t *conback;
@@ -439,6 +439,25 @@ Draw_InitGLTextures()
     R_InitParticleTexture();
 }
 
+struct drawrect {
+    float x;
+    float y;
+    float w;
+    float h;
+};
+
+static inline struct drawrect
+Draw_GetScaledRect(int x, int y, int w, int h)
+{
+    struct drawrect rect = {
+        .x = x * scr_scale,
+        .y = y * scr_scale,
+        .w = w * scr_scale,
+        .h = h * scr_scale,
+    };
+
+    return rect;
+}
 
 /*
 ================
@@ -454,32 +473,32 @@ Draw_Character(int x, int y, int num)
 {
     int row, col;
     float frow, fcol, size;
+    struct drawrect rect;
 
-    if (num == 32)
-	return;			// space
+    rect = Draw_GetScaledRect(x, y, 8, 8);
 
-    num &= 255;
-
-    if (y <= -8)
-	return;			// totally off screen
+    if (num < 0 || num > 255 || num == 32)
+	return;
+    if (rect.y <= -rect.h)
+	return;
 
     row = num >> 4;
     col = num & 15;
 
-    frow = row * 0.0625;
-    fcol = col * 0.0625;
-    size = 0.0625;
+    frow = row * 0.0625f;
+    fcol = col * 0.0625f;
+    size = 0.0625f;
 
     GL_Bind(charset_texture);
     glBegin(GL_QUADS);
     glTexCoord2f(fcol, frow);
-    glVertex2f(x, y);
+    glVertex2f(rect.x, rect.y);
     glTexCoord2f(fcol + size, frow);
-    glVertex2f(x + 8, y);
+    glVertex2f(rect.x + rect.w, rect.y);
     glTexCoord2f(fcol + size, frow + size);
-    glVertex2f(x + 8, y + 8);
+    glVertex2f(rect.x + rect.w, rect.y + rect.h);
     glTexCoord2f(fcol, frow + size);
-    glVertex2f(x, y + 8);
+    glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
 }
 
@@ -516,37 +535,61 @@ Draw_Alt_String(int x, int y, const char *str)
 void
 Draw_Crosshair(void)
 {
-    int x, y;
-    unsigned char *pColor;
+    if (!crosshair.value)
+        return;
 
-    if (crosshair.value == 2) {
-	x = scr_vrect.x + scr_vrect.width / 2 - 3 + cl_crossx.value;
-	y = scr_vrect.y + scr_vrect.height / 2 - 3 + cl_crossy.value;
+    if (crosshair.value == 2.0f) {
+        /* Since width/height is probably a multiple of two, there is no 'center' pixel */
+	float x = scr_vrect.x + scr_vrect.width / 2 + cl_crossx.value;
+	float y = scr_vrect.y + scr_vrect.height / 2 + cl_crossy.value;
+	byte *rgba = (byte *)&d_8to24table[(byte)crosshaircolor.value];
 
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	pColor = (unsigned char *)&d_8to24table[(byte)crosshaircolor.value];
-	glColor4ubv(pColor);
+	glColor4ubv(rgba);
 	GL_Bind(crosshair_texture);
 
+        int stretch_offset = floorf(3.5f * scr_scale);
+        int stretch_size = stretch_offset * 2 + 1;
+        float stretch_texcoord = stretch_size / 8.0f;
+
 	glBegin(GL_QUADS);
+
+        /* Draw vertical crosshair mark */
 	glTexCoord2f(0, 0);
-	glVertex2f(x - 4, y - 4);
-	glTexCoord2f(1, 0);
-	glVertex2f(x + 12, y - 4);
-	glTexCoord2f(1, 1);
-	glVertex2f(x + 12, y + 12);
-	glTexCoord2f(0, 1);
-	glVertex2f(x - 4, y + 12);
+	glVertex2f(x - 3, y - stretch_offset);
+	glTexCoord2f(0.875f, 0);
+	glVertex2f(x + 4, y - stretch_offset);
+	glTexCoord2f(0.875f, stretch_texcoord);
+	glVertex2f(x + 4, y + stretch_offset + 1);
+	glTexCoord2f(0, stretch_texcoord);
+	glVertex2f(x - 3, y + stretch_offset + 1);
+
+        /* Draw horizontal crosshair mark (mirror tex coords on diagonal) */
+	glTexCoord2f(0, 0);
+	glVertex2f(x - stretch_offset, y - 3);
+	glTexCoord2f(0, stretch_texcoord);
+	glVertex2f(x + stretch_offset + 1, y - 3);
+	glTexCoord2f(0.875f, stretch_texcoord);
+	glVertex2f(x + stretch_offset + 1, y + 4);
+	glTexCoord2f(0.875f, 0);
+	glVertex2f(x - stretch_offset, y + 4);
+
 	glEnd();
 
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    } else if (crosshair.value)
-	Draw_Character(scr_vrect.x + scr_vrect.width / 2 - 4 +
-		       cl_crossx.value,
-		       scr_vrect.y + scr_vrect.height / 2 - 4 +
-		       cl_crossy.value, '+');
-}
 
+        return;
+    }
+
+    /* Adjust the coordinates for hud scaling */
+    int x = (int)((scr_vrect.x + scr_vrect.width / 2) / scr_scale);
+    int y = (int)((scr_vrect.y + scr_vrect.height / 2) / scr_scale);
+
+    x += (int)cl_crossx.value - 4;
+    y += (int)cl_crossy.value - 4;
+
+    Draw_Character(x, y, '+');
+}
 
 /*
 =============
@@ -556,6 +599,7 @@ Draw_Pic
 void
 Draw_Pic(int x, int y, const qpic8_t *pic)
 {
+    struct drawrect rect = Draw_GetScaledRect(x, y, pic->width, pic->height);
     const glpic_t *glpic;
 
     glpic = const_container_of(pic, glpic_t, pic);
@@ -565,13 +609,13 @@ Draw_Pic(int x, int y, const qpic8_t *pic)
     GL_Bind(glpic->texnum);
     glBegin(GL_QUADS);
     glTexCoord2f(glpic->sl, glpic->tl);
-    glVertex2f(x, y);
+    glVertex2f(rect.x, rect.y);
     glTexCoord2f(glpic->sh, glpic->tl);
-    glVertex2f(x + pic->width, y);
+    glVertex2f(rect.x + rect.w, rect.y);
     glTexCoord2f(glpic->sh, glpic->th);
-    glVertex2f(x + pic->width, y + pic->height);
+    glVertex2f(rect.x + rect.w, rect.y + rect.h);
     glTexCoord2f(glpic->sl, glpic->th);
-    glVertex2f(x, y + pic->height);
+    glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
 }
 
@@ -579,6 +623,7 @@ void
 Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 	    int height)
 {
+    struct drawrect rect = Draw_GetScaledRect(x, y, width, height);
     const glpic_t *glpic;
     float newsl, newtl, newsh, newth;
     float oldglwidth, oldglheight;
@@ -599,13 +644,13 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
     GL_Bind(glpic->texnum);
     glBegin(GL_QUADS);
     glTexCoord2f(newsl, newtl);
-    glVertex2f(x, y);
+    glVertex2f(rect.x, rect.y);
     glTexCoord2f(newsh, newtl);
-    glVertex2f(x + width, y);
+    glVertex2f(rect.x + rect.w, rect.y);
     glTexCoord2f(newsh, newth);
-    glVertex2f(x + width, y + height);
+    glVertex2f(rect.x + rect.w, rect.y + rect.h);
     glTexCoord2f(newsl, newth);
-    glVertex2f(x, y + height);
+    glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
 }
 
@@ -615,7 +660,7 @@ Draw_TransPic
 =============
 */
 void
-Draw_TransPic(int x, int y, const qpic8_t *pic)
+Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
 {
     if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
 	y < 0 || (unsigned)(y + pic->height) > vid.height) {
@@ -657,6 +702,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
 {
     static GLuint translate_texture;
 
+    struct drawrect rect = Draw_GetScaledRect(x, y, pic->width, pic->height);
     const byte *src;
     byte *dest, *buffer;
     int i, buffersize, mark;
@@ -691,13 +737,13 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
     glColor3f(1, 1, 1);
     glBegin(GL_QUADS);
     glTexCoord2f(0, 0);
-    glVertex2f(x, y);
+    glVertex2f(rect.x, rect.y);
     glTexCoord2f(1, 0);
-    glVertex2f(x + pic->width, y);
+    glVertex2f(rect.x + rect.w, rect.y);
     glTexCoord2f(1, 1);
-    glVertex2f(x + pic->width, y + pic->height);
+    glVertex2f(rect.x + rect.w, rect.y + rect.h);
     glTexCoord2f(0, 1);
-    glVertex2f(x, y + pic->height);
+    glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
 }
 
@@ -757,15 +803,10 @@ Draw_ConsoleBackground(int lines)
 
 #ifdef QW_HACK
     {
-	const char *version;
-	int x;
-
-	// hack the version number directly into the pic
-	y = lines - 14;
 	if (!cls.download) {
-	    version = va("TyrQuake (%s) QuakeWorld", stringify(TYR_VERSION));
-	    x = vid.conwidth - (strlen(version) * 8 + 11) -
-		(vid.conwidth * 8 / conback->pic.width) * 7;
+	    const char *version = va("TyrQuake (%s) QuakeWorld", stringify(TYR_VERSION));
+            int x = scr_scaled_width - (strlen(version) * 8 + 11);
+            y = (int)((lines - 14) / scr_scale);
 	    Draw_Alt_String(x, y, version);
 	}
     }
@@ -800,6 +841,13 @@ Draw_TileClear(int x, int y, int w, int h)
     glEnd();
 }
 
+void
+Draw_TileClearScaled(int x, int y, int w, int h)
+{
+    struct drawrect rect = Draw_GetScaledRect(x, y, w, h);
+    Draw_TileClear(rect.x, rect.y, rect.w, rect.h);
+}
+
 
 /*
 =============
@@ -811,6 +859,8 @@ Fills a box of pixels with a single color
 void
 Draw_Fill(int x, int y, int w, int h, int c)
 {
+    struct drawrect rect = Draw_GetScaledRect(x, y, w, h);
+
     glDisable(GL_TEXTURE_2D);
     glColor3f(host_basepal[c * 3] / 255.0,
 	      host_basepal[c * 3 + 1] / 255.0,
@@ -818,10 +868,10 @@ Draw_Fill(int x, int y, int w, int h, int c)
 
     glBegin(GL_QUADS);
 
-    glVertex2f(x, y);
-    glVertex2f(x + w, y);
-    glVertex2f(x + w, y + h);
-    glVertex2f(x, y + h);
+    glVertex2f(rect.x, rect.y);
+    glVertex2f(rect.x + rect.w, rect.y);
+    glVertex2f(rect.x + rect.w, rect.y + rect.h);
+    glVertex2f(rect.x, rect.y + rect.h);
 
     glEnd();
     glColor3f(1, 1, 1);

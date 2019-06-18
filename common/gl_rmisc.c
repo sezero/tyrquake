@@ -262,6 +262,10 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
     float size;
     qboolean full;
 
+    if (scr_scale != 1.0f) {
+        lineadj = (int)(lineadj * scr_scale);
+    }
+
 #ifdef NQ_HACK
     full = (scr_viewsize.value >= 120.0f);
 #endif
@@ -288,7 +292,6 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
 	size = 96.0 / in->width;
 	out->width = 96;	// min for icons
     }
-    //out->width &= ~7;
 
     out->height = in->height * size;
     if (!full) {
@@ -296,7 +299,6 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
 	    out->height = in->height - lineadj;
     } else if (out->height > in->height)
 	out->height = in->height;
-    //out->height &= ~1;
 
     out->x = (in->width - out->width) / 2;
     if (full)

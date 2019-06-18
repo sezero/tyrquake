@@ -62,11 +62,6 @@ pack "Scourge of Armagon".
 Start the game in windowed mode.
 .IP "\fB\-width n, \-height n\fP"
 Specify the width and/or height of the game window in pixels.
-.IP "\fB\-conwidth n, \-conheight n\fP (tyr-glquake,tyr-glqwcl only)"
-Can be used to specify a different resolution for the console so that the game
-can be rendered in high resolution without making the console text too
-small. For best results, make sure conwidth evenly divides width (and
-conheight, height). E.g. \fB\-width\fP \fI1280\fP \fB\-conwidth\fP \fI640\fP.
 .IP "\fB\-bpp n\fP (tyr-glquake,tyr-glqwcl Windows only)"
 Request an OpenGL context with the specified bits-per-pixel.
 .IP "\fB\-nomtex\fP"
@@ -251,6 +246,10 @@ Prints the list of currently loaded textures (GLQuake/GLQWCL)
 .IP "\fBsizeup\fP"
 .IP "\fBsizedown\fP"
 .IP "\fBsnap\fP"
+.IP "\fBhudscale\fP"
+Prints the active hud scaling factor, relative the the current
+resolution.  If given a parameter, sets this as the new scaling factor.
+See also \fIscr_hudscale\fP under CONSOLE VARIABLES.
 .IP "\fBplay\fP"
 .IP "\fBplayvol\fP"
 .IP "\fBstopsound\fP"
@@ -533,6 +532,14 @@ to their defaults after reloading the engine. Default 1.
 .IP "\fBscr_fov\fP"
 .IP "\fBscr_viewsize\fP"
 .IP "\fBscr_conspeed\fP"
+.IP "\fBscr_hudscale\fP"
+Scale the console text and status bar by some factor.  When set to 1,
+the console text and status bar pics are drawn at their pixel size.
+This can be very small when using a high resolution video mode.  Setting
+to 2 will make the text twice as big, etc.  Fractional values > 1 are
+allowed.  If set to zero, the engine will try to pick a reasonable size
+based on the video mode.  Can be queried/set via the \fIhudscale\fP
+command.  Default 0.
 .IP "\fBscr_showram\fP"
 .IP "\fBscr_showturtle\fP"
 .IP "\fBscr_showpause\fP"

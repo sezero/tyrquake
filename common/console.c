@@ -141,16 +141,14 @@ Con_MessageMode2_f(void)
 /*
 ================
 Con_Resize
-
 ================
 */
 static void
-Con_Resize(console_t * c)
+Con_Resize(console_t *console)
 {
     int i, j, width, oldwidth, oldtotallines, numlines, numchars;
-    char tbuf[CON_TEXTSIZE];
 
-    width = (vid.width >> 3) - 2;
+    width = (scr_scaled_width >> 3) - 2;
 
     if (width == con_linewidth)
 	return;
@@ -160,7 +158,7 @@ Con_Resize(console_t * c)
 	width = 38;
 	con_linewidth = width;
 	con_totallines = CON_TEXTSIZE / con_linewidth;
-	memset(c->text, ' ', CON_TEXTSIZE);
+	memset(console->text, ' ', CON_TEXTSIZE);
     } else {
 	oldwidth = con_linewidth;
 	con_linewidth = width;
@@ -176,21 +174,26 @@ Con_Resize(console_t * c)
 	if (con_linewidth < numchars)
 	    numchars = con_linewidth;
 
-	memcpy(tbuf, c->text, CON_TEXTSIZE);
-	memset(c->text, ' ', CON_TEXTSIZE);
+        /* Temporary copy of console text to re-format for changed line length */
+        int mark = Hunk_LowMark();
+        char *buffer = Hunk_AllocName(CON_TEXTSIZE, "console");
 
+	memcpy(buffer, console->text, CON_TEXTSIZE);
+	memset(console->text, ' ', CON_TEXTSIZE);
 	for (i = 0; i < numlines; i++) {
 	    for (j = 0; j < numchars; j++) {
-		c->text[(con_totallines - 1 - i) * con_linewidth + j] =
-		    tbuf[((c->current - i + oldtotallines) %
+		console->text[(con_totallines - 1 - i) * con_linewidth + j] =
+		    buffer[((console->current - i + oldtotallines) %
 			  oldtotallines) * oldwidth + j];
 	    }
 	}
+
+        Hunk_FreeToLowMark(mark);
 	Con_ClearNotify();
     }
 
-    c->current = con_totallines - 1;
-    c->display = c->current;
+    console->current = con_totallines - 1;
+    console->display = console->current;
 }
 
 /*
@@ -585,9 +588,10 @@ Con_DrawConsole(int lines)
 // draw the background
     Draw_ConsoleBackground(lines);
 
-// draw the text
+// draw the text, scaled
+    lines = (int)((float)lines / scr_scale);
     con_vislines = lines;
-    rows = (lines - 22) >> 3;	// rows of text to draw
+    rows = ((lines - 22) >> 3) + 1; // rows of text to draw, +1 for smooth scroll on/off
     y = lines - 30;
 
 // draw from the bottom up

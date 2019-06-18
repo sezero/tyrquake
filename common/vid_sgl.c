@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "input.h"
 #include "quakedef.h"
 #include "sbar.h"
+#include "screen.h"
 #include "sdl_common.h"
 #include "sys.h"
 #include "vid.h"
@@ -237,6 +238,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     Cvar_SetValue("vid_mode", vid_modenum);
 
     vid.recalc_refdef = 1;
+
+    SCR_CheckResize();
+    Con_CheckResize();
 
     return true;
 }

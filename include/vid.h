@@ -49,8 +49,8 @@ typedef struct {
     int recalc_refdef;		// if true, recalc vid-based stuff
     pixel_t *conbuffer;
     int conrowbytes;
-    int conwidth;
-    int conheight;
+    int conwidth;               // width of the console buffer in pixels
+    int conheight;              // height of the console buffer in pixels
     int maxwarpwidth;
     int maxwarpheight;
     pixel_t *direct;		// direct drawing to framebuffer, if not NULL

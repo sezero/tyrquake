@@ -263,14 +263,12 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
     ReleaseDC(mainwindow, hdc);
 
-    if (vid.conheight > mode->height)
-	vid.conheight = mode->height;
-    if (vid.conwidth > mode->width)
-	vid.conwidth = mode->width;
-    vid.width = vid.conwidth;
-    vid.height = vid.conheight;
-
     vid.numpages = 2;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
+    vid.maxwarpwidth = WARP_WIDTH;
+    vid.maxwarpheight = WARP_HEIGHT;
+
     mainwindow = mainwindow;
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
@@ -354,14 +352,12 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
     ReleaseDC(mainwindow, hdc);
 
-    if (vid.conheight > mode->height)
-	vid.conheight = mode->height;
-    if (vid.conwidth > mode->width)
-	vid.conwidth = mode->width;
-    vid.width = vid.conwidth;
-    vid.height = vid.conheight;
-
     vid.numpages = 2;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
+    vid.maxwarpwidth = WARP_WIDTH;
+    vid.maxwarpheight = WARP_HEIGHT;
+
     mainwindow = mainwindow;
 
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
@@ -472,6 +468,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     VID_SetPalette(palette);
 
     vid.recalc_refdef = 1;
+
+    SCR_CheckResize();
+    Con_CheckResize();
 
     return true;
 }
@@ -839,7 +838,6 @@ VID_Init
 void
 VID_Init(const byte *palette)
 {
-    int i;
     byte gamma_palette[256 * 3];
     char gldir[MAX_OSPATH];
     DEVMODE devmode;
@@ -867,26 +865,6 @@ VID_Init(const byte *palette)
 
     vid_initialized = true;
 
-    if ((i = COM_CheckParm("-conwidth")) != 0)
-	vid.conwidth = Q_atoi(com_argv[i + 1]);
-    else
-	vid.conwidth = 640;
-
-    vid.conwidth &= ~7;	// make it a multiple of eight
-
-    if (vid.conwidth < 320)
-	vid.conwidth = 320;
-
-    // pick a conheight that matches with correct aspect
-    vid.conheight = vid.conwidth * 3 / 4;
-
-    if ((i = COM_CheckParm("-conheight")) != 0)
-	vid.conheight = Q_atoi(com_argv[i + 1]);
-    if (vid.conheight < 200)
-	vid.conheight = 200;
-
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 

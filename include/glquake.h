@@ -293,6 +293,7 @@ void R_DrawSkyChain(msurface_t *s);
 //
 // gl_draw.c
 //
+#define TRANSPARENT_COLOR 0xFF
 void GL_Set2D(void);
 void Draw_ReloadPicTextures(void);
 

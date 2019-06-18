@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "screen.h"
 #include "sound.h"
 #include "sys.h"
+#include "vid.h"
 #include "view.h"
 
 #ifdef GLQUAKE
@@ -112,6 +113,79 @@ qboolean scr_skipupdate;
 static cvar_t scr_centertime = { "scr_centertime", "2" };
 static cvar_t scr_printspeed = { "scr_printspeed", "8" };
 
+
+/* Ratio of console background width to backbuffer width */
+float scr_conbackscale = 1.0f;
+
+/* Hud scaling, set reasonable defaults - re-calculated when scr_hudscale cvar is registered */
+float scr_scale = 1.0f;
+int scr_scaled_width = 320;
+int scr_scaled_height = 200;
+
+static void
+SCR_SetHudscale(float scale)
+{
+    if (!scale) {
+        // Choose a reasonable fractional scale based on 800x600 being 1:1
+        scale = (vid.height * 8 / 600) / 8.0f;
+        if (scale < 1.0f)
+            scale = 1.0f;
+    }
+
+    scr_scale = qclamp(scale, 0.25f, 16.0f);
+    scr_scaled_width = (int)((float)vid.conwidth / scr_scale);
+    scr_scaled_height = (int)((float)vid.conheight / scr_scale);
+
+    Con_CheckResize();
+    vid.recalc_refdef = true; /* Since scaling of sb_lines has changed */
+}
+
+/*
+ * Callback for changes to hud scaling
+ */
+static void
+SCR_Hudscale_Cvar_f(cvar_t *cvar)
+{
+    // Clamp to reasonable values
+    float scale = cvar->value;
+    if (scale && (scale < 0.25f || scale > 16.0f)) {
+        scale = qclamp(cvar->value, 0.25f, 16.0f);
+        Con_Printf("INFO: clamped %s value to %.2f\n", cvar->name, scale);
+    }
+
+    SCR_SetHudscale(scale);
+}
+
+static cvar_t scr_hudscale = {
+    .name = "scr_hudscale",
+    .string = "0",
+    .archive = true,
+    .callback = SCR_Hudscale_Cvar_f
+};
+
+void
+SCR_CheckResize()
+{
+    SCR_SetHudscale(scr_hudscale.value);
+}
+
+static void
+SCR_Hudscale_f()
+{
+    switch (Cmd_Argc()) {
+        case 1:
+            Con_Printf("HUD scaling factor: %g%s\n", scr_scale, scr_hudscale.value ? "" : " (automatic)");
+            break;
+        case 2:
+            Cvar_Set("scr_hudscale", Cmd_Argv(1));
+            break;
+        default:
+            Con_Printf("Usage: %s [scaling_factor]\n", Cmd_Argv(0));
+            break;
+    }
+}
+
+
 cvar_t scr_viewsize = { "viewsize", "100", true };
 cvar_t scr_fov = { "fov", "90" };	// 10 - 170
 static cvar_t scr_conspeed = { "scr_conspeed", "300" };
@@ -144,7 +218,6 @@ static float scr_disabled_time;
 static float oldsbar;
 static cvar_t scr_allowsnap = { "scr_allowsnap", "1" };
 #endif
-
 
 //=============================================================================
 
@@ -237,8 +310,8 @@ SCR_DrawFPS(void)
     }
 
     qsnprintf(st, sizeof(st), "%3d FPS", lastfps);
-    x = vid.width - strlen(st) * 8 - 8;
-    y = vid.height - sb_lines - 8;
+    x = scr_scaled_width - strlen(st) * 8 - 8;
+    y = scr_scaled_height - sb_lines - 8;
     Draw_String(x, y, st);
 }
 
@@ -260,8 +333,8 @@ SCR_DrawPause(void)
 	return;
 
     pic = Draw_CachePic("gfx/pause.lmp");
-    Draw_Pic((vid.width - pic->width) / 2,
-	     (vid.height - 48 - pic->height) / 2, pic);
+    Draw_Pic((scr_scaled_width - pic->width) / 2,
+	     (scr_scaled_height - 48 - pic->height) / 2, pic);
 }
 
 //=============================================================================
@@ -311,13 +384,13 @@ SCR_SetUpToDrawConsole(void)
     if (clearconsole++ < vid.numpages) {
 #ifdef GLQUAKE
 	scr_copytop = 1;
-	Draw_TileClear(0, (int)scr_con_current, vid.width,
-		       vid.height - (int)scr_con_current);
+	Draw_TileClear(0, (int)scr_con_current, scr_scaled_width,
+		       scr_scaled_height - (int)scr_con_current);
 #endif
 	Sbar_Changed();
     } else if (clearnotify++ < vid.numpages) {
 	scr_copytop = 1;
-	Draw_TileClear(0, 0, vid.width, con_notifylines);
+	Draw_TileClearScaled(0, 0, scr_scaled_width, con_notifylines);
     } else
 	con_notifylines = 0;
 }
@@ -387,15 +460,15 @@ SCR_EraseCenterString(void)
     }
 
     if (scr_center_lines <= 4)
-	y = vid.height * 0.35;
+	y = scr_scaled_height * 0.35;
     else
 	y = 48;
 
     /* Make sure we don't draw off the bottom of the screen*/
-    height = qmin(8 * scr_erase_lines, ((int)vid.height) - y - 1);
+    height = qmin(8 * scr_erase_lines, scr_scaled_height - y - 1);
 
     scr_copytop = 1;
-    Draw_TileClear(0, y, vid.width, height);
+    Draw_TileClearScaled(0, y, scr_scaled_width, height);
 }
 #endif
 
@@ -429,7 +502,7 @@ SCR_DrawCenterString(void)
     start = scr_centerstring;
 
     if (scr_center_lines <= 4)
-	y = vid.height * 0.35;
+	y = scr_scaled_height * 0.35;
     else
 	y = 48;
 
@@ -438,7 +511,7 @@ SCR_DrawCenterString(void)
 	for (l = 0; l < 40; l++)
 	    if (start[l] == '\n' || !start[l])
 		break;
-	x = (vid.width - l * 8) / 2;
+	x = (scr_scaled_width - l * 8) / 2;
 	for (j = 0; j < l; j++, x += 8) {
 	    Draw_Character(x, y, start[j]);
 	    if (!remaining--)
@@ -471,14 +544,14 @@ SCR_DrawNotifyString(void)
 
     start = scr_notifystring;
 
-    y = vid.height * 0.35;
+    y = scr_scaled_height * 0.35;
 
     do {
 	// scan the width of the line
 	for (l = 0; l < 40; l++)
 	    if (start[l] == '\n' || !start[l])
 		break;
-	x = (vid.width - l * 8) / 2;
+	x = (scr_scaled_width - l * 8) / 2;
 	for (j = 0; j < l; j++, x += 8)
 	    Draw_Character(x, y, start[j]);
 
@@ -612,6 +685,7 @@ SCR_CalcRefdef(void)
     vrect.height = vid.height;
 
     R_SetVrect(&vrect, &scr_vrect, sb_lines);
+    R_ViewChanged(&vrect, sb_lines, vid.aspect);
 
     r_refdef.fov_x = scr_fov.value;
     r_refdef.fov_y = CalcFov(r_refdef.fov_x, r_refdef.vrect.width, r_refdef.vrect.height);
@@ -620,9 +694,6 @@ SCR_CalcRefdef(void)
 // vertical resolution
     if (scr_con_current > vid.height)
 	scr_con_current = vid.height;
-
-// notify the refresh of the change
-    R_ViewChanged(&vrect, sb_lines, vid.aspect);
 }
 
 /*
@@ -1122,8 +1193,7 @@ SCR_ScreenShot_f(void)
 //
 // save the pcx file
 //
-    D_EnableBackBufferAccess();	// enable direct drawing of console to back
-    //  buffer
+    D_EnableBackBufferAccess();	// enable direct drawing of console to back buffer
 
     WritePCXfile(pcxname, vid.buffer, vid.width, vid.height, vid.rowbytes,
 		 host_basepal, false);
@@ -1182,8 +1252,8 @@ SCR_DrawLoading(void)
 	return;
 
     pic = Draw_CachePic("gfx/loading.lmp");
-    Draw_Pic((vid.width - pic->width) / 2,
-	     (vid.height - 48 - pic->height) / 2, pic);
+    Draw_Pic((scr_scaled_width - pic->width) / 2,
+	     (scr_scaled_height - 48 - pic->height) / 2, pic);
 }
 
 /*
@@ -1207,13 +1277,15 @@ SCR_EndLoadingPlaque(void)
 static void
 SCR_TileClear(void)
 {
+    int scaled_sb_lines = (int)(sb_lines * scr_scale);
+
     if (r_refdef.vrect.x > 0) {
 	// left
-	Draw_TileClear(0, 0, r_refdef.vrect.x, vid.height - sb_lines);
+	Draw_TileClear(0, 0, r_refdef.vrect.x, vid.height - scaled_sb_lines);
 	// right
 	Draw_TileClear(r_refdef.vrect.x + r_refdef.vrect.width, 0,
 		       vid.width - r_refdef.vrect.x + r_refdef.vrect.width,
-		       vid.height - sb_lines);
+		       vid.height - scaled_sb_lines);
     }
     if (r_refdef.vrect.y > 0) {
 	// top
@@ -1224,7 +1296,7 @@ SCR_TileClear(void)
 	Draw_TileClear(r_refdef.vrect.x,
 		       r_refdef.vrect.y + r_refdef.vrect.height,
 		       r_refdef.vrect.width,
-		       vid.height - sb_lines -
+		       vid.height - scaled_sb_lines -
 		       (r_refdef.vrect.height + r_refdef.vrect.y));
     }
 }
@@ -1294,10 +1366,6 @@ SCR_UpdateScreen(void)
     scr_copytop = 0;
     scr_copyeverything = 0;
 
-#ifdef GLQUAKE
-    GL_BeginRendering(&glx, &gly, &glwidth, &glheight);
-#endif
-
     /*
      * Check for vid setting changes
      */
@@ -1318,6 +1386,10 @@ SCR_UpdateScreen(void)
 
     if (vid.recalc_refdef)
 	SCR_CalcRefdef();
+
+#ifdef GLQUAKE
+    GL_BeginRendering(&glx, &gly, &glwidth, &glheight);
+#endif
 
     /*
      * do 3D refresh drawing, and then update the screen
@@ -1383,17 +1455,7 @@ SCR_UpdateScreen(void)
 	SCR_DrawCenterString();
 #endif
     } else {
-#if defined(NQ_HACK) && defined(GLQUAKE)
-	if (crosshair.value) {
-	    //Draw_Crosshair();
-	    Draw_Character(scr_vrect.x + scr_vrect.width / 2,
-			   scr_vrect.y + scr_vrect.height / 2, '+');
-	}
-#endif
-#if defined(QW_HACK) && defined(GLQUAKE)
-	if (crosshair.value)
-	    Draw_Crosshair();
-#endif
+        Draw_Crosshair();
 	SCR_DrawRam();
 	SCR_DrawNet();
 	SCR_DrawFPS();
@@ -1425,24 +1487,21 @@ SCR_UpdateScreen(void)
 	vrect.y = 0;
 	vrect.width = vid.width;
 	vrect.height = vid.height;
-	vrect.pnext = 0;
-
+        vrect.pnext = NULL;
 	VID_Update(&vrect);
     } else if (scr_copytop) {
 	vrect.x = 0;
 	vrect.y = 0;
 	vrect.width = vid.width;
 	vrect.height = vid.height - sb_lines;
-	vrect.pnext = 0;
-
+        vrect.pnext = NULL;
 	VID_Update(&vrect);
     } else {
 	vrect.x = scr_vrect.x;
 	vrect.y = scr_vrect.y;
 	vrect.width = scr_vrect.width;
 	vrect.height = scr_vrect.height;
-	vrect.pnext = 0;
-
+        vrect.pnext = NULL;
 	VID_Update(&vrect);
     }
 #endif
@@ -1476,6 +1535,7 @@ SCR_Init(void)
     Cvar_RegisterVariable(&scr_fov);
     Cvar_RegisterVariable(&scr_viewsize);
     Cvar_RegisterVariable(&scr_conspeed);
+    Cvar_RegisterVariable(&scr_hudscale);
     Cvar_RegisterVariable(&scr_showram);
     Cvar_RegisterVariable(&scr_showturtle);
     Cvar_RegisterVariable(&scr_showpause);
@@ -1486,6 +1546,7 @@ SCR_Init(void)
     Cvar_RegisterVariable(&gl_triplebuffer);
 #endif
 
+    Cmd_AddCommand("hudscale", SCR_Hudscale_f);
     Cmd_AddCommand("screenshot", SCR_ScreenShot_f);
     Cmd_AddCommand("sizeup", SCR_SizeUp_f);
     Cmd_AddCommand("sizedown", SCR_SizeDown_f);
@@ -1498,6 +1559,8 @@ SCR_Init(void)
     Cvar_RegisterVariable(&scr_allowsnap);
     Cmd_AddCommand("snap", SCR_RSShot_f);
 #endif
+
+    SCR_SetHudscale(scr_hudscale.value);
 
     scr_initialized = true;
 }

@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // screen.h
 
 void SCR_Init(void);
+void SCR_CheckResize();
 void SCR_UpdateScreen(void);
 void SCR_UpdateWholeScreen(void);
 void SCR_CenterPrint(const char *str);
@@ -49,5 +50,10 @@ extern vrect_t scr_vrect;
 // only the refresh window will be updated unless these variables are flagged
 extern int scr_copytop;
 extern int scr_copyeverything;
+
+extern float scr_scale; /* hud scaling factor */
+extern int scr_scaled_width;
+extern int scr_scaled_height;
+extern float scr_conbackscale; /* The scaling applied to the console background */
 
 #endif /* SCREEN_H */
