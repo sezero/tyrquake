@@ -147,6 +147,7 @@ Mod_CalculateAliasModelBounds(model_t *model, const aliashdr_t *aliashdr)
     int i, j, numverts;
     const trivertx_t *pv;
 
+    radius = xy_radius = 0;
     mins[0] = mins[1] = mins[2] = FLT_MAX;
     maxs[0] = maxs[1] = maxs[2] = -FLT_MAX;
 
