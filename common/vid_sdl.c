@@ -351,6 +351,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     vid.recalc_refdef = 1;
 
+    SCR_CheckResize();
+    Con_CheckResize();
+
 #ifdef _WIN32
     mainwindow=GetActiveWindow();
     SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);

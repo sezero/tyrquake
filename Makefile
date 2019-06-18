@@ -282,7 +282,11 @@ CFLAGS += $(shell if [ $(GCC_VERSION) -lt 0400 ] ;\
 		then echo $(call cc-option,-fno-unit-at-a-time,); fi ;)
 CFLAGS += $(call cc-option,-fweb,)
 CFLAGS += $(call cc-option,-frename-registers,)
-CFLAGS += $(call cc-option,-ffast-math,)
+# Enable some math optimisations, but not -funsafe-math-optimisations,
+# which is causing problems with the software renderer currently.
+CFLAGS += $(call cc-option,-fno-math-errno)
+CFLAGS += $(call cc-option,-ffinite-math-only)
+CFLAGS += $(call cc-option,-fno-signaling-nans)
 endif
 endif
 

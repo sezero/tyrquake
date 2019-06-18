@@ -531,11 +531,9 @@ R_SetupFrame(void)
 		vrect.width = (int)w;
 		vrect.height = (int)h;
 
-		R_ViewChanged(&vrect,
-			      (int)((float)sb_lines *
-				    (h / (float)vid.height)),
-			      vid.aspect * (h / w) * ((float)vid.width /
-						      (float)vid.height));
+                int lineadj = (int)((float)sb_lines * (h / (float)vid.height));
+                float aspect = vid.aspect * (h / w) * ((float)vid.width / (float)vid.height);
+		R_ViewChanged(&vrect, lineadj, aspect);
 	    }
 	} else {
 	    vrect.x = 0;

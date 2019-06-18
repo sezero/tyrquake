@@ -613,8 +613,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.rowbytes = x_framebuffer[0]->bytes_per_line;
     vid.conrowbytes = vid.rowbytes;
     vid.recalc_refdef = 1;
+
+    SCR_CheckResize();
     Con_CheckResize();
-    Con_Clear_f();
 
     // Need to grab the input focus at startup, just in case...
     // FIXME - must be viewable or get BadMatch

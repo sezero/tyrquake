@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "vid.h"
 #include "view.h"
+#include "screen.h"
 #include "wad.h"
 #include "zone.h"
 
@@ -59,6 +60,9 @@ const byte *draw_chars; /* 8*8 graphic characters */
 const qpic8_t *draw_disc;
 
 static const qpic8_t *draw_backtile;
+
+#define CHAR_WIDTH	8
+#define CHAR_HEIGHT	8
 
 //=============================================================================
 /* Support Routines */
@@ -231,102 +235,373 @@ Draw_Init(void)
     r_rectdesc.rowbytes = draw_backtile->stride;
 }
 
+static void
+Draw_Pixel(int x, int y, byte color)
+{
+    byte *dest;
+    uint16_t *pusdest;
+
+    if (r_pixbytes == 1) {
+	dest = vid.conbuffer + y * vid.conrowbytes + x;
+	*dest = color;
+    } else {
+	pusdest = (uint16_t *)
+	    ((byte *)vid.conbuffer + y * vid.conrowbytes + (x << 1));
+	*pusdest = d_8to16table[color];
+    }
+}
+
+void
+Draw_Crosshair(void)
+{
+    int x, y;
+    byte c = (byte)crosshaircolor.value;
+
+    if (crosshair.value == 2) {
+        /*
+         * Drawn directly into the video buffer, so no scaling of coordinates.
+         * However, We will scale up the size a bit to match hud scale
+         */
+        int size = (int)(scr_scale * 4.0f);
+        int i;
+	x = scr_vrect.x + scr_vrect.width / 2 + cl_crossx.value;
+	y = scr_vrect.y + scr_vrect.height / 2 + cl_crossy.value;
+        for (i = 1; i < size; i += 2) {
+            Draw_Pixel(x - i, y, c);
+            Draw_Pixel(x + i, y, c);
+            Draw_Pixel(x, y - i, c);
+            Draw_Pixel(x, y + i, c);
+        }
+    } else if (crosshair.value) {
+        x = scr_vrect.x + scr_vrect.width / 2;
+        y = scr_vrect.y + scr_vrect.height / 2;
+
+        /* Adjust char coordinates for hud scaling */
+        if (scr_scale != 1.0f) {
+            x = (int)(x / scr_scale);
+            y = (int)(y / scr_scale);
+        }
+
+        x += (int)cl_crossx.value - 4;
+        y += (int)cl_crossy.value - 4;
+	Draw_Character(x, y, '+');
+    }
+}
+
+static void
+Draw_ScaledPic(int x, int y, const qpic8_t *pic)
+{
+    int dst_x, dst_x_start, dst_x_end, dst_width;
+    int dst_y, dst_y_start, dst_y_end, dst_height;
+    int f, fstep;
+    const byte *src;
+
+    assert(pic->stride);
+
+    /* Calculate the destination pixels */
+    dst_x_start = (int)(x * scr_scale);
+    dst_y_start = (int)(y * scr_scale);
+    dst_x_end = (int)((x + pic->width) * scr_scale);
+    dst_y_end = (int)((y + pic->height) * scr_scale);
+    dst_width = dst_x_end - dst_x_start;
+    dst_height = dst_y_end - dst_y_start;
+
+    /* Clip to the output buffer size */
+    dst_x_end = qmin(dst_x_end, vid.conwidth);
+    dst_y_end = qmin(dst_y_end, vid.conheight);
+
+    /* Fractional source step, 16-bits of precision */
+    fstep = pic->width * 0x10000 / dst_width;
+    if (r_pixbytes == 1) {
+        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+            byte *dst = vid.buffer + dst_y * vid.rowbytes;
+            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+            src = pic->pixels + src_row * pic->stride;
+            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+                dst[dst_x] = src[f >> 16];
+            }
+        }
+    } else {
+        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+            uint16_t *dst = (uint16_t *)(vid.buffer + dst_y * vid.rowbytes);
+            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+            src = pic->pixels + src_row * pic->stride;
+            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+                dst[dst_x] = d_8to16table[src[f >> 16]];
+            }
+        }
+    }
+}
+
+static void
+Draw_ScaledTransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
+{
+    int dst_x, dst_x_start, dst_x_end, dst_width;
+    int dst_y, dst_y_start, dst_y_end, dst_height;
+    int f, fstep;
+    const byte *src;
+
+    assert(pic->stride);
+
+    /* Calculate the destination pixels */
+    dst_x_start = (int)(x * scr_scale);
+    dst_y_start = (int)(y * scr_scale);
+    dst_x_end = (int)((x + pic->width) * scr_scale);
+    dst_y_end = (int)((y + pic->height) * scr_scale);
+    dst_width = dst_x_end - dst_x_start;
+    dst_height = dst_y_end - dst_y_start;
+
+    /* Clip to the output buffer size */
+    dst_x_end = qmin(dst_x_end, vid.conwidth);
+    dst_y_end = qmin(dst_y_end, vid.conheight);
+
+    /* Fractional source step, 16-bits of precision */
+    fstep = pic->width * 0x10000 / dst_width;
+    if (r_pixbytes == 1) {
+        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+            byte *dst = vid.buffer + dst_y * vid.rowbytes;
+            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+            src = pic->pixels + src_row * pic->stride;
+            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+                if (src[f >> 16] != transparent_color)
+                    dst[dst_x] = src[f >> 16];
+            }
+        }
+    } else {
+        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+            uint16_t *dst = (uint16_t *)(vid.buffer + dst_y * vid.rowbytes);
+            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+            src = pic->pixels + src_row * pic->stride;
+            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+                if (src[f >> 16] != transparent_color)
+                    dst[dst_x] = d_8to16table[src[f >> 16]];
+            }
+        }
+    }
+}
+
 
 /*
-================
-Draw_Character
-
-Draws one 8*8 graphics character with 0 being transparent.
-It can be clipped to the top of the screen to allow the console to be
-smoothly scrolled off.
-================
+=============
+Draw_Pic
+=============
 */
 void
-Draw_Character(int x, int y, int num)
+Draw_Pic(int x, int y, const qpic8_t *pic)
 {
     byte *dest;
     const byte *source;
     uint16_t *pusdest;
-    int drawline;
-    int row, col;
+    int v, u;
 
-    num &= 255;
-
-    if (y <= -8)
-	return;
-
-    /*
-     * FIXME - this was #ifdef PARANOID and Sys_Error instead of Con_DPrintf
-     *       - seems to be affected by "-conwidth ..."
-     */
-    if (y > vid.height - 8 || x < 0 || x > vid.width - 8) {
-	//Con_DPrintf("%s: (%i, %i)\n", __func__, x, y);
-	return;
-    }
-    if (num < 0 || num > 255) {
-	//Con_DPrintf("%s: char %i\n", __func__, num);
-	return;
+    if (scr_scale != 1.0f) {
+        Draw_ScaledPic(x, y, pic);
+        return;
     }
 
-    row = num >> 4;
-    col = num & 15;
-    source = draw_chars + (row << 10) + (col << 3);
+    if (x < 0 || x + pic->width > vid.width ||
+	y < 0 || y + pic->height > vid.height) {
+	Sys_Error("%s: bad coordinates", __func__);
+    }
 
-    if (y < 0) {		// clipped
-	drawline = 8 + y;
-	source -= 128 * y;
-	y = 0;
-    } else
-	drawline = 8;
+    source = pic->pixels;
 
     if (r_pixbytes == 1) {
-	dest = vid.conbuffer + y * vid.conrowbytes + x;
-
-	while (drawline--) {
-	    if (source[0])
-		dest[0] = source[0];
-	    if (source[1])
-		dest[1] = source[1];
-	    if (source[2])
-		dest[2] = source[2];
-	    if (source[3])
-		dest[3] = source[3];
-	    if (source[4])
-		dest[4] = source[4];
-	    if (source[5])
-		dest[5] = source[5];
-	    if (source[6])
-		dest[6] = source[6];
-	    if (source[7])
-		dest[7] = source[7];
-	    source += 128;
-	    dest += vid.conrowbytes;
+	dest = vid.buffer + y * vid.rowbytes + x;
+	for (v = 0; v < pic->height; v++) {
+	    memcpy(dest, source, pic->width);
+	    dest += vid.rowbytes;
+	    source += pic->stride;
 	}
     } else {
-	pusdest = (uint16_t *)
-	    ((byte *)vid.conbuffer + y * vid.conrowbytes + (x << 1));
-
-	while (drawline--) {
-	    if (source[0])
-		pusdest[0] = d_8to16table[source[0]];
-	    if (source[1])
-		pusdest[1] = d_8to16table[source[1]];
-	    if (source[2])
-		pusdest[2] = d_8to16table[source[2]];
-	    if (source[3])
-		pusdest[3] = d_8to16table[source[3]];
-	    if (source[4])
-		pusdest[4] = d_8to16table[source[4]];
-	    if (source[5])
-		pusdest[5] = d_8to16table[source[5]];
-	    if (source[6])
-		pusdest[6] = d_8to16table[source[6]];
-	    if (source[7])
-		pusdest[7] = d_8to16table[source[7]];
-
-	    source += 128;
-	    pusdest += vid.conrowbytes / 2;
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
+	for (v = 0; v < pic->height; v++) {
+	    for (u = 0; u < pic->width; u++) {
+		pusdest[u] = d_8to16table[source[u]];
+	    }
+	    pusdest += vid.rowbytes / 2;
+	    source += pic->stride;
 	}
+    }
+}
+
+/*
+=============
+Draw_SubPic
+=============
+*/
+void
+Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
+	    int height)
+{
+    qpic8_t subpic = {
+        .width = width,
+        .height = height,
+        .stride = pic->width,
+        .pixels = pic->pixels + srcy * pic->stride + srcx,
+    };
+
+    Draw_Pic(x, y, &subpic);
+}
+
+
+/*
+=============
+Draw_TransPic
+=============
+*/
+void
+Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
+{
+    byte *dest, tbyte;
+    const byte *source;
+    uint16_t *pusdest;
+    int v, u;
+
+    if (scr_scale != 1.0f) {
+        Draw_ScaledTransPic(x, y, pic, transparent_color);
+        return;
+    }
+
+    if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
+	y < 0 || (unsigned)(y + pic->height) > vid.height) {
+	Sys_Error("%s: bad coordinates", __func__);
+    }
+
+    source = pic->pixels;
+
+    if (r_pixbytes == 1) {
+	dest = vid.buffer + y * vid.rowbytes + x;
+
+	if (pic->width & 7) {	// general
+	    for (v = 0; v < pic->height; v++) {
+		for (u = 0; u < pic->width; u++)
+		    if ((tbyte = source[u]) != transparent_color)
+			dest[u] = tbyte;
+
+		dest += vid.rowbytes;
+		source += pic->width;
+	    }
+	} else {		// unwound
+	    for (v = 0; v < pic->height; v++) {
+		for (u = 0; u < pic->width; u += 8) {
+		    if ((tbyte = source[u]) != transparent_color)
+			dest[u] = tbyte;
+		    if ((tbyte = source[u + 1]) != transparent_color)
+			dest[u + 1] = tbyte;
+		    if ((tbyte = source[u + 2]) != transparent_color)
+			dest[u + 2] = tbyte;
+		    if ((tbyte = source[u + 3]) != transparent_color)
+			dest[u + 3] = tbyte;
+		    if ((tbyte = source[u + 4]) != transparent_color)
+			dest[u + 4] = tbyte;
+		    if ((tbyte = source[u + 5]) != transparent_color)
+			dest[u + 5] = tbyte;
+		    if ((tbyte = source[u + 6]) != transparent_color)
+			dest[u + 6] = tbyte;
+		    if ((tbyte = source[u + 7]) != transparent_color)
+			dest[u + 7] = tbyte;
+		}
+		dest += vid.rowbytes;
+		source += pic->width;
+	    }
+	}
+    } else {
+	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
+
+	for (v = 0; v < pic->height; v++) {
+	    for (u = 0; u < pic->width; u++) {
+		tbyte = source[u];
+
+		if (tbyte != transparent_color) {
+		    pusdest[u] = d_8to16table[tbyte];
+		}
+	    }
+
+	    pusdest += vid.rowbytes / 2;
+	    source += pic->width;
+	}
+    }
+}
+
+
+/*
+=============
+Draw_TransPicTranslate
+=============
+*/
+void
+Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
+{
+    int dst_x, dst_x_start, dst_x_end, dst_width;
+    int dst_y, dst_y_start, dst_y_end, dst_height;
+    int f, fstep;
+    const byte *src;
+
+    assert(pic->stride);
+
+    /* Calculate the destination pixels */
+    dst_x_start = (int)(x * scr_scale);
+    dst_y_start = (int)(y * scr_scale);
+    dst_x_end = (int)((x + pic->width) * scr_scale);
+    dst_y_end = (int)((y + pic->height) * scr_scale);
+    dst_width = dst_x_end - dst_x_start;
+    dst_height = dst_y_end - dst_y_start;
+
+    /* Clip to the output buffer size */
+    dst_x_end = qmin(dst_x_end, vid.conwidth);
+    dst_y_end = qmin(dst_y_end, vid.conheight);
+
+    /* Fractional source step, 16-bits of precision */
+    fstep = pic->width * 0x10000 / dst_width;
+    if (r_pixbytes == 1) {
+        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+            byte *dst = vid.buffer + dst_y * vid.rowbytes;
+            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+            src = pic->pixels + src_row * pic->stride;
+            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+                if (src[f >> 16] != TRANSPARENT_COLOR)
+                    dst[dst_x] = translation[src[f >> 16]];
+            }
+        }
+    } else {
+        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+            uint16_t *dst = (uint16_t *)(vid.buffer + dst_y * vid.rowbytes);
+            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+            src = pic->pixels + src_row * pic->stride;
+            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+                if (src[f >> 16] != TRANSPARENT_COLOR)
+                    dst[dst_x] = d_8to16table[translation[src[f >> 16]]];
+            }
+        }
+    }
+}
+
+/*
+ * Draws one 8*8 graphics character with 0 being transparent.
+ */
+void
+Draw_Character(int x, int y, int num)
+{
+    int row, col;
+    qpic8_t pic = {
+        .width = 8,
+        .height = 8,
+        .stride = 128,
+    };
+
+    if (num < 0 || num > 255)
+        return;
+
+    /* Find the source character in the 16x16 grid */
+    row = num >> 4;
+    col = num & 15;
+    pic.pixels = draw_chars + (row << 10) + (col << 3);
+
+    if (scr_scale == 1.0f) {
+        Draw_ScaledTransPic(x, y, &pic, 0);
+    } else {
+        Draw_TransPic(x, y, &pic, 0);
     }
 }
 
@@ -360,287 +635,9 @@ Draw_Alt_String(int x, int y, const char *str)
     }
 }
 
-static void
-Draw_Pixel(int x, int y, byte color)
-{
-    byte *dest;
-    uint16_t *pusdest;
-
-    if (r_pixbytes == 1) {
-	dest = vid.conbuffer + y * vid.conrowbytes + x;
-	*dest = color;
-    } else {
-	pusdest = (uint16_t *)
-	    ((byte *)vid.conbuffer + y * vid.conrowbytes + (x << 1));
-	*pusdest = d_8to16table[color];
-    }
-}
-
-void
-Draw_Crosshair(void)
-{
-    int x, y;
-    byte c = (byte)crosshaircolor.value;
-
-    if (crosshair.value == 2) {
-	x = scr_vrect.x + scr_vrect.width / 2 + cl_crossx.value;
-	y = scr_vrect.y + scr_vrect.height / 2 + cl_crossy.value;
-	Draw_Pixel(x - 1, y, c);
-	Draw_Pixel(x - 3, y, c);
-	Draw_Pixel(x + 1, y, c);
-	Draw_Pixel(x + 3, y, c);
-	Draw_Pixel(x, y - 1, c);
-	Draw_Pixel(x, y - 3, c);
-	Draw_Pixel(x, y + 1, c);
-	Draw_Pixel(x, y + 3, c);
-    } else if (crosshair.value)
-	Draw_Character(scr_vrect.x + scr_vrect.width / 2 - 4 +
-		       cl_crossx.value,
-		       scr_vrect.y + scr_vrect.height / 2 - 4 +
-		       cl_crossy.value, '+');
-}
 
 
-/*
-=============
-Draw_Pic
-=============
-*/
-void
-Draw_Pic(int x, int y, const qpic8_t *pic)
-{
-    byte *dest;
-    const byte *source;
-    uint16_t *pusdest;
-    int v, u;
 
-    if (x < 0 || x + pic->width > vid.width ||
-	y < 0 || y + pic->height > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
-    }
-
-    source = pic->pixels;
-
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	for (v = 0; v < pic->height; v++) {
-	    memcpy(dest, source, pic->width);
-	    dest += vid.rowbytes;
-	    source += pic->width;
-	}
-    } else {
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-
-	for (v = 0; v < pic->height; v++) {
-	    for (u = 0; u < pic->width; u++) {
-		pusdest[u] = d_8to16table[source[u]];
-	    }
-
-	    pusdest += vid.rowbytes / 2;
-	    source += pic->width;
-	}
-    }
-}
-
-
-/*
-=============
-Draw_SubPic
-=============
-*/
-void
-Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
-	    int height)
-{
-    const byte *source;
-    byte *dest;
-    uint16_t *pusdest;
-    int v, u;
-
-    if (x < 0 || x + width > vid.width ||
-	y < 0 || y + height > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
-    }
-
-    source = pic->pixels + srcy * pic->width + srcx;
-
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	for (v = 0; v < height; v++) {
-	    memcpy(dest, source, width);
-	    dest += vid.rowbytes;
-	    source += pic->width;
-	}
-    } else {
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-
-	for (v = 0; v < height; v++) {
-	    for (u = srcx; u < (srcx + width); u++) {
-		pusdest[u] = d_8to16table[source[u]];
-	    }
-
-	    pusdest += vid.rowbytes / 2;
-	    source += pic->width;
-	}
-    }
-}
-
-
-/*
-=============
-Draw_TransPic
-=============
-*/
-void
-Draw_TransPic(int x, int y, const qpic8_t *pic)
-{
-    byte *dest, tbyte;
-    const byte *source;
-    uint16_t *pusdest;
-    int v, u;
-
-    if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
-	y < 0 || (unsigned)(y + pic->height) > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
-    }
-
-    source = pic->pixels;
-
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	if (pic->width & 7) {	// general
-	    for (v = 0; v < pic->height; v++) {
-		for (u = 0; u < pic->width; u++)
-		    if ((tbyte = source[u]) != TRANSPARENT_COLOR)
-			dest[u] = tbyte;
-
-		dest += vid.rowbytes;
-		source += pic->width;
-	    }
-	} else {		// unwound
-	    for (v = 0; v < pic->height; v++) {
-		for (u = 0; u < pic->width; u += 8) {
-		    if ((tbyte = source[u]) != TRANSPARENT_COLOR)
-			dest[u] = tbyte;
-		    if ((tbyte = source[u + 1]) != TRANSPARENT_COLOR)
-			dest[u + 1] = tbyte;
-		    if ((tbyte = source[u + 2]) != TRANSPARENT_COLOR)
-			dest[u + 2] = tbyte;
-		    if ((tbyte = source[u + 3]) != TRANSPARENT_COLOR)
-			dest[u + 3] = tbyte;
-		    if ((tbyte = source[u + 4]) != TRANSPARENT_COLOR)
-			dest[u + 4] = tbyte;
-		    if ((tbyte = source[u + 5]) != TRANSPARENT_COLOR)
-			dest[u + 5] = tbyte;
-		    if ((tbyte = source[u + 6]) != TRANSPARENT_COLOR)
-			dest[u + 6] = tbyte;
-		    if ((tbyte = source[u + 7]) != TRANSPARENT_COLOR)
-			dest[u + 7] = tbyte;
-		}
-		dest += vid.rowbytes;
-		source += pic->width;
-	    }
-	}
-    } else {
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-
-	for (v = 0; v < pic->height; v++) {
-	    for (u = 0; u < pic->width; u++) {
-		tbyte = source[u];
-
-		if (tbyte != TRANSPARENT_COLOR) {
-		    pusdest[u] = d_8to16table[tbyte];
-		}
-	    }
-
-	    pusdest += vid.rowbytes / 2;
-	    source += pic->width;
-	}
-    }
-}
-
-
-/*
-=============
-Draw_TransPicTranslate
-=============
-*/
-void
-Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
-{
-    byte *dest, tbyte;
-    const byte *source;
-    uint16_t *pusdest;
-    int v, u;
-
-    if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
-	y < 0 || (unsigned)(y + pic->height) > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
-    }
-
-    source = pic->pixels;
-
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
-
-	if (pic->width & 7) {	// general
-	    for (v = 0; v < pic->height; v++) {
-		for (u = 0; u < pic->width; u++)
-		    if ((tbyte = source[u]) != TRANSPARENT_COLOR)
-			dest[u] = translation[tbyte];
-
-		dest += vid.rowbytes;
-		source += pic->width;
-	    }
-	} else {		// unwound
-	    for (v = 0; v < pic->height; v++) {
-		for (u = 0; u < pic->width; u += 8) {
-		    if ((tbyte = source[u]) != TRANSPARENT_COLOR)
-			dest[u] = translation[tbyte];
-		    if ((tbyte = source[u + 1]) != TRANSPARENT_COLOR)
-			dest[u + 1] = translation[tbyte];
-		    if ((tbyte = source[u + 2]) != TRANSPARENT_COLOR)
-			dest[u + 2] = translation[tbyte];
-		    if ((tbyte = source[u + 3]) != TRANSPARENT_COLOR)
-			dest[u + 3] = translation[tbyte];
-		    if ((tbyte = source[u + 4]) != TRANSPARENT_COLOR)
-			dest[u + 4] = translation[tbyte];
-		    if ((tbyte = source[u + 5]) != TRANSPARENT_COLOR)
-			dest[u + 5] = translation[tbyte];
-		    if ((tbyte = source[u + 6]) != TRANSPARENT_COLOR)
-			dest[u + 6] = translation[tbyte];
-		    if ((tbyte = source[u + 7]) != TRANSPARENT_COLOR)
-			dest[u + 7] = translation[tbyte];
-		}
-		dest += vid.rowbytes;
-		source += pic->width;
-	    }
-	}
-    } else {
-	// FIXME: pretranslate at load time?
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-
-	for (v = 0; v < pic->height; v++) {
-	    for (u = 0; u < pic->width; u++) {
-		tbyte = source[u];
-
-		if (tbyte != TRANSPARENT_COLOR) {
-		    pusdest[u] = d_8to16table[tbyte];
-		}
-	    }
-
-	    pusdest += vid.rowbytes / 2;
-	    source += pic->width;
-	}
-    }
-}
-
-
-#define CHAR_WIDTH	8
-#define CHAR_HEIGHT	8
 
 static void
 Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
@@ -766,20 +763,20 @@ R_DrawRect8
 ==============
 */
 static void
-R_DrawRect8(vrect_t *prect, int rowbytes, const byte *psrc, int transparent)
+R_DrawRect8(const vrect_t *rect, int rowbytes, const byte *psrc, int transparent)
 {
     byte t;
     int i, j, srcdelta, destdelta;
     byte *pdest;
 
-    pdest = vid.buffer + (prect->y * vid.rowbytes) + prect->x;
+    pdest = vid.buffer + (rect->y * vid.rowbytes) + rect->x;
 
-    srcdelta = rowbytes - prect->width;
-    destdelta = vid.rowbytes - prect->width;
+    srcdelta = rowbytes - rect->width;
+    destdelta = vid.rowbytes - rect->width;
 
     if (transparent) {
-	for (i = 0; i < prect->height; i++) {
-	    for (j = 0; j < prect->width; j++) {
+	for (i = 0; i < rect->height; i++) {
+	    for (j = 0; j < rect->width; j++) {
 		t = *psrc;
 		if (t != TRANSPARENT_COLOR) {
 		    *pdest = t;
@@ -793,8 +790,8 @@ R_DrawRect8(vrect_t *prect, int rowbytes, const byte *psrc, int transparent)
 	    pdest += destdelta;
 	}
     } else {
-	for (i = 0; i < prect->height; i++) {
-	    memcpy(pdest, psrc, prect->width);
+	for (i = 0; i < rect->height; i++) {
+	    memcpy(pdest, psrc, rect->width);
 	    psrc += rowbytes;
 	    pdest += vid.rowbytes;
 	}
@@ -808,7 +805,7 @@ R_DrawRect16
 ==============
 */
 static void
-R_DrawRect16(vrect_t *prect, int rowbytes, const byte *psrc, int transparent)
+R_DrawRect16(const vrect_t *rect, int rowbytes, const byte *psrc, int transparent)
 {
     byte t;
     int i, j, srcdelta, destdelta;
@@ -817,14 +814,14 @@ R_DrawRect16(vrect_t *prect, int rowbytes, const byte *psrc, int transparent)
 // FIXME: would it be better to pre-expand native-format versions?
 
     pdest = (uint16_t *)vid.buffer;
-    pdest += prect->y * (vid.rowbytes / 2) + prect->x;
+    pdest += rect->y * (vid.rowbytes / 2) + rect->x;
 
-    srcdelta = rowbytes - prect->width;
-    destdelta = (vid.rowbytes / 2) - prect->width;
+    srcdelta = rowbytes - rect->width;
+    destdelta = (vid.rowbytes / 2) - rect->width;
 
     if (transparent) {
-	for (i = 0; i < prect->height; i++) {
-	    for (j = 0; j < prect->width; j++) {
+	for (i = 0; i < rect->height; i++) {
+	    for (j = 0; j < rect->width; j++) {
 		t = *psrc;
 		if (t != TRANSPARENT_COLOR) {
 		    *pdest = d_8to16table[t];
@@ -838,8 +835,8 @@ R_DrawRect16(vrect_t *prect, int rowbytes, const byte *psrc, int transparent)
 	    pdest += destdelta;
 	}
     } else {
-	for (i = 0; i < prect->height; i++) {
-	    for (j = 0; j < prect->width; j++) {
+	for (i = 0; i < rect->height; i++) {
+	    for (j = 0; j < rect->width; j++) {
 		*pdest = d_8to16table[*psrc];
 		psrc++;
 		pdest++;
@@ -869,7 +866,8 @@ Draw_TileClear(int x, int y, int w, int h)
 
     if (x < 0 || (unsigned)(x + w) > vid.width ||
 	y < 0 || (unsigned)(y + h) > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
+	Sys_Error("%s: bad coordinates (%d,%d)->(%dx%d) (%dx%d)",
+                  __func__, x, y, w, h, vid.width, vid.height);
     }
 
     r_rectdesc.rect.x = x;
@@ -925,6 +923,18 @@ Draw_TileClear(int x, int y, int w, int h)
     }
 }
 
+void
+Draw_TileClearScaled(int x, int y, int w, int h)
+{
+    if (scr_scale != 1.0f) {
+        x = (int)(x * scr_scale);
+        y = (int)(y * scr_scale);
+        w = (int)(w * scr_scale);
+        h = (int)(h * scr_scale);
+    }
+    Draw_TileClear(x, y, w, h);
+}
+
 
 /*
 =============
@@ -940,6 +950,13 @@ Draw_Fill(int x, int y, int w, int h, int c)
     uint16_t *pusdest;
     uint16_t uc;
     int u, v;
+
+    if (scr_scale != 1.0f) {
+        x = (int)(x * scr_scale);
+        y = (int)(y * scr_scale);
+        w = (int)(w * scr_scale);
+        h = (int)(h * scr_scale);
+    }
 
     if (x < 0 || x + w > vid.width || y < 0 || y + h > vid.height) {
 	Con_Printf("Bad Draw_Fill(%d, %d, %d, %d, %c)\n", x, y, w, h, c);

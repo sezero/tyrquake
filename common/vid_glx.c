@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "keys.h"
 #include "quakedef.h"
 #include "sbar.h"
+#include "screen.h"
 #include "sys.h"
 #include "vid.h"
 
@@ -740,8 +741,12 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 #endif
     }
 
-    vid.width = vid.conwidth = scr_width = mode->width;
-    vid.height = vid.conheight = scr_height = mode->height;
+    vid.width = vid.conwidth = mode->width;
+    vid.height = vid.conheight = mode->height;
+
+    scr_width = mode->width;
+    scr_height = mode->height;
+
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
@@ -753,7 +758,10 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     Con_SafePrintf("Video mode %dx%d initialized.\n", mode->width, mode->height);
 
-    vid.recalc_refdef = 1;	// force a surface cache flush
+    vid.recalc_refdef = true;
+
+    SCR_CheckResize();
+    Con_CheckResize();
 
     return true;
 }

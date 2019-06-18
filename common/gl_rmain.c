@@ -1426,11 +1426,11 @@ R_SetupGL(void)
     //
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+
     x = r_refdef.vrect.x * glwidth / vid.width;
     x2 = (r_refdef.vrect.x + r_refdef.vrect.width) * glwidth / vid.width;
     y = (vid.height - r_refdef.vrect.y) * glheight / vid.height;
-    y2 = (vid.height -
-	  (r_refdef.vrect.y + r_refdef.vrect.height)) * glheight / vid.height;
+    y2 = (vid.height - (r_refdef.vrect.y + r_refdef.vrect.height)) * glheight / vid.height;
 
     // fudge around because of frac screen scale
     // FIXME: well not fix, but figure out why this is done...
@@ -1454,12 +1454,6 @@ R_SetupGL(void)
 
     glViewport(glx + x, gly + y2, w, h);
     screenaspect = (float)r_refdef.vrect.width / r_refdef.vrect.height;
-
-    // FIXME - wtf is all this about?
-    //yfov = 2*atan((float)r_refdef.vrect.height/r_refdef.vrect.width)*180/M_PI;
-    //yfov = (2.0 * tan (scr_fov.value/360*M_PI)) / screenaspect;
-    //yfov = 2*atan((float)r_refdef.vrect.height/r_refdef.vrect.width)*(scr_fov.value*2)/M_PI;
-    //MYgluPerspective (yfov,  screenaspect,  4,  4096);
 
     // FIXME - set depth dynamically for improved depth precision in smaller
     //         spaces

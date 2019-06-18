@@ -206,7 +206,6 @@ extern float skyspeed, skyspeed2;
 extern float skytime;
 
 extern int c_surf;
-extern vrect_t scr_vrect;
 
 extern byte *r_warpbuffer;
 

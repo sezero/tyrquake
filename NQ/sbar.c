@@ -295,11 +295,9 @@ void
 Sbar_DrawPic(int x, int y, const qpic8_t *pic)
 {
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_Pic(x /* + ((vid.width - 320)>>1) */ ,
-		 y + (vid.height - SBAR_HEIGHT), pic);
+	Draw_Pic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic);
     else
-	Draw_Pic(x + ((vid.width - 320) >> 1),
-		 y + (vid.height - SBAR_HEIGHT), pic);
+	Draw_Pic(x + ((scr_scaled_width - 320) >> 1), y + (scr_scaled_height - SBAR_HEIGHT), pic);
 }
 
 /*
@@ -311,11 +309,9 @@ void
 Sbar_DrawTransPic(int x, int y, const qpic8_t *pic)
 {
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_TransPic(x /*+ ((vid.width - 320)>>1) */ ,
-		      y + (vid.height - SBAR_HEIGHT), pic);
+	Draw_TransPic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR);
     else
-	Draw_TransPic(x + ((vid.width - 320) >> 1),
-		      y + (vid.height - SBAR_HEIGHT), pic);
+	Draw_TransPic(x + ((scr_scaled_width - 320) >> 1), y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR);
 }
 
 /*
@@ -329,11 +325,9 @@ void
 Sbar_DrawCharacter(int x, int y, int num)
 {
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_Character(x /*+ ((vid.width - 320)>>1) */  + 4,
-		       y + vid.height - SBAR_HEIGHT, num);
+	Draw_Character(x + 4, y + scr_scaled_height - SBAR_HEIGHT, num);
     else
-	Draw_Character(x + ((vid.width - 320) >> 1) + 4,
-		       y + vid.height - SBAR_HEIGHT, num);
+	Draw_Character(x + ((scr_scaled_width - 320) >> 1) + 4, y + scr_scaled_height - SBAR_HEIGHT, num);
 }
 
 /*
@@ -345,11 +339,9 @@ static void
 Sbar_DrawString(int x, int y, const char *str)
 {
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_String(x /*+ ((vid.width - 320)>>1) */ ,
-		    y + vid.height - SBAR_HEIGHT, str);
+	Draw_String(x, y + scr_scaled_height - SBAR_HEIGHT, str);
     else
-	Draw_String(x + ((vid.width - 320) >> 1),
-		    y + vid.height - SBAR_HEIGHT, str);
+	Draw_String(x + ((scr_scaled_width - 320) >> 1), y + scr_scaled_height - SBAR_HEIGHT, str);
 }
 
 /*
@@ -565,10 +557,10 @@ Sbar_DrawScoreboard(void)
 	top = Sbar_ColorForMap(p->topcolor);
 	bottom = Sbar_ColorForMap(p->bottomcolor);
 
-	Draw_Fill(x * 8 + 10 + ((vid.width - 320) >> 1),
-		  y + vid.height - SBAR_HEIGHT, 28, 4, top);
-	Draw_Fill(x * 8 + 10 + ((vid.width - 320) >> 1),
-		  y + 4 + vid.height - SBAR_HEIGHT, 28, 4, bottom);
+	Draw_Fill(x * 8 + 10 + ((scr_scaled_width - 320) >> 1),
+		  y + scr_scaled_height - SBAR_HEIGHT, 28, 4, top);
+	Draw_Fill(x * 8 + 10 + ((scr_scaled_width - 320) >> 1),
+		  y + 4 + scr_scaled_height - SBAR_HEIGHT, 28, 4, bottom);
 
 	// draw text
 	for (j = 0; j < 20; j++) {
@@ -779,8 +771,8 @@ Sbar_DrawFrags(void)
     if (cl.gametype == GAME_DEATHMATCH)
 	xofs = 0;
     else
-	xofs = (vid.width - 320) >> 1;
-    y = vid.height - SBAR_HEIGHT - 23;
+	xofs = (scr_scaled_width - 320) >> 1;
+    y = scr_scaled_height - SBAR_HEIGHT - 23;
 
     for (i = 0; i < l; i++) {
 	k = fragsort[i];
@@ -845,8 +837,8 @@ Sbar_DrawFace(void)
 	    xofs = ((vid.width - 320) >> 1) + 113;
 
 	Sbar_DrawPic(112, 0, rsb_teambord);
-	Draw_Fill(xofs, vid.height - SBAR_HEIGHT + 3, 22, 9, top);
-	Draw_Fill(xofs, vid.height - SBAR_HEIGHT + 12, 22, 9, bottom);
+	Draw_Fill(xofs, scr_scaled_height - SBAR_HEIGHT + 3, 22, 9, top);
+	Draw_Fill(xofs, scr_scaled_height - SBAR_HEIGHT + 12, 22, 9, bottom);
 
 	// draw number
 	f = p->frags;
@@ -918,8 +910,8 @@ Sbar_Draw(void)
 
     sb_updates++;
 
-    if (sb_lines && vid.width > 320)
-	Draw_TileClear(0, vid.height - sb_lines, vid.width, sb_lines);
+    if (sb_lines && scr_scaled_width > 320)
+	Draw_TileClearScaled(0, scr_scaled_height - sb_lines, scr_scaled_width, sb_lines);
 
     if (sb_lines > 24) {
 	Sbar_DrawInventory();
@@ -1006,7 +998,7 @@ Sbar_Draw(void)
 		     cl.stats[STAT_AMMO] <= 10);
     }
 
-    if (vid.width > 320) {
+    if (scr_scaled_width > 320) {
 	if (cl.gametype == GAME_DEATHMATCH)
 	    Sbar_MiniDeathmatchOverlay();
     }
@@ -1040,7 +1032,7 @@ Sbar_IntermissionNumber(int x, int y, int num, int digits, int color)
 	else
 	    frame = *ptr - '0';
 
-	Draw_TransPic(x, y, sb_nums[color][frame]);
+	Draw_TransPic(x, y, sb_nums[color][frame], TRANSPARENT_COLOR);
 	x += 24;
 	ptr++;
     }
@@ -1074,7 +1066,7 @@ Sbar_DeathmatchOverlay(void)
 // draw the text
     l = scoreboardlines;
 
-    x = 80 + ((vid.width - 320) >> 1);
+    x = 80 + ((scr_scaled_width - 320) >> 1);
     y = 40;
     for (i = 0; i < l; i++) {
 	k = fragsort[i];
@@ -1137,7 +1129,7 @@ Sbar_MiniDeathmatchOverlay(void)
     int x, y, line, numlines, top, bottom;
 
     /* Don't bother if not enough room */
-    if (vid.width < 512 || !sb_lines)
+    if (scr_scaled_width < 512 || !sb_lines)
 	return;
 
     scr_copyeverything = 1;
@@ -1146,7 +1138,7 @@ Sbar_MiniDeathmatchOverlay(void)
     Sbar_SortFrags();
 
     /* Check for space to draw the text */
-    y = vid.height - sb_lines;
+    y = scr_scaled_height - sb_lines;
     numlines = sb_lines / 8;
     if (numlines < 3)
 	return;
@@ -1162,7 +1154,7 @@ Sbar_MiniDeathmatchOverlay(void)
     line = qclamp(line - numlines / 2, 0, scoreboardlines - numlines);
 
     x = 324;
-    while (line < scoreboardlines && y < vid.height - 8 + 1) {
+    while (line < scoreboardlines && y < scr_scaled_height - 8 + 1) {
 	const int playernum = fragsort[line++];
 	const player_info_t *player = &cl.players[playernum];
 	if (!player->name[0])
@@ -1219,22 +1211,22 @@ Sbar_IntermissionOverlay(void)
     Draw_Pic(64, 24, pic);
 
     pic = Draw_CachePic("gfx/inter.lmp");
-    Draw_TransPic(0, 56, pic);
+    Draw_TransPic(0, 56, pic, TRANSPARENT_COLOR);
 
 // time
     dig = cl.completed_time / 60;
     Sbar_IntermissionNumber(160, 64, dig, 3, 0);
     num = cl.completed_time - dig * 60;
-    Draw_TransPic(234, 64, sb_colon);
-    Draw_TransPic(246, 64, sb_nums[0][num / 10]);
-    Draw_TransPic(266, 64, sb_nums[0][num % 10]);
+    Draw_TransPic(234, 64, sb_colon, TRANSPARENT_COLOR);
+    Draw_TransPic(246, 64, sb_nums[0][num / 10], TRANSPARENT_COLOR);
+    Draw_TransPic(266, 64, sb_nums[0][num % 10], TRANSPARENT_COLOR);
 
     Sbar_IntermissionNumber(160, 104, cl.stats[STAT_SECRETS], 3, 0);
-    Draw_TransPic(232, 104, sb_slash);
+    Draw_TransPic(232, 104, sb_slash, TRANSPARENT_COLOR);
     Sbar_IntermissionNumber(240, 104, cl.stats[STAT_TOTALSECRETS], 3, 0);
 
     Sbar_IntermissionNumber(160, 144, cl.stats[STAT_MONSTERS], 3, 0);
-    Draw_TransPic(232, 144, sb_slash);
+    Draw_TransPic(232, 144, sb_slash, TRANSPARENT_COLOR);
     Sbar_IntermissionNumber(240, 144, cl.stats[STAT_TOTALMONSTERS], 3, 0);
 
 }
@@ -1254,5 +1246,5 @@ Sbar_FinaleOverlay(void)
     scr_copyeverything = 1;
 
     pic = Draw_CachePic("gfx/finale.lmp");
-    Draw_TransPic((vid.width - pic->width) / 2, 16, pic);
+    Draw_TransPic((scr_scaled_width - pic->width) / 2, 16, pic, TRANSPARENT_COLOR);
 }

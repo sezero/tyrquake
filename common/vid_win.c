@@ -769,6 +769,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     in_mode_set = false;
     vid.recalc_refdef = 1;
 
+    SCR_CheckResize();
+    Con_CheckResize();
+
     return true;
 }
 

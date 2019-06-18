@@ -155,9 +155,8 @@ extern entity_t r_worldentity;
 void R_Init(void);
 void R_InitTextures(void);
 void R_InitEfrags(void);
-void R_RenderView(void);	// must set r_refdef first
-void R_ViewChanged(vrect_t *pvrect, int lineadj, float aspect);
-				// called whenever r_refdef or vid change
+void R_RenderView(void); // must set r_refdef first
+void R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect); // called whenever r_refdef or vid change
 
 void R_InitSky(struct texture_s *mt);	// called at level load
 
@@ -204,6 +203,6 @@ int D_SurfaceCacheForRes(int width, int height);
 void D_FlushCaches(void);
 void D_DeleteSurfaceCache(void);
 void D_InitCaches(void *buffer, int size);
-void R_SetVrect(const vrect_t *pvrectin, vrect_t *pvrect, int lineadj);
+void R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj);
 
 #endif /* RENDER_H */
