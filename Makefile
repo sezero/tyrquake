@@ -781,6 +781,7 @@ QWSV_CPPFLAGS   += -iquote $(TOPDIR)/QW/server
 # => if ($TARGET_OS == UNIX && $TARGET_UNIX == darwin && $VID_TARGET != x11)...
 ifeq ($(filter-out UNIX,$(TARGET_OS))$(filter-out darwin,$(TARGET_UNIX))$(filter x11,$(VID_TARGET)),)
 GL_CPPFLAGS     += -DAPPLE_OPENGL
+GL_CPPFLAGS     += -DGL_SILENCE_DEPRECATION
 GL_LFLAGS       += -framework OpenGL
 else
 GL_CPPFLAGS     += $(if $(OGLBASE),-idirafter $(OGLBASE)/include,)
