@@ -521,7 +521,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	if (!result)
 	    Sys_Error("%s: mode switch failed", __func__);
 
-	free(xmodes);
+        XFree(xmodes);
     }
 
     /* create the main window */

@@ -636,7 +636,7 @@ VID_InitModeList(void)
 	nummodes++;
 	mode++;
     }
-    free(xmodes);
+    XFree(xmodes);
 
     VID_SortModeList(modelist, nummodes);
 }
@@ -704,15 +704,16 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	if (!result)
 	    Sys_Error("%s: mode switch failed", __func__);
 
-	free(xmodes);
+	XFree(xmodes);
     }
 
     x_win = XCreateWindow(x_disp, root, 0, 0, mode->width, mode->height,
 			  0, x_visinfo->depth, InputOutput,
 			  x_visinfo->visual, valuemask, &attributes);
+    XFreeColormap(x_disp, attributes.colormap);
     XStoreName(x_disp, x_win, "TyrQuake");
-    XMapWindow(x_disp, x_win);
 
+    XMapWindow(x_disp, x_win);
     if (mode != modelist) {
 	XMoveWindow(x_disp, x_win, 0, 0);
 	XRaiseWindow(x_disp, x_win);
