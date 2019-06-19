@@ -54,9 +54,9 @@ cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
 static cvar_t m_filter = { "m_filter", "0" };
 
 static int mouse_buttons;
-static int mouse_oldbuttonstate;
 static POINT current_pos;
 static int mouse_x, mouse_y, old_mouse_x, old_mouse_y, mx_accum, my_accum;
+static unsigned int mouse_button_state;
 
 static qboolean restore_spi;
 static int originalmouseparms[3], newmouseparms[3] = { 0, 0, 1 };
@@ -65,8 +65,6 @@ static qboolean mouseinitialized;
 static qboolean mouseparmsvalid, mouseactivatetoggle;
 static qboolean mouseshowtoggle = 1;
 static qboolean dinput_acquired;
-
-static unsigned int mstate_di;
 
 // joystick defines and variables
 // where should defines be moved?
@@ -517,23 +515,19 @@ IN_MouseEvent
 ===========
 */
 void
-IN_MouseEvent(int mstate)
+IN_MouseEvent(int button_state)
 {
     int i;
 
-    if (mouseactive && !dinput) {
+    if (mouseactive) {
 	// perform button actions
 	for (i = 0; i < mouse_buttons; i++) {
-	    if ((mstate & (1 << i)) && !(mouse_oldbuttonstate & (1 << i))) {
+	    if ((button_state & (1 << i)) && !(mouse_button_state & (1 << i)))
 		Key_Event(K_MOUSE1 + i, true);
-	    }
-
-	    if (!(mstate & (1 << i)) && (mouse_oldbuttonstate & (1 << i))) {
+	    if (!(button_state & (1 << i)) && (mouse_button_state & (1 << i)))
 		Key_Event(K_MOUSE1 + i, false);
-	    }
 	}
-
-	mouse_oldbuttonstate = mstate;
+	mouse_button_state = button_state;
     }
 }
 
@@ -547,50 +541,45 @@ void
 IN_MouseMove(usercmd_t *cmd)
 {
     int mx, my;
-    int i;
-    DIDEVICEOBJECTDATA od;
-    DWORD dwElements;
-    HRESULT hr;
+    DIDEVICEOBJECTDATA mouse_state;
+    HRESULT result;
+    unsigned int button_state;
 
     if (!mouseactive)
 	return;
 
     if (dinput) {
+
 	mx = 0;
 	my = 0;
 
 	for (;;) {
-	    dwElements = 1;
-
-	    hr = IDirectInputDevice_GetDeviceData(g_pMouse,
-						  sizeof
-						  (DIDEVICEOBJECTDATA), &od,
-						  &dwElements, 0);
-
-	    if ((hr == DIERR_INPUTLOST) || (hr == DIERR_NOTACQUIRED)) {
-		dinput_acquired = true;
+	    DWORD count = 1;
+	    result = IDirectInputDevice_GetDeviceData(g_pMouse, sizeof(mouse_state), &mouse_state, &count, 0);
+	    if ((result == DIERR_INPUTLOST) || (result == DIERR_NOTACQUIRED)) {
 		IDirectInputDevice_Acquire(g_pMouse);
+		dinput_acquired = true;
 		break;
 	    }
 
 	    /* Unable to read data or no data available */
-	    if (FAILED(hr) || dwElements == 0) {
+	    if (FAILED(result) || count == 0)
 		break;
-	    }
+
+	    /* Ignore mouse events when menu/console is active */
+	    if (key_dest != key_game)
+		continue;
 
 	    /* Look at the element to see what happened */
-
-	    switch (od.dwOfs) {
+	    switch (mouse_state.dwOfs) {
 	    case DIMOFS_X:
-		mx += (int)od.dwData;
+		mx += (int)mouse_state.dwData;
 		break;
-
 	    case DIMOFS_Y:
-		my += (int)od.dwData;
+		my += (int)mouse_state.dwData;
 		break;
-
 	    case DIMOFS_Z:
-		if ((int)od.dwData > 0) {
+		if ((int)mouse_state.dwData > 0) {
 		    Key_Event(K_MWHEELUP, true);
 		    Key_Event(K_MWHEELUP, false);
 		} else {
@@ -598,48 +587,32 @@ IN_MouseMove(usercmd_t *cmd)
 		    Key_Event(K_MWHEELDOWN, false);
 		}
 		break;
-
 	    case DIMOFS_BUTTON0:
-		if (od.dwData & 0x80)
-		    mstate_di |= 1;
-		else
-		    mstate_di &= ~1;
-		break;
-
 	    case DIMOFS_BUTTON1:
-		if (od.dwData & 0x80)
-		    mstate_di |= (1 << 1);
-		else
-		    mstate_di &= ~(1 << 1);
-		break;
-
 	    case DIMOFS_BUTTON2:
-		if (od.dwData & 0x80)
-		    mstate_di |= (1 << 2);
+		if (mouse_state.dwData & 0x80)
+		    button_state |= (1 << (mouse_state.dwOfs - DIMOFS_BUTTON0));
 		else
-		    mstate_di &= ~(1 << 2);
+		    button_state &= ~(1 << (mouse_state.dwOfs - DIMOFS_BUTTON0));
 		break;
 	    }
 	}
-
-	// perform button actions
-	for (i = 0; i < mouse_buttons; i++) {
-	    if ((mstate_di & (1 << i)) && !(mouse_oldbuttonstate & (1 << i))) {
-		Key_Event(K_MOUSE1 + i, true);
-	    }
-
-	    if (!(mstate_di & (1 << i)) && (mouse_oldbuttonstate & (1 << i))) {
-		Key_Event(K_MOUSE1 + i, false);
-	    }
-	}
-
-	mouse_oldbuttonstate = mstate_di;
+	IN_MouseEvent(button_state);
     } else {
 	GetCursorPos(&current_pos);
 	mx = current_pos.x - window_center_x + mx_accum;
 	my = current_pos.y - window_center_y + my_accum;
 	mx_accum = 0;
 	my_accum = 0;
+    }
+
+    /* If the mouse has moved, force it to the center, so there's room to move */
+    if (mx || my)
+	SetCursorPos(window_center_x, window_center_y);
+
+    /* Ignore mouse events when menu/console is active */
+    if (key_dest != key_game) {
+	return;
     }
 
     if (m_filter.value) {
@@ -678,11 +651,6 @@ IN_MouseMove(usercmd_t *cmd)
 	else
 	    cmd->forwardmove -= m_forward.value * mouse_y;
     }
-
-// if the mouse has moved, force it to the center, so there's room to move
-    if (mx || my) {
-	SetCursorPos(window_center_x, window_center_y);
-    }
 }
 
 
@@ -711,9 +679,10 @@ IN_Accumulate(void)
 {
     if (mouseactive && !dinput) {
 	GetCursorPos(&current_pos);
-
-	mx_accum += current_pos.x - window_center_x;
-	my_accum += current_pos.y - window_center_y;
+	if (key_dest == key_game) {
+	    mx_accum += current_pos.x - window_center_x;
+	    my_accum += current_pos.y - window_center_y;
+	}
 
 	/* force the mouse to the center, so there's room to move */
 	SetCursorPos(window_center_x, window_center_y);
@@ -732,7 +701,7 @@ IN_ClearStates(void)
     if (mouseactive) {
 	mx_accum = 0;
 	my_accum = 0;
-	mouse_oldbuttonstate = 0;
+	mouse_button_state = 0;
     }
 }
 
