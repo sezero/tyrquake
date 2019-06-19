@@ -328,18 +328,16 @@ IN_Commands(void)
     if (!mouse_available)
 	return;
 
-    // FIXME - Need this consistant, robust
-
-    // If we have the mouse, but are not in the game...
-    if (mouse_grab_active && key_dest != key_game && !VID_IsFullScreen()) {
-	IN_UngrabMouse();
-	IN_UngrabKeyboard();
-    }
-    // If we don't have the mouse, but we're in the game and we want it...
-    if (!mouse_grab_active && key_dest == key_game &&
-	(_windowed_mouse.value || VID_IsFullScreen())) {
-	IN_GrabKeyboard();
-	IN_GrabMouse();
-	IN_CenterMouse();
+    if (mouse_grab_active) {
+        if (key_dest != key_game && !VID_IsFullScreen()) {
+            IN_UngrabMouse();
+            IN_UngrabKeyboard();
+        }
+    } else {
+        if ((key_dest == key_game && _windowed_mouse.value) || VID_IsFullScreen()) {
+            IN_GrabKeyboard();
+            IN_GrabMouse();
+            IN_CenterMouse();
+        }
     }
 }
