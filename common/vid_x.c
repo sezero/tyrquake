@@ -461,11 +461,51 @@ VID_InitModeList(void)
     VID_SortModeList(modelist, nummodes);
 }
 
+/*
+ * Before setting a fullscreen mode, save the current video mode so we
+ * can try restore it later.  I'm not sure if I've understood
+ * correctly, but we can only query the current video mode by getting
+ * the VidModeModeLine and the dotclock, from which we have to build
+ * our own VidModeModeInfo struct in order to set it later?!?  Let's
+ * try it...
+ */
+static void
+VID_save_vidmode()
+{
+    int dotclock;
+    XF86VidModeModeLine modeline;
+
+    XF86VidModeGetModeLine(x_disp, x_visinfo->screen, &dotclock, &modeline);
+    saved_vidmode.dotclock = dotclock;
+    saved_vidmode.hdisplay = modeline.hdisplay;
+    saved_vidmode.hsyncstart = modeline.hsyncstart;
+    saved_vidmode.hsyncend = modeline.hsyncend;
+    saved_vidmode.htotal = modeline.htotal;
+    saved_vidmode.vdisplay = modeline.vdisplay;
+    saved_vidmode.vsyncstart = modeline.vsyncstart;
+    saved_vidmode.vsyncend = modeline.vsyncend;
+    saved_vidmode.vtotal = modeline.vtotal;
+    saved_vidmode.flags = modeline.flags;
+    saved_vidmode.privsize = modeline.privsize;
+    saved_vidmode.private = modeline.private;
+}
+
+static void
+VID_restore_vidmode()
+{
+    if (vidmode_active) {
+	XF86VidModeSwitchToMode(x_disp, x_visinfo->screen, &saved_vidmode);
+	if (saved_vidmode.privsize && saved_vidmode.private)
+	    XFree(saved_vidmode.private);
+        vidmode_active = false;
+    }
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
     unsigned long valuemask;
-    XSetWindowAttributes attributes = {};
+    XSetWindowAttributes attributes = {0};
     Window root;
 
     /* Free the existing structures */
@@ -480,33 +520,21 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     root = XRootWindow(x_disp, x_visinfo->screen);
 
-    /* window attributes */
+    /* common window attributes */
     valuemask = CWEventMask | CWColormap | CWBackPixel;
     attributes.background_pixel = 0;
-    attributes.colormap = XCreateColormap(x_disp, root, x_vis, AllocNone);
+    attributes.colormap = XCreateColormap(x_disp, root, x_visinfo->visual, AllocNone);
     attributes.event_mask = X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK;
 
     if (mode != modelist) {
 	/* Fullscreen */
-	valuemask |= CWSaveUnder | CWBackingStore | CWOverrideRedirect;
-	attributes.override_redirect = True;
-	attributes.backing_store = NotUseful;
-	attributes.save_under = False;
-    } else {
-	/* Windowed */
-	valuemask |= CWBorderPixel;
-	attributes.border_pixel = 0;
-    }
+        XF86VidModeModeInfo **xmodes, *xmode;
+        int i, numxmodes, refresh;
+        Bool result;
 
-    /* Attempt to set the vid mode if necessary */
-    if (mode != modelist) {
-	XF86VidModeModeInfo **xmodes, *xmode;
-	int i, numxmodes, refresh;
-	Bool result;
-
+        /* Attempt to set the vid mode */
 	XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &numxmodes, &xmodes);
 	xmode = *xmodes;
-
 	for (i = 0; i < numxmodes; i++, xmode++) {
 	    if (xmode->hdisplay != mode->width || xmode->vdisplay != mode->height)
 		continue;
@@ -522,6 +550,21 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	    Sys_Error("%s: mode switch failed", __func__);
 
         XFree(xmodes);
+
+        /* Fullscreen mode is now active */
+        vidmode_active = true;
+
+	valuemask |= CWSaveUnder | CWBackingStore | CWOverrideRedirect;
+	attributes.override_redirect = True;
+	attributes.backing_store = NotUseful;
+	attributes.save_under = False;
+    } else {
+	/* Windowed */
+	valuemask |= CWBorderPixel;
+	attributes.border_pixel = 0;
+
+        /* Restore the desktop mode, if we were previously fullscreen */
+        VID_restore_vidmode();
     }
 
     /* create the main window */
@@ -529,7 +572,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 			  0, 0,	// x, y
 			  mode->width, mode->height, 0,	// borderwidth
 			  mode->bpp,
-			  InputOutput, x_vis, valuemask, &attributes);
+			  InputOutput, x_visinfo->visual, valuemask, &attributes);
     XFreeColormap(x_disp, attributes.colormap);
     XStoreName(x_disp, x_win, "TyrQuake");
 
@@ -624,17 +667,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     return true;
 }
 
-static void
-VID_restore_vidmode()
-{
-    if (vidmode_active) {
-	XF86VidModeSwitchToMode(x_disp, x_visinfo->screen, &saved_vidmode);
-	if (saved_vidmode.privsize && saved_vidmode.private)
-	    XFree(saved_vidmode.private);
-    }
-}
-
-
 // Called at startup to set up translation tables, takes 256 8 bit RGB values
 // the palette data will go away after the call, so it must be copied off if
 // the video driver will need it again
@@ -722,6 +754,9 @@ VID_Init(const byte *palette)
     }
 
     x_vis = x_visinfo->visual;
+
+    /* Save the current video mode so we can restore when moving to windowed modes */
+    VID_save_vidmode();
 
     /* Init a default windowed mode */
     mode = modelist;
@@ -1192,5 +1227,5 @@ VID_UnlockBuffer(void)
 qboolean
 VID_IsFullScreen()
 {
-    return vid_modenum != 0;
+    return !!vid_modenum;
 }
