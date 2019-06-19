@@ -73,7 +73,6 @@ cvar_t vid_mode = { "vid_mode", "0", false };
 static qboolean doShm;
 static Colormap x_cmap;
 static GC x_gc;
-static Visual *x_vis;
 static XVisualInfo *x_visinfo;
 
 static int x_shmeventtype;
@@ -110,9 +109,9 @@ shiftmask_init()
 {
     unsigned int x;
 
-    r_mask = x_vis->red_mask;
-    g_mask = x_vis->green_mask;
-    b_mask = x_vis->blue_mask;
+    r_mask = x_visinfo->visual->red_mask;
+    g_mask = x_visinfo->visual->green_mask;
+    b_mask = x_visinfo->visual->blue_mask;
     for (r_shift = -8, x = 1; x < r_mask; x = x << 1)
 	r_shift++;
     for (g_shift = -8, x = 1; x < g_mask; x = x << 1)
@@ -336,7 +335,7 @@ ResetFrameBuffer(void)
     mem = ((vid.width * pwidth + 7) & ~7) * vid.height;
 
     x_framebuffer[0] = XCreateImage(x_disp,
-				    x_vis,
+				    x_visinfo->visual,
 				    x_visinfo->depth,
 				    ZPixmap,
 				    0,
@@ -393,7 +392,7 @@ ResetSharedFrameBuffers(void)
 
 	// create the image
 	x_framebuffer[frm] = XShmCreateImage(x_disp,
-					     x_vis,
+					     x_visinfo->visual,
 					     x_visinfo->depth,
 					     ZPixmap,
 					     0,
@@ -579,7 +578,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     if (x_visinfo->depth == 8) {
 	/* create and upload the palette */
 	if (x_visinfo->class == PseudoColor) {
-	    x_cmap = XCreateColormap(x_disp, x_win, x_vis, AllocAll);
+	    x_cmap = XCreateColormap(x_disp, x_win, x_visinfo->visual, AllocAll);
 	    VID_SetPalette(palette);
 	    XSetWindowColormap(x_disp, x_win, x_cmap);
 	}
@@ -752,8 +751,6 @@ VID_Init(const byte *palette)
 	printf("	colormap_size %d\n", x_visinfo->colormap_size);
 	printf("	bits_per_rgb %d\n", x_visinfo->bits_per_rgb);
     }
-
-    x_vis = x_visinfo->visual;
 
     /* Save the current video mode so we can restore when moving to windowed modes */
     VID_save_vidmode();
