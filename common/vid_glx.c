@@ -110,203 +110,10 @@ D_EndDirectRect(int x, int y, int width, int height)
 // direct drawing of the "accessing disk" icon isn't supported under GLX
 }
 
-// XLateKey - Transform from X key symbols to Quake's symbols
-static int
-XLateKey(XKeyEvent *event)
-{
-    char buffer[4];
-    KeySym keysym;
-    knum_t key;
-
-    memset(buffer, 0, sizeof(buffer));
-    XLookupString(event, buffer, sizeof(buffer), &keysym, NULL);
-
-    switch (keysym) {
-    case XK_KP_Page_Up:
-    case XK_Page_Up:
-	key = K_PGUP;
-	break;
-
-    case XK_KP_Page_Down:
-    case XK_Page_Down:
-	key = K_PGDN;
-	break;
-
-    case XK_KP_Home:
-    case XK_Home:
-	key = K_HOME;
-	break;
-
-    case XK_KP_End:
-    case XK_End:
-	key = K_END;
-	break;
-
-    case XK_KP_Left:
-    case XK_Left:
-	key = K_LEFTARROW;
-	break;
-
-    case XK_KP_Right:
-    case XK_Right:
-	key = K_RIGHTARROW;
-	break;
-
-    case XK_KP_Down:
-    case XK_Down:
-	key = K_DOWNARROW;
-	break;
-
-    case XK_KP_Up:
-    case XK_Up:
-	key = K_UPARROW;
-	break;
-
-    case XK_Escape:
-	key = K_ESCAPE;
-	break;
-
-    case XK_KP_Enter:
-    case XK_Return:
-	key = K_ENTER;
-	break;
-
-    case XK_Tab:
-	key = K_TAB;
-	break;
-
-    case XK_F1:
-	key = K_F1;
-	break;
-
-    case XK_F2:
-	key = K_F2;
-	break;
-
-    case XK_F3:
-	key = K_F3;
-	break;
-
-    case XK_F4:
-	key = K_F4;
-	break;
-
-    case XK_F5:
-	key = K_F5;
-	break;
-
-    case XK_F6:
-	key = K_F6;
-	break;
-
-    case XK_F7:
-	key = K_F7;
-	break;
-
-    case XK_F8:
-	key = K_F8;
-	break;
-
-    case XK_F9:
-	key = K_F9;
-	break;
-
-    case XK_F10:
-	key = K_F10;
-	break;
-
-    case XK_F11:
-	key = K_F11;
-	break;
-
-    case XK_F12:
-	key = K_F12;
-	break;
-
-    case XK_BackSpace:
-	key = K_BACKSPACE;
-	break;
-
-    case XK_KP_Delete:
-    case XK_Delete:
-	key = K_DEL;
-	break;
-
-    case XK_Pause:
-	key = K_PAUSE;
-	break;
-
-    case XK_Shift_L:
-	key = K_LSHIFT;
-	break;
-
-    case XK_Shift_R:
-	key = K_RSHIFT;
-	break;
-
-    case XK_Execute:
-    case XK_Control_L:
-	key = K_LCTRL;
-	break;
-
-    case XK_Control_R:
-	key = K_RCTRL;
-	break;
-
-    case XK_Alt_L:
-	key = K_LALT;
-	break;
-
-    case XK_Meta_L:
-	key = K_LMETA;
-	break;
-
-    case XK_Alt_R:
-	key = K_RALT;
-	break;
-
-    case XK_Meta_R:
-	key = K_RMETA;
-	break;
-
-    case XK_KP_Begin:
-    case XK_KP_5:
-	key = '5';
-	break;
-
-    case XK_Insert:
-    case XK_KP_Insert:
-	key = K_INS;
-	break;
-
-    case XK_KP_Multiply:
-	key = '*';
-	break;
-    case XK_KP_Add:
-	key = '+';
-	break;
-    case XK_KP_Subtract:
-	key = '-';
-	break;
-    case XK_KP_Divide:
-	key = '/';
-	break;
-
-    default:
-	key = (unsigned char)buffer[0];
-	if (key >= 'A' && key <= 'Z')
-	    key = key - 'A' + 'a';
-	break;
-    }
-
-    return key;
-}
-
 static void
 HandleEvents(void)
 {
     XEvent event;
-    qboolean dowarp = false;
 
     if (!x_disp)
 	return;
@@ -314,91 +121,27 @@ HandleEvents(void)
     while (XPending(x_disp)) {
 	XNextEvent(x_disp, &event);
 
-	switch (event.type) {
-	case KeyPress:
-	case KeyRelease:
-	    Key_Event(XLateKey(&event.xkey), event.type == KeyPress);
-	    break;
+        switch (event.type) {
+            case KeyPress:
+            case KeyRelease:
+            case MotionNotify:
+            case ButtonPress:
+            case ButtonRelease:
+                /* TODO: Batch up events? */
+                IN_X11_HandleInputEvent(&event);
+                break;
 
-	case MotionNotify:
-	    if (mouse_grab_active) {
-#ifdef USE_XF86DGA
-		if (dga_mouse_active) {
-		    mouse_x += event.xmotion.x_root;
-		    mouse_y += event.xmotion.y_root;
-		} else {
-#endif
-		    mouse_x = event.xmotion.x - (int)(vid.width / 2);
-		    mouse_y = event.xmotion.y - (int)(vid.height / 2);
+            case CreateNotify:
+                win_x = event.xcreatewindow.x;
+                win_y = event.xcreatewindow.y;
+                break;
 
-		    if (mouse_x || mouse_y)
-			dowarp = true;
-#ifdef USE_XF86DGA
-		}
-#endif
-	    }
-	    break;
-
-	case ButtonPress:
-	    if (event.xbutton.button == 1)
-		Key_Event(K_MOUSE1, true);
-	    else if (event.xbutton.button == 2)
-		Key_Event(K_MOUSE3, true);
-	    else if (event.xbutton.button == 3)
-		Key_Event(K_MOUSE2, true);
-	    else if (event.xbutton.button == 4)
-		Key_Event(K_MWHEELUP, true);
-	    else if (event.xbutton.button == 5)
-		Key_Event(K_MWHEELDOWN, true);
-	    else if (event.xbutton.button == 6)
-		Key_Event(K_MOUSE4, true);
-	    else if (event.xbutton.button == 7)
-		Key_Event(K_MOUSE5, true);
-	    else if (event.xbutton.button == 8)
-		Key_Event(K_MOUSE6, true);
-	    else if (event.xbutton.button == 9)
-		Key_Event(K_MOUSE7, true);
-	    else if (event.xbutton.button == 10)
-		Key_Event(K_MOUSE8, true);
-	    break;
-
-	case ButtonRelease:
-	    if (event.xbutton.button == 1)
-		Key_Event(K_MOUSE1, false);
-	    else if (event.xbutton.button == 2)
-		Key_Event(K_MOUSE3, false);
-	    else if (event.xbutton.button == 3)
-		Key_Event(K_MOUSE2, false);
-	    else if (event.xbutton.button == 4)
-		Key_Event(K_MWHEELUP, false);
-	    else if (event.xbutton.button == 5)
-		Key_Event(K_MWHEELDOWN, false);
-	    else if (event.xbutton.button == 6)
-		Key_Event(K_MOUSE4, false);
-	    else if (event.xbutton.button == 7)
-		Key_Event(K_MOUSE5, false);
-	    else if (event.xbutton.button == 8)
-		Key_Event(K_MOUSE6, false);
-	    else if (event.xbutton.button == 9)
-		Key_Event(K_MOUSE7, false);
-	    else if (event.xbutton.button == 10)
-		Key_Event(K_MOUSE8, false);
-	    break;
-
-	case CreateNotify:
-	    win_x = event.xcreatewindow.x;
-	    win_y = event.xcreatewindow.y;
-	    break;
-
-	case ConfigureNotify:
-	    win_x = event.xconfigure.x;
-	    win_y = event.xconfigure.y;
-	    break;
+            case ConfigureNotify:
+                win_x = event.xconfigure.x;
+                win_y = event.xconfigure.y;
+                break;
 	}
     }
-
-    if (dowarp)
-	IN_CenterMouse();
 }
 
 void (*VID_SetGammaRamp)(unsigned short ramp[3][256]);

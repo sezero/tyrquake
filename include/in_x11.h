@@ -24,6 +24,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "qtypes.h"
 #include "cvar.h"
 
+#include <X11/Xlib.h>
+
 #define X_KEY_MASK (KeyPressMask | KeyReleaseMask)
 #define X_MOUSE_MASK (ButtonPressMask | ButtonReleaseMask | PointerMotionMask)
 
@@ -47,5 +49,7 @@ void IN_GrabMouse();
 void IN_UngrabMouse();
 void IN_GrabKeyboard();
 void IN_UngrabKeyboard();
+
+void IN_X11_HandleInputEvent(XEvent *event);
 
 #endif /* IN_X11_H */
