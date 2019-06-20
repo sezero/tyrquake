@@ -500,6 +500,10 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	    break;
 	case VID_MENU_CURSOR_FULLSCREEN:
 	    menu->fullscreen = !menu->fullscreen;
+            if (menu->fullscreen) {
+		mode = VID_FindNextRefresh(&menu->mode);
+		menu->mode.refresh = mode->refresh;
+            }
 	    break;
 	default:
 	    break;
@@ -528,6 +532,10 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	    break;
 	case VID_MENU_CURSOR_FULLSCREEN:
 	    menu->fullscreen = !menu->fullscreen;
+            if (menu->fullscreen) {
+		mode = VID_FindNextRefresh(&menu->mode);
+		menu->mode.refresh = mode->refresh;
+            }
 	    break;
 	default:
 	    break;
@@ -559,6 +567,10 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	    break;
 	case VID_MENU_CURSOR_FULLSCREEN:
 	    menu->fullscreen = !menu->fullscreen;
+            if (menu->fullscreen) {
+		mode = VID_FindNextRefresh(&menu->mode);
+		menu->mode.refresh = mode->refresh;
+            }
 	    break;
 	default:
 	    break;
