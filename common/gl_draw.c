@@ -662,11 +662,6 @@ Draw_TransPic
 void
 Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
 {
-    if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
-	y < 0 || (unsigned)(y + pic->height) > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
-    }
-
     Draw_Pic(x, y, pic);
 }
 
