@@ -606,14 +606,11 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     }
 
     /* Wait for first expose event so it's safe to draw */
-    {
-	XEvent event;
-
-	do {
-	    XNextEvent(x_disp, &event);
-	} while (event.type != Expose || event.xexpose.count);
-	oktodraw = true;
-    }
+    XEvent event;
+    do {
+        XNextEvent(x_disp, &event);
+    } while (event.type != Expose || event.xexpose.count);
+    oktodraw = true;
 
     /* even if MITSHM is available, make sure it's a local connection */
     if (XShmQueryExtension(x_disp)) {

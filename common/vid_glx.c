@@ -513,7 +513,11 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	XF86VidModeSetViewPort(x_disp, x_visinfo->screen, 0, 0);
     }
 
-    XFlush(x_disp);
+    /* Wait for first expose event so it's safe to draw */
+    XEvent event;
+    do {
+        XNextEvent(x_disp, &event);
+    } while (event.type != Expose || event.xexpose.count);
 
     ctx = glXCreateContext(x_disp, x_visinfo, NULL, True);
     glXMakeCurrent(x_disp, x_win, ctx);
