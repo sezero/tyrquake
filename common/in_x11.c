@@ -497,10 +497,6 @@ IN_Init(void)
     }
 #endif
 
-    // Need to grab the input focus at startup, just in case...
-    // FIXME - must be viewable or get BadMatch
-    XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
-
     IN_InitCvars();
 
     if (VID_IsFullScreen()) {

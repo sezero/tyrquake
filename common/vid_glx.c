@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "common.h"
 #include "console.h"
 #include "glquake.h"
+#include "input.h"
 #include "keys.h"
 #include "quakedef.h"
 #include "sbar.h"
@@ -438,9 +439,13 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
         reload_textures = true;
     }
     if (x_win) {
+        IN_UngrabKeyboard();
+        IN_UngrabMouse();
 	XDestroyWindow(x_disp, x_win);
 	x_win = 0;
     }
+
+    vid_modenum = mode - modelist;
 
     root = RootWindow(x_disp, scrnum);
 
@@ -450,8 +455,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     attributes.colormap = XCreateColormap(x_disp, root, x_visinfo->visual, AllocNone);
     attributes.event_mask = X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK;
 
-    if (mode != modelist) {
-	/* Fullscreen */
+    if (VID_IsFullScreen()) {
 	XF86VidModeModeInfo **xmodes, *xmode;
 	int i, numxmodes, refresh;
 	Bool result;
@@ -487,9 +491,11 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	valuemask |= CWBorderPixel;
 	attributes.border_pixel = 0;
 
+        /* Restore the desktop mode, if we were previously fullscreen */
         VID_restore_vidmode();
     }
 
+    /* create the main window */
     x_win = XCreateWindow(x_disp, XRootWindow(x_disp, x_visinfo->screen),
                           0, 0, // x, y
                           mode->width, mode->height, 0, //borderwidth
@@ -499,23 +505,21 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     XStoreName(x_disp, x_win, "TyrQuake");
 
     XMapWindow(x_disp, x_win);
-    if (mode != modelist) {
+    if (VID_IsFullScreen()) {
 	XMoveWindow(x_disp, x_win, 0, 0);
 	XRaiseWindow(x_disp, x_win);
-
-	// FIXME - mouse may not be active...
-	IN_CenterMouse();
-	XFlush(x_disp);
-
-	// Move the viewport to top left
 	XF86VidModeSetViewPort(x_disp, x_visinfo->screen, 0, 0);
     }
 
-    /* Wait for first expose event so it's safe to draw */
+    /* Wait for first expose event */
     XEvent event;
     do {
         XNextEvent(x_disp, &event);
     } while (event.type != Expose || event.xexpose.count);
+
+    /* Ensure the new window has the focus */
+    XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
+    IN_Commands(); // update grabs (FIXME - this is a wierd function call to do that!)
 
     ctx = glXCreateContext(x_disp, x_visinfo, NULL, True);
     glXMakeCurrent(x_disp, x_win, ctx);
@@ -543,18 +547,12 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
-    vid_modenum = mode - modelist;
-
     Con_SafePrintf("Video mode %dx%d initialized.\n", mode->width, mode->height);
 
     vid.recalc_refdef = true;
 
     SCR_CheckResize();
     Con_CheckResize();
-
-    // Need to grab the input focus at startup, just in case...
-    // FIXME - must be viewable or get BadMatch
-    XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
 
     return true;
 }

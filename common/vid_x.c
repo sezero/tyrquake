@@ -508,6 +508,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     /* Free the existing structures */
     if (x_win) {
+        IN_UngrabKeyboard();
+        IN_UngrabMouse();
 	XDestroyWindow(x_disp, x_win);
 	x_win = 0;
     }
@@ -516,16 +518,17 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	x_cmap = 0;
     }
 
+    vid_modenum = mode - modelist;
+
     root = XRootWindow(x_disp, x_visinfo->screen);
 
     /* common window attributes */
-    valuemask = CWEventMask | CWColormap | CWBackPixel;
+    valuemask = CWBackPixel | CWColormap | CWEventMask;
     attributes.background_pixel = 0;
     attributes.colormap = XCreateColormap(x_disp, root, x_visinfo->visual, AllocNone);
     attributes.event_mask = X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK;
 
-    if (mode != modelist) {
-	/* Fullscreen */
+    if (VID_IsFullScreen()) {
         XF86VidModeModeInfo **xmodes, *xmode;
         int i, numxmodes, refresh;
         Bool result;
@@ -593,23 +596,22 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     }
 
     XMapWindow(x_disp, x_win);
-    if (mode != modelist) {
+    if (VID_IsFullScreen()) {
 	XMoveWindow(x_disp, x_win, 0, 0);
 	XRaiseWindow(x_disp, x_win);
-
-	/* FIXME - mouse may not be active... wrong place for this? */
-	IN_CenterMouse();
-	XFlush(x_disp);
-
 	XF86VidModeSetViewPort(x_disp, x_visinfo->screen, 0, 0);
     }
 
-    /* Wait for first expose event so it's safe to draw */
+    /* Wait for first expose event */
     XEvent event;
     do {
         XNextEvent(x_disp, &event);
     } while (event.type != Expose || event.xexpose.count);
     oktodraw = true;
+
+    /* Ensure the new window has the focus */
+    XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
+    IN_Commands(); // update grabs (FIXME - this is a wierd function call to do that!)
 
     /* even if MITSHM is available, make sure it's a local connection */
     if (XShmQueryExtension(x_disp)) {
@@ -639,8 +641,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
-    vid_modenum = mode - modelist;
-
     if (doShm) {
 	x_shmeventtype = XShmGetEventBase(x_disp) + ShmCompletion;
 	ResetSharedFrameBuffers();
@@ -654,10 +654,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     SCR_CheckResize();
     Con_CheckResize();
-
-    // Need to grab the input focus at startup, just in case...
-    // FIXME - must be viewable or get BadMatch
-    XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
 
     return true;
 }
