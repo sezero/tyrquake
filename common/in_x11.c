@@ -373,14 +373,43 @@ XLateKey(XKeyEvent *event)
     return key;
 }
 
+static qboolean
+IN_X11_EventIsKeyRepeat(XEvent *event)
+{
+    XEvent next;
+
+    /* Check if there is another queued event */
+    if (!XEventsQueued(x_disp, QueuedAfterReading))
+        return false;
+
+    /* Check if the event is a key press that exactly matches the current key release */
+    XPeekEvent(x_disp, &next);
+    if (next.type != KeyPress)
+        return false;
+    if (next.xkey.time != event->xkey.time)
+        return false;
+    if (next.xkey.keycode != event->xkey.keycode)
+        return false;
+
+    return true;
+}
+
 void
 IN_X11_HandleInputEvent(XEvent *event)
 {
+    XEvent dummy;
     qboolean down;
 
     switch (event->type) {
-	case KeyPress:
 	case KeyRelease:
+            /* Discard any key repeat events in-game, allow for console/menu */
+            if (key_dest == key_game && IN_X11_EventIsKeyRepeat(event)) {
+                XNextEvent(x_disp, &dummy);
+            } else {
+                Key_Event(XLateKey(&event->xkey), event->type == KeyPress);
+            }
+            break;
+	case KeyPress:
 	    Key_Event(XLateKey(&event->xkey), event->type == KeyPress);
 	    break;
 

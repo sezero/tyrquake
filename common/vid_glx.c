@@ -127,7 +127,6 @@ HandleEvents(void)
             case MotionNotify:
             case ButtonPress:
             case ButtonRelease:
-                /* TODO: Batch up events? */
                 IN_X11_HandleInputEvent(&event);
                 break;
 
@@ -152,7 +151,6 @@ void
 signal_handler(int sig)
 {
     printf("Received signal %d, exiting...\n", sig);
-    XAutoRepeatOn(x_disp);
     if (VID_SetGammaRamp)
 	XF86VidModeSetGammaRamp(x_disp, scrnum, x11_gamma_size,
 				x11_gamma_ramp,

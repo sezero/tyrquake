@@ -290,7 +290,6 @@ st3_fixup(XImage * framebuf, int x, int y, int width, int height)
 static void
 TragicDeath(int signal_num)
 {
-    XAutoRepeatOn(x_disp);
     XCloseDisplay(x_disp);
     Sys_Error("This death brought to you by the number %d", signal_num);
 }
@@ -709,8 +708,6 @@ VID_Init(const byte *palette)
 	sigaction(SIGTERM, &sa, 0);
     }
 
-    XAutoRepeatOff(x_disp);
-
     /* for debugging only(?) */
     XSynchronize(x_disp, True);
 
@@ -812,7 +809,6 @@ VID_Shutdown(void)
 {
     Con_Printf("VID_Shutdown\n");
     VID_restore_vidmode();
-    XAutoRepeatOn(x_disp);
     XCloseDisplay(x_disp);
 }
 
@@ -837,7 +833,6 @@ HandleEvents(void)
             case MotionNotify:
             case ButtonPress:
             case ButtonRelease:
-                /* TODO: Batch up events? */
                 IN_X11_HandleInputEvent(&event);
                 break;
 
