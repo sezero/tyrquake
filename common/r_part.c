@@ -736,12 +736,10 @@ R_DrawParticles(void)
     particle_t *p;
 
 #ifdef GLQUAKE
-#ifdef QW_HACK
-    unsigned char *at;
-    unsigned char theAlpha;
-#endif
+    byte *color;
+    byte alpha;
     qboolean alphaTestEnabled;
-    vec3_t up, right;
+    vec3_t up, right, offset, vertex;
     float scale;
 
 #ifdef NQ_HACK
@@ -777,34 +775,25 @@ R_DrawParticles(void)
 
 #ifdef GLQUAKE
 	// hack a scale up to keep particles from disapearing
-	scale =
-	    (p->org[0] - r_origin[0]) * vpn[0] + (p->org[1] -
-						  r_origin[1]) * vpn[1]
-	    + (p->org[2] - r_origin[2]) * vpn[2];
-	if (scale < 20)
-	    scale = 1;
-	else
-	    scale = 1 + scale * 0.004;
-#ifdef QW_HACK
-	at = (byte *)&d_8to24table[(int)p->color];
-	if (p->type == pt_fire)
-	    theAlpha = 255 * (6 - p->ramp) / 6;
-	else
-	    theAlpha = 255;
-	glColor4ub(*at, *(at + 1), *(at + 2), theAlpha);
-#endif
-#ifdef NQ_HACK
-	glColor3ubv((byte *)&d_8to24table[(int)p->color]);
-#endif
+        VectorSubtract(p->org, r_origin, offset);
+        scale = DotProduct(offset, vpn);
+        scale = qmin(1.0f, 1.0f + scale * 0.004f);
+
+        color = (byte *)&d_8to24table[(int)p->color];
+        alpha = 255;
+        if (p->type == pt_fire) {
+            alpha = 255 * (6 - (qmin(5, (int)p->ramp))) / 6;
+        }
+	glColor4ub(color[0], color[1], color[2], alpha);
+
 	glTexCoord2f(0, 0);
 	glVertex3fv(p->org);
 	glTexCoord2f(1, 0);
-	glVertex3f(p->org[0] + up[0] * scale, p->org[1] + up[1] * scale,
-		   p->org[2] + up[2] * scale);
+        VectorMA(p->org, scale, up, vertex);
+        glVertex3fv(vertex);
 	glTexCoord2f(0, 1);
-	glVertex3f(p->org[0] + right[0] * scale,
-		   p->org[1] + right[1] * scale,
-		   p->org[2] + right[2] * scale);
+        VectorMA(p->org, scale, right, vertex);
+        glVertex3fv(vertex);
 #else
 	D_DrawParticle(p);
 #endif
