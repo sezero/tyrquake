@@ -310,7 +310,6 @@ GL_BeginRendering(int *x, int *y, int *width, int *height)
 void
 GL_EndRendering(void)
 {
-    glFlush();
     glXSwapBuffers(x_disp, x_win);
 }
 
