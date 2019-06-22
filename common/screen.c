@@ -193,9 +193,7 @@ static cvar_t scr_showram = { "showram", "1" };
 static cvar_t scr_showturtle = { "showturtle", "0" };
 static cvar_t scr_showpause = { "showpause", "1" };
 static cvar_t show_fps = { "show_fps", "0" };	/* set for running times */
-#ifdef GLQUAKE
-static cvar_t gl_triplebuffer = { "gl_triplebuffer", "1", true };
-#else
+#ifndef GLQUAKE
 static vrect_t *pconupdate;
 #endif
 
@@ -381,7 +379,7 @@ SCR_SetUpToDrawConsole(void)
 	    scr_con_current = scr_conlines;
     }
 
-    if (clearconsole++ < vid.numpages) {
+    if (!vid.numpages || clearconsole++ < vid.numpages) {
 #ifdef GLQUAKE
 	scr_copytop = 1;
 	Draw_TileClear(0, (int)scr_con_current, scr_scaled_width,
@@ -1326,10 +1324,6 @@ SCR_UpdateScreen(void)
     if (scr_block_drawing)
 	return;
 
-#ifdef GLQUAKE
-    vid.numpages = 2 + gl_triplebuffer.value;
-#endif
-
 #ifdef NQ_HACK
     if (scr_disabled_for_loading) {
 	/*
@@ -1399,7 +1393,7 @@ SCR_UpdateScreen(void)
 #else
     D_EnableBackBufferAccess();	/* for overlay stuff, if drawing directly */
 
-    if (scr_fullupdate++ < vid.numpages) {
+    if (!vid.numpages || scr_fullupdate++ < vid.numpages) {
 	/* clear the entire screen */
 	scr_copyeverything = 1;
 	Draw_TileClear(0, 0, vid.width, vid.height);
@@ -1542,9 +1536,6 @@ SCR_Init(void)
     Cvar_RegisterVariable(&scr_centertime);
     Cvar_RegisterVariable(&scr_printspeed);
     Cvar_RegisterVariable(&show_fps);
-#ifdef GLQUAKE
-    Cvar_RegisterVariable(&gl_triplebuffer);
-#endif
 
     Cmd_AddCommand("hudscale", SCR_Hudscale_f);
     Cmd_AddCommand("screenshot", SCR_ScreenShot_f);

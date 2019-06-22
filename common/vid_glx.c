@@ -543,7 +543,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
-    vid.numpages = 2;
+    vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 

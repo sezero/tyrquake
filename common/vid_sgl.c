@@ -224,7 +224,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 #endif
     }
 
-    vid.numpages = 1;
+    vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
     vid.maxwarpwidth = WARP_WIDTH;

@@ -263,7 +263,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
     ReleaseDC(mainwindow, hdc);
 
-    vid.numpages = 2;
+    vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
     vid.maxwarpwidth = WARP_WIDTH;
@@ -352,7 +352,7 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
     ReleaseDC(mainwindow, hdc);
 
-    vid.numpages = 2;
+    vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
     vid.maxwarpwidth = WARP_WIDTH;
