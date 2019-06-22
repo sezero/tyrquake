@@ -86,8 +86,6 @@ cvar_t vid_mode = { "vid_mode", "0", false };
 // FIXME - useless, or for vidmode changes?
 static int win_x, win_y;
 
-static int scr_width, scr_height;
-
 static XF86VidModeModeInfo saved_vidmode;
 static qboolean vidmode_active = false;
 static XVisualInfo *x_visinfo;
@@ -304,8 +302,8 @@ void
 GL_BeginRendering(int *x, int *y, int *width, int *height)
 {
     *x = *y = 0;
-    *width = scr_width;
-    *height = scr_height;
+    *width = vid.width;
+    *height = vid.height;
 }
 
 
@@ -534,9 +532,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	R_ResetNetGraphTexture();
 #endif
     }
-
-    scr_width = mode->width;
-    scr_height = mode->height;
 
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
