@@ -245,9 +245,9 @@ R_Init(void)
 #endif
 
     R_InitBubble();
-
     R_InitParticles();
     R_InitParticleTexture();
+    R_InitTranslationTable();
 }
 
 
@@ -323,43 +323,6 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
 }
 
 /*
- * ================
- * ResampleXlate
- * ================
- * Resample the source texture while applying color translation
- *
- * The input texture may be a sub-rectangle (assumed to be left aligned) so
- * input stride is specified separately from input width.
- */
-static void
-ResampleXlate(const byte *in,
-	      unsigned inwidth, unsigned inheight, unsigned instride,
-	      unsigned *out,
-	      unsigned outwidth, unsigned outheight,
-	      const unsigned *xlate)
-{
-    int i, j;
-    const byte *inrow;
-    unsigned frac, fracstep;
-
-    fracstep = inwidth * 0x10000 / outwidth;
-    for (i = 0; i < outheight; i++, out += outwidth) {
-	inrow = in + instride * (i * inheight / outheight);
-	frac = fracstep >> 1;
-	for (j = 0; j < outwidth; j += 4) {
-	    out[j] = xlate[inrow[frac >> 16]];
-	    frac += fracstep;
-	    out[j + 1] = xlate[inrow[frac >> 16]];
-	    frac += fracstep;
-	    out[j + 2] = xlate[inrow[frac >> 16]];
-	    frac += fracstep;
-	    out[j + 3] = xlate[inrow[frac >> 16]];
-	    frac += fracstep;
-	}
-    }
-}
-
-/*
 ===============
 R_TranslatePlayerSkin
 
@@ -369,14 +332,10 @@ Translates a skin texture by the per-player color lookup
 void
 R_TranslatePlayerSkin(int playernum)
 {
-    int top, bottom;
-    unsigned translate[256];
-    int i;
     const byte *original;
-    unsigned pixels[512 * 256];
-    unsigned scaled_width, scaled_height;
-    int inwidth, inheight, instride;
+    const byte *translation;
     player_info_t *player;
+    int inwidth, inheight, instride;
 
 #ifdef QW_HACK
     const char *skin_key;
@@ -405,24 +364,6 @@ R_TranslatePlayerSkin(int playernum)
     player->_topcolor = player->topcolor;
     player->_bottomcolor = player->bottomcolor;
 #endif
-    top = qclamp((int)player->topcolor, 0, 13) * 16;
-    bottom = qclamp((int)player->bottomcolor, 0, 13) * 16;
-
-    for (i = 0; i < 256; i++)
-	translate[i] = qpal_standard.colors[i].rgba;
-
-    for (i = 0; i < 16; i++) {
-	/* the artists made some backwards ranges */
-	if (top < 128)
-	    translate[TOP_RANGE + i] = qpal_standard.colors[top + i].rgba;
-	else
-	    translate[TOP_RANGE + i] = qpal_standard.colors[top + 15 - i].rgba;
-
-	if (bottom < 128)
-	    translate[BOTTOM_RANGE + i] = qpal_standard.colors[bottom + i].rgba;
-	else
-	    translate[BOTTOM_RANGE + i] = qpal_standard.colors[bottom + 15 - i].rgba;
-    }
 
     /*
      * Locate the original skin pixels
@@ -440,8 +381,7 @@ R_TranslatePlayerSkin(int playernum)
     aliashdr = Mod_Extradata(model);
     original = (const byte *)aliashdr + aliashdr->skindata;
     if (entity->skinnum < 0 || entity->skinnum >= aliashdr->numskins) {
-	Con_DPrintf("Player %d has invalid skin #%d\n",
-		    playernum, entity->skinnum);
+	Con_DPrintf("Player %d has invalid skin #%d\n", playernum, entity->skinnum);
     } else {
 	const int skinsize = aliashdr->skinwidth * aliashdr->skinheight;
 	if (skinsize & 3)
@@ -470,35 +410,18 @@ R_TranslatePlayerSkin(int playernum)
     }
 #endif
 
-    // because this happens during gameplay, do it fast
-    // instead of sending it through gl_upload 8
+    const qpic8_t playerpic = {
+        .width = inwidth,
+        .height = inheight,
+        .stride = instride,
+        .pixels = original,
+    };
     if (!playertextures[playernum]) {
-        const qpic8_t playertexture = {
-            .width = inwidth,
-            .height = inheight,
-            .stride = instride,
-            .pixels = original,
-        };
-        playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playertexture, TEXTURE_TYPE_SKIN);
+        playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     }
     GL_Bind(playertextures[playernum]);
-
-    // allow users to crunch sizes down
-    scaled_width = 512 >> (int)gl_playermip.value;
-    scaled_height = 256 >> (int)gl_playermip.value;
-
-    // make sure not still too big
-    scaled_width = qmin((unsigned)gl_max_size.value, scaled_width);
-    scaled_height = qmin((unsigned)gl_max_size.value, scaled_height);
-
-    ResampleXlate(original, inwidth, inheight, instride,
-		  pixels, scaled_width, scaled_height, translate);
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_solid_format, scaled_width,
-		 scaled_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
-
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);
+    GL_Upload8_Translate(&playerpic, TEXTURE_TYPE_PLAYER_SKIN, translation);
 }
 
 

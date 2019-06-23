@@ -69,7 +69,8 @@ enum texture_type {
     TEXTURE_TYPE_FULLBRIGHT,
     TEXTURE_TYPE_SKY_BACKGROUND,
     TEXTURE_TYPE_SKY_FOREGROUND,
-    TEXTURE_TYPE_SKIN,
+    TEXTURE_TYPE_ALIAS_SKIN,
+    TEXTURE_TYPE_PLAYER_SKIN,
     TEXTURE_TYPE_LIGHTMAP,
     TEXTURE_TYPE_PARTICLE,
     TEXTURE_TYPE_SPRITE,
@@ -84,6 +85,7 @@ typedef struct {
 void GL_FreeTextures();
 
 void GL_Upload8(const qpic8_t *pic, enum texture_type type);
+void GL_Upload8_Translate(const qpic8_t *pic, enum texture_type type, const byte *translation);
 int GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type);
 int GL_LoadTexture_GLPic(const char *name, glpic_t *glpic);
 int GL_FindTexture(const char *name);

@@ -129,7 +129,8 @@ GL_TextureMode_f(void)
         switch (glt->type) {
             case TEXTURE_TYPE_WORLD:
             case TEXTURE_TYPE_FULLBRIGHT:
-            case TEXTURE_TYPE_SKIN:
+            case TEXTURE_TYPE_ALIAS_SKIN:
+            case TEXTURE_TYPE_PLAYER_SKIN:
             case TEXTURE_TYPE_SPRITE:
                 GL_Bind(glt->texnum);
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
@@ -197,14 +198,13 @@ GL_FindTexture(const char *name)
  * This really only matters in the case of non-power-of-two HUD textures
  * getting expanded, since the texture coordinates need to be adjusted
  * accordingly when drawing.
- *
  */
 static void
 GL_Upload32(qpic32_t *pic, enum texture_type type)
 {
     GLint internal_format;
     qpic32_t *scaled;
-    int width, height, mark, miplevel;
+    int width, height, mark, miplevel, picmip;
 
     if (!gl_npotable || !gl_npot.value) {
 	/* find the next power-of-two size up */
@@ -219,9 +219,26 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
 	height = pic->height;
     }
 
-    width >>= (int)gl_picmip.value;
+    /* Allow some textures to be crunched down by player preference */
+    switch (type) {
+        case TEXTURE_TYPE_PLAYER_SKIN:
+            picmip = (int)gl_playermip.value;
+            break;
+        case TEXTURE_TYPE_WORLD:
+        case TEXTURE_TYPE_FULLBRIGHT:
+        case TEXTURE_TYPE_SKY_FOREGROUND:
+        case TEXTURE_TYPE_SKY_BACKGROUND:
+        case TEXTURE_TYPE_ALIAS_SKIN:
+            picmip = (int)gl_picmip.value;
+            break;
+        default:
+            picmip = 0;
+            break;
+    }
+
+    width >>= picmip;
     width = qclamp(width, 1, (int)gl_max_size.value);
-    height >>= (int)gl_picmip.value;
+    height >>= picmip;
     height = qclamp(height, 1, (int)gl_max_size.value);
 
     mark = Hunk_LowMark();
@@ -256,7 +273,8 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     switch (type) {
         case TEXTURE_TYPE_WORLD:
         case TEXTURE_TYPE_FULLBRIGHT:
-        case TEXTURE_TYPE_SKIN:
+        case TEXTURE_TYPE_ALIAS_SKIN:
+        case TEXTURE_TYPE_PLAYER_SKIN:
         case TEXTURE_TYPE_SPRITE:
             miplevel = 0;
             while (1) {
@@ -288,17 +306,10 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     pic->height = height;
 }
 
-/*
-===============
-GL_Upload8
-===============
-*/
-void
-GL_Upload8(const qpic8_t *pic, enum texture_type type)
+static const qpalette32_t *
+GL_PaletteForTextureType(enum texture_type type)
 {
     const qpalette32_t *palette;
-    qpic32_t *pic32;
-    int mark;
 
     switch (type) {
         case TEXTURE_TYPE_FULLBRIGHT:
@@ -316,11 +327,57 @@ GL_Upload8(const qpic8_t *pic, enum texture_type type)
             break;
     }
 
+    return palette;
+}
+
+
+/*
+===============
+GL_Upload8
+===============
+*/
+void
+GL_Upload8(const qpic8_t *pic, enum texture_type type)
+{
+    const qpalette32_t *palette;
+    qpic32_t *pic32;
+    int mark;
+
     mark = Hunk_LowMark();
 
+    palette = GL_PaletteForTextureType(type);
     pic32 = QPic32_Alloc(pic->width, pic->height);
     QPic_8to32(pic, pic32, palette);
     GL_Upload32(pic32, type);
+
+    Hunk_FreeToLowMark(mark);
+}
+
+void
+GL_Upload8_Translate(const qpic8_t *pic, enum texture_type type, const byte *translation)
+{
+    const byte *source;
+    byte *pixels, *dest;
+    qpic8_t translated_pic;
+    int mark, i, j;
+
+    mark = Hunk_LowMark();
+
+    source = pic->pixels;
+    pixels = dest = Hunk_AllocName(pic->width * pic->height, "transpic");
+    for (i = 0; i < pic->height; i++) {
+        for (j = 0; j < pic->width; j++) {
+            *dest++ = translation[*source++];
+        }
+        source += pic->stride - pic->width;
+    }
+
+    translated_pic.width = pic->width;
+    translated_pic.height = pic->height;
+    translated_pic.stride = pic->width;
+    translated_pic.pixels = pixels;
+
+    GL_Upload8(&translated_pic, type);
 
     Hunk_FreeToLowMark(mark);
 }

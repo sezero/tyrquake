@@ -262,6 +262,7 @@ R_Init(void)
     r_refdef.yOrigin = YCENTERING;
 
     R_InitParticles();
+    R_InitTranslationTable();
 
 // TODO: collect 386-specific code in one place
 #ifdef USE_X86_ASM

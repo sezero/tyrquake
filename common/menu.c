@@ -205,44 +205,6 @@ M_DrawTextBox(int x, int y, int width, int lines)
     M_DrawTransPic(cx, cy + 8, p);
 }
 
-#ifdef NQ_HACK
-static byte identityTable[256];
-static byte translationTable[256];
-
-static void
-M_BuildTranslationTable(int top, int bottom)
-{
-    int j;
-    byte *dest, *source;
-
-    for (j = 0; j < 256; j++)
-	identityTable[j] = j;
-    dest = translationTable;
-    source = identityTable;
-    memcpy(dest, source, 256);
-
-    /* the artists made some backwards ranges */
-    if (top < 128)
-	memcpy(dest + TOP_RANGE, source + top, 16);
-    else
-	for (j = 0; j < 16; j++)
-	    dest[TOP_RANGE + j] = source[top + 15 - j];
-
-    if (bottom < 128)
-	memcpy(dest + BOTTOM_RANGE, source + bottom, 16);
-    else
-	for (j = 0; j < 16; j++)
-	    dest[BOTTOM_RANGE + j] = source[bottom + 15 - j];
-}
-
-static void
-M_DrawTransPicTranslate(int x, int y, const qpic8_t *pic)
-{
-    Draw_TransPicTranslate(x + ((scr_scaled_width - 320) >> 1), y, pic,
-			   translationTable);
-}
-#endif /* NQ_HACK */
-
 /* --------------------------------------------------------------------------*/
 
 static int m_save_demonum;
@@ -1526,6 +1488,15 @@ static int setup_oldbottom;
 static int setup_top;
 static int setup_bottom;
 
+#ifdef NQ_HACK
+static void
+M_DrawTransPicTranslate(int x, int y, const qpic8_t *pic)
+{
+    const byte *translation = R_GetTranslationTable(setup_top, setup_bottom);
+    Draw_TransPicTranslate(x + ((scr_scaled_width - 320) >> 1), y, pic, translation);
+}
+#endif /* NQ_HACK */
+
 #define	NUM_SETUP_CMDS	5
 
 static void
@@ -1566,7 +1537,6 @@ M_Setup_Draw(void)
     p = Draw_CachePic("gfx/bigbox.lmp");
     M_DrawTransPic(160, 64, p);
     p = Draw_CachePic("gfx/menuplyr.lmp");
-    M_BuildTranslationTable(setup_top * 16, setup_bottom * 16);
     M_DrawTransPicTranslate(172, 72, p);
 
     M_DrawCharacter(56, setup_cursor_table[setup_cursor],

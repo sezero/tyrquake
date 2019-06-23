@@ -531,7 +531,7 @@ Draw_TransPicTranslate
 =============
 */
 void
-Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
+Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation)
 {
     int dst_x, dst_x_start, dst_x_end, dst_width;
     int dst_y, dst_y_start, dst_y_end, dst_height;

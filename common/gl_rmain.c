@@ -498,7 +498,7 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
     pic.pixels = pixels;
 
     for (i = 0; i < aliashdr->numskins; i++) {
-        textures[i] = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_SKIN);
+        textures[i] = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
         pic.pixels += skinsize;
     }
 }

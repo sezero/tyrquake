@@ -693,7 +693,7 @@ Only used for the player color selection menu
 =============
 */
 void
-Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
+Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation)
 {
     static GLuint translate_texture;
 

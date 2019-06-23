@@ -20,6 +20,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // Shared model functions for renderers
 
+#include "mathlib.h"
+#include "qtypes.h"
+#include "render.h"
+
 /*
  * Find the correct interval based on time
  * Used for Alias model frame/sprite/skin group animations
@@ -41,4 +45,31 @@ Mod_FindInterval(const float *intervals, int numintervals, float time)
 	    break;
 
     return i;
+}
+
+/* Player colour translation table */
+static byte translation_table[256];
+
+void
+R_InitTranslationTable()
+{
+    int i;
+
+    for (i = 0; i < 256; i++)
+        translation_table[i] = i;
+}
+
+const byte *
+R_GetTranslationTable(int topcolor, int bottomcolor)
+{
+    int i, top, bottom;
+
+    top = qclamp(topcolor, 0, 13) * 16;
+    bottom = qclamp(bottomcolor, 0, 13) * 16;
+    for (i = 0; i < 16; i++) {
+        translation_table[TOP_RANGE + i] = (top < 128) ? top + i : top + 15 - i;
+        translation_table[BOTTOM_RANGE + i] = (bottom < 128) ? bottom + i : bottom + 15 -i;
+    }
+
+    return translation_table;
 }

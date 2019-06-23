@@ -38,6 +38,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define	TOP_RANGE	16	// soldier uniform colors
 #define	BOTTOM_RANGE	96
 
+void R_InitTranslationTable();
+const byte *R_GetTranslationTable(int topcolor, int bottomcolor);
+
 //=============================================================================
 
 typedef struct efrag_s {
