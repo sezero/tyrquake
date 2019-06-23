@@ -99,7 +99,7 @@ Scrap_InitGLTextures()
 	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
 	scrap->pic.height = BLOCK_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-        scrap->glnum = GL_LoadTexture_Alpha(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD, 255);
+        scrap->glnum = GL_LoadTexture(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
     }
 }
 
@@ -176,7 +176,7 @@ Scrap_Flush(GLuint texnum)
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	if (scrap->dirty && texnum == scrap->glnum) {
 	    GL_Bind(scrap->glnum);
-	    GL_Upload8_Alpha(&scrap->pic, TEXTURE_TYPE_HUD, 255);
+	    GL_Upload8(&scrap->pic, TEXTURE_TYPE_HUD);
 	    scrap->dirty = false;
 	    return;
 	}
@@ -422,9 +422,9 @@ Draw_InitGLTextures()
 {
     /* Upload the charset and crosshair textures */
     const qpic8_t charset_pic = { 128, 128, 128, draw_chars };
-    charset_texture = GL_LoadTexture_Alpha("charset", &charset_pic, TEXTURE_TYPE_HUD, 0);
+    charset_texture = GL_LoadTexture("charset", &charset_pic, TEXTURE_TYPE_CHARSET);
     const qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
-    crosshair_texture = GL_LoadTexture_Alpha("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD, 255);
+    crosshair_texture = GL_LoadTexture("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
 
     /* Upload the console background texture */
     conback->texnum = GL_LoadTexture_GLPic("conback", conback);
@@ -542,7 +542,7 @@ Draw_Crosshair(void)
         /* Since width/height is probably a multiple of two, there is no 'center' pixel */
 	float x = scr_vrect.x + scr_vrect.width / 2 + cl_crossx.value;
 	float y = scr_vrect.y + scr_vrect.height / 2 + cl_crossy.value;
-	byte *rgba = (byte *)&d_8to24table[(byte)crosshaircolor.value];
+	byte *rgba = (byte *)&qpal_alpha.colors[(byte)crosshaircolor.value].rgba;
 
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	glColor4ubv(rgba);
@@ -725,7 +725,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, byte *translation)
         translate_texture = GL_AllocateTexture("@menuplyr_translate", pic, TEXTURE_TYPE_HUD);
     }
     GL_Bind(translate_texture);
-    GL_Upload8_Alpha(&translated, TEXTURE_TYPE_HUD, 255);
+    GL_Upload8(&translated, TEXTURE_TYPE_HUD);
 
     Hunk_FreeToLowMark(mark);
 

@@ -47,8 +47,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 void GL_BeginRendering(int *x, int *y, int *width, int *height);
 void GL_EndRendering(void);
 
-extern unsigned char d_15to8table[65536];
-
 /* ARB Multitexture compatibilty for old GL headers... remove this? */
 #ifndef GL_VERSION_1_2
 #define GL_TEXTURE0_ARB 0x84C0
@@ -65,9 +63,12 @@ extern float gldepthmin, gldepthmax;
  * alpha, filters, etc.
  */
 enum texture_type {
+    TEXTURE_TYPE_CHARSET,
     TEXTURE_TYPE_HUD,
     TEXTURE_TYPE_WORLD,
-    TEXTURE_TYPE_SKY,
+    TEXTURE_TYPE_FULLBRIGHT,
+    TEXTURE_TYPE_SKY_BACKGROUND,
+    TEXTURE_TYPE_SKY_FOREGROUND,
     TEXTURE_TYPE_SKIN,
     TEXTURE_TYPE_LIGHTMAP,
     TEXTURE_TYPE_PARTICLE,
@@ -83,9 +84,7 @@ typedef struct {
 void GL_FreeTextures();
 
 void GL_Upload8(const qpic8_t *pic, enum texture_type type);
-void GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha);
 int GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type);
-int GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, enum texture_type type, byte alpha);
 int GL_LoadTexture_GLPic(const char *name, glpic_t *glpic);
 int GL_FindTexture(const char *name);
 int GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type);
@@ -227,6 +226,7 @@ extern cvar_t gl_nocolors;
 extern cvar_t gl_zfix;
 extern cvar_t gl_finish;
 extern cvar_t gl_subdivide_size;
+extern cvar_t gl_fullbrights;
 
 extern cvar_t _gl_allowgammafallback;
 extern cvar_t _gl_drawhull;

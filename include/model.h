@@ -89,7 +89,10 @@ typedef struct texture_s {
     unsigned width, height;
 #ifdef GLQUAKE
     GLuint gl_texturenum;
-    GLuint gl_texturenum_alpha;	// for sky texture
+    union {
+        GLuint gl_texturenum_alpha;	 // for sky texture
+        GLuint gl_texturenum_fullbright; // mask texture for fullbrights
+    };
     struct msurface_s *texturechain;
 #endif
     int anim_total;		// total tenths in sequence ( 0 = no)

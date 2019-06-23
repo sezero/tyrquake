@@ -632,6 +632,23 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *fa)
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
 	DrawGLPoly_2Ply(fa->polys);
 	GL_DisableMultitexture();
+
+        /*
+         * FIXME: Incomplete fullbrights implementation, only multitexture and only BSP model.
+         * - TODO: support alias models
+         * - TODO: support other texturing modes
+         */
+	if (gl_fullbrights.value && t->gl_texturenum_fullbright) {
+            glDepthMask(GL_FALSE);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+            GL_Bind(t->gl_texturenum_fullbright);
+            DrawGLPoly(fa->polys);
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
+	}
+
     } else {
 	if (WATER_WARP_TEST(fa))
 	    DrawGLWaterPoly(fa->polys);

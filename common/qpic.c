@@ -21,11 +21,33 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <assert.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "qpic.h"
 #include "qtypes.h"
 #include "vid.h"
 #include "zone.h"
+
+/*
+ * Detect 8-bit textures containing fullbrights
+ */
+qboolean
+QPic_HasFullbrights(const qpic8_t *pic)
+{
+    int i, j;
+    const byte *pixel;
+
+    pixel = pic->pixels;
+    for (i = 0; i < pic->height; i++) {
+        for (j = 0; j < pic->width; j++) {
+            if (*pixel++ > 223)
+                return true;
+        }
+        pixel += pic->stride - pic->width;
+    }
+
+    return false;
+}
 
 /* --------------------------------------------------------------------------*/
 /* Pic Format Transformations                                                */
@@ -51,7 +73,7 @@ QPic32_AlphaFix
 
 Operates in-place on an RGBA pic assumed to have all alpha values
 either fully opaque or transparent.  Fully transparent pixels get
-their color components set to the average colour of their
+their color components set to the average color of their
 non-transparent neighbours to avoid artifacts from blending.
 
 TODO: add an edge clamp mode?
@@ -110,7 +132,7 @@ QPic32_AlphaFix(qpic32_t *pic)
 		neighbours[7] -= width * height;
 	    }
 
-	    /* find the average colour of non-transparent neighbours */
+	    /* find the average color of non-transparent neighbours */
 	    red = green = blue = count = 0;
 	    for (n = 0; n < 8; n++) {
 		if (!pixels[neighbours[n]].alpha)
@@ -133,7 +155,7 @@ QPic32_AlphaFix(qpic32_t *pic)
 }
 
 void
-QPic_8to32(const qpic8_t *in, qpic32_t *out)
+QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette)
 {
     const int width = in->width;
     const int height = in->height;
@@ -143,28 +165,12 @@ QPic_8to32(const qpic8_t *in, qpic32_t *out)
     int x, y;
 
     for (y = 0; y < height; y++) {
-	for (x = 0; x < width; x++, in_p++, out_p++)
-	    out_p->rgba = d_8to24table[*in_p];
+	for (x = 0; x < width; x++)
+	    *out_p++ = palette->colors[*in_p++];
 	in_p += stride - width;
     }
-}
-
-void
-QPic_8to32_Alpha(const qpic8_t *in, qpic32_t *out, byte alpha)
-{
-    const int width = in->width;
-    const int height = in->height;
-    const int stride = in->stride ? in->stride : in->width;
-    const byte *in_p = in->pixels;
-    qpixel32_t *out_p = out->pixels;
-    int x, y;
-
-    for (y = 0; y < height; y++) {
-	for (x = 0; x < width; x++, in_p++, out_p++)
-	    out_p->rgba = (*in_p == alpha) ? 0 : d_8to24table[*in_p];
-	in_p += stride - width;
-    }
-    QPic32_AlphaFix(out);
+    if (palette->alpha)
+        QPic32_AlphaFix(out);
 }
 
 /*
@@ -227,7 +233,7 @@ QPic32_Expand(const qpic32_t *in, qpic32_t *out)
 	    *dst++ = *src++;
 	    j++;
 	}
-	/* Fill space with colour matching last source pixel */
+	/* Fill space with color matching last source pixel */
 	fill = *(src - 1);
 	while (j < out->width) {
 	    *dst++ = fill;
@@ -235,7 +241,7 @@ QPic32_Expand(const qpic32_t *in, qpic32_t *out)
 	}
 	i++;
     }
-    /* Fill remaining rows with colour matching the pixel above */
+    /* Fill remaining rows with color matching the pixel above */
     src = dst - out->width;
     while (i < out->height) {
 	*dst++ = *src++;
@@ -527,4 +533,45 @@ QPic32_MipMap(qpic32_t *in)
     in->height >>= 1;
 
     QPic32_AlphaFix(in);
+}
+
+qpalette32_t qpal_standard;
+qpalette32_t qpal_fullbright;
+qpalette32_t qpal_alpha_zero;
+qpalette32_t qpal_alpha;
+
+void
+QPic32_InitPalettes(const byte *palette)
+{
+    int i;
+    const byte *src;
+    qpixel32_t *dst;
+
+    /* Standard palette - no transparency */
+    src = palette;
+    dst = qpal_standard.colors;
+    for (i = 0; i < 256; i++, dst++) {
+        dst->red = *src++;
+        dst->green = *src++;
+        dst->blue = *src++;
+        dst->alpha = 255;
+    }
+    qpal_standard.alpha = false;
+
+    /* Full-bright pallette - 0-223 are transparent/black */
+    memcpy(&qpal_fullbright, &qpal_standard, sizeof(qpalette32_t));
+    dst = qpal_fullbright.colors;
+    for (i = 0; i < 224; i++, dst++)
+        dst->rgba = 0;
+    qpal_fullbright.alpha = true;
+
+    /* Charset/sky palette - 0 is transparent */
+    memcpy(&qpal_alpha_zero, &qpal_standard, sizeof(qpalette32_t));
+    qpal_alpha_zero.colors[0].alpha = 0;
+    qpal_alpha_zero.alpha = true;
+
+    /* HUD/sprite palette - 255 is transparent */
+    memcpy(&qpal_alpha, &qpal_standard, sizeof(qpalette32_t));
+    qpal_alpha.colors[255].alpha = 0;
+    qpal_alpha.alpha = true;
 }

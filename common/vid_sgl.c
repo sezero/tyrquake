@@ -55,10 +55,6 @@ static cvar_t vid_mode = {
     .archive = false
 };
 
-unsigned short d_8to16table[256];
-unsigned d_8to24table[256];
-unsigned char d_15to8table[65536];
-
 viddef_t vid;
 
 qboolean
@@ -325,24 +321,7 @@ GL_EndRendering(void)
 void
 VID_SetPalette(const byte *palette)
 {
-    unsigned i, r, g, b, pixel;
-
-    switch (gl_solid_format) {
-    case GL_RGB:
-    case GL_RGBA:
-	for (i = 0; i < 256; i++) {
-	    r = palette[0];
-	    g = palette[1];
-	    b = palette[2];
-	    palette += 3;
-	    pixel = (0xff << 24) | (r << 0) | (g << 8) | (b << 16);
-	    d_8to24table[i] = LittleLong(pixel);
-	}
-	break;
-    default:
-	Sys_Error("%s: unsupported texture format (%d)", __func__,
-		  gl_solid_format);
-    }
+    QPic32_InitPalettes(palette);
 }
 
 void

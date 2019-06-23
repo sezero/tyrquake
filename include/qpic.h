@@ -49,12 +49,27 @@ typedef struct {
     qpixel32_t pixels[];
 } qpic32_t;
 
+typedef struct {
+    qpixel32_t colors[256];
+    qboolean alpha;
+} qpalette32_t;
+
+/* Palettes for converting the base 8 bit texures to 32 bit RGBA */
+extern qpalette32_t qpal_standard;
+extern qpalette32_t qpal_fullbright;
+extern qpalette32_t qpal_alpha_zero; /* Charset and sky foreground */
+extern qpalette32_t qpal_alpha; /* HUD and sprites */
+
+void QPic32_InitPalettes(const byte *palette);
+
+/* Detect fullbright pixels in a source texture */
+qboolean QPic_HasFullbrights(const qpic8_t *pic);
+
 /* Allocate hunk space for a texture */
 qpic32_t *QPic32_Alloc(int width, int height);
 
-/* Create 32 bit texture from 8 bit source, alpha is palette index to mask */
-void QPic_8to32(const qpic8_t *in, qpic32_t *out);
-void QPic_8to32_Alpha(const qpic8_t *in, qpic32_t *out, byte alpha);
+/* Create 32 bit texture from 8 bit source using the specified palette */
+void QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette);
 
 /* Stretch from in size to out size */
 void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);

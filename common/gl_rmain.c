@@ -125,6 +125,7 @@ cvar_t gl_zfix = { "gl_zfix", "0" };
 #ifdef NQ_HACK
 cvar_t gl_doubleeyes = { "gl_doubleeyes", "1" };
 #endif
+cvar_t gl_fullbrights = { "gl_fullbrights", "1", true };
 
 cvar_t _gl_allowgammafallback = { "_gl_allowgammafallback", "1" };
 
@@ -252,7 +253,7 @@ GL_LoadSpriteTexture(const char *name, const mspriteframe_t *frame)
     pic.height = frame->height;
     pic.pixels = spritedata->pixels;
 
-    spritedata->texture = GL_LoadTexture_Alpha(name, &pic, TEXTURE_TYPE_SPRITE, 255);
+    spritedata->texture = GL_LoadTexture(name, &pic, TEXTURE_TYPE_SPRITE);
 }
 
 void
@@ -434,9 +435,10 @@ GL_FloodFillSkin(byte *skin, int skinwidth, int skinheight)
 
     if (filledcolor == -1) {
 	filledcolor = 0;
-	// attempt to find opaque black
+	// attempt to find opaque black (FIXME - precompute!)
+        const qpixel32_t black = { .red = 0, .green = 0, .blue = 0, .alpha = 255 };
 	for (i = 0; i < 256; ++i)
-	    if (d_8to24table[i] == (255 << 0))	// alpha 1.0
+	    if (qpal_standard.colors[i].rgba == black.rgba)
 	    {
 		filledcolor = i;
 		break;

@@ -736,8 +736,7 @@ R_DrawParticles(void)
     particle_t *p;
 
 #ifdef GLQUAKE
-    byte *color;
-    byte alpha;
+    qpixel32_t color;
     qboolean alphaTestEnabled;
     vec3_t up, right, offset, vertex;
     float scale;
@@ -779,12 +778,11 @@ R_DrawParticles(void)
         scale = DotProduct(offset, vpn);
         scale = qmin(1.0f, 1.0f + scale * 0.004f);
 
-        color = (byte *)&d_8to24table[(int)p->color];
-        alpha = 255;
+        color = qpal_standard.colors[(byte)p->color];
         if (p->type == pt_fire) {
-            alpha = 255 * (6 - (qmin(5, (int)p->ramp))) / 6;
+            color.alpha = 255 * (6 - (qmin(5, (int)p->ramp))) / 6;
         }
-	glColor4ub(color[0], color[1], color[2], alpha);
+	glColor4ub(color.red, color.green, color.blue, color.alpha);
 
 	glTexCoord2f(0, 0);
 	glVertex3fv(p->org);

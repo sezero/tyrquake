@@ -220,6 +220,7 @@ R_Init(void)
     Cvar_RegisterVariable(&gl_finish);
     Cvar_RegisterVariable(&gl_clear);
     Cvar_RegisterVariable(&gl_texsort);
+    Cvar_RegisterVariable(&gl_fullbrights);
 
     Cvar_RegisterVariable(&_gl_allowgammafallback);
     Cvar_RegisterVariable(&_gl_drawhull);
@@ -325,7 +326,7 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
  * ================
  * ResampleXlate
  * ================
- * Resample the source texture while applying colour translation
+ * Resample the source texture while applying color translation
  *
  * The input texture may be a sub-rectangle (assumed to be left aligned) so
  * input stride is specified separately from input width.
@@ -385,7 +386,7 @@ R_TranslatePlayerSkin(int playernum)
     GL_DisableMultitexture();
 
     /*
-     * Determin top and bottom colours
+     * Determine top and bottom colors
      */
     player = &cl.players[playernum];
 #ifdef QW_HACK
@@ -408,19 +409,19 @@ R_TranslatePlayerSkin(int playernum)
     bottom = qclamp((int)player->bottomcolor, 0, 13) * 16;
 
     for (i = 0; i < 256; i++)
-	translate[i] = d_8to24table[i];
+	translate[i] = qpal_standard.colors[i].rgba;
 
     for (i = 0; i < 16; i++) {
 	/* the artists made some backwards ranges */
 	if (top < 128)
-	    translate[TOP_RANGE + i] = d_8to24table[top + i];
+	    translate[TOP_RANGE + i] = qpal_standard.colors[top + i].rgba;
 	else
-	    translate[TOP_RANGE + i] = d_8to24table[top + 15 - i];
+	    translate[TOP_RANGE + i] = qpal_standard.colors[top + 15 - i].rgba;
 
 	if (bottom < 128)
-	    translate[BOTTOM_RANGE + i] = d_8to24table[bottom + i];
+	    translate[BOTTOM_RANGE + i] = qpal_standard.colors[bottom + i].rgba;
 	else
-	    translate[BOTTOM_RANGE + i] = d_8to24table[bottom + 15 - i];
+	    translate[BOTTOM_RANGE + i] = qpal_standard.colors[bottom + 15 - i].rgba;
     }
 
     /*

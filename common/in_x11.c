@@ -110,17 +110,17 @@ CreateNullCursor(void)
     Pixmap cursormask;
     XGCValues xgc;
     GC gc;
-    XColor dummycolour;
+    XColor dummycolor;
     Cursor cursor;
 
     cursormask = XCreatePixmap(x_disp, x_win, 1, 1, 1 /*depth */ );
     xgc.function = GXclear;
     gc = XCreateGC(x_disp, cursormask, GCFunction, &xgc);
     XFillRectangle(x_disp, cursormask, gc, 0, 0, 1, 1);
-    dummycolour.pixel = 0;
-    dummycolour.flags = 0;	// ~(DoRed | DoGreen | DoBlue)
+    dummycolor.pixel = 0;
+    dummycolor.flags = 0;	// ~(DoRed | DoGreen | DoBlue)
     cursor = XCreatePixmapCursor(x_disp, cursormask, cursormask,
-				 &dummycolour, &dummycolour, 0, 0);
+				 &dummycolor, &dummycolor, 0, 0);
     XFreePixmap(x_disp, cursormask);
     XFreeGC(x_disp, gc);
     return cursor;

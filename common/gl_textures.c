@@ -128,14 +128,17 @@ GL_TextureMode_f(void)
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
         switch (glt->type) {
             case TEXTURE_TYPE_WORLD:
+            case TEXTURE_TYPE_FULLBRIGHT:
             case TEXTURE_TYPE_SKIN:
             case TEXTURE_TYPE_SPRITE:
                 GL_Bind(glt->texnum);
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
                 break;
-            case TEXTURE_TYPE_SKY:
+            case TEXTURE_TYPE_CHARSET:
             case TEXTURE_TYPE_HUD:
+            case TEXTURE_TYPE_SKY_FOREGROUND:
+            case TEXTURE_TYPE_SKY_BACKGROUND:
             case TEXTURE_TYPE_PARTICLE:
                 GL_Bind(glt->texnum);
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
@@ -197,9 +200,9 @@ GL_FindTexture(const char *name)
  *
  */
 static void
-GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
+GL_Upload32(qpic32_t *pic, enum texture_type type)
 {
-    const int format = alpha ? gl_alpha_format : gl_solid_format;
+    GLint internal_format;
     qpic32_t *scaled;
     int width, height, mark, miplevel;
 
@@ -234,13 +237,30 @@ GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
 	scaled = pic;
     }
 
+    /* Set the internal format */
+    switch (type) {
+        case TEXTURE_TYPE_CHARSET:
+        case TEXTURE_TYPE_HUD:
+        case TEXTURE_TYPE_FULLBRIGHT:
+        case TEXTURE_TYPE_SKY_FOREGROUND:
+        case TEXTURE_TYPE_SPRITE:
+        case TEXTURE_TYPE_PARTICLE:
+            internal_format = gl_alpha_format;
+            break;
+        default:
+            internal_format = gl_solid_format;
+            break;
+    }
+
+    /* Upload with or without mipmaps, depending on type */
     switch (type) {
         case TEXTURE_TYPE_WORLD:
+        case TEXTURE_TYPE_FULLBRIGHT:
         case TEXTURE_TYPE_SKIN:
         case TEXTURE_TYPE_SPRITE:
             miplevel = 0;
             while (1) {
-                glTexImage2D(GL_TEXTURE_2D, miplevel, format,
+                glTexImage2D(GL_TEXTURE_2D, miplevel, internal_format,
                              scaled->width, scaled->height, 0,
                              GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
                 if (scaled->width == 1 && scaled->height == 1)
@@ -253,7 +273,7 @@ GL_Upload32(qpic32_t *pic, enum texture_type type, qboolean alpha)
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
             break;
         default:
-            glTexImage2D(GL_TEXTURE_2D, 0, format,
+            glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
                          scaled->width, scaled->height, 0,
                          GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
@@ -276,34 +296,31 @@ GL_Upload8
 void
 GL_Upload8(const qpic8_t *pic, enum texture_type type)
 {
+    const qpalette32_t *palette;
     qpic32_t *pic32;
     int mark;
+
+    switch (type) {
+        case TEXTURE_TYPE_FULLBRIGHT:
+            palette = &qpal_fullbright;
+            break;
+        case TEXTURE_TYPE_HUD:
+        case TEXTURE_TYPE_SPRITE:
+            palette = &qpal_alpha;
+            break;
+        case TEXTURE_TYPE_CHARSET:
+            palette = &qpal_alpha_zero;
+            break;
+        default:
+            palette = &qpal_standard;
+            break;
+    }
 
     mark = Hunk_LowMark();
 
     pic32 = QPic32_Alloc(pic->width, pic->height);
-    QPic_8to32(pic, pic32);
-    GL_Upload32(pic32, type, false);
-
-    Hunk_FreeToLowMark(mark);
-}
-
-/*
-===============
-GL_Upload8_Alpha
-===============
-*/
-void
-GL_Upload8_Alpha(const qpic8_t *pic, enum texture_type type, byte alpha)
-{
-    qpic32_t *pic32;
-    int mark;
-
-    mark = Hunk_LowMark();
-
-    pic32 = QPic32_Alloc(pic->width, pic->height);
-    QPic_8to32_Alpha(pic, pic32, alpha);
-    GL_Upload32(pic32, type, true);
+    QPic_8to32(pic, pic32, palette);
+    GL_Upload32(pic32, type);
 
     Hunk_FreeToLowMark(mark);
 }
@@ -317,8 +334,8 @@ GL_Upload8_GLPic(glpic_t *glpic)
     mark = Hunk_LowMark();
 
     pic32 = QPic32_Alloc(glpic->pic.width, glpic->pic.height);
-    QPic_8to32_Alpha(&glpic->pic, pic32, 255);
-    GL_Upload32(pic32, TEXTURE_TYPE_HUD, true);
+    QPic_8to32(&glpic->pic, pic32, &qpal_alpha);
+    GL_Upload32(pic32, TEXTURE_TYPE_HUD);
 
     glpic->sl = 0;
     glpic->sh = qmin(1.0f, (float)glpic->pic.width / (float)pic32->width);
@@ -389,19 +406,6 @@ GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type)
     if (!isDedicated) {
 	GL_Bind(texnum);
 	GL_Upload8(pic, type);
-    }
-
-    return texnum;
-}
-
-int
-GL_LoadTexture_Alpha(const char *name, const qpic8_t *pic, enum texture_type type, byte alpha)
-{
-    int texnum = GL_AllocateTexture(name, pic, type);
-
-    if (!isDedicated) {
-	GL_Bind(texnum);
-	GL_Upload8_Alpha(pic, type, alpha);
     }
 
     return texnum;

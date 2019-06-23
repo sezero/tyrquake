@@ -99,7 +99,7 @@ R_NetGraph(void)
         netgraphtexture = GL_AllocateTexture("@netgraph", &netgraph, TEXTURE_TYPE_HUD);
     }
     GL_Bind(netgraphtexture);
-    GL_Upload8_Alpha(&netgraph, TEXTURE_TYPE_HUD, 255);
+    GL_Upload8(&netgraph, TEXTURE_TYPE_HUD);
 
     x = 8;
     glColor3f(1, 1, 1);
