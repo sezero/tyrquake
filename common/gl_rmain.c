@@ -591,7 +591,9 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
                 coords += 2;
 
 		/* normals and vertexes come from the frame list */
-		light = shadedots[lightvert->lightnormalindex] * shadelight;
+                light = shadedots[verts0->lightnormalindex] * blend0;
+                light += shadedots[verts1->lightnormalindex] * blend;
+                light *= shadelight;
 		if (r_fullbright.value)
 		    light = 255.0f;
 		glColor3f(light, light, light);
