@@ -549,7 +549,8 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 {
     aliashdr_t *aliashdr;
     const trivertx_t *vertbase, *verts1;
-    const int *order;
+    const aliasmeshcmd_t *command;
+    const float *coords;
     int count;
 
     lastposenum = entity->currentpose;
@@ -557,7 +558,7 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
     aliashdr = Mod_Extradata(entity->model);
     vertbase = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
     verts1 = vertbase + entity->currentpose * aliashdr->numverts;
-    order = (int *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->commands);
+    command = (const aliasmeshcmd_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->commands);
 
 #ifdef NQ_HACK
     if (r_lerpmodels.value && blend != 1.0f) {
@@ -570,7 +571,7 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 
 	while (1) {
 	    /* get the vertex count and primitive type */
-	    count = *order++;
+	    count = command->count;
 	    if (!count)
 		break;
 	    if (count < 0) {
@@ -580,13 +581,14 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 		glBegin(GL_TRIANGLE_STRIP);
 	    }
 
+            coords = command->coords;
 	    while (count--) {
 		vec3_t glvertex;
 		float light;
 
 		/* texture coordinates come from the draw list */
-		glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
-		order += 2;
+		glTexCoord2f(coords[0], coords[1]);
+                coords += 2;
 
 		/* normals and vertexes come from the frame list */
 		light = shadedots[lightvert->lightnormalindex] * shadelight;
@@ -602,13 +604,15 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 		lightvert++;
 	    }
 	    glEnd();
+
+            command = (const aliasmeshcmd_t *)coords;
 	}
 	return;
     }
 #endif
     while (1) {
 	/* get the vertex count and primitive type */
-	count = *order++;
+	count = command->count;
 	if (!count)
 	    break;
 	if (count < 0) {
@@ -618,12 +622,13 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 	    glBegin(GL_TRIANGLE_STRIP);
 	}
 
+        coords = command->coords;
 	while (count--) {
 	    float light;
 
 	    /* texture coordinates come from the draw list */
-	    glTexCoord2f(((float *)order)[0], ((float *)order)[1]);
-	    order += 2;
+	    glTexCoord2f(coords[0], coords[1]);
+	    coords += 2;
 
 	    /* normals and vertexes come from the frame list */
 	    light = shadedots[verts1->lightnormalindex] * shadelight;
@@ -634,6 +639,8 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 	    verts1++;
 	}
 	glEnd();
+
+        command = (const aliasmeshcmd_t *)coords;
     }
 }
 

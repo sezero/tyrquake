@@ -34,25 +34,36 @@ ALIAS MODEL DISPLAY LIST GENERATION
 =================================================================
 */
 
-static int used[8192];
+/*
+ * Worst case, each triangle would be it's own command list, which is
+ * 1 int for the count, then 6 floats for the vertex coordinates - 7
+ * total.  Just as a sanity check we'll only allow models of 1 million
+ * triangles or less.  This should protect us from integer
+ * overflow/underflow issues as well.
+ */
+#define MAX_MESH_COMMANDS  (8 * 1024 * 1024)
+#define MAX_MESH_VERTICIES (3 * 1024 * 1024)
 
-// the command list holds counts and s/t values that are valid for
-// every frame
-union {
-    int i;
-    float f;
-} commands[8192];
+static int *used;
+
+/*
+ * The command buffer holds counts (int32_t) and s/t values (float32)
+ * that are valid for every frame.  A command is a 'count', 's' or 't'
+ * value.  So, numcommands is the number of 4-byte slots filled in the
+ * commands buffer.
+ */
+static int *commands;
 static int numcommands;
 
 // all frames will have their vertexes rearranged and expanded
 // so they are in the order expected by the command list
-static int vertexorder[8192];
+static int *vertexorder;
 static int numorder;
 
 static int allverts, alltris;
 
-static int stripverts[128];
-static int striptris[128];
+static int *stripverts;
+static int *striptris;
 static int stripcount;
 
 /*
@@ -202,20 +213,39 @@ for the model, which holds for all frames
 static void
 BuildTris(aliashdr_t *hdr, const mtriangle_t *tris, const stvert_t *stverts)
 {
+    aliasmeshcmd_t *command;
     int i, j, k;
     int startv;
     float s, t;
     int len, bestlen, besttype;
-    int bestverts[1024];
-    int besttris[1024];
+    int *besttris, *bestverts;
     int type;
 
-    //
-    // build tristrips
-    //
-    numorder = 0;
+    /*
+     * Worst case for number of commands is each triangle is it's own
+     * command list with a count and six vertex coordinates.  Plus a
+     * zero count at the end to terminate the list.  The vertex order
+     * max size would be three indexes per triangle.
+     */
+    numcommands = hdr->numtris * 7 + 1;
+
+    /* NOTE: Temp mark is already active and holds the model file */
+    commands = Hunk_TempAllocExtend(numcommands * sizeof(commands[0]));
+    vertexorder = Hunk_TempAllocExtend(hdr->numtris * 3 * sizeof(vertexorder[0]));
+    used = Hunk_TempAllocExtend(hdr->numtris * sizeof(used[0]));
+    striptris = Hunk_TempAllocExtend(hdr->numtris * sizeof(striptris[0]));
+    stripverts = Hunk_TempAllocExtend((hdr->numtris + 2) * sizeof(stripverts[0]));
+    besttris = Hunk_TempAllocExtend(hdr->numtris * sizeof(striptris[0]));
+    bestverts = Hunk_TempAllocExtend((hdr->numtris + 2) * sizeof(stripverts[0]));
+
     numcommands = 0;
-    memset(used, 0, sizeof(used));
+    command = (aliasmeshcmd_t *)commands;
+    numorder = 0;
+    memset(used, 0, hdr->numtris * sizeof(used[0]));
+
+    //
+    // build triangle strips/fans
+    //
     for (i = 0; i < hdr->numtris; i++) {
 	// pick an unused triangle and start the trifan
 	if (used[i])
@@ -244,11 +274,10 @@ BuildTris(aliashdr_t *hdr, const mtriangle_t *tris, const stvert_t *stverts)
 	for (j = 0; j < bestlen; j++)
 	    used[besttris[j]] = 1;
 
-	if (besttype == 1)
-	    commands[numcommands++].i = (bestlen + 2);
-	else
-	    commands[numcommands++].i = -(bestlen + 2);
+	command->count = (besttype == 1) ? (bestlen + 2) : -(bestlen + 2);
+        numcommands++;
 
+        float *coords = command->coords;
 	for (j = 0; j < bestlen + 2; j++) {
 	    // emit a vertex into the reorder buffer
 	    k = bestverts[j];
@@ -262,12 +291,17 @@ BuildTris(aliashdr_t *hdr, const mtriangle_t *tris, const stvert_t *stverts)
 	    s = (s + 0.5) / hdr->skinwidth;
 	    t = (t + 0.5) / hdr->skinheight;
 
-	    commands[numcommands++].f = s;
-	    commands[numcommands++].f = t;
+	    *coords++ = s;
+	    *coords++ = t;
 	}
+
+        /* Advance the command pointer */
+        numcommands += (bestlen + 2) * 2;
+        command = (aliasmeshcmd_t *)coords;
     }
 
-    commands[numcommands++].i = 0;	// end of list marker
+    command->count = 0; // end of list marker
+    numcommands++;
 
     Con_DPrintf("%3i tri %3i vert %3i cmd\n", hdr->numtris, numorder,
 		numcommands);
@@ -282,7 +316,7 @@ GL_MeshSwapCommands(void)
     int i;
 
     for (i = 0; i < numcommands; i++)
-	commands[i].i = LittleLong(commands[i].i);
+	commands[i] = LittleLong(commands[i]);
     for (i = 0; i < numorder; i++)
 	vertexorder[i] = LittleLong(vertexorder[i]);
 }
@@ -296,9 +330,9 @@ GL_MeshVerifyCommands(const aliashdr_t *hdr, const model_t *model)
 {
     int i, length, verts;
 
-    if (numcommands < 0 || numcommands >= 8192)
+    if (numcommands < 0 || numcommands >= MAX_MESH_COMMANDS)
 	return false;
-    if (numorder < 0 || numorder >= 8192)
+    if (numorder < 0 || numorder >= MAX_MESH_VERTICIES)
 	return false;
 
     for (i = 0; i < numorder; i++)
@@ -307,7 +341,8 @@ GL_MeshVerifyCommands(const aliashdr_t *hdr, const model_t *model)
 
     i = 0, verts = 0;
     while (i < numcommands) {
-	length = commands[i].i;
+        aliasmeshcmd_t *command = (aliasmeshcmd_t *)(commands + i);
+	length = command->count;
 	if (length < 0)
 	    length = -length;
 	verts += length;
@@ -351,13 +386,17 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
 	fread(&numorder, 4, 1, f);
 	numcommands = LittleLong(numcommands);
 	numorder = LittleLong(numorder);
-	if (numcommands < 0 || numcommands > 8192)
+
+	if (numcommands < 0 || numcommands > MAX_MESH_COMMANDS)
 	    cached = false;
-	if (numorder < 0 || numorder > 8192)
+	if (numorder < 0 || numorder > MAX_MESH_COMMANDS)
 	    cached = false;
 	if (cached) {
-	    fread(&commands, numcommands * sizeof(commands[0]), 1, f);
-	    fread(&vertexorder, numorder * sizeof(vertexorder[0]), 1, f);
+            /* NOTE: Temp mark is active and holds the model file */
+            commands = Hunk_TempAllocExtend(numcommands * sizeof(*commands));
+            vertexorder = Hunk_TempAllocExtend(numorder * sizeof(*vertexorder));
+	    fread(commands, numcommands * sizeof(commands[0]), 1, f);
+	    fread(vertexorder, numorder * sizeof(vertexorder[0]), 1, f);
 	    GL_MeshSwapCommands();
 	    cached = GL_MeshVerifyCommands(hdr, model);
 	}
@@ -388,8 +427,8 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
 	    tmp = LittleLong(numorder);
 	    fwrite(&tmp, 4, 1, f);
 	    GL_MeshSwapCommands();
-	    fwrite(&commands, numcommands * sizeof(commands[0]), 1, f);
-	    fwrite(&vertexorder, numorder * sizeof(vertexorder[0]), 1, f);
+	    fwrite(commands, numcommands * sizeof(commands[0]), 1, f);
+	    fwrite(vertexorder, numorder * sizeof(vertexorder[0]), 1, f);
 	    GL_MeshSwapCommands();
 	    fclose(f);
 	}
@@ -398,9 +437,9 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     /* save the data out to the in-memory model */
     hdr->numverts = numorder;
 
-    cmds = Hunk_AllocName(numcommands * 4, "glmesh");
+    cmds = Hunk_AllocName(numcommands * sizeof(*commands), "glmesh");
     GL_Aliashdr(hdr)->commands = (byte *)cmds - (byte *)hdr;
-    memcpy(cmds, commands, numcommands * 4);
+    memcpy(cmds, commands, numcommands * sizeof(*commands));
 
     verts = Hunk_AllocName(hdr->numposes * hdr->numverts * sizeof(trivertx_t), "glmesh");
     hdr->posedata = (byte *)verts - (byte *)hdr;

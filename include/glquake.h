@@ -327,6 +327,11 @@ void R_StoreEfrags(efrag_t **ppefrag);
 //
 // gl_mesh.c
 //
+typedef struct {
+    int count;
+    float coords[];
+} aliasmeshcmd_t;
+
 void GL_LoadMeshData(const model_t *m, aliashdr_t *hdr,
 		     const alias_meshdata_t *meshdata,
 		     const alias_posedata_t *posedata);
