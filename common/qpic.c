@@ -69,7 +69,7 @@ QPic32_Alloc(int width, int height)
 
 /*
 ================
-QPic32_AlphaFix
+QPic32_AlphaEdgeFix
 
 Operates in-place on an RGBA pic assumed to have all alpha values
 either fully opaque or transparent.  Fully transparent pixels get
@@ -80,7 +80,7 @@ TODO: add an edge clamp mode?
 ================
 */
 static void
-QPic32_AlphaFix(qpic32_t *pic)
+QPic32_AlphaEdgeFix(qpic32_t *pic)
 {
     const int width = pic->width;
     const int height = pic->height;
@@ -154,8 +154,36 @@ QPic32_AlphaFix(qpic32_t *pic)
     }
 }
 
+static void
+QPic32_AlphaClampToZero(qpic32_t *pic)
+{
+    const int size = pic->width * pic->height;
+    qpixel32_t *pixel;
+    int i;
+
+    for (i = 0, pixel = pic->pixels; i < size; i++, pixel++) {
+        if (pixel->alpha < 255)
+            pixel->alpha = 0;
+    }
+}
+
+static void
+QPic32_AlphaFix(qpic32_t *pic, enum qpic_alpha_operation alpha_op)
+{
+    switch (alpha_op) {
+        case QPIC_ALPHA_OP_EDGE_FIX:
+            QPic32_AlphaEdgeFix(pic);
+            break;
+        case QPIC_ALPHA_OP_CLAMP_TO_ZERO:
+            QPic32_AlphaClampToZero(pic);
+            break;
+        case QPIC_ALPHA_OP_NONE:
+            break;
+    }
+}
+
 void
-QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette)
+QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette, enum qpic_alpha_operation alpha_op)
 {
     const int width = in->width;
     const int height = in->height;
@@ -169,8 +197,8 @@ QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette)
 	    *out_p++ = palette->colors[*in_p++];
 	in_p += stride - width;
     }
-    if (palette->alpha)
-        QPic32_AlphaFix(out);
+
+    QPic32_AlphaFix(out, alpha_op);
 }
 
 /*
@@ -494,7 +522,7 @@ Check pic dimensions and call the approriate specialized mipmap function
 ================
 */
 void
-QPic32_MipMap(qpic32_t *in)
+QPic32_MipMap(qpic32_t *in, enum qpic_alpha_operation alpha_op)
 {
     assert(in->width > 1 || in->height > 1);
 
@@ -532,7 +560,7 @@ QPic32_MipMap(qpic32_t *in)
     in->width >>= 1;
     in->height >>= 1;
 
-    QPic32_AlphaFix(in);
+    QPic32_AlphaFix(in, alpha_op);
 }
 
 qpalette32_t qpal_standard;
@@ -558,11 +586,11 @@ QPic32_InitPalettes(const byte *palette)
     }
     qpal_standard.alpha = false;
 
-    /* Full-bright pallette - 0-223 are transparent/black */
+    /* Full-bright pallette - 0-223 are transparent but keep their colors (for mipmapping) */
     memcpy(&qpal_fullbright, &qpal_standard, sizeof(qpalette32_t));
     dst = qpal_fullbright.colors;
     for (i = 0; i < 224; i++, dst++)
-        dst->rgba = 0;
+        dst->alpha = 0;
     qpal_fullbright.alpha = true;
 
     /* Charset/sky palette - 0 is transparent */

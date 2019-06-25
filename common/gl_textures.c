@@ -136,8 +136,6 @@ GL_TextureMode_f(void)
             case TEXTURE_TYPE_WORLD:
             case TEXTURE_TYPE_WORLD_FULLBRIGHT:
             case TEXTURE_TYPE_SPRITE:
-            case TEXTURE_TYPE_ALIAS_SKIN:
-            case TEXTURE_TYPE_PLAYER_SKIN:
                 GL_Bind(glt->texnum);
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
                 glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
@@ -146,7 +144,9 @@ GL_TextureMode_f(void)
             case TEXTURE_TYPE_HUD:
             case TEXTURE_TYPE_SKY_FOREGROUND:
             case TEXTURE_TYPE_SKY_BACKGROUND:
+            case TEXTURE_TYPE_ALIAS_SKIN:
             case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+            case TEXTURE_TYPE_PLAYER_SKIN:
             case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
             case TEXTURE_TYPE_PARTICLE:
                 GL_Bind(glt->texnum);
@@ -198,6 +198,35 @@ GL_FindTexture(const char *name)
     return -1;
 }
 
+static const enum qpic_alpha_operation
+GL_AlphaOpForTextureType(enum texture_type type)
+{
+    enum qpic_alpha_operation alpha_op = QPIC_ALPHA_OP_NONE;
+
+    switch (type) {
+        case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+        case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
+            alpha_op = QPIC_ALPHA_OP_CLAMP_TO_ZERO;
+            break;
+        case TEXTURE_TYPE_HUD:
+        case TEXTURE_TYPE_SPRITE:
+        case TEXTURE_TYPE_CHARSET:
+        case TEXTURE_TYPE_SKY_FOREGROUND:
+        case TEXTURE_TYPE_PARTICLE:
+            alpha_op = QPIC_ALPHA_OP_EDGE_FIX;
+            break;
+        case TEXTURE_TYPE_WORLD:
+        case TEXTURE_TYPE_WORLD_FULLBRIGHT:
+        case TEXTURE_TYPE_SKY_BACKGROUND:
+        case TEXTURE_TYPE_ALIAS_SKIN:
+        case TEXTURE_TYPE_PLAYER_SKIN:
+        case TEXTURE_TYPE_LIGHTMAP:
+            break;
+    }
+
+    return alpha_op;
+}
+
 /*
  * Uploads a 32-bit RGBA texture.  The original pixels are destroyed during
  * the scaling/mipmap process.  When done, the width and height the source pic
@@ -212,6 +241,7 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
 {
     GLint internal_format;
     qpic32_t *scaled;
+    enum qpic_alpha_operation alpha_op;
     int width, height, mark, miplevel, picmip;
 
     if (!gl_npotable || !gl_npot.value) {
@@ -231,6 +261,7 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     picmip = 0;
     switch (type) {
         case TEXTURE_TYPE_PLAYER_SKIN:
+        case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
             picmip = (int)gl_playermip.value;
             break;
         case TEXTURE_TYPE_WORLD:
@@ -238,12 +269,11 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
         case TEXTURE_TYPE_SKY_FOREGROUND:
         case TEXTURE_TYPE_SKY_BACKGROUND:
         case TEXTURE_TYPE_ALIAS_SKIN:
+        case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
             picmip = (int)gl_picmip.value;
             break;
         case TEXTURE_TYPE_CHARSET:
         case TEXTURE_TYPE_HUD:
-        case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
-        case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
         case TEXTURE_TYPE_LIGHTMAP:
         case TEXTURE_TYPE_PARTICLE:
         case TEXTURE_TYPE_SPRITE:
@@ -295,9 +325,8 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     switch (type) {
         case TEXTURE_TYPE_WORLD:
         case TEXTURE_TYPE_WORLD_FULLBRIGHT:
-        case TEXTURE_TYPE_ALIAS_SKIN:
-        case TEXTURE_TYPE_PLAYER_SKIN:
         case TEXTURE_TYPE_SPRITE:
+            alpha_op = GL_AlphaOpForTextureType(type);
             miplevel = 0;
             while (1) {
                 glTexImage2D(GL_TEXTURE_2D, miplevel, internal_format,
@@ -306,7 +335,7 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
                 if (scaled->width == 1 && scaled->height == 1)
                     break;
 
-                QPic32_MipMap(scaled);
+                QPic32_MipMap(scaled, alpha_op);
                 miplevel++;
             }
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
@@ -316,7 +345,9 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
         case TEXTURE_TYPE_HUD:
         case TEXTURE_TYPE_SKY_FOREGROUND:
         case TEXTURE_TYPE_SKY_BACKGROUND:
+        case TEXTURE_TYPE_ALIAS_SKIN:
         case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+        case TEXTURE_TYPE_PLAYER_SKIN:
         case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
         case TEXTURE_TYPE_LIGHTMAP:
         case TEXTURE_TYPE_PARTICLE:
@@ -368,7 +399,6 @@ GL_PaletteForTextureType(enum texture_type type)
     return palette;
 }
 
-
 /*
 ===============
 GL_Upload8
@@ -378,14 +408,16 @@ void
 GL_Upload8(const qpic8_t *pic, enum texture_type type)
 {
     const qpalette32_t *palette;
+    enum qpic_alpha_operation alpha_op;
     qpic32_t *pic32;
     int mark;
 
     mark = Hunk_LowMark();
 
-    palette = GL_PaletteForTextureType(type);
     pic32 = QPic32_Alloc(pic->width, pic->height);
-    QPic_8to32(pic, pic32, palette);
+    palette = GL_PaletteForTextureType(type);
+    alpha_op = GL_AlphaOpForTextureType(type);
+    QPic_8to32(pic, pic32, palette, alpha_op);
     GL_Upload32(pic32, type);
 
     Hunk_FreeToLowMark(mark);
@@ -424,12 +456,14 @@ void
 GL_Upload8_GLPic(glpic_t *glpic)
 {
     qpic32_t *pic32;
+    enum qpic_alpha_operation alpha_op;
     int mark;
 
     mark = Hunk_LowMark();
 
     pic32 = QPic32_Alloc(glpic->pic.width, glpic->pic.height);
-    QPic_8to32(&glpic->pic, pic32, &qpal_alpha);
+    alpha_op = GL_AlphaOpForTextureType(TEXTURE_TYPE_HUD);
+    QPic_8to32(&glpic->pic, pic32, &qpal_alpha, alpha_op);
     GL_Upload32(pic32, TEXTURE_TYPE_HUD);
 
     glpic->sl = 0;

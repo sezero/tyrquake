@@ -54,6 +54,12 @@ typedef struct {
     qboolean alpha;
 } qpalette32_t;
 
+enum qpic_alpha_operation {
+    QPIC_ALPHA_OP_NONE,
+    QPIC_ALPHA_OP_EDGE_FIX,
+    QPIC_ALPHA_OP_CLAMP_TO_ZERO,
+};
+
 /* Palettes for converting the base 8 bit texures to 32 bit RGBA */
 extern qpalette32_t qpal_standard;
 extern qpalette32_t qpal_fullbright;
@@ -69,7 +75,7 @@ qboolean QPic_HasFullbrights(const qpic8_t *pic);
 qpic32_t *QPic32_Alloc(int width, int height);
 
 /* Create 32 bit texture from 8 bit source using the specified palette */
-void QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette);
+void QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette, enum qpic_alpha_operation alpha_op);
 
 /* Stretch from in size to out size */
 void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);
@@ -78,6 +84,6 @@ void QPic32_Stretch(const qpic32_t *in, qpic32_t *out);
 void QPic32_Expand(const qpic32_t *in, qpic32_t *out);
 
 /* Shrink texture in place to next mipmap level */
-void QPic32_MipMap(qpic32_t *pic);
+void QPic32_MipMap(qpic32_t *pic, enum qpic_alpha_operation alpha_op);
 
 #endif /* QPIC_H */
