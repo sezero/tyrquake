@@ -549,7 +549,7 @@ GL_AliasDrawModel
 =============
 */
 static void
-GL_AliasDrawModel(const entity_t *entity, float blend)
+GL_AliasDrawModel(const entity_t *entity, float blend, qboolean shading)
 {
     aliashdr_t *aliashdr;
     const trivertx_t *vertbase, *verts1;
@@ -594,13 +594,15 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 		glTexCoord2f(coords[0], coords[1]);
                 coords += 2;
 
-		/* normals and vertexes come from the frame list */
-                light = shadedots[verts0->lightnormalindex] * blend0;
-                light += shadedots[verts1->lightnormalindex] * blend;
-                light *= shadelight;
-		if (r_fullbright.value)
-		    light = 255.0f;
-		glColor3f(light, light, light);
+                if (shading) {
+                    /* normals and vertexes come from the frame list */
+                    light = shadedots[verts0->lightnormalindex] * blend0;
+                    light += shadedots[verts1->lightnormalindex] * blend;
+                    light *= shadelight;
+                    if (r_fullbright.value)
+                        light = 255.0f;
+                    glColor3f(light, light, light);
+                }
 		glvertex[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
 		glvertex[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
 		glvertex[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
@@ -636,11 +638,13 @@ GL_AliasDrawModel(const entity_t *entity, float blend)
 	    glTexCoord2f(coords[0], coords[1]);
 	    coords += 2;
 
-	    /* normals and vertexes come from the frame list */
-	    light = shadedots[verts1->lightnormalindex] * shadelight;
-	    if (r_fullbright.value)
-		light = 255.0f;
-	    glColor3f(light, light, light);
+            if (shading) {
+                /* normals and vertexes come from the frame list */
+                light = shadedots[verts1->lightnormalindex] * shadelight;
+                if (r_fullbright.value)
+                    light = 255.0f;
+                glColor3f(light, light, light);
+            }
 	    glVertex3f(verts1->v[0], verts1->v[1], verts1->v[2]);
 	    verts1++;
 	}
@@ -1061,7 +1065,7 @@ R_AliasDrawModel(entity_t *entity)
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
     float lerp = R_AliasSetupFrame(entity, aliashdr);
-    GL_AliasDrawModel(entity, lerp);
+    GL_AliasDrawModel(entity, lerp, true);
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
@@ -1071,7 +1075,7 @@ R_AliasDrawModel(entity_t *entity)
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL_Bind(skin->fullbright);
-        GL_AliasDrawModel(entity, lerp);
+        GL_AliasDrawModel(entity, lerp, false);
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
     }
