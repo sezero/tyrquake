@@ -66,15 +66,22 @@ enum texture_type {
     TEXTURE_TYPE_CHARSET,
     TEXTURE_TYPE_HUD,
     TEXTURE_TYPE_WORLD,
-    TEXTURE_TYPE_FULLBRIGHT,
+    TEXTURE_TYPE_WORLD_FULLBRIGHT,
     TEXTURE_TYPE_SKY_BACKGROUND,
     TEXTURE_TYPE_SKY_FOREGROUND,
     TEXTURE_TYPE_ALIAS_SKIN,
+    TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT,
     TEXTURE_TYPE_PLAYER_SKIN,
+    TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT,
     TEXTURE_TYPE_LIGHTMAP,
     TEXTURE_TYPE_PARTICLE,
     TEXTURE_TYPE_SPRITE,
 };
+
+typedef struct {
+    GLuint base;            // The base texture
+    GLuint fullbright;      // Fullbright mask texture, or zero if none
+} qgltexture_t;
 
 typedef struct {
     int texnum;

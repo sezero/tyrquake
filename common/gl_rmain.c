@@ -479,7 +479,7 @@ void
 GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
 {
     int i, skinsize;
-    GLuint *textures;
+    qgltexture_t *textures;
     byte *pixels;
     qpic8_t pic;
 
@@ -490,7 +490,7 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
     }
 
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
-    textures = (GLuint *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
+    textures = (qgltexture_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
     pixels = (byte *)aliashdr + aliashdr->skindata;
 
     pic.width = pic.stride = aliashdr->skinwidth;
@@ -498,23 +498,27 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
     pic.pixels = pixels;
 
     for (i = 0; i < aliashdr->numskins; i++) {
-        textures[i] = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
+        textures[i].base = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
+        if (QPic_HasFullbrights(&pic)) {
+            textures[i].fullbright = GL_LoadTexture(va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
+        } else {
+            textures[i].fullbright = 0;
+        }
         pic.pixels += skinsize;
     }
 }
 
 static void
-GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr,
-		const alias_skindata_t *skindata)
+GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_t *skindata)
 {
     int i, skinsize;
-    GLuint *textures;
+    qgltexture_t *textures;
     byte *pixels;
 
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
     pixels = Mod_AllocName(skindata->numskins * skinsize, model->name);
     aliashdr->skindata = (byte *)pixels - (byte *)aliashdr;
-    textures = Mod_AllocName(skindata->numskins * sizeof(GLuint), model->name);
+    textures = Mod_AllocName(skindata->numskins * sizeof(qgltexture_t), model->name);
     GL_Aliashdr(aliashdr)->textures = (byte *)textures - (byte *)aliashdr;
 
     for (i = 0; i < skindata->numskins; i++) {
@@ -713,13 +717,13 @@ GL_AliasDrawShadow(const entity_t *entity, aliashdr_t *paliashdr, int posenum)
 R_AliasSetupSkin
 ===============
 */
-static void
+static const qgltexture_t *
 R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 {
     const maliasskindesc_t *skindesc;
     const float *intervals;
     int skinnum, numframes, frame;
-    GLuint *textures;
+    const qgltexture_t *textures;
 
     skinnum = entity->skinnum;
     if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
@@ -739,17 +743,16 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 	frame += Mod_FindInterval(intervals + frame, numframes, frametime);
     }
 
-    textures = (GLuint *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
-    GL_Bind(textures[frame]);
+    textures = (qgltexture_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
+
+    return &textures[frame];
 }
 
 /*
-=================
-R_AliasSetupFrame
-
-=================
-*/
-static void
+ * Returns the lerp value between 0 and 1, where 0.0f is the previous
+ * pose frame and 1.0f is the current pose frame.
+ */
+static float
 R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr)
 {
     int framenum, pose, numposes;
@@ -815,16 +818,15 @@ R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr)
 	}
 	blend = qclamp(time / delta, 0.0f, 1.0f);
 
-	GL_AliasDrawModel(entity, blend);
-
-	return;
+	return blend;
     }
  nolerp:
 #endif
+
     entity->currentpose = pose;
     entity->previouspose = pose;
 
-    GL_AliasDrawModel(entity, 1.0f);
+    return 1.0f;
 }
 
 
@@ -1021,7 +1023,8 @@ R_AliasDrawModel(entity_t *entity)
 		 aliashdr->scale[2]);
     }
 
-    R_AliasSetupSkin(entity, aliashdr);
+    const qgltexture_t *skin = R_AliasSetupSkin(entity, aliashdr);
+    GL_Bind(skin->base);
 
     /*
      * We can't dynamically colormap textures, so they are cached
@@ -1057,9 +1060,21 @@ R_AliasDrawModel(entity_t *entity)
     if (gl_affinemodels.value)
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
-    R_AliasSetupFrame(entity, aliashdr);
+    float lerp = R_AliasSetupFrame(entity, aliashdr);
+    GL_AliasDrawModel(entity, lerp);
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+    if (skin->fullbright && gl_fullbrights.value) {
+        GL_DisableMultitexture();
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_Bind(skin->fullbright);
+        GL_AliasDrawModel(entity, lerp);
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+    }
 
     glShadeModel(GL_FLAT);
     if (gl_affinemodels.value)
