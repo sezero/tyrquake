@@ -278,22 +278,36 @@ BuildTris(aliashdr_t *hdr, const mtriangle_t *tris, const stvert_t *stverts)
         numcommands++;
 
         float *coords = command->coords;
-	for (j = 0; j < bestlen + 2; j++) {
-	    // emit a vertex into the reorder buffer
-	    k = bestverts[j];
-	    vertexorder[numorder++] = k;
+        for (j = 0; j < bestlen + 2; j++) {
+            /* Emit a vertex into the reorder buffer */
+            k = bestverts[j];
+            vertexorder[numorder++] = k;
 
-	    // emit s/t coords into the commands stream
-	    s = stverts[k].s;
-	    t = stverts[k].t;
-	    if (!tris[besttris[0]].facesfront && stverts[k].onseam)
-		s += hdr->skinwidth / 2;	// on back side
-	    s = (s + 0.5) / hdr->skinwidth;
-	    t = (t + 0.5) / hdr->skinheight;
+            /*
+             * Emit s/t coords into the commands stream.  We fudge the
+             * coordinates by a fraction of a pixel to reduce
+             * artefacts on the model seams.
+             */
+            s = stverts[k].s;
+            t = stverts[k].t;
+            if (!tris[besttris[0]].facesfront && stverts[k].onseam) {
+                /*
+                 * Rear skin is on the RHS of the texture. Fudge +1 to
+                 * match appearance in SW renderer as closely as possible.
+                 */
+                s += (hdr->skinwidth / 2) + 1;
+            }
+            /*
+             * Fudge width/height +2 here to slightly stretch the
+             * texture to push the background fill slightly further
+             * from the seams.
+             */
+            s = (s + 0.5f) / (hdr->skinwidth + 2);
+            t = (t + 0.5f) / (hdr->skinheight + 2);
 
-	    *coords++ = s;
-	    *coords++ = t;
-	}
+            *coords++ = s;
+            *coords++ = t;
+        }
 
         /* Advance the command pointer */
         numcommands += (bestlen + 2) * 2;
