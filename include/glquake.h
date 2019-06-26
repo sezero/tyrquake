@@ -76,7 +76,19 @@ enum texture_type {
     TEXTURE_TYPE_LIGHTMAP,
     TEXTURE_TYPE_PARTICLE,
     TEXTURE_TYPE_SPRITE,
+    NUM_TEXTURE_TYPES,
 };
+
+typedef struct {
+    const qpalette32_t *palette;
+    enum qpic_alpha_operation alpha_op;
+    qboolean mipmap;
+    qboolean picmip;
+    qboolean playermip;
+} texture_properties_t;
+
+/* Indexed by enum texture_type */
+extern const texture_properties_t texture_properties[NUM_TEXTURE_TYPES];
 
 typedef struct {
     GLuint base;            // The base texture
