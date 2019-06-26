@@ -899,7 +899,6 @@ static void
 R_AliasCalcLight(const entity_t *entity,
 		 const vec3_t origin, const vec3_t angles)
 {
-    const model_t *model = entity->model;
     const dlight_t *dlight;
     int i, shadequant;
     float angle;
@@ -936,14 +935,10 @@ R_AliasCalcLight(const entity_t *entity,
     if (CL_PlayerEntity(entity)) {
 #endif
 #ifdef QW_HACK
-    if (!strcmp(model->name, "progs/player.mdl")) {
+    if (!strcmp(entity->model->name, "progs/player.mdl")) {
 #endif
 	if (ambientlight < 8)
 	    ambientlight = shadelight = 8;
-    } else if (!strcmp(model->name, "progs/flame.mdl")
-	       || !strcmp(model->name, "progs/flame2.mdl")) {
-	// HACK HACK HACK -- no fullbright colors, so make torches full light
-	ambientlight = shadelight = 256;
     }
 
     shadequant = (int)(angles[1] * (SHADEDOT_QUANT / 360.0));
