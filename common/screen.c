@@ -368,13 +368,18 @@ SCR_SetUpToDrawConsole(void)
     else
 	scr_conlines = 0;	// none visible
 
+    /*
+     * Calculate console movement based on speed and elapsed time.  We
+     * scale the movement speed based on the original base resolution
+     * of 320x200.
+     */
     if (scr_conlines < scr_con_current) {
-	scr_con_current -= scr_conspeed.value * host_frametime;
+	scr_con_current -= scr_conspeed.value * host_frametime * vid.height / 200;
 	if (scr_conlines > scr_con_current)
 	    scr_con_current = scr_conlines;
 
     } else if (scr_conlines > scr_con_current) {
-	scr_con_current += scr_conspeed.value * host_frametime;
+	scr_con_current += scr_conspeed.value * host_frametime * vid.height / 200;
 	if (scr_conlines < scr_con_current)
 	    scr_con_current = scr_conlines;
     }
