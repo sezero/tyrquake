@@ -883,8 +883,6 @@ R_DrawBrushModel(const entity_t *e)
 	bmodelorg[2] = DotProduct(temp, up);
     }
 
-    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
-
     if (gl_zfix.value)
 	glEnable(GL_POLYGON_OFFSET_FILL);
 
@@ -920,24 +918,26 @@ R_DrawBrushModel(const entity_t *e)
     else
 	glColor3f(1, 1, 1);
 
+    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
     for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
 	/* find which side of the node we are on */
 	pplane = surf->plane;
 	dot = DotProduct(bmodelorg, pplane->normal) - pplane->dist;
+        if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
+            continue;
+        if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
+            continue;
 
 	/* draw the polygon */
-	if (((surf->flags & SURF_PLANEBACK) && (dot < -BACKFACE_EPSILON)) ||
-	    (!(surf->flags & SURF_PLANEBACK) && (dot > BACKFACE_EPSILON))) {
-	    if (r_drawflat.value) {
-		DrawFlatGLPoly(surf->polys);
-	    } else {
-		/* FIXME - hack for dynamic lightmap updates... */
-		qboolean real_mtexable = gl_mtexable;
-		gl_mtexable = false;
-		R_RenderBrushPoly(e, surf);
-		gl_mtexable = real_mtexable;
-	    }
-	}
+        if (r_drawflat.value) {
+            DrawFlatGLPoly(surf->polys);
+        } else {
+            /* FIXME - hack for dynamic lightmap updates... */
+            qboolean real_mtexable = gl_mtexable;
+            gl_mtexable = false;
+            R_RenderBrushPoly(e, surf);
+            gl_mtexable = real_mtexable;
+        }
     }
 
     if (r_drawflat.value) {
@@ -945,6 +945,33 @@ R_DrawBrushModel(const entity_t *e)
 	glColor3f(1, 1, 1);
     } else {
 	R_BlendLightmaps();
+        if (gl_fullbrights.value) {
+            GL_DisableMultitexture();
+            glDepthMask(GL_FALSE);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+            surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+            for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+                /* find which side of the node we are on */
+                pplane = surf->plane;
+                dot = DotProduct(bmodelorg, pplane->normal) - pplane->dist;
+                if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
+                    continue;
+                if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
+                    continue;
+
+                texture_t *texture = R_TextureAnimation(e, surf->texinfo->texture);
+                if (!texture->gl_texturenum_fullbright)
+                    continue;
+
+                GL_Bind(texture->gl_texturenum_fullbright);
+                DrawGLPoly(surf->polys);
+            }
+
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
+        }
     }
 
     glPopMatrix();
