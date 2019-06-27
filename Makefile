@@ -32,14 +32,31 @@ TYR_GIT := $(shell git describe --dirty 2> /dev/null)
 TYR_VERSION := $(if $(TYR_GIT),$(TYR_GIT),$(TYR_RELEASE))
 TYR_VERSION_NUM ?= $(patsubst v%,%,$(TYR_VERSION))
 
+# Ensure the build directory exists
+$(shell if [ ! -d "$(BUILD_DIR)" ]; then mkdir -p "$(BUILD_DIR)"; fi)
+
 # Create/update the build version file
 # Any source files which use TYR_VERSION will depend on this
-BUILD_VER = $(BUILD_DIR)/.build_version
+BUILD_VERSION_FILE = $(BUILD_DIR)/.build_version
 $(shell \
-	if [ ! -d "$(BUILD_DIR)" ]; then mkdir -p "$(BUILD_DIR)"; fi ; \
-	if [ ! -f "$(BUILD_VER)" ] || \
-	   [ "`cat $(BUILD_VER)`" != "$(TYR_VERSION)" ]; then \
-		printf '%s' "$(TYR_VERSION)" > "$(BUILD_VER)"; \
+	if [ ! -f "$(BUILD_VERSION_FILE)" ] || \
+	   [ "`cat $(BUILD_VERSION_FILE)`" != "$(TYR_VERSION)" ]; then \
+		printf '%s' "$(TYR_VERSION)" > "$(BUILD_VERSION_FILE)"; \
+	fi)
+
+# Create/update the build version time file
+# Any source files which use TYR_VERSION_TIME will depend on this
+TYR_VERSION_TIME := $(shell \
+	if [ -n "$(TYR_GIT)" ] && [ -z "$$(git status -s -uno)" ]; then \
+		git show -s --pretty='format:%at'; \
+	else \
+		date +%s; \
+	fi)
+BUILD_VERSION_TIME_FILE = $(BUILD_DIR)/.build_version_time
+$(shell \
+	if [ ! -f "$(BUILD_VERSION_TIME_FILE)" ] || \
+	   [ "`cat $(BUILD_VERSION_TIME_FILE)`" != "$(TYR_VERSION_TIME)" ]; then \
+		printf '%s' "$(TYR_VERSION_TIME)" > "$(BUILD_VERSION_TIME_FILE)"; \
 	fi)
 
 # ---------------------------------------
@@ -349,15 +366,18 @@ endef
 # cmd_fixdep => Turn all pre-requisites into targets with no commands, to
 # prevent errors when moving files around between builds (e.g. from NQ or QW
 # dirs to the common dir.)
-# Add dependency on build version if needed.
+# Add dependency on build version time if needed.
 cmd_fixdep = \
 	cp $(@D)/.$(@F).d $(@D)/.$(@F).d.tmp && \
 	sed -e 's/\#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' -e '/^$$/ d' \
 	    -e 's/$$/ :/' < $(@D)/.$(@F).d.tmp >> $(@D)/.$(@F).d && \
 	rm -f $(@D)/.$(@F).d.tmp && \
-	if grep -q TYR_VERSION $<; then \
-		printf '%s: %s\n' $@ $(BUILD_VER) >> $(@D)/.$(@F).d ; \
-	fi
+	{ if grep -q TYR_VERSION $<; then \
+		printf '%s: %s\n' $@ $(BUILD_VERSION_FILE) >> $(@D)/.$(@F).d ; \
+	fi ; \
+	if grep -q TYR_VERSION_TIME $<; then \
+		printf '%s: %s\n' $@ $(BUILD_VERSION_TIME_FILE) >> $(@D)/.$(@F).d ; \
+	fi ; }
 
 cmd_cc_dep_c = \
 	$(CC) -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< && \
@@ -757,7 +777,9 @@ QWSV_OBJS := \
 # ----------------------------------------------------------------------------
 
 # Defines
-COMMON_CPPFLAGS += -DTYR_VERSION=$(TYR_VERSION_NUM) -DQBASEDIR="$(QBASEDIR)"
+COMMON_CPPFLAGS += -DTYR_VERSION=$(TYR_VERSION_NUM)
+COMMON_CPPFLAGS += -DTYR_VERSION_TIME=$(TYR_VERSION_TIME)LL
+COMMON_CPPFLAGS += -DQBASEDIR="$(QBASEDIR)"
 NQCL_CPPFLAGS   += -DNQ_HACK
 QW_CPPFLAGS     += -DQW_HACK
 QWSV_CPPFLAGS   += -DSERVERONLY
@@ -1018,7 +1040,7 @@ $(BIN_DIR)/tyr-qwsv$(EXT):	$(patsubst %,$(QWSVDIR)/%,$(ALL_QWSV_OBJS))
 	$(call do_strip,$@)
 
 # Build man pages, text and html docs from source
-$(DOC_DIR)/%.6:		man/%.6	$(BUILD_VER)	; $(do_man2man)
+$(DOC_DIR)/%.6:		man/%.6	$(BUILD_VERSION_FILE)	; $(do_man2man)
 $(DOC_DIR)/%.txt:	$(DOC_DIR)/%.6		; $(do_man2txt)
 $(DOC_DIR)/%.html:	$(DOC_DIR)/%.6		; $(do_man2html)
 
@@ -1140,7 +1162,7 @@ ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
 $(OSX_DIR)/%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
 	$(do_iconutil_icns)
 
-$(OSX_DIR)/%/Contents/Info.plist: launcher/osx/Info.plist $(BUILD_VER)
+$(OSX_DIR)/%/Contents/Info.plist: launcher/osx/Info.plist $(BUILD_VERSION_FILE)
 	$(do_mkdir)
 	@cp $< $(@D)/.$(@F).tmp
 	$(call do_plist_set,CFBundleName,TyrQuake)
