@@ -88,7 +88,7 @@ static HANDLE qwclsemaphore;
 #endif /* !SERVERONLY */
 
 
-int
+int64_t
 Sys_FileTime(const char *path)
 {
     FILE *f;

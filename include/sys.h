@@ -21,6 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef SYS_H
 #define SYS_H
 
+#include <stdint.h>
+
 // FIXME - QW/server doesn't want this much stuff...
 
 // sys.h -- non-portable functions
@@ -36,7 +38,7 @@ extern qboolean window_visible(void);
 //
 // file IO
 //
-int Sys_FileTime(const char *path);
+int64_t Sys_FileTime(const char *path);
 void Sys_mkdir(const char *path);
 
 //
