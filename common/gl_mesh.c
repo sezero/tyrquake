@@ -383,7 +383,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     trivertx_t *verts;
     char cache[MAX_OSPATH];
     FILE *f;
-    qboolean cached = false;
+    qboolean cached = true;
     const char *name;
 
     /* look for a cached version */
@@ -393,30 +393,38 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     if (err)
 	Sys_Error("%s: model pathname too long (%s)", __func__, model->name);
 
-    f = fopen(cache, "rb");
-    if (f) {
-	cached = true;
-	fread(&numcommands, 4, 1, f);
-	fread(&numorder, 4, 1, f);
-	numcommands = LittleLong(numcommands);
-	numorder = LittleLong(numorder);
+    /* If engine build is newer than cache files, force rebuild */
+    int64_t fileTime = Sys_FileTime(cache);
+    if (fileTime == -1)
+        cached = false;
+    if (fileTime < TYR_VERSION_TIME)
+        cached = false;
 
-	if (numcommands < 0 || numcommands > MAX_MESH_COMMANDS)
-	    cached = false;
-	if (numorder < 0 || numorder > MAX_MESH_COMMANDS)
-	    cached = false;
-	if (cached) {
-            /* NOTE: Temp mark is active and holds the model file */
-            commands = Hunk_TempAllocExtend(numcommands * sizeof(*commands));
-            vertexorder = Hunk_TempAllocExtend(numorder * sizeof(*vertexorder));
-	    fread(commands, numcommands * sizeof(commands[0]), 1, f);
-	    fread(vertexorder, numorder * sizeof(vertexorder[0]), 1, f);
-	    GL_MeshSwapCommands();
-	    cached = GL_MeshVerifyCommands(hdr, model);
-	}
-	fclose(f);
-	if (!cached)
-	    Con_DPrintf("bad cached commands for mesh %s\n", model->name);
+    if (cached) {
+        f = fopen(cache, "rb");
+        if (f) {
+            fread(&numcommands, 4, 1, f);
+            fread(&numorder, 4, 1, f);
+            numcommands = LittleLong(numcommands);
+            numorder = LittleLong(numorder);
+
+            if (numcommands < 0 || numcommands > MAX_MESH_COMMANDS)
+                cached = false;
+            if (numorder < 0 || numorder > MAX_MESH_COMMANDS)
+                cached = false;
+            if (cached) {
+                /* NOTE: Temp mark is active and holds the model file */
+                commands = Hunk_TempAllocExtend(numcommands * sizeof(*commands));
+                vertexorder = Hunk_TempAllocExtend(numorder * sizeof(*vertexorder));
+                fread(commands, numcommands * sizeof(commands[0]), 1, f);
+                fread(vertexorder, numorder * sizeof(vertexorder[0]), 1, f);
+                GL_MeshSwapCommands();
+                cached = GL_MeshVerifyCommands(hdr, model);
+            }
+            fclose(f);
+            if (!cached)
+                Con_DPrintf("bad cached commands for mesh %s\n", model->name);
+        }
     }
 
     if (!cached) {
