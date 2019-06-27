@@ -91,18 +91,35 @@ static HANDLE qwclsemaphore;
 int64_t
 Sys_FileTime(const char *path)
 {
-    FILE *f;
-    int ret;
+    HANDLE handle;
+    FILETIME filetime;
+    ULARGE_INTEGER mtime;
+    BOOL success;
 
-    f = fopen(path, "rb");
-    if (f) {
-	fclose(f);
-	ret = 1;
-    } else {
-	ret = -1;
-    }
+    handle = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    if (handle == INVALID_HANDLE_VALUE)
+        return -1;
 
-    return ret;
+    success = GetFileTime(handle, NULL, NULL, &filetime);
+    CloseHandle(handle);
+    if (!success)
+        return -1;
+
+    /*
+     * A UNIX timestamp contains the number of seconds from Jan 1,
+     * 1970, while the FILETIME documentation says: Contains a 64-bit
+     * value representing the number of 100-nanosecond intervals since
+     * January 1, 1601 (UTC).
+     *
+     * Between Jan 1, 1601 and Jan 1, 1970 there are 11644473600
+     * seconds, so we will just subtract that value:
+     */
+    mtime.LowPart = filetime.dwLowDateTime;
+    mtime.HighPart = filetime.dwHighDateTime;
+
+    mtime.QuadPart -= 11644473600LL * 10000;
+
+    return mtime.QuadPart;
 }
 
 void
