@@ -28,10 +28,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // console
 //
 typedef struct {
-    char *text;			// Text buffer
-    int current;		// line where next message will be printed
-    int x;			// offset in current line for next print
-    int display;		// bottom of console displays this line
+    byte *text;	  // Text buffer
+    int current;  // line where next message will be printed
+    int x;        // offset in current line for next print
+    int display;  // bottom of console displays this line
 } console_t;
 
 extern console_t *con;

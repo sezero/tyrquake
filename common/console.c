@@ -451,7 +451,7 @@ void
 Con_DrawNotify(void)
 {
     int x, v;
-    char *text;
+    byte *text;
     int i;
     float time;
     char *s;
@@ -579,7 +579,7 @@ Con_DrawConsole(int lines)
 {
     int i, x, y;
     int rows;
-    char *text;
+    byte *text;
     int row;
 
     if (lines <= 0)
