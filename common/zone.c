@@ -753,7 +753,7 @@ Hunk_TempAlloc(int size)
  * =====================
  * Hunk_TempAllocExtend
  *
- * Extend the existing temp hunk allocation.
+ * Extend the existing temp hunk allocation, rather than freeing first.
  * Size is the number of extra bytes required
  * =====================
  */
@@ -763,7 +763,7 @@ Hunk_TempAllocExtend(int size)
     hunk_t *old, *new;
 
     if (!hunkstate.tempmark)
-	Sys_Error("%s: temp hunk not active", __func__);
+        return Hunk_TempAlloc(size);
 
     old = (hunk_t *)(hunkstate.base + hunkstate.size - hunkstate.highbytes);
     if (old->sentinal != HUNK_SENTINAL)
