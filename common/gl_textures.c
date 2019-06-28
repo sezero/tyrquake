@@ -387,23 +387,15 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type)
 
     crc = CRC_Block(pic->pixels, pic->width * pic->height);
 
-    /*
-     * Check if the texture is already present, if so then return it.
-     *
-     * We will reserve the '@' prefix for engine-internal textures,
-     * such as lightmaps and the mini-atlas for status bar textures,
-     * etc.  These don't need CRC or duplicate checks.
-     */
-    if (name[0] && name[0] != '@') {
-	for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-	    if (!strcmp(name, glt->name)) {
-		if (crc != glt->crc)
-		    goto GL_LoadTexture_setup;
-		if (pic->width != glt->width || pic->height != glt->height)
-		    goto GL_LoadTexture_setup;
-		return glt->texnum;
-	    }
-	}
+    /* Check if the texture is already present, if so then return it. */
+    for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
+        if (!strcmp(name, glt->name)) {
+            if (crc != glt->crc)
+                goto GL_LoadTexture_setup;
+            if (pic->width != glt->width || pic->height != glt->height)
+                goto GL_LoadTexture_setup;
+            return glt->texnum;
+        }
     }
 
     if (numgltextures == MAX_GLTEXTURES)
