@@ -99,29 +99,33 @@ IN_CenterMouse(void)
 void
 IN_GrabMouse(void)
 {
-    int err;
+    int result;
 
-    if (mouse_available && !mouse_grab_active) {
-	XDefineCursor(x_disp, x_win, CreateNullCursor());
+    /* Should never be called if no mouse or grab already active */
+    assert(mouse_available);
+    assert(!mouse_grab_active);
 
-	err = XGrabPointer(x_disp, x_win, True, 0, GrabModeAsync,
-			   GrabModeAsync, x_win, None, CurrentTime);
-	if (err) {
-	    if (err == GrabNotViewable)
-		Con_DPrintf("%s: GrabNotViewable\n", __func__);
-	    if (err == AlreadyGrabbed)
-		Con_DPrintf("%s: AlreadyGrabbed\n", __func__);
-	    if (err == GrabFrozen)
-		Con_DPrintf("%s: GrabFrozen\n", __func__);
-	    if (err == GrabInvalidTime)
-		Con_DPrintf("%s: GrabInvalidTime\n", __func__);
-	    mouse_grab_active = true;
-	    return;
-	} else {
-	    mouse_grab_active = true;
-	}
-    } else {
-	Sys_Error("Bad grab?");
+    result = XGrabPointer(x_disp, x_win, True, 0, GrabModeAsync, GrabModeAsync, x_win, None, CurrentTime);
+    switch (result) {
+        case GrabSuccess:
+            XDefineCursor(x_disp, x_win, CreateNullCursor());
+            IN_CenterMouse();
+            mouse_x = old_mouse_x = 0;
+            mouse_y = old_mouse_y = 0;
+            mouse_grab_active = true;
+            break;
+        case GrabNotViewable:
+            Con_DPrintf("%s: GrabNotViewable\n", __func__);
+            break;
+        case AlreadyGrabbed:
+            Con_DPrintf("%s: AlreadyGrabbed\n", __func__);
+            break;
+        case GrabFrozen:
+            Con_DPrintf("%s: GrabFrozen\n", __func__);
+            break;
+        case GrabInvalidTime:
+            Con_DPrintf("%s: GrabInvalidTime\n", __func__);
+            break;
     }
 }
 
