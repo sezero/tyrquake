@@ -36,11 +36,6 @@ extern int mouse_x, mouse_y;
 extern cvar_t in_mouse;
 extern cvar_t _windowed_mouse;
 
-#ifdef USE_XF86DGA
-extern qboolean dga_mouse_active;
-extern cvar_t in_dgamouse;
-#endif
-
 void IN_Init();
 void IN_Shutdown();
 

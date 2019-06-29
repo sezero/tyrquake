@@ -32,13 +32,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 
-#ifdef USE_XF86DGA
-#include <X11/extensions/Xxf86dga.h>
-
-static qboolean dga_available = false;
-qboolean dga_mouse_active = false;
-#endif
-
 static qboolean mouse_available = false;	// Mouse available for use
 static qboolean keyboard_grab_active = false;
 qboolean mouse_grab_active = false;
@@ -64,41 +57,6 @@ windowed_mouse_f(struct cvar_s *var)
     }
 }
 
-
-#ifdef USE_XF86DGA
-static void
-IN_ActivateDGAMouse(void)
-{
-    if (dga_available && !dga_mouse_active) {
-	XF86DGADirectVideo(x_disp, DefaultScreen(x_disp), XF86DGADirectMouse);
-	dga_mouse_active = true;
-    }
-}
-
-static void
-IN_DeactivateDGAMouse(void)
-{
-    if (dga_available && dga_mouse_active) {
-	XF86DGADirectVideo(x_disp, DefaultScreen(x_disp), 0);
-	dga_mouse_active = false;
-	IN_CenterMouse();	// maybe set mouse_x = 0 and mouse_y = 0?
-    }
-}
-
-static void
-in_dgamouse_f(struct cvar_s *var)
-{
-    if (var->value) {
-	Con_DPrintf("Callback: in_dgamouse ON\n");
-	IN_ActivateDGAMouse();
-    } else {
-	Con_DPrintf("Callback: in_dgamouse OFF\n");
-	IN_DeactivateDGAMouse();
-    }
-}
-
-cvar_t in_dgamouse = { "in_dgamouse", "1", false, false, 0, in_dgamouse_f };
-#endif /* USE_XF86DGA */
 
 cvar_t in_mouse = { "in_mouse", "1", false };
 cvar_t _windowed_mouse = { "_windowed_mouse", "0", true, false, 0, windowed_mouse_f };
@@ -162,15 +120,6 @@ IN_GrabMouse(void)
 	} else {
 	    mouse_grab_active = true;
 	}
-#ifdef USE_XF86DGA
-	// FIXME - need those cvar callbacks to fix changed values...
-	if (dga_available) {
-	    if (in_dgamouse.value)
-		IN_ActivateDGAMouse();
-	} else {
-	    in_dgamouse.value = 0;
-	}
-#endif
     } else {
 	Sys_Error("Bad grab?");
     }
@@ -184,12 +133,6 @@ IN_UngrabMouse(void)
 	XUndefineCursor(x_disp, x_win);
 	mouse_grab_active = false;
     }
-
-#ifdef USE_XF86DGA
-    if (dga_mouse_active) {
-	IN_DeactivateDGAMouse();
-    }
-#endif
 }
 
 void
@@ -415,20 +358,11 @@ IN_X11_HandleInputEvent(XEvent *event)
 
 	case MotionNotify:
 	    if (mouse_grab_active) {
-#ifdef USE_XF86DGA
-		if (dga_mouse_active) {
-		    mouse_x += event->xmotion.x_root;
-		    mouse_y += event->xmotion.y_root;
-		} else {
-#endif
-		    mouse_x = event->xmotion.x - (int)(vid.width / 2);
-		    mouse_y = event->xmotion.y - (int)(vid.height / 2);
+                mouse_x = event->xmotion.x - (int)(vid.width / 2);
+                mouse_y = event->xmotion.y - (int)(vid.height / 2);
 
-		    if (mouse_x || mouse_y)
-                        IN_CenterMouse();
-#ifdef USE_XF86DGA
-		}
-#endif
+                if (mouse_x || mouse_y)
+                    IN_CenterMouse();
 	    }
 	    break;
 
@@ -465,17 +399,11 @@ IN_InitCvars(void)
     Cvar_RegisterVariable(&in_mouse);
     Cvar_RegisterVariable(&m_filter);
     Cvar_RegisterVariable(&_windowed_mouse);
-#ifdef USE_XF86DGA
-    Cvar_RegisterVariable(&in_dgamouse);
-#endif
 }
 
 void
 IN_Init(void)
 {
-#ifdef USE_XF86DGA
-    int MajorVersion, MinorVersion;
-#endif
     keyboard_grab_active = false;
     mouse_grab_active = false;
 
@@ -485,17 +413,6 @@ IN_Init(void)
 
     if (x_disp == NULL)
 	Sys_Error("x_disp not initialised before input...");
-
-#ifdef USE_XF86DGA
-    dga_mouse_active = false;
-    if (!XF86DGAQueryVersion(x_disp, &MajorVersion, &MinorVersion)) {
-	Con_Printf("Failed to detect XF86DGA Mouse\n");
-	in_dgamouse.value = 0;
-	dga_available = false;
-    } else {
-	dga_available = true;
-    }
-#endif
 
     IN_InitCvars();
 

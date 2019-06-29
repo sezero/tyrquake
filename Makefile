@@ -114,7 +114,6 @@ VID_TARGET ?= sdl
 IN_TARGET ?= sdl
 SND_TARGET ?= sdl
 CD_TARGET ?= null
-USE_XF86DGA ?= N
 SNAPSHOT_TARGET = $(DIST_DIR)/tyrquake-$(TYR_VERSION_NUM)-osx.dmg
 else
 # All other unix can default to X11
@@ -124,17 +123,14 @@ endif
 ifeq ($(TARGET_UNIX),bsd)
 CD_TARGET ?= bsd
 SND_TARGET ?= oss
-USE_XF86DGA ?= Y
 endif
 ifeq ($(TARGET_UNIX),openbsd)
 CD_TARGET ?= bsd
 SND_TARGET ?= sndio
-USE_XF86DGA ?= Y
 endif
 ifeq ($(TARGET_UNIX),linux)
 CD_TARGET ?= linux
 SND_TARGET ?= oss
-USE_XF86DGA ?= Y
 endif
 endif
 
@@ -599,7 +595,6 @@ $(info .    CD_TARGET = $(CD_TARGET))
 $(info .   SND_TARGET = $(SND_TARGET))
 $(info .   VID_TARGET = $(VID_TARGET))
 $(info .    IN_TARGET = $(IN_TARGET))
-$(info .  USE_XF86DGA = $(USE_XF86DGA))
 
 # ============================================================================
 # Object Files, libraries and options
@@ -890,10 +885,6 @@ CL_OBJS += x11_core.o
 SW_OBJS += vid_x.o
 GL_OBJS += vid_glx.o
 CL_LIBS += X11 Xext Xxf86vm
-ifeq ($(USE_XF86DGA),Y)
-CL_CPPFLAGS += -DUSE_XF86DGA
-CL_LIBS += Xxf86dga
-endif
 ifneq ($(X11BASE),)
 CL_CPPFLAGS += -idirafter $(X11BASE)/include
 CL_LFLAGS += $(call libdir-check,$(X11BASE)/lib)
