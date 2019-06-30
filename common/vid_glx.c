@@ -363,6 +363,7 @@ VID_restore_vidmode()
 {
     if (vidmode_active) {
 	XF86VidModeSwitchToMode(x_disp, x_visinfo->screen, &saved_vidmode);
+        XFlush(x_disp);
 	if (saved_vidmode.privsize && saved_vidmode.private)
 	    XFree(saved_vidmode.private);
         vidmode_active = false;
@@ -422,8 +423,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	result = XF86VidModeSwitchToMode(x_disp, x_visinfo->screen, xmode);
 	if (!result)
 	    Sys_Error("%s: mode switch failed", __func__);
-
 	XFree(xmodes);
+        XFlush(x_disp);
 
         /* Fullscreen mode is now active */
         vidmode_active = true;
