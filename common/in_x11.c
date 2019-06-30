@@ -133,6 +133,7 @@ void
 IN_UngrabMouse(void)
 {
     if (mouse_grab_active) {
+        XSelectInput(x_disp, x_win, X_CORE_MASK | X_KEY_MASK);
 	XUngrabPointer(x_disp, CurrentTime);
 	XUndefineCursor(x_disp, x_win);
 	mouse_grab_active = false;

@@ -399,7 +399,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     valuemask = CWBackPixel | CWColormap | CWEventMask;
     attributes.background_pixel = 0;
     attributes.colormap = XCreateColormap(x_disp, root, x_visinfo->visual, AllocNone);
-    attributes.event_mask = X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK;
+    attributes.event_mask = X_CORE_MASK | X_KEY_MASK;
 
     if (VID_IsFullScreen()) {
 	XF86VidModeModeInfo **xmodes, *xmode;
