@@ -543,7 +543,7 @@ IN_MouseMove(usercmd_t *cmd)
     int mx, my;
     DIDEVICEOBJECTDATA mouse_state;
     HRESULT result;
-    unsigned int button_state;
+    unsigned int button_state = 0;
 
     if (!mouseactive)
 	return;
