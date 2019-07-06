@@ -592,10 +592,9 @@ R_RenderBrushPoly
 ================
 */
 void
-R_RenderBrushPoly(const entity_t *e, msurface_t *fa)
+R_RenderBrushPoly(const entity_t *e, msurface_t *fa, const texture_t *texture)
 {
     lm_block_t *block;
-    texture_t *t;
 
     c_brush_polys++;
 
@@ -608,8 +607,7 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *fa)
 	GL_SelectTexture(GL_TEXTURE0_ARB);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
     }
-    t = R_TextureAnimation(e, fa->texinfo->texture);
-    GL_Bind(t->gl_texturenum);
+    GL_Bind(texture->gl_texturenum);
 
     if (fa->flags & SURF_DRAWTURB) {	// warp texture, no lightmaps
 	EmitWaterPolys(fa);
@@ -633,22 +631,17 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *fa)
 	DrawGLPoly_2Ply(fa->polys);
 	GL_DisableMultitexture();
 
-        /*
-         * FIXME: Incomplete fullbrights implementation, only multitexture and only BSP model.
-         * - TODO: support alias models
-         * - TODO: support other texturing modes
-         */
-	if (gl_fullbrights.value && t->gl_texturenum_fullbright) {
+	/* Fullbright mask texture */
+	if (gl_fullbrights.value && texture->gl_texturenum_fullbright) {
             glDepthMask(GL_FALSE);
             glEnable(GL_BLEND);
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-            GL_Bind(t->gl_texturenum_fullbright);
+            GL_Bind(texture->gl_texturenum_fullbright);
             DrawGLPoly(fa->polys);
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
 	}
-
     } else {
 	if (WATER_WARP_TEST(fa))
 	    DrawGLWaterPoly(fa->polys);
@@ -780,10 +773,11 @@ DrawTextureChains(const entity_t *e)
 	} else {
 	    if ((s->flags & SURF_DRAWTURB) && r_wateralpha.value != 1.0)
 		continue;	// draw translucent water later
-	    for (; s; s = s->texturechain)
-		R_RenderBrushPoly(e, s);
+	    for (; s; s = s->texturechain) {
+		texture_t *texture = R_TextureAnimation(e, s->texinfo->texture);
+		R_RenderBrushPoly(e, s, texture);
+	    }
 	}
-	t->texturechain = NULL;
     }
 }
 
@@ -935,7 +929,8 @@ R_DrawBrushModel(const entity_t *e)
             /* FIXME - hack for dynamic lightmap updates... */
             qboolean real_mtexable = gl_mtexable;
             gl_mtexable = false;
-            R_RenderBrushPoly(e, surf);
+	    texture_t *texture = R_TextureAnimation(e, surf->texinfo->texture);
+            R_RenderBrushPoly(e, surf, texture);
             gl_mtexable = real_mtexable;
         }
     }
@@ -1133,6 +1128,33 @@ R_DrawWorld(void)
 	} else {
 	    DrawTextureChains(&ent);
 	    R_BlendLightmaps();
+
+	    if (!gl_mtexable && gl_fullbrights.value) {
+		for (i = 0; i < cl.worldmodel->numtextures; i++) {
+		    texture_t *texture = R_TextureAnimation(&ent, cl.worldmodel->textures[i]);
+		    if (!texture || !texture->gl_texturenum_fullbright)
+			continue;
+
+		    msurface_t *surf;
+		    for (surf = texture->texturechain; surf; surf = surf->texturechain) {
+			glDepthMask(GL_FALSE);
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+			GL_Bind(texture->gl_texturenum_fullbright);
+			DrawGLPoly(surf->polys);
+			glDisable(GL_BLEND);
+			glDepthMask(GL_TRUE);
+		    }
+		}
+	    }
+
+	    /* Zero out the texturechains */
+	    for (i = 0; i < cl.worldmodel->numtextures; i++) {
+		texture_t *texture = cl.worldmodel->textures[i];
+		if (texture)
+		    texture->texturechain = NULL;
+	    }
 	}
     }
 }

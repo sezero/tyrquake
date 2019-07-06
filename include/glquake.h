@@ -369,7 +369,7 @@ void R_DrawBrushModel(const entity_t *e);
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawWaterSurfaces(void);
-void R_RenderBrushPoly(const entity_t *e, msurface_t *fa);
+void R_RenderBrushPoly(const entity_t *e, msurface_t *fa, const texture_t *texture);
 void GL_BuildLightmaps(void *hunkbase);
 void GL_ReloadLightmapTextures();
 
