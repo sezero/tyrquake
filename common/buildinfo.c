@@ -32,7 +32,11 @@ Build_DateString()
     time_t timestamp = build_version_timestamp;
     struct tm gmtimestamp;
 
+#ifdef _WIN32
     gmtime_s(&gmtimestamp, &timestamp);
+#else
+    gmtime_r(&timestamp, &gmtimestamp);
+#endif
     strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", &gmtimestamp);
 
     return buffer;
