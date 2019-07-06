@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <stdint.h>
 
+#include "buildinfo.h"
 #include "common.h"
 #include "console.h"
 #include "d_iface.h"
@@ -193,7 +194,7 @@ Draw_CacheConback(void)
     pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */
-    qsnprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    qsnprintf(version, sizeof(version), "%s", build_version);
     Draw_ConbackString(pic, dpic->data, version);
 
     return pic;

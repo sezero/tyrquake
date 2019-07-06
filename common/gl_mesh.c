@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // gl_mesh.c: triangle model functions
 
+#include "buildinfo.h"
 #include "common.h"
 #include "console.h"
 #include "glquake.h"
@@ -397,7 +398,7 @@ GL_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     int64_t fileTime = Sys_FileTime(cache);
     if (fileTime == -1)
         cached = false;
-    if (fileTime < TYR_VERSION_TIME)
+    if (fileTime < build_version_timestamp)
         cached = false;
 
     if (cached) {

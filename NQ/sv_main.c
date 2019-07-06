@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // sv_main.c -- server main program
 
 #include "bspfile.h"
+#include "buildinfo.h"
 #include "cmd.h"
 #include "console.h"
 #include "cvar.h"
@@ -342,7 +343,7 @@ SV_SendServerinfo(client_t *client)
     MSG_WriteByte(&client->message, svc_print);
     MSG_WriteStringf(&client->message,
 		     "%c\nVERSION TyrQuake-%s SERVER (%i CRC)\n",
-		     2, stringify(TYR_VERSION), pr_crc);
+		     2, build_version, pr_crc);
 
     MSG_WriteByte(&client->message, svc_serverinfo);
     MSG_WriteLong(&client->message, sv.protocol);

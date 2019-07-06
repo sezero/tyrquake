@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include "buildinfo.h"
 #include "cmd.h"
 #include "console.h"
 #include "model.h"
@@ -1357,8 +1358,7 @@ SV_InitLocal(void)
     Cmd_AddCommand("writeip", SV_WriteIP_f);
 
     Info_SetValueForStarKey(svs.info, "*version",
-			    va("TyrQuake-%s", stringify(TYR_VERSION)),
-			    MAX_SERVERINFO_STRING);
+			    va("TyrQuake-%s", build_version), MAX_SERVERINFO_STRING);
 
     // init fraglog stuff
     svs.logsequence = 1;
@@ -1637,9 +1637,9 @@ SV_Init(quakeparms_t *parms)
 
     host_initialized = true;
 
-    Con_Printf("Exe: " __TIME__ " " __DATE__ "\n");
+    Con_Printf("Exe: %s\n", Build_DateString());
     Con_Printf("%4.1f megabyte heap\n", parms->memsize / (1024 * 1024.0));
-    Con_Printf("\nServer Version TyrQuake-%s\n\n", stringify(TYR_VERSION));
+    Con_Printf("\nServer Version TyrQuake-%s\n\n", build_version);
     Con_Printf("======== QuakeWorld Initialized ========\n");
 
     /*

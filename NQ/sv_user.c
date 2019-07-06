@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // sv_user.c -- server code for moving users
 
+#include "buildinfo.h"
 #include "client.h"
 #include "cmd.h"
 #include "console.h"
@@ -501,7 +502,7 @@ SV_Status_f(client_t *client)
     int i;
 
     SV_ClientPrintf(client, "host:    %s\n", Cvar_VariableString("hostname"));
-    SV_ClientPrintf(client, "version: TyrQuake-%s\n", stringify(TYR_VERSION));
+    SV_ClientPrintf(client, "version: TyrQuake-%s\n", build_version);
     if (tcpipAvailable)
 	SV_ClientPrintf(client, "tcp/ip:  %s\n", my_tcpip_address);
     SV_ClientPrintf(client, "map:     %s\n", sv.name);

@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <netinet/in.h>
 #endif
 
+#include "buildinfo.h"
 #include "cdaudio.h"
 #include "client.h"
 #include "cmd.h"
@@ -180,8 +181,8 @@ CL_Version_f
 void
 CL_Version_f(void)
 {
-    Con_Printf("Version TyrQuake-%s\n", stringify(TYR_VERSION));
-    Con_Printf("Exe: " __TIME__ " " __DATE__ "\n");
+    Con_Printf("Version TyrQuake-%s\n", build_version);
+    Con_Printf("Exe: %s", Build_DateString());
 }
 
 
@@ -1038,7 +1039,7 @@ CL_Init(void)
     Info_SetValueForKey(cls.userinfo, "bottomcolor", "0", MAX_INFO_STRING);
     Info_SetValueForKey(cls.userinfo, "rate", "2500", MAX_INFO_STRING);
     Info_SetValueForKey(cls.userinfo, "msg", "1", MAX_INFO_STRING);
-    qsnprintf(st, sizeof(st), "TyrQuake-%s", stringify(TYR_VERSION));
+    qsnprintf(st, sizeof(st), "TyrQuake-%s", build_version);
     Info_SetValueForStarKey(cls.userinfo, "*ver", st, MAX_INFO_STRING);
 
     CL_InitInput();
@@ -1422,8 +1423,8 @@ Host_Init(quakeparms_t *parms)
     M_Init();
     Mod_Init(R_ModelLoader());
 
-//      Con_Printf ("Exe: "__TIME__" "__DATE__"\n");
-    Con_Printf("%4.1f megs RAM used.\n", parms->memsize / (1024 * 1024.0));
+    Con_Printf("Exe: %s\n", Build_DateString());
+    Con_Printf("%4.1f megabyte heap\n", parms->memsize / (1024 * 1024.0));
 
     R_InitTextures();
 
@@ -1452,7 +1453,7 @@ Host_Init(quakeparms_t *parms)
     host_hunklevel = Hunk_LowMark();
 
     host_initialized = true;
-    Con_Printf("\nClient Version TyrQuake-%s\n\n", stringify(TYR_VERSION));
+    Con_Printf("\nClient Version TyrQuake-%s\n\n", build_version);
     Con_Printf("\200\201\201\201\201\201\201 QuakeWorld Initialized "
 	       "\201\201\201\201\201\201\202\n");
 

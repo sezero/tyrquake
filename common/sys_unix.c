@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <sys/mman.h>
 #endif
 
+#include "buildinfo.h"
 #include "common.h"
 #include "sys.h"
 #include "zone.h"
@@ -357,10 +358,10 @@ main(int argc, const char *argv[])
 	      fcntl(STDIN_FILENO, F_GETFL, 0) | O_NONBLOCK);
     if (!nostdout)
 #ifdef NQ_HACK
-	printf("Quake -- TyrQuake Version %s\n", stringify(TYR_VERSION));
+	printf("Quake -- TyrQuake Version %s\n", build_version);
 #endif
 #ifdef QW_HACK
-	printf("QuakeWorld -- TyrQuake Version %s\n", stringify(TYR_VERSION));
+	printf("QuakeWorld -- TyrQuake Version %s\n", build_version);
 #endif
 
     Sys_Init();

@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include "buildinfo.h"
 #include "client.h"
 #include "cmd.h"
 #include "console.h"
@@ -508,8 +509,8 @@ Host_Loadgame_f(void)
 static void
 Host_Version_f(void)
 {
-    Con_Printf("Version TyrQuake-%s\n", stringify(TYR_VERSION));
-    Con_Printf("Exe: " __TIME__ " " __DATE__ "\n");
+    Con_Printf("Version TyrQuake-%s\n", build_version);
+    Con_Printf("Exe: %s", Build_DateString());
 }
 
 /*

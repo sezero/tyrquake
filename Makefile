@@ -367,13 +367,7 @@ cmd_fixdep = \
 	cp $(@D)/.$(@F).d $(@D)/.$(@F).d.tmp && \
 	sed -e 's/\#.*//' -e 's/^[^:]*: *//' -e 's/ *\\$$//' -e '/^$$/ d' \
 	    -e 's/$$/ :/' < $(@D)/.$(@F).d.tmp >> $(@D)/.$(@F).d && \
-	rm -f $(@D)/.$(@F).d.tmp && \
-	{ if grep -q TYR_VERSION $<; then \
-		printf '%s: %s\n' $@ $(BUILD_VERSION_FILE) >> $(@D)/.$(@F).d ; \
-	fi ; \
-	if grep -q TYR_VERSION_TIME $<; then \
-		printf '%s: %s\n' $@ $(BUILD_VERSION_TIME_FILE) >> $(@D)/.$(@F).d ; \
-	fi ; }
+	rm -f $(@D)/.$(@F).d.tmp
 
 cmd_cc_dep_c = \
 	$(CC) -MM -MT $@ $(CPPFLAGS) -o $(@D)/.$(@F).d $< && \
@@ -525,6 +519,7 @@ endif
 #  $(2) - CPPFLAGS
 #  $(3) - CFLAGS
 define NQCL_RULES
+$(1)/buildinfo.o: $(BUILD_VERSION_FILE) $(BUILD_VERSION_TIME_FILE)
 $(1)/%.o:	CPPFLAGS = $(2)
 $(1)/%.o:	CFLAGS += $(3)
 $(1)/%.o:	common/%.S	; $$(do_cc_o_c)
@@ -535,6 +530,7 @@ $(1)/%.res:	common/%.rc	; $$(do_windres_res_rc)
 $(1)/%.res:	NQ/%.rc		; $$(do_windres_res_rc)
 endef
 define QWCL_RULES
+$(1)/buildinfo.o: $(BUILD_VERSION_FILE) $(BUILD_VERSION_TIME_FILE)
 $(1)/%.o:	CPPFLAGS = $(2)
 $(1)/%.o:	CFLAGS += $(3)
 $(1)/%.o:	common/%.S	; $$(do_cc_o_c)
@@ -547,6 +543,7 @@ $(1)/%.res:	common/%.rc	; $$(do_windres_res_rc)
 $(1)/%.res:	QW/client/%.rc	; $$(do_windres_res_rc)
 endef
 define QWSV_RULES
+$(1)/buildinfo.o: $(BUILD_VERSION_FILE) $(BUILD_VERSION_TIME_FILE)
 $(1)/%.o:	CPPFLAGS = $(2)
 $(1)/%.o:	CFLAGS += $(3)
 $(1)/%.o:	QW/server/%.S	; $$(do_cc_o_c)
@@ -647,6 +644,7 @@ $(info .    IN_TARGET = $(IN_TARGET))
 # --------------------------------------------------------------------------
 
 COMMON_OBJS := \
+	buildinfo.o	\
 	cmd.o		\
 	common.o	\
 	crc.o		\
@@ -1046,7 +1044,7 @@ TEXT_DOCS = $(patsubst %.6,$(DOC_DIR)/%.txt,$(SRC_DOCS))
 docs:	$(MAN_DOCS) $(HTML_DOCS) $(TEXT_DOCS)
 
 # ----------------------------------------------------------------------------
-# Very basic clean target (can't use xargs on MSYS)
+# Very basic clean target
 # ----------------------------------------------------------------------------
 
 # Main clean function...
@@ -1055,9 +1053,7 @@ clean:
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(DOC_DIR)
 	@rm -rf $(DIST_DIR)
-	@rm -f $(shell find . \( \
-		-name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' \
-	\) -print)
+	@find . \( -name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' \) -exec rm -f {} +
 
 # ----------------------------------------------------------------------------
 # OSX Packaging Tools (WIP)

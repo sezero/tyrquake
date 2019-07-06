@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // draw.c -- this is the only file outside the refresh that touches the
 // vid buffer
 
+#include "buildinfo.h"
 #include "console.h"
 #include "draw.h"
 #include "glquake.h"
@@ -406,7 +407,7 @@ Draw_Init(void)
     pic->pixels = dpic->data;
 
     /* hack the version number directly into the pic */
-    qsnprintf(version, sizeof(version), "%s", stringify(TYR_VERSION));
+    qsnprintf(version, sizeof(version), "%s", build_version);
     Draw_ConbackString(pic, dpic->data, version);
 
     Scrap_Init();
@@ -799,7 +800,7 @@ Draw_ConsoleBackground(int lines)
 #ifdef QW_HACK
     {
 	if (!cls.download) {
-	    const char *version = va("TyrQuake (%s) QuakeWorld", stringify(TYR_VERSION));
+	    const char *version = va("TyrQuake (%s) QuakeWorld", build_version);
             int x = scr_scaled_width - (strlen(version) * 8 + 11);
             y = (int)((lines - 14) / scr_scale);
 	    Draw_Alt_String(x, y, version);
