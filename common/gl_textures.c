@@ -45,16 +45,17 @@ int gl_alpha_format = GL_RGBA;	// 4
 
 /* Indexed by enum texture_type */
 const texture_properties_t texture_properties[] = {
+    // Palette          Alpha Operation              mipmap picmip playermip
     { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // CHARSET
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // HUD
     { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  true,  false }, // WORLD
     { &qpal_fullbright, QPIC_ALPHA_OP_NONE,          true,  true,  false }, // WORLD_FULLBRIGHT
     { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, false }, // SKY_BACKGROUND
     { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // SKY_FOREGROUND
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  true,  false }, // ALIAS_SKIN
-    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  true,  false }, // ALIAS_SKIN_FULLBRIGHT
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  false, true  }, // PLAYER_SKIN
-    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  false, true  }, // PLAYER_SKIN_FULLBRIGHT
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, true,  false }, // ALIAS_SKIN
+    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, true,  false }, // ALIAS_SKIN_FULLBRIGHT
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, true  }, // PLAYER_SKIN
+    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, false, true  }, // PLAYER_SKIN_FULLBRIGHT
     { NULL,             QPIC_ALPHA_OP_NONE,          false, false, false }, // LIGHTMAP
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // PARTICLE
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false }, // SPRITE
