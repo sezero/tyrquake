@@ -1262,35 +1262,6 @@ Mod_LoadNodes_BSP2(brushmodel_t *brushmodel, dheader_t *header)
     Mod_SetParent(brushmodel->nodes, NULL);
 }
 
-static void
-Mod_SetLeafFlags(const model_t *model, mleaf_t *leaf)
-{
-#ifdef GLQUAKE
-    int i;
-
-    // FIXME - gl underwater warp
-    // this warping is ugly, these ifdefs are ugly - get rid of it all?
-    if (leaf->contents != CONTENTS_EMPTY) {
-	for (i = 0; i < leaf->nummarksurfaces; i++)
-	    leaf->firstmarksurface[i]->flags |= SURF_UNDERWATER;
-    }
-
-#ifdef QW_HACK
-    {
-	char mapmodel[MAX_QPATH];
-	qsnprintf(mapmodel, sizeof(mapmodel), "maps/%s.bsp",
-		 Info_ValueForKey(cl.serverinfo, "map"));
-	if (strcmp(mapmodel, model->name)) {
-#endif
-	    for (i = 0; i < leaf->nummarksurfaces; i++)
-		leaf->firstmarksurface[i]->flags |= SURF_DONTWARP;
-#ifdef QW_HACK
-	}
-    }
-#endif
-#endif
-}
-
 /*
 =================
 Mod_LoadLeafs
@@ -1334,8 +1305,6 @@ Mod_LoadLeafs_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 	}
 	for (j = 0; j < 4; j++)
 	    out->ambient_sound_level[j] = in->ambient_level[j];
-
-	Mod_SetLeafFlags(model, out);
     }
 }
 
@@ -1376,8 +1345,6 @@ Mod_LoadLeafs_BSP2rmq(brushmodel_t *brushmodel, dheader_t *header)
 	}
 	for (j = 0; j < 4; j++)
 	    out->ambient_sound_level[j] = in->ambient_level[j];
-
-	Mod_SetLeafFlags(model, out);
     }
 }
 
@@ -1418,8 +1385,6 @@ Mod_LoadLeafs_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 	}
 	for (j = 0; j < 4; j++)
 	    out->ambient_sound_level[j] = in->ambient_level[j];
-
-	Mod_SetLeafFlags(model, out);
     }
 }
 

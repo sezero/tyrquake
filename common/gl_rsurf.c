@@ -28,28 +28,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
-/*
- * Can't decide on water warp strategy yet
- * - Warp stuff on the other side of the water surface
- * - or just always warp underwater surfaces...
- * - issues with moving bsp models...
- */
-//#define WATER_WARP_THROUGH_SURFACE
-
-#ifdef WATER_WARP_THROUGH_SURFACE
-/* FIXME - this version of the test is broken somehow... */
-#define WATER_WARP_TEST(surf)					\
-    (r_waterwarp.value && !((surf)->flags & SURF_DONTWARP) &&	\
-	((r_viewleaf->contents == CONTENTS_EMPTY &&		\
-	 ((surf)->flags & SURF_UNDERWATER))			\
-    ||								\
-	 (r_viewleaf->contents != CONTENTS_EMPTY &&		\
-         !((surf)->flags & SURF_UNDERWATER))))
-#else
-#define WATER_WARP_TEST(surf)		\
-    (r_waterwarp.value && ((surf)->flags & SURF_UNDERWATER))
-#endif
-
 #define	MAX_LM_BLOCKS	256
 
 static int lightmap_bytes;		// 1, 2, or 4
@@ -368,62 +346,6 @@ DrawGLPoly_2Ply(glpoly_t *p)
 }
 
 static void
-WaterWarpCoord(vec3_t in, vec3_t out)
-{
-    /* Produce the warped coord */
-    out[0] = sin(in[1] * 0.05 + realtime) * sin(in[2] * 0.05 + realtime);
-    out[0] = out[0] * 8 + in[0];
-    out[1] = sin(in[0] * 0.05 + realtime) * sin(in[2] * 0.05 + realtime);
-    out[1] = out[1] * 8 + in[1];
-    out[2] = in[2];
-}
-
-/*
-================
-DrawGLWaterPoly
-
-Warp the vertex coordinates
-================
-*/
-static void
-DrawGLWaterPoly(glpoly_t *p)
-{
-    int i;
-    float *v;
-    vec3_t nv;
-
-    GL_DisableMultitexture();
-
-    glBegin(GL_TRIANGLE_FAN);
-    v = p->verts[0];
-    for (i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-	glTexCoord2f(v[3], v[4]);
-	WaterWarpCoord(v, nv);
-	glVertex3fv(nv);
-    }
-    glEnd();
-}
-
-static void
-DrawGLWaterPolyLightmap(glpoly_t *p)
-{
-    int i;
-    float *v;
-    vec3_t nv;
-
-    GL_DisableMultitexture();
-
-    glBegin(GL_TRIANGLE_FAN);
-    v = p->verts[0];
-    for (i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-	glTexCoord2f(v[5], v[6]);
-	WaterWarpCoord(v, nv);
-	glVertex3fv(nv);
-    }
-    glEnd();
-}
-
-static void
 DrawFlatGLPoly(glpoly_t *p)
 {
     int i;
@@ -512,10 +434,7 @@ R_BlendLightmaps(void)
 	    block->modified = false;
 	}
 	for (p = block->polys; p; p = p->chain) {
-	    if (WATER_WARP_TEST(p))
-		DrawGLWaterPolyLightmap(p);
-	    else
-		DrawGLPolyLM(p);
+	    DrawGLPolyLM(p);
 	}
     }
 
@@ -643,10 +562,7 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *fa, const texture_t *texture)
             glDepthMask(GL_TRUE);
 	}
     } else {
-	if (WATER_WARP_TEST(fa))
-	    DrawGLWaterPoly(fa->polys);
-	else
-	    DrawGLPoly(fa->polys);
+	DrawGLPoly(fa->polys);
 
 	/* add the poly to the proper lightmap chain */
 	fa->polys->chain = block->polys;
@@ -991,7 +907,7 @@ R_RecursiveWorldNode
 static void
 R_RecursiveWorldNode(mnode_t *node)
 {
-    int c, side;
+    int numsurfaces, side;
     mplane_t *plane;
     msurface_t *surf, **mark;
     mleaf_t *pleaf;
@@ -1010,13 +926,13 @@ R_RecursiveWorldNode(mnode_t *node)
 	pleaf = (mleaf_t *)node;
 
 	mark = pleaf->firstmarksurface;
-	c = pleaf->nummarksurfaces;
+	numsurfaces = pleaf->nummarksurfaces;
 
-	if (c) {
+	if (numsurfaces) {
 	    do {
 		(*mark)->visframe = r_framecount;
 		mark++;
-	    } while (--c);
+	    } while (--numsurfaces);
 	}
 	// deal with model fragments in this leaf
 	if (pleaf->efrags)
@@ -1046,24 +962,22 @@ R_RecursiveWorldNode(mnode_t *node)
     R_RecursiveWorldNode(node->children[side]);
 
     /* draw stuff */
-    c = node->numsurfaces;
+    numsurfaces = node->numsurfaces;
 
-    if (c) {
-	surf = cl.worldmodel->surfaces + node->firstsurface;
-
+    if (numsurfaces) {
 	if (dot < -BACKFACE_EPSILON)
 	    side = SURF_PLANEBACK;
 	else if (dot > BACKFACE_EPSILON)
 	    side = 0;
 
-	for (; c; c--, surf++) {
+	surf = cl.worldmodel->surfaces + node->firstsurface;
+	for (; numsurfaces; numsurfaces--, surf++) {
 	    if (surf->visframe != r_framecount)
 		continue;
 
-	    // don't backface underwater surfaces, because they warp
-	    if (!WATER_WARP_TEST(surf)
-		&& ((dot < 0) ^ !!(surf->flags & SURF_PLANEBACK)))
-		continue;	// wrong side
+	    // backface cull
+	    if ((dot < 0) ^ !!(surf->flags & SURF_PLANEBACK))
+		continue;
 
 	    // just store it out
 	    if (!mirror
@@ -1250,7 +1164,6 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf,
     poly = Hunk_AllocExtend(hunkbase, memsize);
     poly->next = surf->polys;
     surf->polys = poly;
-    poly->flags = surf->flags;
     poly->numverts = surf->numedges;
 
     for (i = 0; i < surf->numedges; i++) {

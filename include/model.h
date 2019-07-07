@@ -102,17 +102,12 @@ typedef struct texture_s {
     unsigned offsets[MIPLEVELS];	// four mip maps stored
 } texture_t;
 
-
 #define	SURF_PLANEBACK		(1 << 1)
 #define	SURF_DRAWSKY		(1 << 2)
 #define SURF_DRAWSPRITE		(1 << 3)
 #define SURF_DRAWTURB		(1 << 4)
 #define SURF_DRAWTILED		(1 << 5)
 #define SURF_DRAWBACKGROUND	(1 << 6)
-#ifdef GLQUAKE
-#define SURF_UNDERWATER		(1 << 7)
-#define SURF_DONTWARP		(1 << 8)
-#endif
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct {
@@ -133,7 +128,6 @@ typedef struct glpoly_s {
     struct glpoly_s *next;
     struct glpoly_s *chain;
     int numverts;
-    int flags;			// for SURF_UNDERWATER
     float verts[0][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
 } glpoly_t;
 #endif
