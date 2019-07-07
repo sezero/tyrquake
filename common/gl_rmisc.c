@@ -224,7 +224,6 @@ R_Init(void)
     Cvar_RegisterVariable(&_gl_allowgammafallback);
     Cvar_RegisterVariable(&_gl_drawhull);
 
-    Cvar_RegisterVariable(&gl_cull);
     Cvar_RegisterVariable(&gl_smoothmodels);
     Cvar_RegisterVariable(&gl_affinemodels);
     Cvar_RegisterVariable(&gl_polyblend);

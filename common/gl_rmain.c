@@ -113,7 +113,6 @@ cvar_t gl_texsort = {
 };
 
 cvar_t gl_finish = { "gl_finish", "0" };
-cvar_t gl_cull = { "gl_cull", "1" };
 cvar_t gl_smoothmodels = { "gl_smoothmodels", "1" };
 cvar_t gl_affinemodels = { "gl_affinemodels", "0" };
 cvar_t gl_polyblend = { "gl_polyblend", "1" };
@@ -1508,11 +1507,7 @@ R_SetupGL(void)
     //
     // set drawing parms
     //
-    if (gl_cull.value)
-	glEnable(GL_CULL_FACE);
-    else
-	glDisable(GL_CULL_FACE);
-
+    glEnable(GL_CULL_FACE);
     glDisable(GL_BLEND);
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_DEPTH_TEST);

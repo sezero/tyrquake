@@ -233,7 +233,6 @@ extern cvar_t r_wateralpha;
 extern cvar_t r_dynamic;
 extern cvar_t r_novis;
 
-extern cvar_t gl_cull;
 extern cvar_t gl_poly;
 extern cvar_t gl_texsort;
 extern cvar_t gl_smoothmodels;
