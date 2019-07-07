@@ -190,14 +190,14 @@ Does a water warp on the pre-fragmented glpoly_t chain
 =============
 */
 void
-EmitWaterPolys(msurface_t *fa)
+EmitWaterPolys(msurface_t *surf)
 {
     glpoly_t *p;
     float *v;
     int i;
     float s, t, os, ot;
 
-    for (p = fa->polys; p; p = p->next) {
+    for (p = surf->polys; p; p = p->next) {
 	glBegin(GL_POLYGON);
 	for (i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE) {
 	    os = v[3];
@@ -223,7 +223,7 @@ EmitSkyPolys
 =============
 */
 void
-EmitSkyPolys(msurface_t *fa)
+EmitSkyPolys(msurface_t *surf)
 {
     glpoly_t *p;
     float *v;
@@ -232,7 +232,7 @@ EmitSkyPolys(msurface_t *fa)
     vec3_t dir;
     float length;
 
-    for (p = fa->polys; p; p = p->next) {
+    for (p = surf->polys; p; p = p->next) {
 	glBegin(GL_POLYGON);
 	for (i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE) {
 	    VectorSubtract(v, r_origin, dir);
@@ -262,7 +262,7 @@ EmitSkyPolysMtex
 =================
 */
 void
-EmitSkyPolysMtex(msurface_t *fa)
+EmitSkyPolysMtex(msurface_t *surf)
 {
     glpoly_t *p;
     float *v;
@@ -271,7 +271,7 @@ EmitSkyPolysMtex(msurface_t *fa)
     vec3_t dir;
     float length;
 
-    for (p = fa->polys; p; p = p->next) {
+    for (p = surf->polys; p; p = p->next) {
 	glBegin(GL_POLYGON);
 	for (i = 0, v = p->verts[0]; i < p->numverts; i++, v += VERTEXSIZE) {
 	    VectorSubtract(v, r_origin, dir);
@@ -308,9 +308,9 @@ will have them chained together.
 ===============
 */
 void
-EmitBothSkyLayers(msurface_t *fa)
+EmitBothSkyLayers(msurface_t *surf)
 {
-    texture_t *t = fa->texinfo->texture;
+    texture_t *t = surf->texinfo->texture;
 
     GL_DisableMultitexture();
 
@@ -318,14 +318,14 @@ EmitBothSkyLayers(msurface_t *fa)
     speedscale = realtime * 8;
     speedscale -= (int)speedscale & ~127;
 
-    EmitSkyPolys(fa);
+    EmitSkyPolys(surf);
 
     glEnable(GL_BLEND);
     GL_Bind(t->gl_texturenum_alpha);
     speedscale = realtime * 16;
     speedscale -= (int)speedscale & ~127;
 
-    EmitSkyPolys(fa);
+    EmitSkyPolys(surf);
 
     glDisable(GL_BLEND);
 }
@@ -336,10 +336,9 @@ R_DrawSkyChain
 =================
 */
 void
-R_DrawSkyChain(msurface_t *s)
+R_DrawSkyChain(msurface_t *surf)
 {
-    msurface_t *fa;
-    texture_t *t = s->texinfo->texture;
+    texture_t *t = surf->texinfo->texture;
 
     if (gl_mtexable) {
 	GL_SelectTexture(GL_TEXTURE0_ARB);
@@ -356,28 +355,30 @@ R_DrawSkyChain(msurface_t *s)
 	speedscale2 = realtime * 16;
 	speedscale2 -= (int)speedscale2 & ~127;
 
-	for (fa = s; fa; fa = fa->texturechain)
-	    EmitSkyPolysMtex(fa);
+	for ( ; surf; surf = surf->texturechain)
+	    EmitSkyPolysMtex(surf);
 
 	GL_DisableMultitexture();
 
     } else {
+	msurface_t *first = surf;
+
 	GL_DisableMultitexture();
 
 	GL_Bind(t->gl_texturenum);
 	speedscale = realtime * 8;
 	speedscale -= (int)speedscale & ~127;
 
-	for (fa = s; fa; fa = fa->texturechain)
-	    EmitSkyPolys(fa);
+	for (surf = first; surf; surf = surf->texturechain)
+	    EmitSkyPolys(surf);
 
 	glEnable(GL_BLEND);
 	GL_Bind(t->gl_texturenum_alpha);
 	speedscale = realtime * 16;
 	speedscale -= (int)speedscale & ~127;
 
-	for (fa = s; fa; fa = fa->texturechain)
-	    EmitSkyPolys(fa);
+	for (surf = first; surf; surf = surf->texturechain)
+	    EmitSkyPolys(surf);
 
 	glDisable(GL_BLEND);
     }

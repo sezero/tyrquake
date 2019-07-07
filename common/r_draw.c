@@ -356,7 +356,7 @@ R_RenderFace
 ================
 */
 void
-R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
+R_RenderFace(const entity_t *e, msurface_t *surf, int clipflags)
 {
     const brushmodel_t *brushmodel = BrushModel(e->model);
     const qboolean insubmodel = e->model != r_worldentity.model;
@@ -374,8 +374,8 @@ R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
 	return;
     }
 // ditto if not enough edges left, or switch to auxedges if possible
-    if ((edge_p + fa->numedges + 4) >= edge_max) {
-	r_outofedges += fa->numedges;
+    if ((edge_p + surf->numedges + 4) >= edge_max) {
+	r_outofedges += surf->numedges;
 	return;
     }
 
@@ -399,8 +399,8 @@ R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
     pedges = brushmodel->edges;
     r_lastvertvalid = false;
 
-    for (i = 0; i < fa->numedges; i++) {
-	lindex = brushmodel->surfedges[fa->firstedge + i];
+    for (i = 0; i < surf->numedges; i++) {
+	lindex = brushmodel->surfedges[surf->firstedge + i];
 
 	if (lindex > 0) {
 	    r_pedge = &pedges[lindex];
@@ -468,16 +468,16 @@ R_RenderFace(const entity_t *e, msurface_t *fa, int clipflags)
 
     r_polycount++;
 
-    surface_p->data = (void *)fa;
+    surface_p->data = (void *)surf;
     surface_p->nearzi = r_nearzi;
-    surface_p->flags = fa->flags;
+    surface_p->flags = surf->flags;
     surface_p->insubmodel = insubmodel;
     surface_p->spanstate = 0;
     surface_p->entity = e;
     surface_p->key = r_currentkey++;
     surface_p->spans = NULL;
 
-    pplane = fa->plane;
+    pplane = surf->plane;
 // FIXME: cache this?
     TransformVector(pplane->normal, p_normal);
 // FIXME: cache this?

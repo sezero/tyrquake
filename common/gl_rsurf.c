@@ -452,7 +452,7 @@ R_BlendLightmaps(void)
  * R_UpdateLightmapBlockRect
  */
 static void
-R_UpdateLightmapBlockRect(msurface_t *fa)
+R_UpdateLightmapBlockRect(msurface_t *surf)
 {
     int map;
     byte *base;
@@ -464,44 +464,44 @@ R_UpdateLightmapBlockRect(msurface_t *fa)
 	return;
 
     /* Check if any of this surface's lightmaps changed */
-    foreach_surf_lightstyle(fa, map)
-	if (d_lightstylevalue[fa->styles[map]] != fa->cached_light[map])
+    foreach_surf_lightstyle(surf, map)
+	if (d_lightstylevalue[surf->styles[map]] != surf->cached_light[map])
 	    goto dynamic;
 
     /*
-     * 	fa->dlightframe == r_framecount	=> dynamic this frame
-     *  fa->cached_dlight		=> dynamic previously
+     * 	surf->dlightframe == r_framecount	=> dynamic this frame
+     *  surf->cached_dlight		=> dynamic previously
      */
-    if (fa->dlightframe == r_framecount || fa->cached_dlight) {
+    if (surf->dlightframe == r_framecount || surf->cached_dlight) {
     dynamic:
 	/*
 	 * Record that the lightmap block for this surface has been
 	 * modified. If necessary, increase the modified rectangle to include
 	 * this surface's allocatied sub-area.
 	 */
-	block = &lm_blocks[fa->lightmaptexturenum];
+	block = &lm_blocks[surf->lightmaptexturenum];
 	rect = &block->rectchange;
 	block->modified = true;
-	if (fa->light_t < rect->t) {
+	if (surf->light_t < rect->t) {
 	    if (rect->h)
-		rect->h += rect->t - fa->light_t;
-	    rect->t = fa->light_t;
+		rect->h += rect->t - surf->light_t;
+	    rect->t = surf->light_t;
 	}
-	if (fa->light_s < rect->l) {
+	if (surf->light_s < rect->l) {
 	    if (rect->w)
-		rect->w += rect->l - fa->light_s;
-	    rect->l = fa->light_s;
+		rect->w += rect->l - surf->light_s;
+	    rect->l = surf->light_s;
 	}
-	smax = (fa->extents[0] >> 4) + 1;
-	tmax = (fa->extents[1] >> 4) + 1;
-	if ((rect->w + rect->l) < (fa->light_s + smax))
-	    rect->w = (fa->light_s - rect->l) + smax;
-	if ((rect->h + rect->t) < (fa->light_t + tmax))
-	    rect->h = (fa->light_t - rect->t) + tmax;
+	smax = (surf->extents[0] >> 4) + 1;
+	tmax = (surf->extents[1] >> 4) + 1;
+	if ((rect->w + rect->l) < (surf->light_s + smax))
+	    rect->w = (surf->light_s - rect->l) + smax;
+	if ((rect->h + rect->t) < (surf->light_t + tmax))
+	    rect->h = (surf->light_t - rect->t) + tmax;
 	base = block->data;
-	base += fa->light_t * BLOCK_WIDTH * lightmap_bytes;
-	base += fa->light_s * lightmap_bytes;
-	R_BuildLightMap(fa, base, BLOCK_WIDTH * lightmap_bytes);
+	base += surf->light_t * BLOCK_WIDTH * lightmap_bytes;
+	base += surf->light_s * lightmap_bytes;
+	R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
     }
 }
 
@@ -511,14 +511,14 @@ R_RenderBrushPoly
 ================
 */
 void
-R_RenderBrushPoly(const entity_t *e, msurface_t *fa, const texture_t *texture)
+R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 {
     lm_block_t *block;
 
     c_brush_polys++;
 
-    if (fa->flags & SURF_DRAWSKY) {	// sky texture, no lightmaps
-	EmitBothSkyLayers(fa);
+    if (surf->flags & SURF_DRAWSKY) {	// sky texture, no lightmaps
+	EmitBothSkyLayers(surf);
 	return;
     }
 
@@ -528,26 +528,26 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *fa, const texture_t *texture)
     }
     GL_Bind(texture->gl_texturenum);
 
-    if (fa->flags & SURF_DRAWTURB) {	// warp texture, no lightmaps
-	EmitWaterPolys(fa);
+    if (surf->flags & SURF_DRAWTURB) {	// warp texture, no lightmaps
+	EmitWaterPolys(surf);
 	return;
     }
     if (r_fullbright.value) {
-	DrawGLPoly(fa->polys);
+	DrawGLPoly(surf->polys);
 	return;
     }
 
-    block = &lm_blocks[fa->lightmaptexturenum];
+    block = &lm_blocks[surf->lightmaptexturenum];
     if (gl_mtexable) {
 	/* All lightmaps are up to date... */
 	GL_EnableMultitexture();
 	GL_Bind(block->texture);
 	if (block->modified) {
-	    R_UploadLMBlockUpdate(fa->lightmaptexturenum);
+	    R_UploadLMBlockUpdate(surf->lightmaptexturenum);
 	    block->modified = false;
 	}
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
-	DrawGLPoly_2Ply(fa->polys);
+	DrawGLPoly_2Ply(surf->polys);
 	GL_DisableMultitexture();
 
 	/* Fullbright mask texture */
@@ -557,18 +557,18 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *fa, const texture_t *texture)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
             GL_Bind(texture->gl_texturenum_fullbright);
-            DrawGLPoly(fa->polys);
+            DrawGLPoly(surf->polys);
             glDisable(GL_BLEND);
             glDepthMask(GL_TRUE);
 	}
     } else {
-	DrawGLPoly(fa->polys);
+	DrawGLPoly(surf->polys);
 
 	/* add the poly to the proper lightmap chain */
-	fa->polys->chain = block->polys;
-	block->polys = fa->polys;
+	surf->polys->chain = block->polys;
+	block->polys = surf->polys;
 
-	R_UpdateLightmapBlockRect(fa);
+	R_UpdateLightmapBlockRect(surf);
     }
 }
 
@@ -579,12 +579,12 @@ R_MirrorChain
 ================
 */
 static void
-R_MirrorChain(msurface_t *s)
+R_MirrorChain(msurface_t *surf)
 {
     if (mirror)
 	return;
     mirror = true;
-    mirror_plane = s->plane;
+    mirror_plane = surf->plane;
 }
 
 /*
@@ -650,7 +650,7 @@ static void
 DrawTextureChains(const entity_t *e)
 {
     int i;
-    msurface_t *s;
+    msurface_t *surf;
     texture_t *t;
 
     if (gl_mtexable) {
@@ -659,18 +659,18 @@ DrawTextureChains(const entity_t *e)
 	    t = cl.worldmodel->textures[i];
 	    if (!t)
 		continue;
-	    s = t->texturechain;
-	    if (!s)
+	    surf = t->texturechain;
+	    if (!surf)
 		continue;
-	    if (s->flags & SURF_DRAWSKY)
+	    if (surf->flags & SURF_DRAWSKY)
 		continue;
 	    if (i == mirrortexturenum && !r_mirroralpha.value)
 		continue;
-	    if ((s->flags & SURF_DRAWTURB))
+	    if ((surf->flags & SURF_DRAWTURB))
 		continue;
 
-	    for (; s; s = s->texturechain)
-		R_UpdateLightmapBlockRect(s);
+	    for (; surf; surf = surf->texturechain)
+		R_UpdateLightmapBlockRect(surf);
 	}
     }
 
@@ -678,20 +678,20 @@ DrawTextureChains(const entity_t *e)
 	t = cl.worldmodel->textures[i];
 	if (!t)
 	    continue;
-	s = t->texturechain;
-	if (!s)
+	surf = t->texturechain;
+	if (!surf)
 	    continue;
-	if (s->flags & SURF_DRAWSKY) {
-	    R_DrawSkyChain(s);
+	if (surf->flags & SURF_DRAWSKY) {
+	    R_DrawSkyChain(surf);
 	} else if (i == mirrortexturenum && r_mirroralpha.value != 1.0) {
-	    R_MirrorChain(s);
+	    R_MirrorChain(surf);
 	    continue;
 	} else {
-	    if ((s->flags & SURF_DRAWTURB) && r_wateralpha.value != 1.0)
+	    if ((surf->flags & SURF_DRAWTURB) && r_wateralpha.value != 1.0)
 		continue;	// draw translucent water later
-	    for (; s; s = s->texturechain) {
-		texture_t *texture = R_TextureAnimation(e, s->texinfo->texture);
-		R_RenderBrushPoly(e, s, texture);
+	    for (; surf; surf = surf->texturechain) {
+		texture_t *texture = R_TextureAnimation(e, surf->texinfo->texture);
+		R_RenderBrushPoly(e, surf, texture);
 	    }
 	}
     }
@@ -701,7 +701,7 @@ static void
 DrawFlatTextureChains(void)
 {
     int i;
-    msurface_t *s;
+    msurface_t *surf;
     texture_t *t;
 
     GL_DisableMultitexture();
@@ -713,15 +713,15 @@ DrawFlatTextureChains(void)
 	if (!t)
 	    continue;
 
-	s = t->texturechain;
-	if (!s)
+	surf = t->texturechain;
+	if (!surf)
 	    continue;
 
 	/* sky and water polys are chained together! */
-	if (s->flags & (SURF_DRAWSKY | SURF_DRAWTURB)) {
-	    for (; s; s = s->texturechain) {
+	if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB)) {
+	    for (; surf; surf = surf->texturechain) {
 		glpoly_t *p;
-		for (p = s->polys; p; p = p->next)
+		for (p = surf->polys; p; p = p->next)
 		    DrawFlatGLPoly(p);
 	    }
 	    t->texturechain = NULL;
@@ -730,8 +730,8 @@ DrawFlatTextureChains(void)
 
 	/* FIXME - handle mirror texture? */
 
-	for (; s; s = s->texturechain)
-	    DrawFlatGLPoly(s->polys);
+	for (; surf; surf = surf->texturechain)
+	    DrawFlatGLPoly(surf->polys);
 
 	t->texturechain = NULL;
     }
@@ -914,35 +914,33 @@ R_RecursiveWorldNode(mnode_t *node)
     double dot;
 
     if (node->contents == CONTENTS_SOLID)
-	return;			// solid
-
+	return; // solid
     if (node->visframe != r_visframecount)
-	return;
+	return; // Not in PVS
     if (R_CullBox(node->mins, node->maxs))
-	return;			// Node outside frustum
+	return; // Outside frustum
 
-// if a leaf node, draw stuff
+    // if a leaf node, mark the surfaces with the current visframe
     if (node->contents < 0) {
 	pleaf = (mleaf_t *)node;
-
 	mark = pleaf->firstmarksurface;
 	numsurfaces = pleaf->nummarksurfaces;
-
 	if (numsurfaces) {
 	    do {
 		(*mark)->visframe = r_framecount;
 		mark++;
 	    } while (--numsurfaces);
 	}
+
 	// deal with model fragments in this leaf
 	if (pleaf->efrags)
 	    R_StoreEfrags(&pleaf->efrags);
 
 	return;
     }
-// node is just a decision point, so go down the apropriate sides
 
-// find which side of the node we are on
+    // node is just a decision point, so go down the apropriate sides
+    // find which side of the node we are on
     plane = node->plane;
 
     switch (plane->type) {
@@ -961,9 +959,8 @@ R_RecursiveWorldNode(mnode_t *node)
     /* recurse down the children, front side first */
     R_RecursiveWorldNode(node->children[side]);
 
-    /* draw stuff */
+    /* Gather surfaces for drawing */
     numsurfaces = node->numsurfaces;
-
     if (numsurfaces) {
 	if (dot < -BACKFACE_EPSILON)
 	    side = SURF_PLANEBACK;
@@ -979,13 +976,13 @@ R_RecursiveWorldNode(mnode_t *node)
 	    if ((dot < 0) ^ !!(surf->flags & SURF_PLANEBACK))
 		continue;
 
-	    // just store it out
-	    if (!mirror
-		|| surf->texinfo->texture !=
-		cl.worldmodel->textures[mirrortexturenum]) {
-		surf->texturechain = surf->texinfo->texture->texturechain;
-		surf->texinfo->texture->texturechain = surf;
-	    }
+	    // skip mirror texture if mirror enabled
+	    if (mirror && surf->texinfo->texture == cl.worldmodel->textures[mirrortexturenum])
+		continue;
+
+	    // Add to the texture chain for drawing
+	    surf->texturechain = surf->texinfo->texture->texturechain;
+	    surf->texinfo->texture->texturechain = surf;
 	}
     }
 
@@ -1034,42 +1031,45 @@ R_DrawWorld(void)
 	}
 	glEnable(GL_TEXTURE_2D);
 	glColor3f(1.0, 1.0, 1.0);
-    } else {
-	R_RecursiveWorldNode(cl.worldmodel->nodes);
+	return;
+    }
 
-	if (r_drawflat.value) {
-	    DrawFlatTextureChains();
-	} else {
-	    DrawTextureChains(&ent);
-	    R_BlendLightmaps();
+    /* Build texture chains */
+    R_RecursiveWorldNode(cl.worldmodel->nodes);
 
-	    if (!gl_mtexable && gl_fullbrights.value) {
-		for (i = 0; i < cl.worldmodel->numtextures; i++) {
-		    texture_t *texture = R_TextureAnimation(&ent, cl.worldmodel->textures[i]);
-		    if (!texture || !texture->gl_texturenum_fullbright)
-			continue;
+    if (r_drawflat.value) {
+	DrawFlatTextureChains();
+	return;
+    }
 
-		    msurface_t *surf;
-		    for (surf = texture->texturechain; surf; surf = surf->texturechain) {
-			glDepthMask(GL_FALSE);
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-			glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			GL_Bind(texture->gl_texturenum_fullbright);
-			DrawGLPoly(surf->polys);
-			glDisable(GL_BLEND);
-			glDepthMask(GL_TRUE);
-		    }
-		}
-	    }
+    DrawTextureChains(&ent);
+    R_BlendLightmaps();
 
-	    /* Zero out the texturechains */
-	    for (i = 0; i < cl.worldmodel->numtextures; i++) {
-		texture_t *texture = cl.worldmodel->textures[i];
-		if (texture)
-		    texture->texturechain = NULL;
+    if (!gl_mtexable && gl_fullbrights.value) {
+	for (i = 0; i < cl.worldmodel->numtextures; i++) {
+	    texture_t *texture = R_TextureAnimation(&ent, cl.worldmodel->textures[i]);
+	    if (!texture || !texture->gl_texturenum_fullbright)
+		continue;
+
+	    msurface_t *surf;
+	    for (surf = texture->texturechain; surf; surf = surf->texturechain) {
+		glDepthMask(GL_FALSE);
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		GL_Bind(texture->gl_texturenum_fullbright);
+		DrawGLPoly(surf->polys);
+		glDisable(GL_BLEND);
+		glDepthMask(GL_TRUE);
 	    }
 	}
+    }
+
+    /* Zero out the texturechains */
+    for (i = 0; i < cl.worldmodel->numtextures; i++) {
+	texture_t *texture = cl.worldmodel->textures[i];
+	if (texture)
+	    texture->texturechain = NULL;
     }
 }
 
@@ -1150,8 +1150,7 @@ BuildSurfaceDisplayList
 ================
 */
 static void
-BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf,
-			void *hunkbase)
+BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkbase)
 {
     const mtexinfo_t *const texinfo = surf->texinfo;
     const float *vertex;
