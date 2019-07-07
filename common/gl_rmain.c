@@ -1480,7 +1480,7 @@ R_SetupGL(void)
     // FIXME - set depth dynamically for improved depth precision in smaller
     //         spaces
     //MYgluPerspective (r_refdef.fov_y, screenaspect, 4, 4096);
-    MYgluPerspective(r_refdef.fov_y, screenaspect, 4, 6144);
+    MYgluPerspective(r_refdef.fov_y, screenaspect, 4, 8192);
 
     if (mirror) {
 	if (mirror_plane->normal[2])
