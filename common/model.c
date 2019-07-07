@@ -561,7 +561,9 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	    byte *pixels = (byte *)(tx + 1);
 	    qpic8_t pic = { tx->width, tx->height, tx->width, pixels };
             tx->gl_texturenum = GL_LoadTexture(tx->name, &pic, TEXTURE_TYPE_WORLD);
-            if (QPic_HasFullbrights(&pic)) {
+
+	    /* Fullbright mask if required (not on liquids) */
+	    if (QPic_HasFullbrights(&pic) && tx->name[0] != '*') {
                 tx->gl_texturenum_fullbright = GL_LoadTexture(va("%s:fullbright", tx->name), &pic, TEXTURE_TYPE_WORLD_FULLBRIGHT);
             } else {
                 tx->gl_texturenum_fullbright = 0;
@@ -1916,8 +1918,10 @@ void GL_LoadBrushmodelTextures(const brushmodel_t *brushmodel)
         pic.width = pic.stride = texture->width;
         pic.height = texture->height;
         pic.pixels = (byte *)(texture + 1);
-            texture->gl_texturenum = GL_LoadTexture(texture->name, &pic, TEXTURE_TYPE_WORLD);
-        if (QPic_HasFullbrights(&pic)) {
+	texture->gl_texturenum = GL_LoadTexture(texture->name, &pic, TEXTURE_TYPE_WORLD);
+
+	/* Fullbright mask if required (not on liquids) */
+	if (QPic_HasFullbrights(&pic) && texture->name[0] != '*') {
             texture->gl_texturenum_fullbright = GL_LoadTexture(va("%s:fullbright", texture->name), &pic, TEXTURE_TYPE_WORLD_FULLBRIGHT);
         } else {
             texture->gl_texturenum_fullbright = 0;
