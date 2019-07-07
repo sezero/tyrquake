@@ -117,7 +117,6 @@ cvar_t gl_cull = { "gl_cull", "1" };
 cvar_t gl_smoothmodels = { "gl_smoothmodels", "1" };
 cvar_t gl_affinemodels = { "gl_affinemodels", "0" };
 cvar_t gl_polyblend = { "gl_polyblend", "1" };
-cvar_t gl_flashblend = { "gl_flashblend", "1" };
 cvar_t gl_playermip = { "gl_playermip", "0" };
 cvar_t gl_nocolors = { "gl_nocolors", "0" };
 cvar_t gl_zfix = { "gl_zfix", "0" };
@@ -1537,7 +1536,6 @@ R_RenderScene(void)
     S_ExtraUpdate();		// don't let sound get messed up if going slow
     R_DrawEntitiesOnList();
     GL_DisableMultitexture();
-    R_RenderDlights();
     R_DrawParticles();
 }
 

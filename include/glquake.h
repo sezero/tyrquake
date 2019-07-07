@@ -241,7 +241,6 @@ extern cvar_t gl_affinemodels;
 extern cvar_t gl_polyblend;
 extern cvar_t gl_keeptjunctions;
 extern cvar_t gl_reporttjunctions;
-extern cvar_t gl_flashblend;
 extern cvar_t gl_nocolors;
 extern cvar_t gl_zfix;
 extern cvar_t gl_finish;
@@ -334,7 +333,6 @@ const model_loader_t *R_ModelLoader(void);
 //
 void R_MarkLights(dlight_t *light, int bit, mnode_t *node);
 void R_AnimateLight(void);
-void R_RenderDlights(void);
 int R_LightPoint(const vec3_t point);
 
 //
@@ -358,7 +356,6 @@ void GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr);
 //
 // gl_rmisc.c
 //
-void R_InitBubble(void);
 void R_InitParticleTexture(void);
 
 //

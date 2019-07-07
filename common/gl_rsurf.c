@@ -893,7 +893,7 @@ R_DrawBrushModel(const entity_t *e)
 	for (i = 0; i < MAX_LM_BLOCKS; i++)
 	    lm_blocks[i].polys = NULL;
 
-	if (brushmodel->firstmodelsurface != 0 && !gl_flashblend.value) {
+	if (brushmodel->firstmodelsurface != 0) {
 	    for (k = 0; k < MAX_DLIGHTS; k++) {
 		if ((cl_dlights[k].die < cl.time) || (!cl_dlights[k].radius))
 		    continue;

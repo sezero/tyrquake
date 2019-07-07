@@ -801,7 +801,7 @@ CL_LinkPlayers(physent_stack_t *pestack)
 
 	// spawn light flashes, even ones coming from invisible objects
 #ifdef GLQUAKE
-	if (!gl_flashblend.value || playernum != cl.playernum) {
+	if (playernum != cl.playernum) {
 #endif
 	    if ((state->effects & (EF_BLUE | EF_RED)) == (EF_BLUE | EF_RED))
 		CL_NewDlight(playernum, state->origin[0], state->origin[1],
