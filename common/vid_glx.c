@@ -90,8 +90,6 @@ static XVisualInfo *x_visinfo;
 
 float gldepthmin, gldepthmax;
 
-cvar_t gl_ztrick = { "gl_ztrick", "1" };
-
 /*-----------------------------------------------------------------------*/
 void
 D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height)
@@ -295,7 +293,6 @@ VID_InitCvars(void)
 {
     Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&gl_npot);
-    Cvar_RegisterVariable(&gl_ztrick);
 }
 
 static void

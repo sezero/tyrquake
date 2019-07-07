@@ -113,7 +113,6 @@ cvar_t gl_texsort = {
 };
 
 cvar_t gl_finish = { "gl_finish", "0" };
-cvar_t gl_clear = { "gl_clear", "0" };
 cvar_t gl_cull = { "gl_cull", "1" };
 cvar_t gl_smoothmodels = { "gl_smoothmodels", "1" };
 cvar_t gl_affinemodels = { "gl_affinemodels", "0" };
@@ -1551,40 +1550,17 @@ R_Clear
 static void
 R_Clear(void)
 {
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
     if (r_mirroralpha.value != 1.0) {
-	if (gl_clear.value)
-	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	else
-	    glClear(GL_DEPTH_BUFFER_BIT);
 	gldepthmin = 0;
 	gldepthmax = 0.5;
 	glDepthFunc(GL_LEQUAL);
-    } else if (gl_ztrick.value) {
-	static unsigned int trickframe = 0;
-
-	if (gl_clear.value)
-	    glClear(GL_COLOR_BUFFER_BIT);
-
-	trickframe++;
-	if (trickframe & 1) {
-	    gldepthmin = 0;
-	    gldepthmax = 0.49999;
-	    glDepthFunc(GL_LEQUAL);
-	} else {
-	    gldepthmin = 1;
-	    gldepthmax = 0.5;
-	    glDepthFunc(GL_GEQUAL);
-	}
     } else {
-	if (gl_clear.value)
-	    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	else
-	    glClear(GL_DEPTH_BUFFER_BIT);
 	gldepthmin = 0;
 	gldepthmax = 1;
 	glDepthFunc(GL_LEQUAL);
     }
-
     glDepthRange(gldepthmin, gldepthmax);
 
     if (gl_zfix.value) {

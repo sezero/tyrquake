@@ -233,7 +233,6 @@ extern cvar_t r_wateralpha;
 extern cvar_t r_dynamic;
 extern cvar_t r_novis;
 
-extern cvar_t gl_clear;
 extern cvar_t gl_cull;
 extern cvar_t gl_poly;
 extern cvar_t gl_texsort;
@@ -377,11 +376,6 @@ void GL_ReloadLightmapTextures();
 // Used only for r_shadows 1 (remove?)
 //
 extern vec3_t lightspot;
-
-//
-// gl_rmain.c, external only because it's registered elsewhere... broken?
-//
-extern cvar_t gl_ztrick;
 
 //
 // r_part.c

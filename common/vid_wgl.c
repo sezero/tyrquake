@@ -94,8 +94,6 @@ static cvar_t vid_config_x = { "vid_config_x", "800", true };
 static cvar_t vid_config_y = { "vid_config_y", "600", true };
 static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
 
-cvar_t gl_ztrick = { "gl_ztrick", "1" };
-
 float gldepthmin, gldepthmax;
 static qboolean reload_textures; // Flag to set/test on gl context destroy/create
 
@@ -776,7 +774,6 @@ VID_InitCvars()
     Cvar_RegisterVariable(&vid_config_x);
     Cvar_RegisterVariable(&vid_config_y);
     Cvar_RegisterVariable(&vid_stretch_by_2);
-    Cvar_RegisterVariable(&gl_ztrick);
     Cvar_RegisterVariable(&gl_npot);
 }
 

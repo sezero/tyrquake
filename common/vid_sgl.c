@@ -70,7 +70,6 @@ void VID_UnlockBuffer(void) {}
 void (*VID_SetGammaRamp)(unsigned short ramp[3][256]) = NULL;
 
 float gldepthmin, gldepthmax;
-cvar_t gl_ztrick = { "gl_ztrick", "1" };
 
 void VID_Update(vrect_t *rects) {}
 void D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height) {}
@@ -114,7 +113,6 @@ VID_InitCvars(void)
 {
     Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&gl_npot);
-    Cvar_RegisterVariable(&gl_ztrick);
 }
 
 static void

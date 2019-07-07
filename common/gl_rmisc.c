@@ -218,7 +218,6 @@ R_Init(void)
     Cvar_RegisterVariable(&r_waterwarp);
 
     Cvar_RegisterVariable(&gl_finish);
-    Cvar_RegisterVariable(&gl_clear);
     Cvar_RegisterVariable(&gl_texsort);
     Cvar_RegisterVariable(&gl_fullbrights);
 
