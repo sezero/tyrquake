@@ -741,6 +741,7 @@ GL_OBJS := \
 	gl_draw.o	\
 	gl_extensions.o	\
 	gl_mesh.o	\
+	gl_model.o	\
 	gl_rmain.o	\
 	gl_rmisc.o	\
 	gl_rsurf.o	\

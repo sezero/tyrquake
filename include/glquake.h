@@ -37,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "client.h"
 #include "model.h"
+#include "gl_model.h"
 #include "protocol.h"
 #include "qpic.h"
 
@@ -361,13 +362,14 @@ void R_InitParticleTexture(void);
 //
 // gl_rsurf.c
 //
+void R_InitLightmapFormat();
 void R_DrawBrushModel(const entity_t *e);
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawWaterSurfaces(void);
 void R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture);
 void GL_BuildLightmaps(void *hunkbase);
-void GL_ReloadLightmapTextures();
+void GL_ReloadLightmapTextures(const glbrushmodel_t *glbrushmodel);
 
 //
 // Used only for r_shadows 1 (remove?)

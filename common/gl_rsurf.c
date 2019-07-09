@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // gl_rsurf.c: surface-related refresh code
 
 #include "console.h"
+#include "gl_model.h"
 #include "glquake.h"
 #include "quakedef.h"
 #include "sys.h"
@@ -28,28 +29,37 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
-#define	MAX_LM_BLOCKS	256
-
 static int lightmap_bytes;		// 1, 2, or 4
 
-#define	BLOCK_WIDTH	128
-#define	BLOCK_HEIGHT	128
+void
+R_InitLightmapFormat()
+{
+    gl_lightmap_format = GL_LUMINANCE;
+    if (COM_CheckParm("-lm_1"))
+	gl_lightmap_format = GL_LUMINANCE;
+    if (COM_CheckParm("-lm_a"))
+	gl_lightmap_format = GL_ALPHA;
+    if (COM_CheckParm("-lm_i"))
+	gl_lightmap_format = GL_INTENSITY;
+    if (COM_CheckParm("-lm_2"))
+	gl_lightmap_format = GL_RGBA4;
+    if (COM_CheckParm("-lm_4"))
+	gl_lightmap_format = GL_RGBA;
 
-typedef struct glRect_s {
-    unsigned char l, t, w, h;
-} glRect_t;
-
-typedef struct lm_block_s {
-    glpoly_t *polys;
-    qboolean modified;
-    glRect_t rectchange;
-    int allocated[BLOCK_WIDTH];
-    byte data[4 * BLOCK_WIDTH * BLOCK_HEIGHT]; /* lightmaps */
-    GLuint texture;
-} lm_block_t;
-
-static lm_block_t lm_blocks[MAX_LM_BLOCKS];
-static int lm_used;
+    switch (gl_lightmap_format) {
+    case GL_RGBA:
+	lightmap_bytes = 4;
+	break;
+    case GL_RGBA4:
+	lightmap_bytes = 2;
+	break;
+    case GL_LUMINANCE:
+    case GL_INTENSITY:
+    case GL_ALPHA:
+	lightmap_bytes = 1;
+	break;
+    }
+}
 
 /*
  * ===================
@@ -58,7 +68,7 @@ static int lm_used;
  * Check all dynamic lights against this surface
  */
 static void
-R_AddDynamicLights(msurface_t *surf, unsigned *blocklights)
+R_AddDynamicLights(const msurface_t *surf, unsigned *blocklights)
 {
     int lnum;
     int sd, td;
@@ -366,15 +376,15 @@ DrawFlatGLPoly(glpoly_t *p)
  * Re-uploads the modified region of the given lightmap number
  */
 static void
-R_UploadLMBlockUpdate(int blocknum)
+R_UploadLMBlockUpdate(lm_block_t *block)
 {
     glRect_t *rect;
     byte *pixels;
     unsigned offset;
 
-    rect = &lm_blocks[blocknum].rectchange;
+    rect = &block->rectchange;
     offset = (BLOCK_WIDTH * rect->t + rect->l) * lightmap_bytes;
-    pixels = lm_blocks[blocknum].data + offset;
+    pixels = block->data + offset;
 
     /* set unpacking width to BLOCK_WIDTH, reset after */
     glPixelStorei(GL_UNPACK_ROW_LENGTH, BLOCK_WIDTH);
@@ -403,10 +413,11 @@ R_BlendLightmaps
 ================
 */
 static void
-R_BlendLightmaps(void)
+R_BlendLightmaps(brushmodel_t *brushmodel)
 {
     int i;
     glpoly_t *p;
+    glbrushmodel_t *glbrushmodel;
 
     if (r_drawflat.value)
 	return;
@@ -424,13 +435,14 @@ R_BlendLightmaps(void)
 	glEnable(GL_BLEND);
     }
 
-    for (i = 0; i < MAX_LM_BLOCKS; i++) {
-	lm_block_t *block = &lm_blocks[i];
+    glbrushmodel = GLBrushModel(brushmodel);
+    for (i = 0; i < glbrushmodel->numblocks; i++) {
+	lm_block_t *block = &glbrushmodel->blocks[i];
 	if (!block->polys)
 	    continue;
 	GL_Bind(block->texture);
 	if (block->modified) {
-	    R_UploadLMBlockUpdate(i);
+	    R_UploadLMBlockUpdate(block);
 	    block->modified = false;
 	}
 	for (p = block->polys; p; p = p->chain) {
@@ -452,7 +464,7 @@ R_BlendLightmaps(void)
  * R_UpdateLightmapBlockRect
  */
 static void
-R_UpdateLightmapBlockRect(msurface_t *surf)
+R_UpdateLightmapBlockRect(glbrushmodel_t *glbrushmodel, msurface_t *surf)
 {
     int map;
     byte *base;
@@ -479,7 +491,7 @@ R_UpdateLightmapBlockRect(msurface_t *surf)
 	 * modified. If necessary, increase the modified rectangle to include
 	 * this surface's allocatied sub-area.
 	 */
-	block = &lm_blocks[surf->lightmaptexturenum];
+	block = &glbrushmodel->blocks[surf->lightmaptexturenum];
 	rect = &block->rectchange;
 	block->modified = true;
 	if (surf->light_t < rect->t) {
@@ -514,6 +526,7 @@ void
 R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 {
     lm_block_t *block;
+    glbrushmodel_t *glbrushmodel;
 
     c_brush_polys++;
 
@@ -537,13 +550,14 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 	return;
     }
 
-    block = &lm_blocks[surf->lightmaptexturenum];
+    glbrushmodel = GLBrushModel(BrushModel(e->model));
+    block = &glbrushmodel->blocks[surf->lightmaptexturenum];
     if (gl_mtexable) {
 	/* All lightmaps are up to date... */
 	GL_EnableMultitexture();
 	GL_Bind(block->texture);
 	if (block->modified) {
-	    R_UploadLMBlockUpdate(surf->lightmaptexturenum);
+	    R_UploadLMBlockUpdate(block);
 	    block->modified = false;
 	}
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
@@ -568,7 +582,7 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 	surf->polys->chain = block->polys;
 	block->polys = surf->polys;
 
-	R_UpdateLightmapBlockRect(surf);
+	R_UpdateLightmapBlockRect(glbrushmodel, surf);
     }
 }
 
@@ -652,9 +666,11 @@ DrawTextureChains(const entity_t *e)
     int i;
     msurface_t *surf;
     texture_t *t;
+    glbrushmodel_t *glbrushmodel;
 
     if (gl_mtexable) {
 	/* Update all lightmaps */
+	glbrushmodel = GLBrushModel(BrushModel(e->model));
 	for (i = 0; i < cl.worldmodel->numtextures; i++) {
 	    t = cl.worldmodel->textures[i];
 	    if (!t)
@@ -670,7 +686,7 @@ DrawTextureChains(const entity_t *e)
 		continue;
 
 	    for (; surf; surf = surf->texturechain)
-		R_UpdateLightmapBlockRect(surf);
+		R_UpdateLightmapBlockRect(glbrushmodel, surf);
 	}
     }
 
@@ -755,7 +771,7 @@ R_DrawBrushModel(const entity_t *e)
     mplane_t *pplane;
     model_t *model;
     brushmodel_t *brushmodel;
-
+    glbrushmodel_t *glbrushmodel;
     qboolean rotated;
 
     currenttexture = -1;
@@ -803,16 +819,17 @@ R_DrawBrushModel(const entity_t *e)
 	/*
 	 * calculate dynamic lighting for bmodel if it's not an instanced model
 	 */
-	for (i = 0; i < MAX_LM_BLOCKS; i++)
-	    lm_blocks[i].polys = NULL;
+	glbrushmodel = GLBrushModel(brushmodel);
+	for (i = 0; i < glbrushmodel->numblocks; i++)
+	    glbrushmodel->blocks[i].polys = NULL;
 
 	if (brushmodel->firstmodelsurface != 0) {
 	    for (k = 0; k < MAX_DLIGHTS; k++) {
 		if ((cl_dlights[k].die < cl.time) || (!cl_dlights[k].radius))
 		    continue;
 
-		R_MarkLights(&cl_dlights[k], 1 << k,
-			     brushmodel->nodes + brushmodel->hulls[0].firstclipnode);
+		mnode_t *node = brushmodel->nodes + brushmodel->hulls[0].firstclipnode;
+		R_MarkLights(&cl_dlights[k], 1 << k, node);
 	    }
 	}
     }
@@ -852,7 +869,7 @@ R_DrawBrushModel(const entity_t *e)
 	glEnable(GL_TEXTURE_2D);
 	glColor3f(1, 1, 1);
     } else {
-	R_BlendLightmaps();
+	R_BlendLightmaps(brushmodel);
         if (gl_fullbrights.value) {
             GL_DisableMultitexture();
             glDepthMask(GL_FALSE);
@@ -998,14 +1015,16 @@ R_DrawWorld(void)
 {
     int i;
     entity_t ent;
+    glbrushmodel_t *glbrushmodel;
 
     memset(&ent, 0, sizeof(ent));
     ent.model = &cl.worldmodel->model;
 
     currenttexture = -1;
     glColor3f(1, 1, 1);
-    for (i = 0; i < MAX_LM_BLOCKS; i++)
-	lm_blocks[i].polys = NULL;
+    glbrushmodel = GLBrushModel(BrushModel(ent.model));
+    for (i = 0; i < glbrushmodel->numblocks; i++)
+	glbrushmodel->blocks[i].polys = NULL;
 
     if (r_drawflat.value || _gl_drawhull.value) {
 	GL_DisableMultitexture();
@@ -1037,7 +1056,7 @@ R_DrawWorld(void)
     }
 
     DrawTextureChains(&ent);
-    R_BlendLightmaps();
+    R_BlendLightmaps(cl.worldmodel);
 
     if (!gl_mtexable && gl_fullbrights.value) {
 	for (i = 0; i < cl.worldmodel->numtextures; i++) {
@@ -1074,69 +1093,6 @@ R_DrawWorld(void)
 
 =============================================================================
 */
-
-static float alloc_block_time = 0;
-
-/*
- * AllocBlock
- * - returns a texture number and the position inside it
- */
-static int
-AllocBlock(int w, int h, int *x, int *y)
-{
-    int i, j;
-    int best, best2;
-    int texnum;
-    float t1, t2;
-    int *allocated;
-
-    t1 = Sys_DoubleTime();
-
-    /*
-     * Only scan over the last four textures. Only negligable effects on the
-     * packing efficiency, but much faster for maps with a lot of lightmaps.
-     */
-    texnum = (lm_used < 4) ? 0 : lm_used - 4;
-    for ( ; texnum < MAX_LM_BLOCKS; texnum++) {
-	allocated = lm_blocks[texnum].allocated;
-	if (texnum > lm_used)
-	    lm_used = texnum;
-
-	best = BLOCK_HEIGHT - h + 1;
-	for (i = 0; i < BLOCK_WIDTH - w; i++) {
-
-	    best2 = 0;
-	    for (j = 0; j < w; j++) {
-		/* If it's not going to fit, don't check again... */
-		if (allocated[i + j] + h > BLOCK_HEIGHT) {
-		    i += j + 1;
-		    break;
-		}
-		if (allocated[i + j] >= best)
-		    break;
-		if (allocated[i + j] > best2)
-		    best2 = allocated[i + j];
-	    }
-	    if (j == w) {	// this is a valid spot
-		*x = i;
-		*y = best = best2;
-	    }
-	}
-
-	if (best + h > BLOCK_HEIGHT)
-	    continue;
-
-	for (i = 0; i < w; i++)
-	    allocated[*x + i] = best + h;
-
-	t2 = Sys_DoubleTime();
-	alloc_block_time += t2 - t1;
-
-	return texnum;
-    }
-
-    Sys_Error("%s: full", __func__);
-}
 
 /*
 ================
@@ -1199,40 +1155,18 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
 }
 
 /*
-========================
-GL_CreateSurfaceLightmap
-========================
-*/
+ * Upload modified lightmap blocks
+ * Return the number of uploads that were required/done
+ */
 static void
-GL_CreateSurfaceLightmap(msurface_t *surf)
-{
-    int smax, tmax;
-    byte *base;
-
-    if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
-	return;
-
-    smax = (surf->extents[0] >> 4) + 1;
-    tmax = (surf->extents[1] >> 4) + 1;
-
-    surf->lightmaptexturenum =
-	AllocBlock(smax, tmax, &surf->light_s, &surf->light_t);
-    base = lm_blocks[surf->lightmaptexturenum].data;
-    base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * lightmap_bytes;
-    R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
-}
-
-static
-void GL_UploadLightmaps()
+GL_UploadLightmaps(const glbrushmodel_t *glbrushmodel)
 {
     int i;
     lm_block_t *block;
     qpic8_t pic;
 
-    for (i = 0; i < MAX_LM_BLOCKS; i++) {
-	block = &lm_blocks[i];
-	if (!block->allocated[0])
-	    return; // no more used
+    for (i = 0; i < glbrushmodel->numblocks; i++) {
+	block = &glbrushmodel->blocks[i];
 
 	block->modified = false;
 	block->rectchange.l = BLOCK_WIDTH;
@@ -1244,7 +1178,7 @@ void GL_UploadLightmaps()
             pic.width = pic.stride = BLOCK_WIDTH;
             pic.height = BLOCK_HEIGHT;
             pic.pixels = block->data;
-            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
+            block->texture = GL_AllocateTexture(va("%s:lightmap_%03d", glbrushmodel->brushmodel.model.name, i), &pic, TEXTURE_TYPE_LIGHTMAP);
         }
 
 	GL_Bind(block->texture);
@@ -1254,8 +1188,8 @@ void GL_UploadLightmaps()
 		     BLOCK_HEIGHT, 0, gl_lightmap_format, GL_UNSIGNED_BYTE,
 		     block->data);
     }
-
 }
+
 
 /*
 ==================
@@ -1268,90 +1202,47 @@ with all the surfaces from all brush models
 void
 GL_BuildLightmaps(void *hunkbase)
 {
-    int i, j, cnt;
-    float t1, t2;
+    int i, j;
     model_t *model;
     brushmodel_t *brushmodel;
+    glbrushmodel_t *glbrushmodel;
     msurface_t *surf;
 
-    for (i = 0; i < MAX_LM_BLOCKS; i++)
-	memset(lm_blocks[i].allocated, 0, sizeof(lm_blocks[i].allocated));
-
-    lm_used = 0;
-    alloc_block_time = 0;
-
-    r_framecount = 1;		// no dlightcache
-
-    gl_lightmap_format = GL_LUMINANCE;
-    if (COM_CheckParm("-lm_1"))
-	gl_lightmap_format = GL_LUMINANCE;
-    if (COM_CheckParm("-lm_a"))
-	gl_lightmap_format = GL_ALPHA;
-    if (COM_CheckParm("-lm_i"))
-	gl_lightmap_format = GL_INTENSITY;
-    if (COM_CheckParm("-lm_2"))
-	gl_lightmap_format = GL_RGBA4;
-    if (COM_CheckParm("-lm_4"))
-	gl_lightmap_format = GL_RGBA;
-
-    switch (gl_lightmap_format) {
-    case GL_RGBA:
-	lightmap_bytes = 4;
-	break;
-    case GL_RGBA4:
-	lightmap_bytes = 2;
-	break;
-    case GL_LUMINANCE:
-    case GL_INTENSITY:
-    case GL_ALPHA:
-	lightmap_bytes = 1;
-	break;
-    }
-
-    t1 = Sys_DoubleTime();
-    cnt = 0;
-
-    for (j = 1; j < MAX_MODELS; j++) {
-	model = cl.model_precache[j];
+    for (i = 1; i < MAX_MODELS; i++) {
+	model = cl.model_precache[i];
 	if (!model)
 	    break;
-	if (model->name[0] == '*')
-	    continue;
 	if (model->type != mod_brush)
+	    continue;
+	if (model->name[0] == '*')
 	    continue;
 
 	brushmodel = BrushModel(model);
+	glbrushmodel = GLBrushModel(brushmodel);
 	surf = brushmodel->surfaces;
-	for (i = 0; i < brushmodel->numsurfaces; i++, surf++) {
-	    cnt++;
-	    GL_CreateSurfaceLightmap(surf);
-	    if (surf->flags & SURF_DRAWTURB)
+	for (j = 0; j < brushmodel->numsurfaces; j++, surf++) {
+	    if (surf->flags & (SURF_DRAWTURB | SURF_DRAWSKY))
 		continue;
-	    if (surf->flags & SURF_DRAWSKY)
-		continue;
+
+	    //glbrushmodel->blocks[surf->lightmaptexturenum].modified = true;
+	    byte *base = glbrushmodel->blocks[surf->lightmaptexturenum].data;
+	    base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * lightmap_bytes;
+	    R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
 	    BuildSurfaceDisplayList(brushmodel, surf, hunkbase);
 	}
+
+	/* upload all lightmaps that were filled */
+	GL_UploadLightmaps(GLBrushModel(brushmodel));
     }
-
-    t2 = Sys_DoubleTime();
-    Con_DPrintf("Built LM blocks in %f seconds.(%i surfs).\n", t2 - t1, cnt);
-    Con_DPrintf("AllocBlock time spent: %f seconds.\n", alloc_block_time);
-
-    //
-    // upload all lightmaps that were filled
-    //
-    t1 = Sys_DoubleTime();
-    GL_UploadLightmaps();
-    t2 = Sys_DoubleTime();
-    Con_DPrintf("Uploaded %i lightmap blocks in %f seconds.\n", i, t2 - t1);
 }
 
 void
-GL_ReloadLightmapTextures()
+GL_ReloadLightmapTextures(const glbrushmodel_t *glbrushmodel)
 {
     int i;
 
-    for (i = 0; i < MAX_LM_BLOCKS; i++)
-        lm_blocks[i].texture = 0;
-    GL_UploadLightmaps();
+    for (i = 0; i < glbrushmodel->numblocks; i++)
+        glbrushmodel->blocks[i].texture = 0;
+
+    GL_UploadLightmaps(glbrushmodel);
 }

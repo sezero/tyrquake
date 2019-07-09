@@ -1598,9 +1598,11 @@ static alias_loader_t SV_AliasLoader = {
     NULL, /* Does not load alias models */
 };
 
-static int SV_BrushmodelPadding() { return 0; }
+static int SV_BrushModelPadding() { return 0; }
+static void SV_BrushModelPostProcess() {}
 static brush_loader_t SV_BrushLoader = {
-    .Padding = SV_BrushmodelPadding,
+    .Padding = SV_BrushModelPadding,
+    .PostProcess = SV_BrushModelPostProcess,
 };
 
 /*

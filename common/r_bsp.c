@@ -56,9 +56,11 @@ static qboolean makeclippededge;
 /*
  * Provide brush model loader
  */
-static int SW_BrushmodelPadding() { return 0; }
+static int SW_BrushModelPadding() { return 0; }
+static void SW_BrushModelPostProcess() {}
 static brush_loader_t SW_BrushModelLoader = {
-    .Padding = SW_BrushmodelPadding,
+    .Padding = SW_BrushModelPadding,
+    .PostProcess = SW_BrushModelPostProcess,
 };
 
 const brush_loader_t *

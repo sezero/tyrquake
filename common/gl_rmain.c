@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "console.h"
+#include "gl_model.h"
 #include "glquake.h"
 #include "mathlib.h"
 #include "model.h"
@@ -36,7 +37,7 @@ qboolean r_cache_thrash;	// compatability
 
 vec3_t r_entorigin;
 int r_visframecount;		// bumped when going to a new PVS
-int r_framecount;		// used for dlight push checking
+int r_framecount = 1;		// used for dlight push checking
 
 static mplane_t frustum[4];
 
@@ -385,90 +386,7 @@ static float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
      ;
 
 static float *shadedots = r_avertexnormal_dots[0];
-
 static int lastposenum;
-
-
-/*
- * Model Loader Functions
- */
-static int GL_AliashdrPadding() { return offsetof(gl_aliashdr_t, ahdr); }
-static int GL_BrushmodelPadding() { return offsetof(gl_brushmodel_t, brushmodel); }
-
-/*
-=================
-Mod_FloodFillSkin
-
-Fill background pixels so mipmapping doesn't have haloes - Ed
-=================
-*/
-
-typedef struct {
-    short x, y;
-} floodfill_t;
-
-// must be a power of 2
-#define FLOODFILL_FIFO_SIZE 0x1000
-#define FLOODFILL_FIFO_MASK (FLOODFILL_FIFO_SIZE - 1)
-
-#define FLOODFILL_STEP( off, dx, dy ) \
-{ \
-	if (pos[off] == fillcolor) \
-	{ \
-		pos[off] = 255; \
-		fifo[inpt].x = x + (dx), fifo[inpt].y = y + (dy); \
-		inpt = (inpt + 1) & FLOODFILL_FIFO_MASK; \
-	} \
-	else if (pos[off] != 255) fdc = pos[off]; \
-}
-
-static void
-GL_FloodFillSkin(byte *skin, int skinwidth, int skinheight)
-{
-    byte fillcolor = *skin;	// assume this is the pixel to fill
-    floodfill_t fifo[FLOODFILL_FIFO_SIZE];
-    int inpt = 0, outpt = 0;
-    int filledcolor = -1;
-    int i;
-
-    if (filledcolor == -1) {
-	filledcolor = 0;
-	// attempt to find opaque black (FIXME - precompute!)
-        const qpixel32_t black = { .c.red = 0, .c.green = 0, .c.blue = 0, .c.alpha = 255 };
-	for (i = 0; i < 256; ++i)
-	    if (qpal_standard.colors[i].rgba == black.rgba)
-	    {
-		filledcolor = i;
-		break;
-	    }
-    }
-    // can't fill to filled color or to transparent color (used as visited marker)
-    if ((fillcolor == filledcolor) || (fillcolor == 255)) {
-	//printf( "not filling skin from %d to %d\n", fillcolor, filledcolor );
-	return;
-    }
-
-    fifo[inpt].x = 0, fifo[inpt].y = 0;
-    inpt = (inpt + 1) & FLOODFILL_FIFO_MASK;
-
-    while (outpt != inpt) {
-	int x = fifo[outpt].x, y = fifo[outpt].y;
-	int fdc = filledcolor;
-	byte *pos = &skin[x + skinwidth * y];
-
-	outpt = (outpt + 1) & FLOODFILL_FIFO_MASK;
-
-	if (x > 0)
-	    FLOODFILL_STEP(-1, -1, 0);
-	if (x < skinwidth - 1)
-	    FLOODFILL_STEP(1, 1, 0);
-	if (y > 0)
-	    FLOODFILL_STEP(-skinwidth, 0, -1);
-	if (y < skinheight - 1)
-	    FLOODFILL_STEP(skinwidth, 0, 1);
-	skin[x + skinwidth * y] = fdc;
-    }
-}
 
 /*
  * Upload alias skin textures
@@ -504,51 +422,6 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
         }
         pic.pixels += skinsize;
     }
-}
-
-static void
-GL_LoadAliasSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_t *skindata)
-{
-    int i, skinsize;
-    qgltexture_t *textures;
-    byte *pixels;
-
-    skinsize = aliashdr->skinwidth * aliashdr->skinheight;
-    pixels = Mod_AllocName(skindata->numskins * skinsize, model->name);
-    aliashdr->skindata = (byte *)pixels - (byte *)aliashdr;
-    textures = Mod_AllocName(skindata->numskins * sizeof(qgltexture_t), model->name);
-    GL_Aliashdr(aliashdr)->textures = (byte *)textures - (byte *)aliashdr;
-
-    for (i = 0; i < skindata->numskins; i++) {
-	GL_FloodFillSkin(skindata->data[i], aliashdr->skinwidth, aliashdr->skinheight);
-	memcpy(pixels, skindata->data[i], skinsize);
-        pixels += skinsize;
-    }
-
-    GL_LoadAliasSkinTextures(model, aliashdr);
-}
-
-static alias_loader_t GL_AliasModelLoader = {
-    .Padding = GL_AliashdrPadding,
-    .LoadSkinData = GL_LoadAliasSkinData,
-    .LoadMeshData = GL_LoadAliasMeshData,
-    .CacheDestructor = NULL,
-};
-
-const alias_loader_t *
-R_AliasModelLoader(void)
-{
-    return &GL_AliasModelLoader;
-}
-
-static brush_loader_t GL_BrushModelLoader = {
-    .Padding = GL_BrushmodelPadding,
-};
-
-const brush_loader_t *
-R_BrushModelLoader()
-{
-    return &GL_BrushModelLoader;
 }
 
 /*

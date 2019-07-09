@@ -414,6 +414,7 @@ typedef struct model_s {
  */
 typedef struct brushmodel_s {
     struct brushmodel_s *next;
+    struct brushmodel_s *parent; // Submodels have the world as a parent model
     model_t model;
 
     int firstmodelsurface;
@@ -481,24 +482,10 @@ BrushModel(model_t *model)
     return container_of(model, brushmodel_t, model);
 }
 
-#ifdef GLQUAKE
-
-typedef struct {
-    int pad[12]; /* for testing only */
-    brushmodel_t brushmodel;
-} gl_brushmodel_t;
-
-static inline gl_brushmodel_t *
-GL_Brushmodel(brushmodel_t *brushmodel)
-{
-    return container_of(brushmodel, gl_brushmodel_t, brushmodel);
-}
-
-#endif
-
 /* Brush model loader structures */
 typedef struct brush_loader {
     int (*Padding)(void);
+    void (*PostProcess)(brushmodel_t *brushmodel);
 } brush_loader_t;
 
 /* Alias model loader structures */

@@ -64,15 +64,6 @@ static const brush_loader_t *brush_loader;
 
 static void PVSCache_f(void);
 
-#ifdef GLQUAKE
-
-// FIXME: TEMP prototypes
-void GL_CreateSurfaceLightmap(msurface_t *surf);
-void GL_ClearLightmapBlocks();
-
-#endif
-
-
 /*
 ===============
 Mod_Init
@@ -1695,6 +1686,7 @@ Mod_SetupSubmodels(brushmodel_t *world, const brush_loader_t *loader)
 	    submodel = (brushmodel_t *)(buffer + pad);
 	    model = &submodel->model;
 	    *submodel = *world; /* start with world info */
+	    submodel->parent = world;
 	    qsnprintf(model->name, sizeof(model->name), "*%d", i);
 	    submodel->next = loaded_models;
 	    loaded_models = submodel;
@@ -1881,11 +1873,15 @@ Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
 	Mod_InitPVSCache(brushmodel->numleafs);
     }
 
-    Mod_SetupSubmodels(brushmodel);
+    Mod_SetupSubmodels(brushmodel, brush_loader);
+
+    // Allow the loader to do additional post-processing
+    brush_loader->PostProcess(brushmodel);
 }
 
 #ifdef GLQUAKE
-void GL_LoadBrushmodelTextures(const brushmodel_t *brushmodel)
+static void
+GL_LoadBrushModelTextures(const brushmodel_t *brushmodel)
 {
     qpic8_t pic;
     texture_t *texture;
@@ -2009,9 +2005,9 @@ Mod_ReloadTextures()
 
     /* Brush models */
     for (brushmodel = loaded_models; brushmodel; brushmodel = brushmodel->next) {
-        GL_LoadBrushmodelTextures(brushmodel);
+        GL_LoadBrushModelTextures(brushmodel);
+	GL_ReloadLightmapTextures(GLConstBrushModel(brushmodel));
     }
-    GL_ReloadLightmapTextures();
 }
 #endif
 
