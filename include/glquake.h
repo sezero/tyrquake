@@ -325,7 +325,7 @@ void R_ResetPlayerTextures(void);
 /*
  * The renderer supplies callbacks to the model loader
  */
-const model_loader_t *R_ModelLoader(void);
+const alias_loader_t *R_AliasModelLoader(void);
 
 //
 // gl_rlight.c
@@ -347,9 +347,9 @@ typedef struct {
     float coords[];
 } aliasmeshcmd_t;
 
-void GL_LoadMeshData(const model_t *m, aliashdr_t *hdr,
-		     const alias_meshdata_t *meshdata,
-		     const alias_posedata_t *posedata);
+void GL_LoadAliasMeshData(const model_t *m, aliashdr_t *hdr,
+			  const alias_meshdata_t *meshdata,
+			  const alias_posedata_t *posedata);
 void GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr);
 
 //

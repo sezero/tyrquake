@@ -1593,7 +1593,7 @@ SV_InitNet(void)
 /*
  * Model Loader Functions
  */
-static model_loader_t SV_Model_Loader = {
+static alias_loader_t SV_Alias_Loader = {
     NULL, /* Does not load alias models */
 };
 
@@ -1625,7 +1625,7 @@ SV_Init(quakeparms_t *parms)
     COM_Init();
 
     PR_Init();
-    Mod_Init(&SV_Model_Loader);
+    Mod_Init(&SV_Alias_Loader);
 
     SV_InitNet();
 

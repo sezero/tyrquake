@@ -392,7 +392,7 @@ static int lastposenum;
 /*
  * Model Loader Functions
  */
-static int GL_Aliashdr_Padding(void) { return offsetof(gl_aliashdr_t, ahdr); }
+static int GL_AliashdrPadding(void) { return offsetof(gl_aliashdr_t, ahdr); }
 
 /*
 =================
@@ -506,7 +506,7 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
 }
 
 static void
-GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_t *skindata)
+GL_LoadAliasSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_t *skindata)
 {
     int i, skinsize;
     qgltexture_t *textures;
@@ -527,17 +527,17 @@ GL_LoadSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_t *sk
     GL_LoadAliasSkinTextures(model, aliashdr);
 }
 
-static model_loader_t GL_Model_Loader = {
-    .Aliashdr_Padding = GL_Aliashdr_Padding,
-    .LoadSkinData = GL_LoadSkinData,
-    .LoadMeshData = GL_LoadMeshData,
+static alias_loader_t GL_AliasModelLoader = {
+    .Padding = GL_AliashdrPadding,
+    .LoadSkinData = GL_LoadAliasSkinData,
+    .LoadMeshData = GL_LoadAliasMeshData,
     .CacheDestructor = NULL,
 };
 
-const model_loader_t *
-R_ModelLoader(void)
+const alias_loader_t *
+R_AliasModelLoader(void)
 {
-    return &GL_Model_Loader;
+    return &GL_AliasModelLoader;
 }
 
 /*

@@ -195,7 +195,7 @@ void R_DrawParticles(void);
 /*
  * The renderer supplies callbacks to the model loader
  */
-const model_loader_t *R_ModelLoader(void);
+const alias_loader_t *R_AliasModelLoader(void);
 
 //
 // surface cache related

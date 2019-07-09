@@ -497,17 +497,17 @@ typedef struct {
     byte **data;
 } alias_skindata_t;
 
-typedef struct model_loader {
-    int (*Aliashdr_Padding)(void);
+typedef struct alias_loader {
+    int (*Padding)(void);
     void (*LoadSkinData)(model_t *, aliashdr_t *, const alias_skindata_t *);
     void (*LoadMeshData)(const model_t *, aliashdr_t *hdr,
 			 const alias_meshdata_t *, const alias_posedata_t *);
     void (*CacheDestructor)(cache_user_t *);
-} model_loader_t;
+} alias_loader_t;
 
 //============================================================================
 
-void Mod_Init(const model_loader_t *loader);
+void Mod_Init(const alias_loader_t *loader);
 void *Mod_AllocName(int size, const char *name); /* Internal helper */
 #ifndef SERVERONLY
 void Mod_InitAliasCache(void);
@@ -604,7 +604,7 @@ int Mod_CountLeafBits(const leafbits_t *leafbits);
 // FIXME - surely this doesn't belong here?
 texture_t *R_TextureAnimation(const struct entity_s *e, texture_t *base);
 
-void Mod_LoadAliasModel(const model_loader_t *loader, model_t *model,
+void Mod_LoadAliasModel(const alias_loader_t *loader, model_t *model,
 			void *buffer, size_t buffersize);
 void Mod_LoadSpriteModel(model_t *model, const void *buffer);
 

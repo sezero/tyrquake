@@ -92,7 +92,7 @@ void R_AliasProjectFinalVert(finalvert_t *fv, auxvert_t *av);
 /*
  * Model Loader Functions
  */
-static int SW_Aliashdr_Padding(void) { return offsetof(sw_aliashdr_t, ahdr); }
+static int SW_AliashdrPadding(void) { return offsetof(sw_aliashdr_t, ahdr); }
 
 static void
 SW_LoadSkinData(model_t *model, aliashdr_t *ahdr,
@@ -160,17 +160,17 @@ SW_LoadMeshData(const model_t *model, aliashdr_t *hdr,
     memcpy(triangles, meshdata->triangles, hdr->numtris * sizeof(*triangles));
 }
 
-static model_loader_t SW_Model_Loader = {
-    .Aliashdr_Padding = SW_Aliashdr_Padding,
+static alias_loader_t SW_AliasModelLoader = {
+    .Padding = SW_AliashdrPadding,
     .LoadSkinData = SW_LoadSkinData,
     .LoadMeshData = SW_LoadMeshData,
     .CacheDestructor = NULL,
 };
 
-const model_loader_t *
-R_ModelLoader(void)
+const alias_loader_t *
+R_AliasModelLoader(void)
 {
-    return &SW_Model_Loader;
+    return &SW_AliasModelLoader;
 }
 
 /*

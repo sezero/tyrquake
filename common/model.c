@@ -59,22 +59,32 @@ static model_t *loaded_sprites;
 cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", true };
 #endif
 
-static const model_loader_t *mod_loader;
+static const alias_loader_t *alias_loader;
 
 static void PVSCache_f(void);
+
+#ifdef GLQUAKE
+
+// FIXME: TEMP prototypes
+void GL_CreateSurfaceLightmap(msurface_t *surf);
+void GL_ClearLightmapBlocks();
+
+#endif
+
+
 /*
 ===============
 Mod_Init
 ===============
 */
 void
-Mod_Init(const model_loader_t *loader)
+Mod_Init(const alias_loader_t *loader)
 {
 #ifdef GLQUAKE
     Cvar_RegisterVariable(&gl_subdivide_size);
 #endif
     Cmd_AddCommand("pvscache", PVSCache_f);
-    mod_loader = loader;
+    alias_loader = loader;
 }
 
 /*
@@ -432,7 +442,7 @@ Mod_LoadModel(const char *name, qboolean crash)
     case IDPOLYHEADER:
 	model = Mod_NewAliasModel();
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
-	Mod_LoadAliasModel(mod_loader, model, buf, size);
+	Mod_LoadAliasModel(alias_loader, model, buf, size);
 	break;
 
     case IDSPRITEHEADER:
@@ -482,7 +492,7 @@ Mod_ForName(const char *name, qboolean crash)
 	buffer = COM_LoadTempFile(name, &buffersize);
 	model = Mod_NewAliasModel();
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
-	Mod_LoadAliasModel(mod_loader, model, buffer, buffersize);
+	Mod_LoadAliasModel(alias_loader, model, buffer, buffersize);
 #endif
 	return model;
     }
@@ -1920,7 +1930,7 @@ Mod_Extradata(model_t *model)
 	return buffer;
 
     buffer = COM_LoadTempFile(model->name, &buffersize);
-    Mod_LoadAliasModel(mod_loader, model, buffer, buffersize);
+    Mod_LoadAliasModel(alias_loader, model, buffer, buffersize);
     if (!model->cache.data)
 	Sys_Error("%s: caching failed", __func__);
 

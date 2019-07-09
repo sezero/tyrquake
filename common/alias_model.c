@@ -237,7 +237,7 @@ Mod_LoadAliasSkins
 ===============
 */
 static void *
-Mod_LoadAliasSkins(aliashdr_t *aliashdr, const model_loader_t *loader,
+Mod_LoadAliasSkins(aliashdr_t *aliashdr, const alias_loader_t *loader,
 		   model_t *model, void *buffer,
 		   alias_skindata_t *skindata)
 {
@@ -407,7 +407,7 @@ Mod_LoadAliasModel
 =================
 */
 void
-Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer, size_t buffersize)
+Mod_LoadAliasModel(const alias_loader_t *loader, model_t *model, void *buffer, size_t buffersize)
 {
     const mdl_t *mdl = buffer;
     aliashdr_t *aliashdr;
@@ -440,7 +440,7 @@ Mod_LoadAliasModel(const model_loader_t *loader, model_t *model, void *buffer, s
      * Leave pad bytes above the header for driver specific data.
      */
     start = Hunk_LowMark();
-    pad = loader->Aliashdr_Padding();
+    pad = loader->Padding();
     memsize = pad + sizeof(aliashdr_t);
     memsize += LittleLong(mdl->numframes) * sizeof(aliashdr->frames[0]);
     membase = Mod_AllocName(memsize, model->name);

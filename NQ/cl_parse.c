@@ -351,7 +351,6 @@ CL_ParseServerInfo(void)
 //
 // now we try to load everything else until a cache allocation fails
 //
-
     for (i = 1; i < nummodels; i++) {
 	cl.model_precache[i] = Mod_ForName(model_precache[i], false);
 	if (cl.model_precache[i] == NULL) {
