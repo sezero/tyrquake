@@ -75,16 +75,16 @@ static glpic_t *conback;
 */
 
 #define MAX_SCRAPS   2
-#define BLOCK_WIDTH  256
-#define BLOCK_HEIGHT 256
-#define BLOCK_BYTES  (BLOCK_WIDTH * BLOCK_HEIGHT * 4)
+#define SCRAP_WIDTH  256
+#define SCRAP_HEIGHT 256
+#define SCRAP_BYTES  (SCRAP_WIDTH * SCRAP_HEIGHT * 4)
 
 typedef struct {
     GLuint glnum;
     qboolean dirty;
-    int allocated[BLOCK_WIDTH];
+    int allocated[SCRAP_WIDTH];
     qpic8_t pic;
-    byte texels[BLOCK_BYTES]; /* referenced via pic->pixels */
+    byte texels[SCRAP_BYTES]; /* referenced via pic->pixels */
 } scrap_t;
 
 static scrap_t gl_scraps[MAX_SCRAPS];
@@ -97,8 +97,8 @@ Scrap_InitGLTextures()
 
     scrap = gl_scraps;
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
-	scrap->pic.width = scrap->pic.stride = BLOCK_WIDTH;
-	scrap->pic.height = BLOCK_HEIGHT;
+	scrap->pic.width = scrap->pic.stride = SCRAP_WIDTH;
+	scrap->pic.height = SCRAP_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
         scrap->glnum = GL_LoadTexture(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
     }
@@ -131,9 +131,9 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
 
     scrap = gl_scraps;
     for (scrapnum = 0; scrapnum < MAX_SCRAPS; scrapnum++, scrap++) {
-	best = BLOCK_HEIGHT;
+	best = SCRAP_HEIGHT;
 
-	for (i = 0; i < BLOCK_WIDTH - w; i++) {
+	for (i = 0; i < SCRAP_WIDTH - w; i++) {
 	    best2 = 0;
 
 	    for (j = 0; j < w; j++) {
@@ -149,7 +149,7 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
 	    }
 	}
 
-	if (best + h > BLOCK_HEIGHT)
+	if (best + h > SCRAP_HEIGHT)
 	    continue;
 
 	for (i = 0; i < w; i++)
@@ -245,15 +245,15 @@ Draw_PicFromWad(const char *name)
 	src = 0;
 	for (i = 0; i < pic->height; i++) {
 	    for (j = 0; j < pic->width; j++, src++) {
-		const int dst = (y + i) * BLOCK_WIDTH + x + j;
+		const int dst = (y + i) * SCRAP_WIDTH + x + j;
 		scrap->texels[dst] = pic->pixels[src];
 	    }
 	}
 	glpic->texnum = scrap->glnum;
-	glpic->sl = (x + 0.01) / (float)BLOCK_WIDTH;
-	glpic->sh = (x + pic->width - 0.01) / (float)BLOCK_WIDTH;
-	glpic->tl = (y + 0.01) / (float)BLOCK_WIDTH;
-	glpic->th = (y + pic->height - 0.01) / (float)BLOCK_WIDTH;
+	glpic->sl = (x + 0.01) / (float)SCRAP_WIDTH;
+	glpic->sh = (x + pic->width - 0.01) / (float)SCRAP_WIDTH;
+	glpic->tl = (y + 0.01) / (float)SCRAP_WIDTH;
+	glpic->th = (y + pic->height - 0.01) / (float)SCRAP_WIDTH;
 
 	return pic;
     }
