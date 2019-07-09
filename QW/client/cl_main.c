@@ -1421,7 +1421,7 @@ Host_Init(quakeparms_t *parms)
     Key_Init();
     Con_Init();
     M_Init();
-    Mod_Init(R_AliasModelLoader());
+    Mod_Init(R_AliasModelLoader(), R_BrushModelLoader());
 
     Con_Printf("Exe: %s\n", Build_DateString());
     Con_Printf("%4.1f megabyte heap\n", parms->memsize / (1024 * 1024.0));

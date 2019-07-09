@@ -60,6 +60,7 @@ cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", true };
 #endif
 
 static const alias_loader_t *alias_loader;
+static const brush_loader_t *brush_loader;
 
 static void PVSCache_f(void);
 
@@ -78,13 +79,14 @@ Mod_Init
 ===============
 */
 void
-Mod_Init(const alias_loader_t *loader)
+Mod_Init(const alias_loader_t *alias_loader_in, const brush_loader_t *brush_loader_in)
 {
 #ifdef GLQUAKE
     Cvar_RegisterVariable(&gl_subdivide_size);
 #endif
     Cmd_AddCommand("pvscache", PVSCache_f);
-    alias_loader = loader;
+    alias_loader = alias_loader_in;
+    brush_loader = brush_loader_in;
 }
 
 /*
@@ -422,27 +424,29 @@ static model_t *
 Mod_LoadModel(const char *name, qboolean crash)
 {
     byte stackbuf[1024];
-    unsigned *buf, header;
+    unsigned *buffer, header;
     brushmodel_t *brushmodel;
     model_t *model;
     size_t size;
+    byte *brushmodel_header;
+    int pad;
 
     /* Load the file - use stack for tiny models to avoid dirtying heap */
-    buf = COM_LoadStackFile(name, stackbuf, sizeof(stackbuf), &size);
-    if (!buf) {
+    buffer = COM_LoadStackFile(name, stackbuf, sizeof(stackbuf), &size);
+    if (!buffer) {
 	if (crash)
 	    SV_Error("%s: %s not found", __func__, name);
 	return NULL;
     }
 
     /* call the apropriate loader */
-    header = LittleLong(*buf);
+    header = LittleLong(*buffer);
     switch (header) {
 #ifndef SERVERONLY
     case IDPOLYHEADER:
 	model = Mod_NewAliasModel();
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
-	Mod_LoadAliasModel(alias_loader, model, buf, size);
+	Mod_LoadAliasModel(alias_loader, model, buffer, size);
 	break;
 
     case IDSPRITEHEADER:
@@ -450,16 +454,18 @@ Mod_LoadModel(const char *name, qboolean crash)
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	model->next = loaded_sprites;
 	loaded_sprites = model;
-	Mod_LoadSpriteModel(model, buf);
+	Mod_LoadSpriteModel(model, buffer);
 	break;
 #endif
     default:
-	brushmodel = Mod_AllocName(sizeof(*brushmodel), name);
+	pad = brush_loader->Padding();
+	brushmodel_header = Mod_AllocName(sizeof(brushmodel_t) + pad, name);
+	brushmodel = (brushmodel_t *)(brushmodel_header + pad);
 	brushmodel->next = loaded_models;
 	loaded_models = brushmodel;
 	model = &brushmodel->model;
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
-	Mod_LoadBrushModel(brushmodel, buf, size);
+	Mod_LoadBrushModel(brushmodel, buffer, size);
 	break;
     }
 
@@ -1672,19 +1678,22 @@ RadiusFromBounds(vec3_t mins, vec3_t maxs)
 }
 
 static void
-Mod_SetupSubmodels(brushmodel_t *world)
+Mod_SetupSubmodels(brushmodel_t *world, const brush_loader_t *loader)
 {
     const dmodel_t *dmodel;
     brushmodel_t *submodel;
     model_t *model;
-    int i, j;
+    int i, j, pad;
+    byte *buffer;
 
     /* Set up the extra submodel fields, starting with the world */
     submodel = world;
     model = &submodel->model;
     for (i = 0; i < world->numsubmodels; i++) {
 	if (i > 0) {
-	    submodel = Hunk_AllocName(sizeof(*submodel), "submodel");
+	    pad = loader->Padding();
+	    buffer = Hunk_AllocName(sizeof(brushmodel_t) + pad, "submodel");
+	    submodel = (brushmodel_t *)(buffer + pad);
 	    model = &submodel->model;
 	    *submodel = *world; /* start with world info */
 	    qsnprintf(model->name, sizeof(model->name), "*%d", i);

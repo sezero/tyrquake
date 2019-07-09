@@ -392,7 +392,8 @@ static int lastposenum;
 /*
  * Model Loader Functions
  */
-static int GL_AliashdrPadding(void) { return offsetof(gl_aliashdr_t, ahdr); }
+static int GL_AliashdrPadding() { return offsetof(gl_aliashdr_t, ahdr); }
+static int GL_BrushmodelPadding() { return offsetof(gl_brushmodel_t, brushmodel); }
 
 /*
 =================
@@ -538,6 +539,16 @@ const alias_loader_t *
 R_AliasModelLoader(void)
 {
     return &GL_AliasModelLoader;
+}
+
+static brush_loader_t GL_BrushModelLoader = {
+    .Padding = GL_BrushmodelPadding,
+};
+
+const brush_loader_t *
+R_BrushModelLoader()
+{
+    return &GL_BrushModelLoader;
 }
 
 /*

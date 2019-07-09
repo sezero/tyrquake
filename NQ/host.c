@@ -814,7 +814,7 @@ Host_Init(quakeparms_t *parms)
     Con_Init();
     M_Init();
     PR_Init();
-    Mod_Init(R_AliasModelLoader());
+    Mod_Init(R_AliasModelLoader(), R_BrushModelLoader());
     NET_Init();
     SV_Init();
 

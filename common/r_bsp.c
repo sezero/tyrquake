@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "r_local.h"
 #include "console.h"
+#include "model.h"
 
 //
 // current entity info
@@ -51,6 +52,20 @@ static mvertex_t *pfrontenter, *pfrontexit;
 static qboolean makeclippededge;
 
 //===========================================================================
+
+/*
+ * Provide brush model loader
+ */
+static int SW_BrushmodelPadding() { return 0; }
+static brush_loader_t SW_BrushModelLoader = {
+    .Padding = SW_BrushmodelPadding,
+};
+
+const brush_loader_t *
+R_BrushModelLoader()
+{
+    return &SW_BrushModelLoader;
+}
 
 /*
 ================

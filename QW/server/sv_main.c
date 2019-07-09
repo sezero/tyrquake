@@ -1593,8 +1593,14 @@ SV_InitNet(void)
 /*
  * Model Loader Functions
  */
-static alias_loader_t SV_Alias_Loader = {
+
+static alias_loader_t SV_AliasLoader = {
     NULL, /* Does not load alias models */
+};
+
+static int SV_BrushmodelPadding() { return 0; }
+static brush_loader_t SV_BrushLoader = {
+    .Padding = SV_BrushmodelPadding,
 };
 
 /*
@@ -1625,7 +1631,7 @@ SV_Init(quakeparms_t *parms)
     COM_Init();
 
     PR_Init();
-    Mod_Init(&SV_Alias_Loader);
+    Mod_Init(&SV_AliasLoader, &SV_BrushLoader);
 
     SV_InitNet();
 

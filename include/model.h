@@ -481,6 +481,26 @@ BrushModel(model_t *model)
     return container_of(model, brushmodel_t, model);
 }
 
+#ifdef GLQUAKE
+
+typedef struct {
+    int pad[12]; /* for testing only */
+    brushmodel_t brushmodel;
+} gl_brushmodel_t;
+
+static inline gl_brushmodel_t *
+GL_Brushmodel(brushmodel_t *brushmodel)
+{
+    return container_of(brushmodel, gl_brushmodel_t, brushmodel);
+}
+
+#endif
+
+/* Brush model loader structures */
+typedef struct brush_loader {
+    int (*Padding)(void);
+} brush_loader_t;
+
 /* Alias model loader structures */
 typedef struct {
     mtriangle_t *triangles;
@@ -507,7 +527,7 @@ typedef struct alias_loader {
 
 //============================================================================
 
-void Mod_Init(const alias_loader_t *loader);
+void Mod_Init(const alias_loader_t *alias_loader, const brush_loader_t *brush_loader);
 void *Mod_AllocName(int size, const char *name); /* Internal helper */
 #ifndef SERVERONLY
 void Mod_InitAliasCache(void);

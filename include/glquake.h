@@ -326,6 +326,7 @@ void R_ResetPlayerTextures(void);
  * The renderer supplies callbacks to the model loader
  */
 const alias_loader_t *R_AliasModelLoader(void);
+const brush_loader_t *R_BrushModelLoader(void);
 
 //
 // gl_rlight.c
