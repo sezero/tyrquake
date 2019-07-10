@@ -144,10 +144,6 @@ GL_TextureMode_f(void)
 
     /*
      * Change all the existing mipmap texture objects
-     *
-     * TODO: The fullbright mask textures for alias models need a special mipmap
-     *       filter which prevents the fullbright pixels from bleeding outwards
-     *       as the image is downsampled.  So, don't mipmap for now.
      */
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
         if (glt->type == TEXTURE_TYPE_LIGHTMAP)
