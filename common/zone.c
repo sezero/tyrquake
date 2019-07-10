@@ -783,6 +783,7 @@ Hunk_TempAllocExtend(int size)
     new = (hunk_t *)(hunkstate.base + hunkstate.size - hunkstate.highbytes);
     memmove(new, old, sizeof(hunk_t));
     new->size += size;
+    memset(new + 1, 0, size);
 
     return new + 1;
 }
