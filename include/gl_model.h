@@ -25,11 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "model.h"
 
-#define	BLOCK_WIDTH	128
-#define	BLOCK_HEIGHT	128
+#define BLOCK_WIDTH  256
+#define BLOCK_HEIGHT 256
 
 typedef struct {
-    unsigned char l, t, w, h;
+    unsigned short l, t, w, h;
 } glRect_t;
 
 typedef struct lm_block_s {
