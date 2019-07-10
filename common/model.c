@@ -551,12 +551,12 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	brushmodel->textures[i] = tx;
 
 	/* FIXME ~ do we handle non-terminated strings everywhere? */
+	tx->texturenum = i;
 	memcpy(tx->name, mt->name, sizeof(tx->name));
 	tx->width = mt->width;
 	tx->height = mt->height;
 	for (j = 0; j < MIPLEVELS; j++)
-	    tx->offsets[j] =
-		mt->offsets[j] + sizeof(texture_t) - sizeof(miptex_t);
+	    tx->offsets[j] = mt->offsets[j] + sizeof(texture_t) - sizeof(miptex_t);
 	/* the pixels immediately follow the structures */
 	memcpy(tx + 1, mt + 1, pixels);
 

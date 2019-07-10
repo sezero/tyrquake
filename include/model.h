@@ -85,7 +85,7 @@ typedef struct {
 } mvertex_t;
 
 typedef struct texture_s {
-    char name[16];
+    unsigned texturenum;
     unsigned width, height;
 #ifdef GLQUAKE
     GLuint gl_texturenum;
@@ -100,6 +100,7 @@ typedef struct texture_s {
     struct texture_s *anim_next;	// in the animation sequence
     struct texture_s *alternate_anims;	// bmodels in frmae 1 use these
     unsigned offsets[MIPLEVELS];	// four mip maps stored
+    char name[16];
 } texture_t;
 
 #define	SURF_PLANEBACK		(1 << 1)
@@ -152,6 +153,7 @@ typedef struct msurface_s {
     qboolean cached_dlight;	// true if dynamic light in cache
     glpoly_t *polys;	// multiple if warped
     struct msurface_s *texturechain;
+    int material;
 #else
 // surface generation data
     struct surfcache_s *cachespots[MIPLEVELS];

@@ -41,9 +41,21 @@ typedef struct lm_block_s {
     GLuint texture;
 } lm_block_t;
 
+// Material - combination of gl textures required to render the surface
+typedef struct surface_material {
+    int texturenum;
+    int lightmapblock;
+    msurface_t *chain;
+} surface_material_t;
+
 typedef struct {
+    // Lightmap blocks
     int numblocks;
     lm_block_t *blocks;
+
+    // Materials
+    int nummaterials;
+    struct surface_material *materials;
 
     brushmodel_t brushmodel;
 } glbrushmodel_t;

@@ -204,14 +204,13 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
     glbrushmodel_t *glbrushmodel;
     msurface_t **texturechains;
     msurface_t *surf;
-    int i;
+    int i, j, material_start;
 
     /* Setup texture chains so we can allocate lightmaps in order of texture */
     texturechains = Hunk_TempAllocExtend(brushmodel->numtextures * sizeof(msurface_t *));
     surf = brushmodel->surfaces;
     for (i = 0; i < brushmodel->numsurfaces; i++, surf++) {
-	if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
-	    continue;
+	surf->material = -1;
 	unsigned texturenum = surf->texinfo->texture->texturenum;
 	surf->texturechain = texturechains[texturenum];
 	texturechains[texturenum] = surf;
@@ -221,8 +220,54 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
     glbrushmodel = GLBrushModel(brushmodel);
     glbrushmodel->blocks = Mod_AllocName(sizeof(lm_block_t), brushmodel->model.name);
     for (i = 0; i < brushmodel->numtextures; i++) {
-	for (surf = texturechains[i]; surf; surf = surf->texturechain) {
+	surf = texturechains[i];
+	if (!surf)
+	    continue;
+	if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
+	    continue;
+	for ( ; surf; surf = surf->texturechain) {
 	    GL_AllocLightmapBlock(glbrushmodel, surf);
+	}
+    }
+
+    surface_material_t *material;
+
+    /* Allocate materials */
+    glbrushmodel->nummaterials = 0;
+    glbrushmodel->materials = Mod_AllocName(0, brushmodel->model.name);
+    for (i = 0; i < brushmodel->numtextures; i++) {
+	/*
+	 * For each new texture we know we won't match materials
+	 * generated for the previous textures, so use this index to
+	 * skip ahead in the materials to be matched.
+	 */
+	material_start = glbrushmodel->nummaterials;
+	for (surf = texturechains[i]; surf; surf = surf->texturechain) {
+	    int texturenum = surf->texinfo->texture->texturenum;
+	    int lightmapblock = surf->lightmaptexturenum;
+	    for (j = material_start; j < glbrushmodel->nummaterials; j++) {
+		material = &glbrushmodel->materials[j];
+		if (material->texturenum != texturenum)
+		    continue;
+		if (material->lightmapblock != lightmapblock)
+		    continue;
+		surf->material = j;
+		break;
+	    }
+	    if (surf->material != -1)
+		continue;
+
+	    /*
+	     * TODO: The hunk extension will be rounded up to the
+	     * nearest 16 bytes, which might waste some space over the
+	     * entire material list.  Make a better alloc helper for
+	     * this case?
+	     */
+	    surf->material = glbrushmodel->nummaterials;
+	    Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
+	    material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
+	    material->texturenum = texturenum;
+	    material->lightmapblock = surf->lightmaptexturenum;
 	}
     }
 }
