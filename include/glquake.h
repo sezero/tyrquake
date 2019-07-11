@@ -283,13 +283,19 @@ void GL_InitTextures(void);
 void R_TranslatePlayerSkin(int playernum);
 void GL_Bind(int texnum);
 
-// ARB multitexture function pointers...
-// FIXME - Find out what the APIENTRY stuff is (WIN32 obviously)
+/*
+ * ARB multitexture function pointers
+ *  glClientActiveTexture is supposed to be part of OpenGL 1.1 but it
+ *  isn't in the Windows OpenGL 1.1 lib for linking, so we need to
+ *  load that dynamically.
+ */
 typedef void (APIENTRY *lpMultiTexFUNC) (GLenum, GLfloat, GLfloat);
 typedef void (APIENTRY *lpActiveTextureFUNC) (GLenum);
+typedef void (APIENTRY *lpClientStateFUNC) (GLenum);
 
 extern lpMultiTexFUNC qglMultiTexCoord2fARB;
 extern lpActiveTextureFUNC qglActiveTextureARB;
+extern lpClientStateFUNC qglClientActiveTexture;
 
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;

@@ -257,8 +257,9 @@ R_TextureAnimation(const entity_t *e, texture_t *base)
 =============================================================
 */
 
-lpMultiTexFUNC qglMultiTexCoord2fARB = NULL;
-lpActiveTextureFUNC qglActiveTextureARB = NULL;
+lpMultiTexFUNC qglMultiTexCoord2fARB;
+lpActiveTextureFUNC qglActiveTextureARB;
+lpClientStateFUNC qglClientActiveTexture;
 
 static qboolean mtexenabled = false;
 static GLenum oldtarget = GL_TEXTURE0_ARB;

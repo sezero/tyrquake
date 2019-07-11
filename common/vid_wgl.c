@@ -103,14 +103,6 @@ static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
 
 static void ClearAllStates(void);
 
-// FIXME - Shouldn't use the exact names from the library?
-#ifndef GL_VERSION_1_2
-static PROC glArrayElementEXT;
-static PROC glColorPointerEXT;
-static PROC glTexCoordPointerEXT;
-static PROC glVertexPointerEXT;
-#endif
-
 static BOOL bSetupPixelFormat(HDC hDC);
 
 static void
