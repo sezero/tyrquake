@@ -142,7 +142,7 @@ R_AliasModelLoader(void)
  * Allocates space in the lightmap blocks for the surface lightmap
  */
 static void
-GL_AllocLightmapBlock(glbrushmodel_t *glmodel, msurface_t *surf)
+GL_AllocLightmapBlock(glbrushmodel_resource_t *resources, msurface_t *surf)
 {
     int i, j;
     int best, best2;
@@ -159,13 +159,13 @@ GL_AllocLightmapBlock(glbrushmodel_t *glmodel, msurface_t *surf)
      * Only scan over the last four blocks. Only negligable effects on the
      * packing efficiency, but much faster for maps with a lot of lightmaps.
      */
-    blocknum = qmax(0, glmodel->numblocks - 4);
+    blocknum = qmax(0, resources->numblocks - 4);
     for ( ;; blocknum++) {
-	if (blocknum == glmodel->numblocks) {
-	    Hunk_AllocExtend(glmodel->blocks, sizeof(lm_block_t));
-	    glmodel->numblocks++;
+	if (blocknum == resources->numblocks) {
+	    Hunk_AllocExtend(resources->blocks, sizeof(lm_block_t));
+	    resources->numblocks++;
 	}
-	allocated = glmodel->blocks[blocknum].allocated;
+	allocated = resources->blocks[blocknum].allocated;
 
 	best = BLOCK_HEIGHT - height + 1;
 	for (i = 0; i < BLOCK_WIDTH - width; i++) {
@@ -195,81 +195,160 @@ GL_AllocLightmapBlock(glbrushmodel_t *glmodel, msurface_t *surf)
 	allocated[surf->light_s + i] = best + height;
     }
 
-    surf->lightmaptexturenum = blocknum;
+    surf->lightmapblock = blocknum;
 }
 
 static void
 GL_BrushModelPostProcess(brushmodel_t *brushmodel)
 {
+}
+
+#ifdef DEBUG
+static void
+Debug_PrintMaterials(glbrushmodel_t *glbrushmodel)
+{
+    brushmodel_t *brushmodel = &glbrushmodel->brushmodel;
+    surface_material_t *material;
+    int i;
+
+    Sys_Printf("====== %s ======\n", glbrushmodel->brushmodel.model.name);
+
+    material = &glbrushmodel->materials[0];
+    for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
+        texture_t *texture = brushmodel->textures[material->texturenum];
+        Sys_Printf("Material %3d: %-16s (%3d) :: lightmap block %3d\n",
+                   i, texture->name, material->texturenum, material->lightmapblock);
+    }
+}
+#else
+static inline void Debug_PrintMaterials(glbrushmodel_t *glbrushmodel) { }
+#endif
+
+void
+GL_BuildMaterials()
+{
+    glbrushmodel_resource_t *resources;
     glbrushmodel_t *glbrushmodel;
+    brushmodel_t *brushmodel;
     msurface_t **texturechains;
     msurface_t *surf;
-    int i, j, material_start;
-
-    /* Setup texture chains so we can allocate lightmaps in order of texture */
-    texturechains = Hunk_TempAllocExtend(brushmodel->numtextures * sizeof(msurface_t *));
-    surf = brushmodel->surfaces;
-    for (i = 0; i < brushmodel->numsurfaces; i++, surf++) {
-	surf->material = -1;
-	unsigned texturenum = surf->texinfo->texture->texturenum;
-	surf->texturechain = texturechains[texturenum];
-	texturechains[texturenum] = surf;
-    }
-
-    /* Allocate lightmap blocks */
-    glbrushmodel = GLBrushModel(brushmodel);
-    glbrushmodel->blocks = Mod_AllocName(sizeof(lm_block_t), brushmodel->model.name);
-    for (i = 0; i < brushmodel->numtextures; i++) {
-	surf = texturechains[i];
-	if (!surf)
-	    continue;
-	if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
-	    continue;
-	for ( ; surf; surf = surf->texturechain) {
-	    GL_AllocLightmapBlock(glbrushmodel, surf);
-	}
-    }
-
     surface_material_t *material;
+    texture_t *texture;
+    int surfnum, texturenum, materialnum, material_start;
 
-    /* Allocate materials */
-    glbrushmodel->nummaterials = 0;
-    glbrushmodel->materials = Mod_AllocName(0, brushmodel->model.name);
-    for (i = 0; i < brushmodel->numtextures; i++) {
-	/*
-	 * For each new texture we know we won't match materials
-	 * generated for the previous textures, so use this index to
-	 * skip ahead in the materials to be matched.
-	 */
-	material_start = glbrushmodel->nummaterials;
-	for (surf = texturechains[i]; surf; surf = surf->texturechain) {
-	    int texturenum = surf->texinfo->texture->texturenum;
-	    int lightmapblock = surf->lightmaptexturenum;
-	    for (j = material_start; j < glbrushmodel->nummaterials; j++) {
-		material = &glbrushmodel->materials[j];
-		if (material->texturenum != texturenum)
-		    continue;
-		if (material->lightmapblock != lightmapblock)
-		    continue;
-		surf->material = j;
-		break;
-	    }
-	    if (surf->material != -1)
-		continue;
+    /* Allocate the shared resource structure for the bmodels */
+    resources = Hunk_AllocName(sizeof(glbrushmodel_resource_t), "resources");
+    resources->blocks = Hunk_AllocName(sizeof(lm_block_t), "lightmaps");
+    resources->numblocks = 1;
 
-	    /*
-	     * TODO: The hunk extension will be rounded up to the
-	     * nearest 16 bytes, which might waste some space over the
-	     * entire material list.  Make a better alloc helper for
-	     * this case?
-	     */
-	    surf->material = glbrushmodel->nummaterials;
-	    Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
-	    material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
-	    material->texturenum = texturenum;
-	    material->lightmapblock = surf->lightmaptexturenum;
-	}
+    /*
+     * Allocate lightmaps for all brush models first, so we get contiguous
+     * memory for the lightmap block allocations.
+     */
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        if (brushmodel->parent)
+            continue;
+
+        /*
+         * Setup (temporary) texture chains so we can allocate lightmaps in
+         * order of texture.  We borrow the materialchains pointer to store
+         * the texturechain until every brushmodel has had it's lightmaps
+         * allocated.  We'll also initialise the surface material to -1 here
+         * to signify no material yet allocated.
+         */
+        texturechains = Hunk_TempAllocExtend(brushmodel->numtextures * sizeof(msurface_t *));
+        surf = brushmodel->surfaces;
+        for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++) {
+            surf->material = -1;
+            texture = surf->texinfo->texture;
+            surf->chain = texturechains[texture->texturenum];
+            texturechains[texture->texturenum] = surf;
+        }
+
+        /* Allocate lightmap blocks in texture order */
+        for (texturenum = 0; texturenum < brushmodel->numtextures; texturenum++) {
+            surf = texturechains[texturenum];
+            if (!surf)
+                continue;
+            if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
+                continue;
+            for ( ; surf; surf = surf->chain) {
+                GL_AllocLightmapBlock(resources, surf);
+            }
+        }
+
+        /* Save the texturechains for material allocation below */
+        glbrushmodel = GLBrushModel(brushmodel);
+        glbrushmodel->materialchains = texturechains;
     }
+
+    /*
+     * Next we allocate materials for each brushmodel
+     */
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        if (brushmodel->parent)
+            continue;
+
+        glbrushmodel = GLBrushModel(brushmodel);
+        glbrushmodel->nummaterials = 0;
+        glbrushmodel->materials = Hunk_AllocName(0, "material");
+        texturechains = glbrushmodel->materialchains; /* saved earlier */
+
+        for (texturenum = 0; texturenum < brushmodel->numtextures; texturenum++) {
+            /*
+             * For each new texture we know we won't match materials
+             * generated for the previous textures, so use this index to
+             * skip ahead in the materials to be matched.
+             */
+            material_start = glbrushmodel->nummaterials;
+            for (surf = texturechains[texturenum]; surf; surf = surf->chain) {
+                int lightmapblock = surf->lightmapblock;
+                qboolean found = false;
+                for (materialnum = material_start; materialnum < glbrushmodel->nummaterials; materialnum++) {
+                    material = &glbrushmodel->materials[materialnum];
+                    if (material->texturenum != texturenum)
+                        continue;
+                    if (material->lightmapblock != lightmapblock)
+                        continue;
+                    surf->material = materialnum;
+                    found = true;
+                    break;
+                }
+                if (found)
+                    continue;
+
+                /*
+                 * TODO: The hunk extension will be rounded up to the nearest
+                 * 16 bytes, which might waste some space over the entire
+                 * material list.  Make a better alloc helper for this case?
+                 */
+                surf->material = glbrushmodel->nummaterials;
+                Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
+                material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
+                material->texturenum = texturenum;
+                material->lightmapblock = surf->lightmapblock;
+            }
+        }
+    }
+
+    /*
+     * Finally, we allocate the materialchains for every brushmodel (including
+     * submodels).  Submodels share the material list with their parent.  All
+     * share the common resources struct.
+     */
+    void *hunkbase = Hunk_AllocName(0, "material");
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        glbrushmodel = GLBrushModel(brushmodel);
+        if (brushmodel->parent) {
+            glbrushmodel_t *parent = GLBrushModel(brushmodel->parent);
+            glbrushmodel->nummaterials = parent->nummaterials;
+            glbrushmodel->materials = parent->materials;
+        }
+        glbrushmodel->materialchains = Hunk_AllocExtend(hunkbase, glbrushmodel->nummaterials * sizeof(msurface_t *));
+        glbrushmodel->resources = resources;
+    }
+
+    Debug_PrintMaterials(glbrushmodel);
 }
 
 static brush_loader_t GL_BrushModelLoader = {

@@ -98,7 +98,7 @@ typedef struct texture_s {
     int anim_total;		// total tenths in sequence ( 0 = no)
     int anim_min, anim_max;	// time for this frame min <=time< max
     struct texture_s *anim_next;	// in the animation sequence
-    struct texture_s *alternate_anims;	// bmodels in frmae 1 use these
+    struct texture_s *alternate_anims;	// bmodels in frame 1 use these
     unsigned offsets[MIPLEVELS];	// four mip maps stored
     char name[16];
 } texture_t;
@@ -148,12 +148,13 @@ typedef struct msurface_s {
 #ifdef GLQUAKE
     int light_s;	// gl lightmap coordinates
     int light_t;
-    int lightmaptexturenum;
+    int lightmapblock;
+    int material;
     int cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
     qboolean cached_dlight;	// true if dynamic light in cache
     glpoly_t *polys;	// multiple if warped
-    struct msurface_s *texturechain;
-    int material;
+    struct msurface_s *texturechain; // TODO: remove this
+    struct msurface_s *chain; // Material chain for drawing
 #else
 // surface generation data
     struct surfcache_s *cachespots[MIPLEVELS];
@@ -537,6 +538,7 @@ void GL_LoadSpriteTextures(const model_t *model);
 void Mod_ReloadTextures();
 #endif
 
+brushmodel_t *loaded_brushmodels;
 
 /*
  * PVS/PHS information

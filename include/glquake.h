@@ -374,8 +374,8 @@ void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawWaterSurfaces(void);
 void R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture);
-void GL_BuildLightmaps(void *hunkbase);
-void GL_ReloadLightmapTextures(const glbrushmodel_t *glbrushmodel);
+void GL_BuildLightmaps();
+void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
 
 //
 // Used only for r_shadows 1 (remove?)

@@ -430,7 +430,6 @@ R_NewMap
 void
 R_NewMap(void)
 {
-    void *hunkbase;
     int i;
 
     for (i = 0; i < 256; i++)
@@ -447,8 +446,9 @@ R_NewMap(void)
     r_viewleaf = NULL;
     R_ClearParticles();
 
-    hunkbase = Hunk_AllocName(0, "gl_polys");
-    GL_BuildLightmaps(hunkbase);
+    // BSP Post-processing here: All BSP models at once
+    GL_BuildMaterials();
+    GL_BuildLightmaps();
 
     /* identify mirror texture */
     mirrortexturenum = -1;

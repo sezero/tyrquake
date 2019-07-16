@@ -52,7 +52,7 @@ static texture_t r_notexture_mip_qwsv;
 static void Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size);
 static model_t *Mod_LoadModel(const char *name, qboolean crash);
 
-static brushmodel_t *loaded_models;
+brushmodel_t *loaded_brushmodels;
 static model_t *loaded_sprites;
 
 #ifdef GLQUAKE
@@ -341,7 +341,7 @@ Mod_ClearAll
 void
 Mod_ClearAll(void)
 {
-    loaded_models = NULL;
+    loaded_brushmodels = NULL;
     loaded_sprites = NULL;
     fatpvs = NULL;
     memset(pvscache, 0, sizeof(pvscache));
@@ -369,7 +369,7 @@ Mod_FindName(const char *name)
 	SV_Error("%s: NULL name", __func__);
 
     /* search the currently loaded models */
-    brushmodel = loaded_models;
+    brushmodel = loaded_brushmodels;
     while (brushmodel) {
 	if (!strcmp(brushmodel->model.name, name))
 	    break;
@@ -452,8 +452,8 @@ Mod_LoadModel(const char *name, qboolean crash)
 	pad = brush_loader->Padding();
 	brushmodel_header = Mod_AllocName(sizeof(brushmodel_t) + pad, name);
 	brushmodel = (brushmodel_t *)(brushmodel_header + pad);
-	brushmodel->next = loaded_models;
-	loaded_models = brushmodel;
+	brushmodel->next = loaded_brushmodels;
+	loaded_brushmodels = brushmodel;
 	model = &brushmodel->model;
 	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	Mod_LoadBrushModel(brushmodel, buffer, size);
@@ -1688,8 +1688,8 @@ Mod_SetupSubmodels(brushmodel_t *world, const brush_loader_t *loader)
 	    *submodel = *world; /* start with world info */
 	    submodel->parent = world;
 	    qsnprintf(model->name, sizeof(model->name), "*%d", i);
-	    submodel->next = loaded_models;
-	    loaded_models = submodel;
+	    submodel->next = loaded_brushmodels;
+	    loaded_brushmodels = submodel;
 	}
 
 	dmodel = &world->submodels[i];
@@ -1970,7 +1970,7 @@ Mod_Print(void)
 	sprite++;
     }
 
-    brushmodel = loaded_models;
+    brushmodel = loaded_brushmodels;
     while (brushmodel) {
 	model = &brushmodel->model;
 	Con_Printf("%*p : %s\n", (int)sizeof(void *) * 2 + 2,
@@ -1988,7 +1988,7 @@ void
 Mod_ReloadTextures()
 {
     const model_t *model;
-    const brushmodel_t *brushmodel;
+    brushmodel_t *brushmodel;
 
     /* Alias models */
     for (model = Mod_AliasCache(); model; model = model->next) {
@@ -2004,9 +2004,9 @@ Mod_ReloadTextures()
     }
 
     /* Brush models */
-    for (brushmodel = loaded_models; brushmodel; brushmodel = brushmodel->next) {
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
         GL_LoadBrushModelTextures(brushmodel);
-	GL_ReloadLightmapTextures(GLConstBrushModel(brushmodel));
+        GL_ReloadLightmapTextures(GLBrushModel(brushmodel)->resources);
     }
 }
 #endif

@@ -404,6 +404,7 @@ R_UploadLMBlockUpdate(lm_block_t *block)
     rect->t = BLOCK_HEIGHT;
     rect->h = 0;
     rect->w = 0;
+    block->modified = false;
 
     c_lightmaps_uploaded++;
 }
@@ -418,7 +419,7 @@ R_BlendLightmaps(brushmodel_t *brushmodel)
 {
     int i;
     glpoly_t *p;
-    glbrushmodel_t *glbrushmodel;
+    glbrushmodel_resource_t *resources;
 
     if (r_drawflat.value)
 	return;
@@ -436,15 +437,14 @@ R_BlendLightmaps(brushmodel_t *brushmodel)
 	glEnable(GL_BLEND);
     }
 
-    glbrushmodel = GLBrushModel(brushmodel);
-    for (i = 0; i < glbrushmodel->numblocks; i++) {
-	lm_block_t *block = &glbrushmodel->blocks[i];
+    resources = GLBrushModel(brushmodel)->resources;
+    for (i = 0; i < resources->numblocks; i++) {
+	lm_block_t *block = &resources->blocks[i];
 	if (!block->polys)
 	    continue;
 	GL_Bind(block->texture);
 	if (block->modified) {
 	    R_UploadLMBlockUpdate(block);
-	    block->modified = false;
 	}
 	for (p = block->polys; p; p = p->chain) {
 	    DrawGLPolyLM(p);
@@ -465,7 +465,7 @@ R_BlendLightmaps(brushmodel_t *brushmodel)
  * R_UpdateLightmapBlockRect
  */
 static void
-R_UpdateLightmapBlockRect(glbrushmodel_t *glbrushmodel, msurface_t *surf)
+R_UpdateLightmapBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
 {
     int map;
     byte *base;
@@ -492,7 +492,7 @@ R_UpdateLightmapBlockRect(glbrushmodel_t *glbrushmodel, msurface_t *surf)
 	 * modified. If necessary, increase the modified rectangle to include
 	 * this surface's allocatied sub-area.
 	 */
-	block = &glbrushmodel->blocks[surf->lightmaptexturenum];
+	block = &resources->blocks[surf->lightmapblock];
 	rect = &block->rectchange;
 	block->modified = true;
 	if (surf->light_t < rect->t) {
@@ -527,7 +527,7 @@ void
 R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 {
     lm_block_t *block;
-    glbrushmodel_t *glbrushmodel;
+    glbrushmodel_resource_t *resources;
 
     c_brush_polys++;
 
@@ -551,15 +551,14 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 	return;
     }
 
-    glbrushmodel = GLBrushModel(BrushModel(e->model));
-    block = &glbrushmodel->blocks[surf->lightmaptexturenum];
+    resources = GLBrushModel(BrushModel(e->model))->resources;
+    block = &resources->blocks[surf->lightmapblock];
     if (gl_mtexable) {
 	/* All lightmaps are up to date... */
 	GL_EnableMultitexture();
 	GL_Bind(block->texture);
 	if (block->modified) {
 	    R_UploadLMBlockUpdate(block);
-	    block->modified = false;
 	}
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
 	DrawGLPoly_2Ply(surf->polys);
@@ -583,7 +582,7 @@ R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
 	surf->polys->chain = block->polys;
 	block->polys = surf->polys;
 
-	R_UpdateLightmapBlockRect(glbrushmodel, surf);
+	R_UpdateLightmapBlockRect(resources, surf);
     }
 }
 
@@ -667,11 +666,11 @@ DrawTextureChains(const entity_t *e)
     int i;
     msurface_t *surf;
     texture_t *t;
-    glbrushmodel_t *glbrushmodel;
+    glbrushmodel_resource_t *resources;
 
     if (gl_mtexable) {
 	/* Update all lightmaps */
-	glbrushmodel = GLBrushModel(BrushModel(e->model));
+        resources = GLBrushModel(BrushModel(e->model))->resources;
 	for (i = 0; i < cl.worldmodel->numtextures; i++) {
 	    t = cl.worldmodel->textures[i];
 	    if (!t)
@@ -687,7 +686,7 @@ DrawTextureChains(const entity_t *e)
 		continue;
 
 	    for (; surf; surf = surf->texturechain)
-		R_UpdateLightmapBlockRect(glbrushmodel, surf);
+            R_UpdateLightmapBlockRect(resources, surf);
 	}
     }
 
@@ -772,7 +771,7 @@ R_DrawBrushModel(const entity_t *e)
     mplane_t *pplane;
     model_t *model;
     brushmodel_t *brushmodel;
-    glbrushmodel_t *glbrushmodel;
+    glbrushmodel_resource_t *resources;
     qboolean rotated;
 
     currenttexture = -1;
@@ -817,12 +816,12 @@ R_DrawBrushModel(const entity_t *e)
     R_RotateForEntity(e->origin, angles_bug);
 
     if (!r_drawflat.value) {
-	/*
-	 * calculate dynamic lighting for bmodel if it's not an instanced model
-	 */
-	glbrushmodel = GLBrushModel(brushmodel);
-	for (i = 0; i < glbrushmodel->numblocks; i++)
-	    glbrushmodel->blocks[i].polys = NULL;
+        /*
+         * calculate dynamic lighting for bmodel if it's not an instanced model
+         */
+        resources = GLBrushModel(brushmodel)->resources;
+        for (i = 0; i < resources->numblocks; i++)
+            resources->blocks[i].polys = NULL;
 
 	if (brushmodel->firstmodelsurface != 0) {
 	    for (k = 0; k < MAX_DLIGHTS; k++) {
@@ -1016,16 +1015,16 @@ R_DrawWorld(void)
 {
     int i;
     entity_t ent;
-    glbrushmodel_t *glbrushmodel;
+    glbrushmodel_resource_t *resources;
 
     memset(&ent, 0, sizeof(ent));
     ent.model = &cl.worldmodel->model;
 
     currenttexture = -1;
     glColor3f(1, 1, 1);
-    glbrushmodel = GLBrushModel(BrushModel(ent.model));
-    for (i = 0; i < glbrushmodel->numblocks; i++)
-	glbrushmodel->blocks[i].polys = NULL;
+    resources = GLBrushModel(BrushModel(ent.model))->resources;
+    for (i = 0; i < resources->numblocks; i++)
+        resources->blocks[i].polys = NULL;
 
     if (r_drawflat.value || _gl_drawhull.value) {
 	GL_DisableMultitexture();
@@ -1160,14 +1159,14 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
  * Return the number of uploads that were required/done
  */
 static void
-GL_UploadLightmaps(const glbrushmodel_t *glbrushmodel)
+GL_UploadLightmaps(const glbrushmodel_resource_t *resources)
 {
     int i;
     lm_block_t *block;
     qpic8_t pic;
 
-    for (i = 0; i < glbrushmodel->numblocks; i++) {
-	block = &glbrushmodel->blocks[i];
+    for (i = 0; i < resources->numblocks; i++) {
+	block = &resources->blocks[i];
 
 	block->modified = false;
 	block->rectchange.l = BLOCK_WIDTH;
@@ -1179,7 +1178,7 @@ GL_UploadLightmaps(const glbrushmodel_t *glbrushmodel)
             pic.width = pic.stride = BLOCK_WIDTH;
             pic.height = BLOCK_HEIGHT;
             pic.pixels = block->data;
-            block->texture = GL_AllocateTexture(va("%s:lightmap_%03d", glbrushmodel->brushmodel.model.name, i), &pic, TEXTURE_TYPE_LIGHTMAP);
+            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
         }
 
 	GL_Bind(block->texture);
@@ -1201,13 +1200,14 @@ with all the surfaces from all brush models
 ==================
 */
 void
-GL_BuildLightmaps(void *hunkbase)
+GL_BuildLightmaps()
 {
     int i, j;
     model_t *model;
     brushmodel_t *brushmodel;
-    glbrushmodel_t *glbrushmodel;
+    glbrushmodel_resource_t *resources;
     msurface_t *surf;
+    void *hunkbase = Hunk_AllocName(0, "glpolys");
 
     for (i = 1; i < MAX_MODELS; i++) {
 	model = cl.model_precache[i];
@@ -1219,31 +1219,31 @@ GL_BuildLightmaps(void *hunkbase)
 	    continue;
 
 	brushmodel = BrushModel(model);
-	glbrushmodel = GLBrushModel(brushmodel);
+	resources = GLBrushModel(brushmodel)->resources;
 	surf = brushmodel->surfaces;
 	for (j = 0; j < brushmodel->numsurfaces; j++, surf++) {
 	    if (surf->flags & (SURF_DRAWTURB | SURF_DRAWSKY))
 		continue;
 
-	    //glbrushmodel->blocks[surf->lightmaptexturenum].modified = true;
-	    byte *base = glbrushmodel->blocks[surf->lightmaptexturenum].data;
+	    byte *base = resources->blocks[surf->lightmapblock].data;
 	    base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * lightmap_bytes;
 	    R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
 	    BuildSurfaceDisplayList(brushmodel, surf, hunkbase);
 	}
 
 	/* upload all lightmaps that were filled */
-	GL_UploadLightmaps(GLBrushModel(brushmodel));
+	GL_UploadLightmaps(resources);
     }
 }
 
 void
-GL_ReloadLightmapTextures(const glbrushmodel_t *glbrushmodel)
+GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources)
 {
     int i;
 
-    for (i = 0; i < glbrushmodel->numblocks; i++)
-        glbrushmodel->blocks[i].texture = 0;
+    for (i = 0; i < resources->numblocks; i++)
+        resources->blocks[i].texture = 0;
 
-    GL_UploadLightmaps(glbrushmodel);
+    GL_UploadLightmaps(resources);
 }
+

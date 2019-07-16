@@ -45,37 +45,45 @@ typedef struct lm_block_s {
 typedef struct surface_material {
     int texturenum;
     int lightmapblock;
-    msurface_t *chain;
 } surface_material_t;
 
 typedef struct {
     // Lightmap blocks
     int numblocks;
     lm_block_t *blocks;
+} glbrushmodel_resource_t;
 
-    // Materials
+typedef struct {
+    // Shared resources for all brush models
+    glbrushmodel_resource_t *resources;
+
+    // Materials (submodels share this with parent)
     int nummaterials;
-    struct surface_material *materials;
+    surface_material_t *materials;
 
+    // Each submodel needs it's own material chains (currently) to
+    // allow me to keep track of the transparent surface chains having
+    // different transforms.  May be able to move this back on to the
+    // material later.
+    msurface_t **materialchains;
+
+    // Embedded brushmodel struct (must be last member)
     brushmodel_t brushmodel;
 } glbrushmodel_t;
 
 static inline glbrushmodel_t *
 GLBrushModel(brushmodel_t *brushmodel)
 {
-    if (brushmodel->parent)
-	return container_of(brushmodel->parent, glbrushmodel_t, brushmodel);
-
     return container_of(brushmodel, glbrushmodel_t, brushmodel);
 }
 
 static inline const glbrushmodel_t *
-GLConstBrushModel(const brushmodel_t *brushmodel)
+ConstGLBrushModel(const brushmodel_t *brushmodel)
 {
-    if (brushmodel->parent)
-	return const_container_of(brushmodel->parent, glbrushmodel_t, brushmodel);
-
     return const_container_of(brushmodel, glbrushmodel_t, brushmodel);
 }
+
+/* Allocates lightmap blocks and material lists for all loaded BSP models */
+void GL_BuildMaterials();
 
 #endif /* GL_MODEL_H */
