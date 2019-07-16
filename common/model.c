@@ -644,15 +644,14 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 		SV_Error("Bad animating texture %s", tx->name);
 	}
 
-#define	ANIM_CYCLE	2
 	/* Link them all together */
 	for (j = 0; j < max; j++) {
 	    tx2 = anims[j];
 	    if (!tx2)
 		SV_Error("Missing frame %i of %s", j, tx->name);
-	    tx2->anim_total = max * ANIM_CYCLE;
-	    tx2->anim_min = j * ANIM_CYCLE;
-	    tx2->anim_max = (j + 1) * ANIM_CYCLE;
+	    tx2->anim_total = max;
+	    tx2->anim_min = j;
+	    tx2->anim_max = (j + 1);
 	    tx2->anim_next = anims[(j + 1) % max];
 	    if (altmax)
 		tx2->alternate_anims = altanims[0];
@@ -661,9 +660,9 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	    tx2 = altanims[j];
 	    if (!tx2)
 		SV_Error("Missing frame %i of %s", j, tx->name);
-	    tx2->anim_total = altmax * ANIM_CYCLE;
-	    tx2->anim_min = j * ANIM_CYCLE;
-	    tx2->anim_max = (j + 1) * ANIM_CYCLE;
+	    tx2->anim_total = altmax;
+	    tx2->anim_min = j;
+	    tx2->anim_max = (j + 1);
 	    tx2->anim_next = altanims[(j + 1) % altmax];
 	    if (max)
 		tx2->alternate_anims = anims[0];
