@@ -314,6 +314,10 @@ Sys_Printf(const char *fmt, ...)
     va_start(argptr, fmt);
     vprintf(fmt, argptr);
     va_end(argptr);
+
+#ifdef DEBUG
+    fflush(stdout);
+#endif
 }
 
 void
