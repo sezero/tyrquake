@@ -203,21 +203,56 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
 {
 }
 
+static enum material_class
+GL_GetTextureMaterialClass(texture_t *texture)
+{
+    if (texture->name[0] == '*')
+        return MATERIAL_LIQUID;
+    if (!strncmp(texture->name, "sky", 3))
+        return MATERIAL_SKY;
+    if (texture->gl_texturenum_fullbright)
+        return MATERIAL_FULLBRIGHT;
+
+    return MATERIAL_BASE;
+}
+
 #ifdef DEBUG
+static const char *material_class_names[] = {
+    "MATERIAL_BASE",
+    "MATERIAL_FULLBRIGHT",
+    "MATERIAL_SKY",
+    "MATERIAL_LIQUID",
+    "MATERIAL_END",
+};
+
 static void
 Debug_PrintMaterials(glbrushmodel_t *glbrushmodel)
 {
     brushmodel_t *brushmodel = &glbrushmodel->brushmodel;
     surface_material_t *material;
+    enum material_class class;
     int i;
 
     Sys_Printf("====== %s ======\n", glbrushmodel->brushmodel.model.name);
 
+    for (class = MATERIAL_BASE; class <= MATERIAL_END; class++) {
+        Sys_Printf("%25s: %d\n", material_class_names[class], glbrushmodel->material_index[class]);
+    }
+
+    class = MATERIAL_BASE;
     material = &glbrushmodel->materials[0];
     for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
         texture_t *texture = brushmodel->textures[material->texturenum];
-        Sys_Printf("Material %3d: %-16s (%3d) :: lightmap block %3d\n",
+        Sys_Printf("Material %3d: %-16s (%3d) :: lightmap block %3d",
                    i, texture->name, material->texturenum, material->lightmapblock);
+        if (i == glbrushmodel->material_index[class]) {
+            while (i == glbrushmodel->material_index[class + 1])
+                class++;
+            Sys_Printf("  <---- %s\n", material_class_names[class]);
+            class++;
+        } else {
+            Sys_Printf("\n");
+        }
     }
 }
 #else
@@ -232,6 +267,7 @@ GL_BuildMaterials()
     brushmodel_t *brushmodel;
     msurface_t **texturechains;
     msurface_t *surf;
+    enum material_class material_class;
     surface_material_t *material;
     texture_t *texture;
     int surfnum, texturenum, materialnum, material_start;
@@ -294,41 +330,56 @@ GL_BuildMaterials()
         glbrushmodel->materials = Hunk_AllocName(0, "material");
         texturechains = glbrushmodel->materialchains; /* saved earlier */
 
-        for (texturenum = 0; texturenum < brushmodel->numtextures; texturenum++) {
-            /*
-             * For each new texture we know we won't match materials
-             * generated for the previous textures, so use this index to
-             * skip ahead in the materials to be matched.
-             */
-            material_start = glbrushmodel->nummaterials;
-            for (surf = texturechains[texturenum]; surf; surf = surf->chain) {
-                int lightmapblock = surf->lightmapblock;
-                qboolean found = false;
-                for (materialnum = material_start; materialnum < glbrushmodel->nummaterials; materialnum++) {
-                    material = &glbrushmodel->materials[materialnum];
-                    if (material->texturenum != texturenum)
-                        continue;
-                    if (material->lightmapblock != lightmapblock)
-                        continue;
-                    surf->material = materialnum;
-                    found = true;
-                    break;
-                }
-                if (found)
+        /* To group the materials by class we'll do multiple passes over the texture list */
+        material_class = MATERIAL_BASE;
+        for ( ; material_class < MATERIAL_END; material_class++) {
+            glbrushmodel->material_index[material_class] = glbrushmodel->nummaterials;
+
+            for (texturenum = 0; texturenum < brushmodel->numtextures; texturenum++) {
+                texture = brushmodel->textures[texturenum];
+                if (!texture)
+                    continue;
+
+                /* Skip past textures not in the current material class */
+                if (GL_GetTextureMaterialClass(texture) != material_class)
                     continue;
 
                 /*
-                 * TODO: The hunk extension will be rounded up to the nearest
-                 * 16 bytes, which might waste some space over the entire
-                 * material list.  Make a better alloc helper for this case?
+                 * For each new texture we know we won't match materials
+                 * generated for the previous textures, so use this index to
+                 * skip ahead in the materials to be matched.
                  */
-                surf->material = glbrushmodel->nummaterials;
-                Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
-                material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
-                material->texturenum = texturenum;
-                material->lightmapblock = surf->lightmapblock;
+                material_start = glbrushmodel->material_index[material_class];
+                for (surf = texturechains[texturenum]; surf; surf = surf->chain) {
+                    int lightmapblock = surf->lightmapblock;
+                    qboolean found = false;
+                    for (materialnum = material_start; materialnum < glbrushmodel->nummaterials; materialnum++) {
+                        material = &glbrushmodel->materials[materialnum];
+                        if (material->texturenum != texturenum)
+                            continue;
+                        if (material->lightmapblock != lightmapblock)
+                            continue;
+                        surf->material = materialnum;
+                        found = true;
+                        break;
+                    }
+                    if (found)
+                        continue;
+
+                    /*
+                     * TODO: The hunk extension will be rounded up to the nearest
+                     * 16 bytes, which might waste some space over the entire
+                     * material list.  Make a better alloc helper for this case?
+                     */
+                    surf->material = glbrushmodel->nummaterials;
+                    Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
+                    material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
+                    material->texturenum = texturenum;
+                    material->lightmapblock = surf->lightmapblock;
+                }
             }
         }
+        glbrushmodel->material_index[MATERIAL_END] = glbrushmodel->nummaterials;
     }
 
     /*
@@ -343,6 +394,7 @@ GL_BuildMaterials()
             glbrushmodel_t *parent = GLBrushModel(brushmodel->parent);
             glbrushmodel->nummaterials = parent->nummaterials;
             glbrushmodel->materials = parent->materials;
+            memcpy(glbrushmodel->material_index, parent->material_index, sizeof(glbrushmodel->material_index));
         }
         glbrushmodel->materialchains = Hunk_AllocExtend(hunkbase, glbrushmodel->nummaterials * sizeof(msurface_t *));
         glbrushmodel->resources = resources;

@@ -41,6 +41,21 @@ typedef struct lm_block_s {
     GLuint texture;
 } lm_block_t;
 
+/*
+ * Materials will be stored grouped bu the material class and we'll
+ * keep an index into where the first material of each class is
+ * stored.
+ *
+ * Order is chosen to minimise state changes necessary when rendering.
+ */
+enum material_class {
+    MATERIAL_BASE,           // World textures, lightmapped
+    MATERIAL_FULLBRIGHT,     // World textures with fullbright mask
+    MATERIAL_SKY,            // Sky textures
+    MATERIAL_LIQUID,         // Water, Lava, Slime (maybe split later)
+    MATERIAL_END,            // Indexes one past the last material
+};
+
 // Material - combination of gl textures required to render the surface
 typedef struct surface_material {
     int texturenum;
@@ -56,6 +71,9 @@ typedef struct {
 typedef struct {
     // Shared resources for all brush models
     glbrushmodel_resource_t *resources;
+
+    // Indices where each class of material begins in the materials array
+    int material_index[MATERIAL_END + 1];
 
     // Materials (submodels share this with parent)
     int nummaterials;
