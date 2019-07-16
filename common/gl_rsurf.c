@@ -740,9 +740,6 @@ DrawFlatTextureChains(void)
     glColor3f(1, 1, 1);
 }
 
-/* Used by R_RecursiveWorldNode */
-static vec3_t bmodelorg;
-
 /*
 =================
 R_DrawBrushModel
@@ -752,7 +749,7 @@ void
 R_DrawBrushModel(const entity_t *e)
 {
     int i, k;
-    vec3_t mins, maxs, angles_bug;
+    vec3_t mins, maxs, angles_bug, modelorg;
     msurface_t *surf;
     float dot;
     mplane_t *pplane;
@@ -781,16 +778,16 @@ R_DrawBrushModel(const entity_t *e)
     if (R_CullBox(mins, maxs))
 	return;
 
-    VectorSubtract(r_refdef.vieworg, e->origin, bmodelorg);
+    VectorSubtract(r_refdef.vieworg, e->origin, modelorg);
     if (rotated) {
 	vec3_t temp;
 	vec3_t forward, right, up;
 
-	VectorCopy(bmodelorg, temp);
+	VectorCopy(modelorg, temp);
 	AngleVectors(e->angles, forward, right, up);
-	bmodelorg[0] = DotProduct(temp, forward);
-	bmodelorg[1] = -DotProduct(temp, right);
-	bmodelorg[2] = DotProduct(temp, up);
+	modelorg[0] = DotProduct(temp, forward);
+	modelorg[1] = -DotProduct(temp, right);
+	modelorg[2] = DotProduct(temp, up);
     }
 
     if (gl_zfix.value)
@@ -832,7 +829,7 @@ R_DrawBrushModel(const entity_t *e)
     for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
 	/* find which side of the node we are on */
 	pplane = surf->plane;
-	dot = DotProduct(bmodelorg, pplane->normal) - pplane->dist;
+	dot = DotProduct(modelorg, pplane->normal) - pplane->dist;
         if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
             continue;
         if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
@@ -866,7 +863,7 @@ R_DrawBrushModel(const entity_t *e)
             for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
                 /* find which side of the node we are on */
                 pplane = surf->plane;
-                dot = DotProduct(bmodelorg, pplane->normal) - pplane->dist;
+                dot = DotProduct(modelorg, pplane->normal) - pplane->dist;
                 if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
                     continue;
                 if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
@@ -905,7 +902,7 @@ R_RecursiveWorldNode
 ================
 */
 static void
-R_RecursiveWorldNode(mnode_t *node)
+R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 {
     int numsurfaces, side;
     mplane_t *plane;
@@ -947,17 +944,17 @@ R_RecursiveWorldNode(mnode_t *node)
     case PLANE_X:
     case PLANE_Y:
     case PLANE_Z:
-	dot = bmodelorg[plane->type - PLANE_X] - plane->dist;
+	dot = modelorg[plane->type - PLANE_X] - plane->dist;
 	break;
     default:
-	dot = DotProduct(bmodelorg, plane->normal) - plane->dist;
+	dot = DotProduct(modelorg, plane->normal) - plane->dist;
 	break;
     }
 
     side = (dot >= 0) ? 0 : 1;
 
     /* recurse down the children, front side first */
-    R_RecursiveWorldNode(node->children[side]);
+    R_RecursiveWorldNode(modelorg, node->children[side]);
 
     /* Gather surfaces for drawing */
     numsurfaces = node->numsurfaces;
@@ -987,7 +984,7 @@ R_RecursiveWorldNode(mnode_t *node)
     }
 
     /* recurse down the back side */
-    R_RecursiveWorldNode(node->children[side ? 0 : 1]);
+    R_RecursiveWorldNode(modelorg, node->children[side ? 0 : 1]);
 }
 
 
@@ -1005,10 +1002,7 @@ R_DrawWorld(void)
     memset(&ent, 0, sizeof(ent));
     ent.model = &cl.worldmodel->model;
 
-    VectorCopy(r_refdef.vieworg, bmodelorg);
-
     currenttexture = -1;
-
     glColor3f(1, 1, 1);
     for (i = 0; i < MAX_LM_BLOCKS; i++)
 	lm_blocks[i].polys = NULL;
@@ -1035,7 +1029,7 @@ R_DrawWorld(void)
     }
 
     /* Build texture chains */
-    R_RecursiveWorldNode(cl.worldmodel->nodes);
+    R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
 
     if (r_drawflat.value) {
 	DrawFlatTextureChains();
