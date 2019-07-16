@@ -62,6 +62,14 @@ typedef struct surface_material {
     int lightmapblock;
 } surface_material_t;
 
+typedef struct material_animation {
+    int material;
+    short numframes;
+    short numalt;
+    int frames[10]; // Index of the material for each frame
+    int alt[10];    // Index of the material for each frame
+} material_animation_t;
+
 typedef struct {
     // Lightmap blocks
     int numblocks;
@@ -78,6 +86,10 @@ typedef struct {
     // Materials (submodels share this with parent)
     int nummaterials;
     surface_material_t *materials;
+
+    // Information for the animation materials in the model
+    int numanimations;
+    material_animation_t *animations;
 
     // Each submodel needs it's own material chains (currently) to
     // allow me to keep track of the transparent surface chains having

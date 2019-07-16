@@ -95,11 +95,13 @@ typedef struct texture_s {
     };
     struct msurface_s *texturechain;
 #endif
-    int anim_total;		// total tenths in sequence ( 0 = no)
-    int anim_min, anim_max;	// time for this frame min <=time< max
-    struct texture_s *anim_next;	// in the animation sequence
-    struct texture_s *alternate_anims;	// bmodels in frame 1 use these
-    unsigned offsets[MIPLEVELS];	// four mip maps stored
+    // Texture frames animate a 5 frames-per-second
+    // So, a frame 'tick' is 0.2 seconds
+    int anim_total;		        // total ticks in sequence (0 = no animation)
+    int anim_min, anim_max;	        // ticks for this frame min <= tick < max
+    struct texture_s *anim_next;        // next frame in the animation sequence
+    struct texture_s *alternate_anims;  // bmodels in frame 1 use these
+    unsigned offsets[MIPLEVELS];        // four mip maps stored
     char name[16];
 } texture_t;
 
