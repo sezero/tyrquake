@@ -602,6 +602,112 @@ R_MirrorChain(msurface_t *surf)
 }
 
 /*
+ * Adds the surfaces from the brushmodel to the given material chains
+ * Allows us to add submodels to the world material chains if they are static.
+ */
+static void
+R_AddBrushModelToMaterialChains(const brushmodel_t *brushmodel, const vec3_t modelorg, msurface_t **materialchains)
+{
+    int i;
+    msurface_t *surf;
+
+    /* Gather visible surfaces */
+    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+    for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+        mplane_t *plane = surf->plane;
+        float dot = DotProduct(modelorg, plane->normal) - plane->dist;
+        if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
+            continue;
+        if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
+            continue;
+        surf->chain = materialchains[surf->material];
+        materialchains[surf->material] = surf;
+    }
+}
+
+static inline void
+SwapChains(int material1, int material2, msurface_t **materialchains)
+{
+    if (material1 != material2) {
+        msurface_t *tmp = materialchains[material1];
+        materialchains[material1] = materialchains[material2];
+        materialchains[material2] = tmp;
+    }
+}
+
+/*
+ * Simple swap of animation materials when no swapping between alt frames is involved
+ */
+static inline void
+R_SwapAnimationChains(const glbrushmodel_t *glbrushmodel, msurface_t **materialchains)
+{
+    const material_animation_t *animation;
+    int i, basematerial, altmaterial;
+    int frametick = (int)(cl.time * 5.0f);
+
+    animation = glbrushmodel->animations;
+    for (i = 0; i < glbrushmodel->numanimations; i++, animation++) {
+        basematerial = animation->frames[frametick % animation->numframes];
+        SwapChains(basematerial, animation->frames[0], materialchains);
+        if (animation->numalt) {
+            altmaterial = animation->alt[frametick % animation->numalt];
+            SwapChains(altmaterial, animation->alt[0], materialchains);
+        }
+    }
+}
+
+/*
+ * Swap entity alt animations, if entity alt-frame is active
+ */
+static inline void
+R_SwapAltAnimationChains(const entity_t *entity, msurface_t **materialchains)
+{
+    const glbrushmodel_t *glbrushmodel;
+    const material_animation_t *animation;
+    int i;
+
+    if (!entity->frame)
+        return;
+
+    glbrushmodel = GLBrushModel(BrushModel(entity->model));
+    animation = glbrushmodel->animations;
+    for (i = 0; i < glbrushmodel->numanimations; i++, animation++) {
+        if (animation->numalt)
+            SwapChains(animation->frames[0], animation->alt[0], materialchains);
+    }
+}
+
+/*
+ * This is for all non-world brushmodels that have a transform
+ */
+static void
+R_SetupDynamicBrushModelMaterialChains(const entity_t *entity, const vec3_t modelorg)
+{
+    brushmodel_t *brushmodel = BrushModel(entity->model);
+    glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
+    msurface_t **materialchains = glbrushmodel->materialchains;
+
+    memset(materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
+
+    R_SwapAnimationChains(glbrushmodel, materialchains);
+    R_SwapAltAnimationChains(entity, materialchains);
+    R_AddBrushModelToMaterialChains(brushmodel, modelorg, materialchains);
+    R_SwapAltAnimationChains(entity, materialchains);
+    R_SwapAnimationChains(glbrushmodel, materialchains);
+}
+
+static void
+R_AddStaticBrushModelToWorldMaterialChains(const entity_t *entity)
+{
+    brushmodel_t *brushmodel = BrushModel(entity->model);
+    msurface_t **materialchains = GLBrushModel(brushmodel->parent)->materialchains;
+
+    R_SwapAltAnimationChains(entity, materialchains);
+    R_AddBrushModelToMaterialChains(brushmodel, r_refdef.vieworg, materialchains);
+    R_SwapAltAnimationChains(entity, materialchains);
+}
+
+/*
 ================
 R_DrawWaterSurfaces
 ================
@@ -842,6 +948,9 @@ R_DrawBrushModel(const entity_t *e)
     else
 	glColor3f(1, 1, 1);
 
+    /* Setup material chain for drawing */
+    R_SetupDynamicBrushModelMaterialChains(e, modelorg);
+
     surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
     for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
 	/* find which side of the node we are on */
@@ -981,6 +1090,7 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	else if (dot > BACKFACE_EPSILON)
 	    side = 0;
 
+        msurface_t **materialchains = GLBrushModel(cl.worldmodel)->materialchains;
 	surf = cl.worldmodel->surfaces + node->firstsurface;
 	for (; numsurfaces; numsurfaces--, surf++) {
 	    if (surf->visframe != r_framecount)
@@ -997,6 +1107,10 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	    // Add to the texture chain for drawing
 	    surf->texturechain = surf->texinfo->texture->texturechain;
 	    surf->texinfo->texture->texturechain = surf;
+
+            // Add to the material chain for drawing
+            surf->chain = materialchains[surf->material];
+            materialchains[surf->material] = surf;
 	}
     }
 
@@ -1014,15 +1128,17 @@ void
 R_DrawWorld(void)
 {
     int i;
-    entity_t ent;
+    entity_t worldentity;
+    glbrushmodel_t *glbrushmodel;
     glbrushmodel_resource_t *resources;
 
-    memset(&ent, 0, sizeof(ent));
-    ent.model = &cl.worldmodel->model;
+    memset(&worldentity, 0, sizeof(worldentity));
+    worldentity.model = &cl.worldmodel->model;
 
     currenttexture = -1;
     glColor3f(1, 1, 1);
-    resources = GLBrushModel(BrushModel(ent.model))->resources;
+    glbrushmodel = GLBrushModel(cl.worldmodel);
+    resources = glbrushmodel->resources;
     for (i = 0; i < resources->numblocks; i++)
         resources->blocks[i].polys = NULL;
 
@@ -1047,20 +1163,40 @@ R_DrawWorld(void)
 	return;
     }
 
-    /* Build texture chains */
+    /* Build material (and texture) chains */
+    memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
+    R_SwapAnimationChains(glbrushmodel, glbrushmodel->materialchains);
     R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
+
+    /* Add static submodels to the material chains */
+    if (r_drawentities.value) {
+        for (i = 0; i < cl_numvisedicts; i++) {
+            entity_t *entity = &cl_visedicts[i];
+            if (entity->model->type != mod_brush)
+                continue;
+            if (!BrushModel(entity->model)->parent)
+                continue;
+            if (entity->angles[0] || entity->angles[1] || entity->angles[2])
+                continue;
+            if (entity->origin[0] || entity->origin[1] || entity->origin[2])
+                continue;
+
+            R_AddStaticBrushModelToWorldMaterialChains(entity);
+        }
+    }
+    R_SwapAnimationChains(glbrushmodel, glbrushmodel->materialchains);
 
     if (r_drawflat.value) {
 	DrawFlatTextureChains();
 	return;
     }
 
-    DrawTextureChains(&ent);
+    DrawTextureChains(&worldentity);
     R_BlendLightmaps(cl.worldmodel);
 
     if (!gl_mtexable && gl_fullbrights.value) {
 	for (i = 0; i < cl.worldmodel->numtextures; i++) {
-	    texture_t *texture = R_TextureAnimation(&ent, cl.worldmodel->textures[i]);
+	    texture_t *texture = R_TextureAnimation(&worldentity, cl.worldmodel->textures[i]);
 	    if (!texture || !texture->gl_texturenum_fullbright)
 		continue;
 
