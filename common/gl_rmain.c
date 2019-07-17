@@ -64,10 +64,6 @@ vec3_t r_origin;
 
 float r_world_matrix[16];
 
-#ifdef NQ_HACK /* Mirrors disabled for now in QW */
-static float r_base_world_matrix[16];
-#endif
-
 //
 // screen size info
 //
@@ -1498,6 +1494,9 @@ R_Mirror
 static void
 R_Mirror(void)
 {
+    // TODO: Re-implement this?
+#if 0
+    float r_base_world_matrix[16];
     float d;
     msurface_t *s;
     entity_t *ent;
@@ -1559,6 +1558,7 @@ R_Mirror(void)
     cl.worldmodel->textures[mirrortexturenum]->texturechain = NULL;
     glDisable(GL_BLEND);
     glColor4f(1, 1, 1, 1);
+#endif
 }
 #endif
 

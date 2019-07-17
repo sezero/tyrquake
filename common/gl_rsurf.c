@@ -212,43 +212,6 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
     }
 }
 
-
-/*
-===============
-R_TextureAnimation
-
-Returns the proper texture for a given time and base texture
-===============
-*/
-texture_t *
-R_TextureAnimation(const entity_t *e, texture_t *base)
-{
-    int relative;
-    int count;
-
-    if (e->frame) {
-	if (base->alternate_anims)
-	    base = base->alternate_anims;
-    }
-
-    if (!base->anim_total)
-	return base;
-
-    relative = (int)(cl.time * 5) % base->anim_total;
-
-    count = 0;
-    while (base->anim_min > relative || base->anim_max <= relative) {
-	base = base->anim_next;
-	if (!base)
-	    Sys_Error("%s: broken cycle", __func__);
-	if (++count > 100)
-	    Sys_Error("%s: infinite cycle", __func__);
-    }
-
-    return base;
-}
-
-
 /*
 =============================================================
 
@@ -306,73 +269,6 @@ GL_EnableMultitexture(void)
 }
 
 /*
-================
-DrawGLPoly
-================
-*/
-static void
-DrawGLPoly(glpoly_t *p)
-{
-    int i;
-    float *v;
-
-    glBegin(GL_POLYGON);
-    v = p->verts[0];
-    for (i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-	glTexCoord2f(v[3], v[4]);
-	glVertex3fv(v);
-    }
-    glEnd();
-}
-
-static void
-DrawGLPolyLM(glpoly_t *p)
-{
-    int i;
-    float *v;
-
-    glBegin(GL_POLYGON);
-    v = p->verts[0];
-    for (i = 0; i < p->numverts; i++, v += VERTEXSIZE) {
-	glTexCoord2f(v[5], v[6]);
-	glVertex3fv(v);
-    }
-    glEnd();
-}
-
-static void
-DrawGLPoly_2Ply(glpoly_t *p)
-{
-    int i;
-    float *v;
-
-    glBegin(GL_TRIANGLE_FAN);
-    v = p->verts[0];
-    for (i = 0; i < p->numverts; i++, v+= VERTEXSIZE) {
-	qglMultiTexCoord2fARB(GL_TEXTURE0_ARB, v[3], v[4]);
-	qglMultiTexCoord2fARB(GL_TEXTURE1_ARB, v[5], v[6]);
-	glVertex3fv(v);
-    }
-    glEnd();
-}
-
-static void
-DrawFlatGLPoly(glpoly_t *p)
-{
-    int i;
-    float *v;
-
-    srand((intptr_t)p);
-    glColor3f(rand() % 256 / 255.0, rand() % 256 / 255.0,
-	      rand() % 256 / 255.0);
-    glBegin(GL_POLYGON);
-    v = p->verts[0];
-    for (i = 0; i < p->numverts; i++, v += VERTEXSIZE)
-	glVertex3fv(v);
-    glEnd();
-}
-
-/*
  * R_UploadLightmapUpdate
  * Re-uploads the modified region of the given lightmap number
  */
@@ -407,58 +303,6 @@ R_UploadLMBlockUpdate(lm_block_t *block)
     block->modified = false;
 
     c_lightmaps_uploaded++;
-}
-
-/*
-================
-R_BlendLightmaps
-================
-*/
-static void
-R_BlendLightmaps(brushmodel_t *brushmodel)
-{
-    int i;
-    glpoly_t *p;
-    glbrushmodel_resource_t *resources;
-
-    if (r_drawflat.value)
-	return;
-
-    glDepthMask(0);		// don't bother writing Z
-
-    if (gl_lightmap_format == GL_LUMINANCE)
-	glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
-    else if (gl_lightmap_format == GL_INTENSITY) {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-	glColor4f(0, 0, 0, 1);
-    }
-
-    if (!r_lightmap.value) {
-	glEnable(GL_BLEND);
-    }
-
-    resources = GLBrushModel(brushmodel)->resources;
-    for (i = 0; i < resources->numblocks; i++) {
-	lm_block_t *block = &resources->blocks[i];
-	if (!block->polys)
-	    continue;
-	GL_Bind(block->texture);
-	if (block->modified) {
-	    R_UploadLMBlockUpdate(block);
-	}
-	for (p = block->polys; p; p = p->chain) {
-	    DrawGLPolyLM(p);
-	}
-    }
-
-    glDisable(GL_BLEND);
-    if (gl_lightmap_format == GL_LUMINANCE)
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    else if (gl_lightmap_format == GL_INTENSITY) {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-	glColor4f(1, 1, 1, 1);
-    }
-    glDepthMask(1);		// back to normal Z buffering
 }
 
 /*
@@ -518,75 +362,8 @@ R_UpdateLightmapBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
     }
 }
 
-/*
-================
-R_RenderBrushPoly
-================
-*/
-void
-R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture)
-{
-    lm_block_t *block;
-    glbrushmodel_resource_t *resources;
-
-    c_brush_polys++;
-
-    if (surf->flags & SURF_DRAWSKY) {	// sky texture, no lightmaps
-	EmitBothSkyLayers(surf);
-	return;
-    }
-
-    if (gl_mtexable) {
-	GL_SelectTexture(GL_TEXTURE0_ARB);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-    }
-    GL_Bind(texture->gl_texturenum);
-
-    if (surf->flags & SURF_DRAWTURB) {	// warp texture, no lightmaps
-	EmitWaterPolys(surf);
-	return;
-    }
-    if (r_fullbright.value) {
-	DrawGLPoly(surf->polys);
-	return;
-    }
-
-    resources = GLBrushModel(BrushModel(e->model))->resources;
-    block = &resources->blocks[surf->lightmapblock];
-    if (gl_mtexable) {
-	/* All lightmaps are up to date... */
-	GL_EnableMultitexture();
-	GL_Bind(block->texture);
-	if (block->modified) {
-	    R_UploadLMBlockUpdate(block);
-	}
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
-	DrawGLPoly_2Ply(surf->polys);
-	GL_DisableMultitexture();
-
-	/* Fullbright mask texture */
-	if (gl_fullbrights.value && texture->gl_texturenum_fullbright) {
-            glDepthMask(GL_FALSE);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-            GL_Bind(texture->gl_texturenum_fullbright);
-            DrawGLPoly(surf->polys);
-            glDisable(GL_BLEND);
-            glDepthMask(GL_TRUE);
-	}
-    } else {
-	DrawGLPoly(surf->polys);
-
-	/* add the poly to the proper lightmap chain */
-	surf->polys->chain = block->polys;
-	block->polys = surf->polys;
-
-	R_UpdateLightmapBlockRect(resources, surf);
-    }
-}
-
-
+// TODO: re-implement mirror rendering
+#if 0
 /*
 ================
 R_MirrorChain
@@ -600,6 +377,7 @@ R_MirrorChain(msurface_t *surf)
     mirror = true;
     mirror_plane = surf->plane;
 }
+#endif
 
 /* ---------------------------------------------------------------------- */
 
@@ -1263,161 +1041,6 @@ R_AddStaticBrushModelToWorldMaterialChains(const entity_t *entity)
 }
 
 /*
-================
-R_DrawWaterSurfaces
-================
-*/
-void
-R_DrawWaterSurfaces(void)
-{
-    int i;
-    msurface_t *s;
-    texture_t *t;
-
-    if (r_wateralpha.value == 1.0)
-	return;
-
-    //
-    // go back to the world matrix
-    //
-
-    glLoadMatrixf(r_world_matrix);
-
-    if (r_wateralpha.value < 1.0) {
-	glEnable(GL_BLEND);
-	glColor4f(1, 1, 1, r_wateralpha.value);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    }
-
-    for (i = 0; i < cl.worldmodel->numtextures; i++) {
-	t = cl.worldmodel->textures[i];
-	if (!t)
-	    continue;
-	s = t->texturechain;
-	if (!s)
-	    continue;
-	if (!(s->flags & SURF_DRAWTURB))
-	    continue;
-
-	// set modulate mode explicitly
-
-	GL_Bind(t->gl_texturenum);
-	for (; s; s = s->texturechain)
-	    EmitWaterPolys(s);
-
-	t->texturechain = NULL;
-    }
-
-    if (r_wateralpha.value < 1.0) {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-
-	glColor4f(1, 1, 1, 1);
-	glDisable(GL_BLEND);
-    }
-}
-
-/*
-================
-DrawTextureChains
-================
-*/
-static void
-DrawTextureChains(const entity_t *e)
-{
-    int i;
-    msurface_t *surf;
-    texture_t *t;
-    glbrushmodel_resource_t *resources;
-
-    if (gl_mtexable) {
-	/* Update all lightmaps */
-        resources = GLBrushModel(BrushModel(e->model))->resources;
-	for (i = 0; i < cl.worldmodel->numtextures; i++) {
-	    t = cl.worldmodel->textures[i];
-	    if (!t)
-		continue;
-	    surf = t->texturechain;
-	    if (!surf)
-		continue;
-	    if (surf->flags & SURF_DRAWSKY)
-		continue;
-	    if (i == mirrortexturenum && !r_mirroralpha.value)
-		continue;
-	    if ((surf->flags & SURF_DRAWTURB))
-		continue;
-
-	    for (; surf; surf = surf->texturechain)
-            R_UpdateLightmapBlockRect(resources, surf);
-	}
-    }
-
-    for (i = 0; i < cl.worldmodel->numtextures; i++) {
-	t = cl.worldmodel->textures[i];
-	if (!t)
-	    continue;
-	surf = t->texturechain;
-	if (!surf)
-	    continue;
-	if (surf->flags & SURF_DRAWSKY) {
-	    R_DrawSkyChain(surf);
-	} else if (i == mirrortexturenum && r_mirroralpha.value != 1.0) {
-	    R_MirrorChain(surf);
-	    continue;
-	} else {
-	    if ((surf->flags & SURF_DRAWTURB) && r_wateralpha.value != 1.0)
-		continue;	// draw translucent water later
-	    for (; surf; surf = surf->texturechain) {
-		texture_t *texture = R_TextureAnimation(e, surf->texinfo->texture);
-		R_RenderBrushPoly(e, surf, texture);
-	    }
-	}
-    }
-}
-
-static void
-DrawFlatTextureChains(void)
-{
-    int i;
-    msurface_t *surf;
-    texture_t *t;
-
-    GL_DisableMultitexture();
-    glDisable(GL_TEXTURE_2D);
-
-    for (i = 0; i < cl.worldmodel->numtextures; i++) {
-
-	t = cl.worldmodel->textures[i];
-	if (!t)
-	    continue;
-
-	surf = t->texturechain;
-	if (!surf)
-	    continue;
-
-	/* sky and water polys are chained together! */
-	if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB)) {
-	    for (; surf; surf = surf->texturechain) {
-		glpoly_t *p;
-		for (p = surf->polys; p; p = p->next)
-		    DrawFlatGLPoly(p);
-	    }
-	    t->texturechain = NULL;
-	    continue;
-	}
-
-	/* FIXME - handle mirror texture? */
-
-	for (; surf; surf = surf->texturechain)
-	    DrawFlatGLPoly(surf->polys);
-
-	t->texturechain = NULL;
-    }
-
-    glEnable(GL_TEXTURE_2D);
-    glColor3f(1, 1, 1);
-}
-
-/*
 =================
 R_DrawDynamicBrushModel
 =================
@@ -1579,10 +1202,6 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	    // skip mirror texture if mirror enabled
 	    if (mirror && surf->texinfo->texture == cl.worldmodel->textures[mirrortexturenum])
 		continue;
-
-	    // Add to the texture chain for drawing
-	    surf->texturechain = surf->texinfo->texture->texturechain;
-	    surf->texinfo->texture->texturechain = surf;
 
             // Add to the material chain for drawing
             surf->chain = materialchains[surf->material];
@@ -1822,4 +1441,3 @@ GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources)
 
     GL_UploadLightmaps(resources);
 }
-

@@ -315,10 +315,6 @@ void GL_EnableMultitexture(void);
 // gl_warp.c
 //
 void GL_SubdivideSurface(brushmodel_t *brushmodel, msurface_t *surf);
-void EmitBothSkyLayers(msurface_t *surf);
-void EmitWaterPolys(msurface_t *surf);
-void EmitSkyPolys(msurface_t *surf);
-void R_DrawSkyChain(msurface_t *surf);
 
 //
 // gl_draw.c
@@ -378,8 +374,6 @@ void R_DrawDynamicBrushModel(const entity_t *entity);
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawTransparentSurfaces();
-void R_DrawWaterSurfaces(void);
-void R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture);
 void GL_BuildLightmaps();
 void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
 

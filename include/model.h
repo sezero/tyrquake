@@ -93,7 +93,6 @@ typedef struct texture_s {
         GLuint gl_texturenum_alpha;	 // for sky texture
         GLuint gl_texturenum_fullbright; // mask texture for fullbrights
     };
-    struct msurface_s *texturechain;
 #endif
     // Texture frames animate a 5 frames-per-second
     // So, a frame 'tick' is 0.2 seconds
@@ -129,7 +128,6 @@ typedef struct {
 #define	VERTEXSIZE	7
 typedef struct glpoly_s {
     struct glpoly_s *next;
-    struct glpoly_s *chain;
     int numverts;
     float verts[0][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
 } glpoly_t;
@@ -155,7 +153,6 @@ typedef struct msurface_s {
     int cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
     qboolean cached_dlight;	// true if dynamic light in cache
     glpoly_t *polys;	// multiple if warped
-    struct msurface_s *texturechain; // TODO: remove this
     struct msurface_s *chain; // Material chain for drawing
 #else
 // surface generation data
@@ -613,9 +610,6 @@ void Mod_AddLeafBits(leafbits_t *dst, const leafbits_t *src);
 /* Slightly faster counting of sparse sets for QWSV */
 int Mod_CountLeafBits(const leafbits_t *leafbits);
 #endif
-
-// FIXME - surely this doesn't belong here?
-texture_t *R_TextureAnimation(const struct entity_s *e, texture_t *base);
 
 void Mod_LoadAliasModel(const alias_loader_t *loader, model_t *model,
 			void *buffer, size_t buffersize);

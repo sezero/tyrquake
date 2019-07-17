@@ -181,6 +181,8 @@ void R_ParticleExplosion(vec3_t org);
 void R_LavaSplash(vec3_t org);
 void R_TeleportSplash(vec3_t org);
 
+texture_t *R_TextureAnimation(const entity_t *entity, texture_t *base);
+
 #ifdef NQ_HACK
 void R_EntityParticles(const entity_t *ent);
 void R_ParticleExplosion2(vec3_t org, int colorStart, int colorLength);

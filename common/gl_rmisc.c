@@ -455,9 +455,10 @@ R_NewMap(void)
     for (i = 0; i < cl.worldmodel->numtextures; i++) {
 	if (!cl.worldmodel->textures[i])
 	    continue;
-	if (!strncmp(cl.worldmodel->textures[i]->name, "window02_1", 10))
-	    mirrortexturenum = i;
-	cl.worldmodel->textures[i]->texturechain = NULL;
+	if (strncmp(cl.worldmodel->textures[i]->name, "window02_1", 10))
+            continue;
+        mirrortexturenum = i;
+        break;
     }
 }
 
