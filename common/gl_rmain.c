@@ -1051,7 +1051,7 @@ R_DrawEntitiesOnList(void)
 	    R_AliasDrawModel(e);
 	    break;
 	case mod_brush:
-	    R_DrawBrushModel(e);
+	    R_DrawDynamicBrushModel(e);
 	    break;
 	default:
 	    break;
@@ -1397,6 +1397,32 @@ R_SetupGL(void)
     glEnable(GL_DEPTH_TEST);
 }
 
+static void
+R_UpdateModelLighting()
+{
+    int i, dlightnum;
+    entity_t *entity;
+
+    if (r_drawflat.value)
+        return;
+
+    entity = cl_visedicts;
+    for (i = 0; i < cl_numvisedicts; i++, entity++) {
+        if (entity->model->type != mod_brush)
+            continue;
+        brushmodel_t *brushmodel = BrushModel(entity->model);
+        if (!brushmodel->firstmodelsurface)
+            continue;
+        dlight_t *dlight = cl_dlights;
+        for (dlightnum = 0; dlightnum < MAX_DLIGHTS; dlightnum++, dlight++) {
+            if (dlight->die < cl.time || !dlight->radius)
+                continue;
+            mnode_t *node = brushmodel->nodes + brushmodel->hulls[0].firstclipnode;
+            R_MarkLights(dlight, 1 << dlightnum, node);
+        }
+    }
+}
+
 /*
 ================
 R_RenderScene
@@ -1407,15 +1433,30 @@ r_refdef must be set before the first call
 static void
 R_RenderScene(void)
 {
+    gl_draw_calls = 0;
+    gl_verts_submitted = 0;
+    gl_indices_submitted = 0;
+    gl_full_vert_buffers = 0;
+    gl_full_index_buffers = 0;
+
     R_SetupFrame();
     R_SetFrustum();
     R_SetupGL();
     R_MarkLeaves();		// done here so we know if we're in water
+    R_UpdateModelLighting();    // Update dynamic lightmaps on bmodels
     R_DrawWorld();		// adds static entities to the list
     S_ExtraUpdate();		// don't let sound get messed up if going slow
     R_DrawEntitiesOnList();
+    R_DrawViewModel();
+    R_DrawTransparentSurfaces();
     GL_DisableMultitexture();
     R_DrawParticles();
+
+    if (r_speeds.value == 2.0f) {
+        Con_Printf("%4d draw calls, %d tris, %6d verts, %d/%d full buffers\n",
+                   gl_draw_calls, gl_indices_submitted / 3, gl_verts_submitted,
+                   gl_full_vert_buffers, gl_full_index_buffers);
+    }
 }
 
 
@@ -1491,7 +1532,6 @@ R_Mirror(void)
     glDepthFunc(GL_LEQUAL);
 
     R_RenderScene();
-    R_DrawWaterSurfaces();
 
     gldepthmin = 0;
     gldepthmax = 0.5;
@@ -1540,10 +1580,10 @@ R_RenderView(void)
     if (!r_worldentity.model || !cl.worldmodel)
 	Sys_Error("%s: NULL worldmodel", __func__);
 
-    if (gl_finish.value || r_speeds.value)
+    if (gl_finish.value || r_speeds.value == 1.0f)
 	glFinish();
 
-    if (r_speeds.value) {
+    if (r_speeds.value == 1.0f) {
 	time1 = Sys_DoubleTime();
 	c_brush_polys = 0;
 	c_alias_polys = 0;
@@ -1556,8 +1596,6 @@ R_RenderView(void)
 
     // render normal view
     R_RenderScene();
-    R_DrawViewModel();
-    R_DrawWaterSurfaces();
 
 #ifdef NQ_HACK /* Mirrors disabled for now in QW */
     // render mirror view
@@ -1566,7 +1604,7 @@ R_RenderView(void)
 
     R_PolyBlend();
 
-    if (r_speeds.value) {
+    if (r_speeds.value == 1.0f) {
 //              glFinish ();
 	time2 = Sys_DoubleTime();
 	Con_Printf("%3i ms  %4i wpoly %4i epoly %4i dlit\n",

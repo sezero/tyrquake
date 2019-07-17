@@ -601,6 +601,561 @@ R_MirrorChain(msurface_t *surf)
     mirror_plane = surf->plane;
 }
 
+/* ---------------------------------------------------------------------- */
+
+/*
+ * The triangle buffer is on the stack, so we want to keep the size reasonable.
+ * These counts put the triangle buffer around ~150kiB.
+ */
+#define TRIBUF_MAX_VERTS 4096
+#define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 2)
+
+typedef struct {
+    int numverts;
+    int numindices;
+    float verts[TRIBUF_MAX_VERTS][VERTEXSIZE];
+    byte colors[TRIBUF_MAX_VERTS * 3];
+    uint16_t indices[TRIBUF_MAX_INDICES];
+} triangle_buffer_t;
+
+int gl_draw_calls;
+int gl_verts_submitted;
+int gl_indices_submitted;
+int gl_full_vert_buffers;
+int gl_full_index_buffers;
+
+static qboolean
+TriBuf_CheckSpacePoly(const triangle_buffer_t *buffer, const glpoly_t *poly)
+{
+    if (buffer->numverts + poly->numverts > TRIBUF_MAX_VERTS) {
+	gl_full_vert_buffers++;
+	return false;
+    }
+    if (buffer->numindices + (poly->numverts - 2) * 3 > TRIBUF_MAX_INDICES) {
+	gl_full_index_buffers++;
+	return false;
+    }
+
+    return true;
+}
+
+/*
+ * NOTE: Call without incrementing buffer->numverts so we have the
+ *       correct place to start the indices.  This function will do
+ *       the numverts increment when done.
+ */
+static inline void
+TriBuf_AddPolyIndices(triangle_buffer_t *buffer, const glpoly_t *poly)
+{
+    int i;
+    uint16_t *index = &buffer->indices[buffer->numindices];
+    for (i = 1; i < poly->numverts - 1; i++) {
+	*index++ = buffer->numverts;
+	*index++ = buffer->numverts + i;
+	*index++ = buffer->numverts + i + 1;
+    }
+    buffer->numverts += poly->numverts;
+    buffer->numindices += (poly->numverts - 2) * 3;
+}
+
+static void
+TriBuf_AddPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
+{
+    int vert_bytes;
+
+    assert(TriBuf_CheckSpacePoly(buffer, poly));
+
+    vert_bytes = sizeof(poly->verts[0]) * poly->numverts;
+    memcpy(&buffer->verts[buffer->numverts], &poly->verts[0], vert_bytes);
+
+    TriBuf_AddPolyIndices(buffer, poly);
+}
+
+static void
+TriBuf_AddFlatPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
+{
+    GLbyte color[3];
+    int i;
+
+    srand((intptr_t)poly);
+    color[0] = (byte)(rand() & 0xff);
+    color[1] = (byte)(rand() & 0xff);
+    color[2] = (byte)(rand() & 0xff);
+
+    byte *dst = &buffer->colors[buffer->numverts * 3];
+    for (i = 0; i < poly->numverts; i++) {
+        *dst++ = color[0];
+        *dst++ = color[1];
+        *dst++ = color[2];
+    }
+    TriBuf_AddPoly(buffer, poly);
+}
+
+#define TURBSCALE (256.0 / (2 * M_PI))
+static float turbsin[256] = {
+#include "gl_warp_sin.h"
+};
+
+static void
+TriBuf_AddTurbPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
+{
+    int i;
+
+    assert(TriBuf_CheckSpacePoly(buffer, poly));
+
+    const float *src = &poly->verts[0][0];
+    float *dst = &buffer->verts[buffer->numverts][0];
+    for (i = 0; i < poly->numverts; i++) {
+	VectorCopy(src, dst);
+	float turb_s = turbsin[(int)((src[4] * 0.125f + realtime) * TURBSCALE) & 255];
+	float turb_t = turbsin[(int)((src[3] * 0.125f + realtime) * TURBSCALE) & 255];
+	dst[3] = (src[3] + turb_s) * (1.0f / 64);
+	dst[4] = (src[4] + turb_t) * (1.0f / 64);
+	src += VERTEXSIZE;
+	dst += VERTEXSIZE;
+    }
+    TriBuf_AddPolyIndices(buffer, poly);
+}
+
+static float speedscale;	// for top sky and bottom sky
+static float speedscale2;	// for sky alpha layer using multitexture
+
+static void
+TriBuf_AddSkyPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
+{
+    int i;
+    vec3_t dir;
+    float length;
+
+    assert(TriBuf_CheckSpacePoly(buffer, poly));
+
+    const float *src = &poly->verts[0][0];
+    float *dst = &buffer->verts[buffer->numverts][0];
+    for (i = 0; i < poly->numverts; i++) {
+	VectorCopy(src, dst);
+
+	VectorSubtract(src, r_origin, dir);
+	dir[2] *= 3;	// flatten the sphere
+	length = DotProduct(dir, dir);
+	length = sqrtf(length);
+	length = 6 * 63 / length;
+	dir[0] *= length;
+	dir[1] *= length;
+
+	dst[3] = (speedscale + dir[0]) * (1.0 / 128);
+	dst[4] = (speedscale + dir[1]) * (1.0 / 128);
+	dst[5] = (speedscale2 + dir[0]) * (1.0 / 128);
+	dst[6] = (speedscale2 + dir[1]) * (1.0 / 128);
+
+	src += VERTEXSIZE;
+	dst += VERTEXSIZE;
+    }
+    TriBuf_AddPolyIndices(buffer, poly);
+}
+
+/*
+ * Water/Slime/Lava/Tele are fullbright (no lightmap)
+ * May be blended, depending on r_wateralpha setting
+ */
+static void
+TriBuf_DrawTurbTriangles(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
+{
+    if (gl_mtexable) {
+	GL_DisableMultitexture();
+	qglClientActiveTexture(GL_TEXTURE1);
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	qglClientActiveTexture(GL_TEXTURE0);
+	GL_SelectTexture(GL_TEXTURE0_ARB);
+    }
+
+    GL_Bind(texture->gl_texturenum);
+
+    if (r_wateralpha.value < 1.0f) {
+	glEnable(GL_BLEND);
+	glColor4f(1, 1, 1, qmax(r_wateralpha.value, 0.0f));
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    } else {
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    }
+
+    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+    glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    gl_draw_calls++;
+    gl_verts_submitted += buffer->numverts;
+    gl_indices_submitted += buffer->numindices;
+
+    if (r_wateralpha.value < 1.0f) {
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glColor4f(1, 1, 1, 1);
+	glDisable(GL_BLEND);
+    }
+
+    if (gl_mtexable) {
+	GL_EnableMultitexture();
+	qglClientActiveTexture(GL_TEXTURE1);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    }
+}
+
+static void
+TriBuf_DrawFlatTriangles(triangle_buffer_t *buffer)
+{
+    Sys_Printf("Drawing %d flat triangles\n", buffer->numindices / 3);
+
+    if (gl_mtexable) {
+	GL_DisableMultitexture();
+	qglClientActiveTexture(GL_TEXTURE1);
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	qglClientActiveTexture(GL_TEXTURE0);
+	GL_SelectTexture(GL_TEXTURE0_ARB);
+    }
+
+    glEnableClientState(GL_COLOR_ARRAY);
+    glDisable(GL_TEXTURE_2D);
+
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+    glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+    glColorPointer(3, GL_UNSIGNED_BYTE, 0, buffer->colors);
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    gl_draw_calls++;
+    gl_verts_submitted += buffer->numverts;
+    gl_indices_submitted += buffer->numindices;
+
+    glDisableClientState(GL_COLOR_ARRAY);
+    glEnable(GL_TEXTURE_2D);
+
+    if (gl_mtexable) {
+	GL_EnableMultitexture();
+	qglClientActiveTexture(GL_TEXTURE1);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    }
+}
+
+static void
+TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
+{
+    if (r_drawflat.value) {
+        TriBuf_DrawFlatTriangles(buffer);
+        return;
+    }
+    if (flags & SURF_DRAWTURB) {
+	TriBuf_DrawTurbTriangles(buffer, texture, block, flags);
+	return;
+    }
+
+    if (gl_mtexable) {
+	GL_SelectTexture(GL_TEXTURE0_ARB);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	GL_Bind(texture->gl_texturenum);
+	GL_SelectTexture(GL_TEXTURE1_ARB);
+	if (flags & SURF_DRAWSKY) {
+	    GL_Bind(texture->gl_texturenum_alpha);
+	    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+	} else {
+	    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+	    GL_Bind(block->texture);
+	    if (block->modified)
+		R_UploadLMBlockUpdate(block);
+	}
+
+	glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+	qglClientActiveTexture(GL_TEXTURE0);
+	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+	qglClientActiveTexture(GL_TEXTURE1);
+	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
+
+	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	gl_draw_calls++;
+	gl_verts_submitted += buffer->numverts;
+	gl_indices_submitted += buffer->numindices;
+
+    } else {
+
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	GL_Bind(texture->gl_texturenum);
+
+	glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+
+	glDepthMask(GL_FALSE);
+
+	if (flags & SURF_DRAWSKY) {
+	    GL_Bind(texture->gl_texturenum_alpha);
+	    glEnable(GL_BLEND);
+	    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+	    glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
+	    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+
+	    glDisable(GL_BLEND);
+
+	} else {
+	    glEnable(GL_BLEND);
+	    if (gl_lightmap_format == GL_LUMINANCE)
+		glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+	    else if (gl_lightmap_format == GL_INTENSITY) {
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+		glColor4f(0, 0, 0, 1);
+	    }
+
+	    GL_Bind(block->texture);
+	    if (block->modified)
+		R_UploadLMBlockUpdate(block);
+
+	    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+	    glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
+	    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+
+	    glDisable(GL_BLEND);
+	    if (gl_lightmap_format == GL_LUMINANCE)
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	    else if (gl_lightmap_format == GL_INTENSITY) {
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+		glColor4f(1, 1, 1, 1);
+	    }
+	}
+
+	glDepthMask(GL_TRUE);
+
+	gl_draw_calls += 2;
+	gl_verts_submitted += buffer->numverts * 2;
+	gl_indices_submitted += buffer->numindices * 2;
+    }
+
+    if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright) {
+	if (gl_mtexable) {
+	    GL_DisableMultitexture();
+	    qglClientActiveTexture(GL_TEXTURE1);
+	    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	    GL_SelectTexture(GL_TEXTURE0_ARB);
+	}
+
+	glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	GL_Bind(texture->gl_texturenum_fullbright);
+	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+
+	gl_draw_calls++;
+	gl_verts_submitted += buffer->numverts;
+	gl_indices_submitted += buffer->numindices;
+
+	glDisable(GL_BLEND);
+	glDepthMask(GL_TRUE);
+
+	if (gl_mtexable) {
+	    GL_EnableMultitexture();
+	    qglClientActiveTexture(GL_TEXTURE1);
+	    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	}
+    }
+}
+
+static void
+DrawSkyChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
+{
+    int flags = surf->flags;
+    glpoly_t *poly = NULL;
+
+    speedscale = realtime * 8;
+    speedscale -= (int)speedscale & ~127;
+    speedscale2 = realtime * 16;
+    speedscale2 -= (int)speedscale2 & ~127;
+
+    for ( ; surf; surf = surf->chain) {
+	for (poly = surf->polys ; poly; poly = poly->next) {
+	    if (!TriBuf_CheckSpacePoly(buffer, poly))
+		goto drawBuffer;
+	addPoly:
+	    TriBuf_AddSkyPoly(buffer, poly);
+	}
+    }
+ drawBuffer:
+    TriBuf_Draw(buffer, texture, NULL, flags);
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+    if (poly)
+	goto addPoly;
+}
+
+static void
+DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
+{
+    int flags = surf->flags;
+    glpoly_t *poly = NULL;
+
+    for ( ; surf; surf = surf->chain) {
+	for (poly = surf->polys ; poly; poly = poly->next) {
+	    if (!TriBuf_CheckSpacePoly(buffer, poly))
+		goto drawBuffer;
+	addPoly:
+	    TriBuf_AddTurbPoly(buffer, poly);
+	}
+    }
+ drawBuffer:
+    TriBuf_Draw(buffer, texture, NULL, flags);
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+    if (poly)
+	goto addPoly;
+}
+
+static void
+DrawFlatChain(triangle_buffer_t *buffer, msurface_t *surf)
+{
+    glpoly_t *poly = NULL;
+
+    for ( ; surf; surf = surf->chain) {
+	for (poly = surf->polys ; poly; poly = poly->next) {
+	    if (!TriBuf_CheckSpacePoly(buffer, poly))
+		goto drawBuffer;
+	addPoly:
+	    TriBuf_AddFlatPoly(buffer, poly);
+	}
+    }
+ drawBuffer:
+    TriBuf_Draw(buffer, NULL, NULL, 0);
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+    if (poly)
+	goto addPoly;
+}
+
+static void
+DrawMaterialChains(const entity_t *e)
+{
+    int i;
+    msurface_t *surf, *materialchain;
+    brushmodel_t *brushmodel;
+    glbrushmodel_t *glbrushmodel;
+    surface_material_t *material;
+    triangle_buffer_t buffer = {0};
+
+    glEnable(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    if (gl_mtexable) {
+	qglClientActiveTexture(GL_TEXTURE0);
+    }
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    if (gl_mtexable) {
+	qglClientActiveTexture(GL_TEXTURE1);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+	GL_EnableMultitexture();
+    }
+
+    // MATERIAL CHAIN
+    brushmodel = BrushModel(e->model);
+    glbrushmodel = GLBrushModel(brushmodel);
+    material = glbrushmodel->materials;
+    for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
+	materialchain = glbrushmodel->materialchains[i];
+	if (!materialchain)
+	    continue;
+        if (r_drawflat.value) {
+            DrawFlatChain(&buffer, materialchain);
+            continue;
+        }
+	int flags = materialchain->flags;
+	if ((flags & SURF_DRAWTURB) && r_wateralpha.value < 1.0f)
+	    continue; // Transparent surfaces last
+
+	surf = materialchain;
+	texture_t *texture = brushmodel->textures[material->texturenum];
+	if (flags & SURF_DRAWSKY) {
+	    DrawSkyChain(&buffer, surf, texture);
+	    continue;
+	}
+	if (flags & SURF_DRAWTURB) {
+	    DrawTurbChain(&buffer, surf, texture);
+	    continue;
+	}
+
+	lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
+	for ( ; surf; surf = surf->chain) {
+	    if (!surf->polys)
+		continue;
+	    if (!TriBuf_CheckSpacePoly(&buffer, surf->polys))
+		goto drawBuffer;
+	addPoly:
+	    R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+	    TriBuf_AddPoly(&buffer, surf->polys);
+	}
+    drawBuffer:
+	TriBuf_Draw(&buffer, texture, block, materialchain->flags);
+	buffer.numverts = 0;
+	buffer.numindices = 0;
+	if (surf && surf->polys)
+	    goto addPoly;
+    }
+
+    if (gl_mtexable) {
+	GL_DisableMultitexture();
+	qglClientActiveTexture(GL_TEXTURE1);
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	qglClientActiveTexture(GL_TEXTURE0);
+    }
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisable(GL_VERTEX_ARRAY);
+}
+
+/*
+ * TODO: probably rename / rework this (DrawTransparentSurfaces) some more as it's only the world surfaces right now...
+ */
+void
+R_DrawTransparentSurfaces(void)
+{
+    int i;
+    msurface_t *materialchain;
+    texture_t *texture;
+    triangle_buffer_t buffer = {0};
+
+    if (r_wateralpha.value >= 1.0f)
+	return;
+
+    //
+    // go back to the world matrix
+    //
+    glLoadMatrixf(r_world_matrix);
+
+    GL_DisableMultitexture();
+    glEnable(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    if (gl_mtexable) {
+	qglClientActiveTexture(GL_TEXTURE0);
+    }
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDepthMask(GL_FALSE);
+
+    brushmodel_t *brushmodel = cl.worldmodel;
+    glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
+    surface_material_t *material = glbrushmodel->materials;
+    for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
+	materialchain = glbrushmodel->materialchains[i];
+	if (!materialchain)
+	    continue;
+	int flags = materialchain->flags;
+	if (!(flags & SURF_DRAWTURB))
+	    continue;
+
+	texture = brushmodel->textures[material->texturenum];
+	DrawTurbChain(&buffer, materialchain, texture);
+    }
+
+    glDepthMask(GL_TRUE);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisable(GL_VERTEX_ARRAY);
+}
+
 /*
  * Adds the surfaces from the brushmodel to the given material chains
  * Allows us to add submodels to the world material chains if they are static.
@@ -864,49 +1419,52 @@ DrawFlatTextureChains(void)
 
 /*
 =================
-R_DrawBrushModel
+R_DrawDynamicBrushModel
 =================
 */
 void
-R_DrawBrushModel(const entity_t *e)
+R_DrawDynamicBrushModel(const entity_t *entity)
 {
-    int i, k;
+    int i;
     vec3_t mins, maxs, angles_bug, modelorg;
-    msurface_t *surf;
-    float dot;
-    mplane_t *pplane;
     model_t *model;
     brushmodel_t *brushmodel;
-    glbrushmodel_resource_t *resources;
-    qboolean rotated;
+    qboolean rotated = false;
 
-    currenttexture = -1;
-
-    model = e->model;
+    model = entity->model;
     brushmodel = BrushModel(model);
 
-    if (e->angles[0] || e->angles[1] || e->angles[2]) {
+    /*
+     * Static (non-rotated/translated) models are drawn with the world,
+     * so we skip them here
+     */
+    if (entity->angles[0] || entity->angles[1] || entity->angles[2])
 	rotated = true;
+    else if (brushmodel->parent && !entity->origin[0] && !entity->origin[1] && !entity->origin[2])
+        return;
+
+    if (rotated) {
 	for (i = 0; i < 3; i++) {
-	    mins[i] = e->origin[i] - model->radius;
-	    maxs[i] = e->origin[i] + model->radius;
+	    mins[i] = entity->origin[i] - model->radius;
+	    maxs[i] = entity->origin[i] + model->radius;
 	}
     } else {
-	rotated = false;
-	VectorAdd(e->origin, model->mins, mins);
-	VectorAdd(e->origin, model->maxs, maxs);
+	VectorAdd(entity->origin, model->mins, mins);
+	VectorAdd(entity->origin, model->maxs, maxs);
     }
 
     if (R_CullBox(mins, maxs))
 	return;
 
-    VectorSubtract(r_refdef.vieworg, e->origin, modelorg);
+    currenttexture = -1;
+
+    VectorSubtract(r_refdef.vieworg, entity->origin, modelorg);
     if (rotated) {
 	vec3_t temp;
 	vec3_t forward, right, up;
 
 	VectorCopy(modelorg, temp);
-	AngleVectors(e->angles, forward, right, up);
+	AngleVectors(entity->angles, forward, right, up);
 	modelorg[0] = DotProduct(temp, forward);
 	modelorg[1] = -DotProduct(temp, right);
 	modelorg[2] = DotProduct(temp, up);
@@ -916,97 +1474,15 @@ R_DrawBrushModel(const entity_t *e)
 	glEnable(GL_POLYGON_OFFSET_FILL);
 
     glPushMatrix();
+
     /* Stupid bug means pitch is reversed for entities */
-    VectorCopy(e->angles, angles_bug);
+    VectorCopy(entity->angles, angles_bug);
     angles_bug[PITCH] = -angles_bug[PITCH];
-    R_RotateForEntity(e->origin, angles_bug);
+    R_RotateForEntity(entity->origin, angles_bug);
 
-    if (!r_drawflat.value) {
-        /*
-         * calculate dynamic lighting for bmodel if it's not an instanced model
-         */
-        resources = GLBrushModel(brushmodel)->resources;
-        for (i = 0; i < resources->numblocks; i++)
-            resources->blocks[i].polys = NULL;
-
-	if (brushmodel->firstmodelsurface != 0) {
-	    for (k = 0; k < MAX_DLIGHTS; k++) {
-		if ((cl_dlights[k].die < cl.time) || (!cl_dlights[k].radius))
-		    continue;
-
-		mnode_t *node = brushmodel->nodes + brushmodel->hulls[0].firstclipnode;
-		R_MarkLights(&cl_dlights[k], 1 << k, node);
-	    }
-	}
-    }
-
-    /*
-     * draw texture
-     */
-    if (r_drawflat.value)
-	glDisable(GL_TEXTURE_2D);
-    else
-	glColor3f(1, 1, 1);
-
-    /* Setup material chain for drawing */
-    R_SetupDynamicBrushModelMaterialChains(e, modelorg);
-
-    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
-    for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
-	/* find which side of the node we are on */
-	pplane = surf->plane;
-	dot = DotProduct(modelorg, pplane->normal) - pplane->dist;
-        if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
-            continue;
-        if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
-            continue;
-
-	/* draw the polygon */
-        if (r_drawflat.value) {
-            DrawFlatGLPoly(surf->polys);
-        } else {
-            /* FIXME - hack for dynamic lightmap updates... */
-            qboolean real_mtexable = gl_mtexable;
-            gl_mtexable = false;
-	    texture_t *texture = R_TextureAnimation(e, surf->texinfo->texture);
-            R_RenderBrushPoly(e, surf, texture);
-            gl_mtexable = real_mtexable;
-        }
-    }
-
-    if (r_drawflat.value) {
-	glEnable(GL_TEXTURE_2D);
-	glColor3f(1, 1, 1);
-    } else {
-	R_BlendLightmaps(brushmodel);
-        if (gl_fullbrights.value) {
-            GL_DisableMultitexture();
-            glDepthMask(GL_FALSE);
-            glEnable(GL_BLEND);
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-            surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
-            for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
-                /* find which side of the node we are on */
-                pplane = surf->plane;
-                dot = DotProduct(modelorg, pplane->normal) - pplane->dist;
-                if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
-                    continue;
-                if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
-                    continue;
-
-                texture_t *texture = R_TextureAnimation(e, surf->texinfo->texture);
-                if (!texture->gl_texturenum_fullbright)
-                    continue;
-
-                GL_Bind(texture->gl_texturenum_fullbright);
-                DrawGLPoly(surf->polys);
-            }
-
-            glDisable(GL_BLEND);
-            glDepthMask(GL_TRUE);
-        }
-    }
+    /* Setup material chains and draw */
+    R_SetupDynamicBrushModelMaterialChains(entity, modelorg);
+    DrawMaterialChains(entity);
 
     glPopMatrix();
 
@@ -1130,7 +1606,6 @@ R_DrawWorld(void)
     int i;
     entity_t worldentity;
     glbrushmodel_t *glbrushmodel;
-    glbrushmodel_resource_t *resources;
 
     memset(&worldentity, 0, sizeof(worldentity));
     worldentity.model = &cl.worldmodel->model;
@@ -1138,11 +1613,8 @@ R_DrawWorld(void)
     currenttexture = -1;
     glColor3f(1, 1, 1);
     glbrushmodel = GLBrushModel(cl.worldmodel);
-    resources = glbrushmodel->resources;
-    for (i = 0; i < resources->numblocks; i++)
-        resources->blocks[i].polys = NULL;
 
-    if (r_drawflat.value || _gl_drawhull.value) {
+    if (_gl_drawhull.value) {
 	GL_DisableMultitexture();
 	glDisable(GL_TEXTURE_2D);
     }
@@ -1163,7 +1635,7 @@ R_DrawWorld(void)
 	return;
     }
 
-    /* Build material (and texture) chains */
+    /* Build material chains */
     memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
     R_SwapAnimationChains(glbrushmodel, glbrushmodel->materialchains);
     R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
@@ -1186,40 +1658,8 @@ R_DrawWorld(void)
     }
     R_SwapAnimationChains(glbrushmodel, glbrushmodel->materialchains);
 
-    if (r_drawflat.value) {
-	DrawFlatTextureChains();
-	return;
-    }
-
-    DrawTextureChains(&worldentity);
-    R_BlendLightmaps(cl.worldmodel);
-
-    if (!gl_mtexable && gl_fullbrights.value) {
-	for (i = 0; i < cl.worldmodel->numtextures; i++) {
-	    texture_t *texture = R_TextureAnimation(&worldentity, cl.worldmodel->textures[i]);
-	    if (!texture || !texture->gl_texturenum_fullbright)
-		continue;
-
-	    msurface_t *surf;
-	    for (surf = texture->texturechain; surf; surf = surf->texturechain) {
-		glDepthMask(GL_FALSE);
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-		GL_Bind(texture->gl_texturenum_fullbright);
-		DrawGLPoly(surf->polys);
-		glDisable(GL_BLEND);
-		glDepthMask(GL_TRUE);
-	    }
-	}
-    }
-
-    /* Zero out the texturechains */
-    for (i = 0; i < cl.worldmodel->numtextures; i++) {
-	texture_t *texture = cl.worldmodel->textures[i];
-	if (texture)
-	    texture->texturechain = NULL;
-    }
+    /* Draw! */
+    DrawMaterialChains(&worldentity);
 }
 
 /*

@@ -197,6 +197,11 @@ extern int r_visframecount;	// ??? what difs?
 extern int r_framecount;
 extern int c_brush_polys;
 extern int c_lightmaps_uploaded;
+extern int gl_draw_calls;
+extern int gl_verts_submitted;
+extern int gl_indices_submitted;
+extern int gl_full_vert_buffers;
+extern int gl_full_index_buffers;
 
 //
 // view origin
@@ -369,9 +374,10 @@ void R_InitParticleTexture(void);
 // gl_rsurf.c
 //
 void R_InitLightmapFormat();
-void R_DrawBrushModel(const entity_t *e);
+void R_DrawDynamicBrushModel(const entity_t *entity);
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
+void R_DrawTransparentSurfaces();
 void R_DrawWaterSurfaces(void);
 void R_RenderBrushPoly(const entity_t *e, msurface_t *surf, const texture_t *texture);
 void GL_BuildLightmaps();
