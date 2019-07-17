@@ -94,7 +94,7 @@ QPic32_AlphaEdgeFix(qpic32_t *pic)
 	    const int current = y * width + x;
 
 	    /* only modify completely transparent pixels */
-	    if (pixels[current].alpha)
+	    if (pixels[current].c.alpha)
 		continue;
 
 	    /*
@@ -135,11 +135,11 @@ QPic32_AlphaEdgeFix(qpic32_t *pic)
 	    /* find the average color of non-transparent neighbours */
 	    red = green = blue = count = 0;
 	    for (n = 0; n < 8; n++) {
-		if (!pixels[neighbours[n]].alpha)
+		if (!pixels[neighbours[n]].c.alpha)
 		    continue;
-		red += pixels[neighbours[n]].red;
-		green += pixels[neighbours[n]].green;
-		blue += pixels[neighbours[n]].blue;
+		red += pixels[neighbours[n]].c.red;
+		green += pixels[neighbours[n]].c.green;
+		blue += pixels[neighbours[n]].c.blue;
 		count++;
 	    }
 
@@ -147,9 +147,9 @@ QPic32_AlphaEdgeFix(qpic32_t *pic)
 	    if (!count)
 		continue;
 
-	    pixels[current].red = red / count;
-	    pixels[current].green = green / count;
-	    pixels[current].blue = blue / count;
+	    pixels[current].c.red = red / count;
+	    pixels[current].c.green = green / count;
+	    pixels[current].c.blue = blue / count;
 	}
     }
 }
@@ -162,8 +162,8 @@ QPic32_AlphaClampToZero(qpic32_t *pic)
     int i;
 
     for (i = 0, pixel = pic->pixels; i < size; i++, pixel++) {
-        if (pixel->alpha < 255)
-            pixel->alpha = 0;
+        if (pixel->c.alpha < 255)
+            pixel->c.alpha = 0;
     }
 }
 
@@ -579,10 +579,10 @@ QPic32_InitPalettes(const byte *palette)
     src = palette;
     dst = qpal_standard.colors;
     for (i = 0; i < 256; i++, dst++) {
-        dst->red = *src++;
-        dst->green = *src++;
-        dst->blue = *src++;
-        dst->alpha = 255;
+        dst->c.red = *src++;
+        dst->c.green = *src++;
+        dst->c.blue = *src++;
+        dst->c.alpha = 255;
     }
     qpal_standard.alpha = false;
 
@@ -590,16 +590,16 @@ QPic32_InitPalettes(const byte *palette)
     memcpy(&qpal_fullbright, &qpal_standard, sizeof(qpalette32_t));
     dst = qpal_fullbright.colors;
     for (i = 0; i < 224; i++, dst++)
-        dst->alpha = 0;
+        dst->c.alpha = 0;
     qpal_fullbright.alpha = true;
 
     /* Charset/sky palette - 0 is transparent */
     memcpy(&qpal_alpha_zero, &qpal_standard, sizeof(qpalette32_t));
-    qpal_alpha_zero.colors[0].alpha = 0;
+    qpal_alpha_zero.colors[0].c.alpha = 0;
     qpal_alpha_zero.alpha = true;
 
     /* HUD/sprite palette - 255 is transparent */
     memcpy(&qpal_alpha, &qpal_standard, sizeof(qpalette32_t));
-    qpal_alpha.colors[255].alpha = 0;
+    qpal_alpha.colors[255].c.alpha = 0;
     qpal_alpha.alpha = true;
 }

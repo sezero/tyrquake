@@ -433,7 +433,7 @@ GL_FloodFillSkin(byte *skin, int skinwidth, int skinheight)
     if (filledcolor == -1) {
 	filledcolor = 0;
 	// attempt to find opaque black (FIXME - precompute!)
-        const qpixel32_t black = { .red = 0, .green = 0, .blue = 0, .alpha = 255 };
+        const qpixel32_t black = { .c.red = 0, .c.green = 0, .c.blue = 0, .c.alpha = 255 };
 	for (i = 0; i < 256; ++i)
 	    if (qpal_standard.colors[i].rgba == black.rgba)
 	    {

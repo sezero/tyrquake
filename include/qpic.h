@@ -40,7 +40,7 @@ typedef union {
 	byte green;
 	byte blue;
 	byte alpha;
-    };
+    } c;
 } qpixel32_t;
 
 typedef struct {

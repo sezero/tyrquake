@@ -780,9 +780,9 @@ R_DrawParticles(void)
 
         color = qpal_standard.colors[(byte)p->color];
         if (p->type == pt_fire) {
-            color.alpha = 255 * (6 - (qmin(5, (int)p->ramp))) / 6;
+            color.c.alpha = 255 * (6 - (qmin(5, (int)p->ramp))) / 6;
         }
-	glColor4ub(color.red, color.green, color.blue, color.alpha);
+	glColor4ub(color.c.red, color.c.green, color.c.blue, color.c.alpha);
 
 	glTexCoord2f(0, 0);
 	glVertex3fv(p->org);
