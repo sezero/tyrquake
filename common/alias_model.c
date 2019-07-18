@@ -167,8 +167,8 @@ Mod_CalculateAliasModelBounds(model_t *model, const aliashdr_t *aliashdr)
 
     VectorCopy(mins, model->mins);
     VectorCopy(maxs, model->maxs);
-    model->xy_radius = xy_radius;
-    model->radius = radius;
+    model->xy_radius = sqrtf(xy_radius);
+    model->radius = sqrtf(radius);
 }
 
 /*
