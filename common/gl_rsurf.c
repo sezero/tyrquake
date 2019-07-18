@@ -434,6 +434,8 @@ TriBuf_AddPolyIndices(triangle_buffer_t *buffer, const glpoly_t *poly)
     }
     buffer->numverts += poly->numverts;
     buffer->numindices += (poly->numverts - 2) * 3;
+
+    c_brush_polys++;
 }
 
 static void
