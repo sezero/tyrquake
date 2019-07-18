@@ -210,7 +210,6 @@ R_Init(void)
 
     Cvar_RegisterVariable(&r_norefresh);
     Cvar_RegisterVariable(&r_lightmap);
-    Cvar_RegisterVariable(&r_shadows);
     Cvar_RegisterVariable(&r_mirroralpha);
     Cvar_RegisterVariable(&r_wateralpha);
     Cvar_RegisterVariable(&r_dynamic);

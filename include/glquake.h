@@ -233,7 +233,6 @@ extern cvar_t r_speeds;
 extern cvar_t r_waterwarp;
 extern cvar_t r_fullbright;
 extern cvar_t r_lightmap;
-extern cvar_t r_shadows;
 extern cvar_t r_mirroralpha;
 extern cvar_t r_wateralpha;
 extern cvar_t r_dynamic;
@@ -351,11 +350,6 @@ void R_StoreEfrags(efrag_t **ppefrag);
 //
 // gl_mesh.c
 //
-typedef struct {
-    int count;
-    float coords[];
-} aliasmeshcmd_t;
-
 void GL_LoadAliasMeshData(const model_t *m, aliashdr_t *hdr,
 			  const alias_meshdata_t *meshdata,
 			  const alias_posedata_t *posedata);
@@ -376,11 +370,6 @@ void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawTransparentSurfaces();
 void GL_BuildLightmaps();
 void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
-
-//
-// Used only for r_shadows 1 (remove?)
-//
-extern vec3_t lightspot;
 
 //
 // r_part.c

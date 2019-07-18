@@ -132,10 +132,6 @@ R_PushDlights(void)
 /* Light Sampling                                                            */
 /* --------------------------------------------------------------------------*/
 
-#ifdef GLQUAKE
-vec3_t lightspot;
-#endif
-
 __attribute__((noinline))
 static int
 R_LightSurfPoint(const mnode_t *node, const vec3_t surfpoint)
@@ -232,10 +228,6 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
 
     if ((back < 0) == side)
 	return -1; /* didn't hit anything */
-
-#ifdef GLQUAKE
-    VectorCopy(surfpoint, lightspot);
-#endif
 
     lightlevel = R_LightSurfPoint(node, surfpoint);
     if (lightlevel >= 0)

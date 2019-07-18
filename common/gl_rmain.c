@@ -78,7 +78,6 @@ cvar_t r_drawentities = { "r_drawentities", "1" };
 cvar_t r_drawviewmodel = { "r_drawviewmodel", "1" };
 cvar_t r_speeds = { "r_speeds", "0" };
 cvar_t r_lightmap = { "r_lightmap", "0" };
-cvar_t r_shadows = { "r_shadows", "0" };
 cvar_t r_mirroralpha = { "r_mirroralpha", "1" };
 cvar_t r_wateralpha = { "r_wateralpha", "1", true };
 cvar_t r_dynamic = { "r_dynamic", "1" };
@@ -382,7 +381,6 @@ static float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
      ;
 
 static float *shadedots = r_avertexnormal_dots[0];
-static int lastposenum;
 
 /*
  * Upload alias skin textures
@@ -419,179 +417,6 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
         pic.pixels += skinsize;
     }
 }
-
-/*
-=============
-GL_AliasDrawModel
-=============
-*/
-static void
-GL_AliasDrawModel(const entity_t *entity, float blend, qboolean shading)
-{
-    aliashdr_t *aliashdr;
-    const trivertx_t *vertbase, *verts1;
-    const aliasmeshcmd_t *command;
-    const float *coords;
-    int count;
-
-    lastposenum = entity->currentpose;
-
-    aliashdr = Mod_Extradata(entity->model);
-    vertbase = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
-    verts1 = vertbase + entity->currentpose * aliashdr->numverts;
-    command = (const aliasmeshcmd_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->commands);
-
-#ifdef NQ_HACK
-    if (r_lerpmodels.value && blend != 1.0f) {
-	const trivertx_t *lightvert;
-	const trivertx_t *verts0;
-	const float blend0 = 1.0f - blend;
-
-	verts0 = vertbase + entity->previouspose * aliashdr->numverts;
-	lightvert = (blend < 0.5f) ? verts0 : verts1;
-
-	while (1) {
-	    /* get the vertex count and primitive type */
-	    count = command->count;
-	    if (!count)
-		break;
-	    if (count < 0) {
-		count = -count;
-		glBegin(GL_TRIANGLE_FAN);
-	    } else {
-		glBegin(GL_TRIANGLE_STRIP);
-	    }
-
-            coords = command->coords;
-	    while (count--) {
-		vec3_t glvertex;
-		float light;
-
-		/* texture coordinates come from the draw list */
-		glTexCoord2f(coords[0], coords[1]);
-                coords += 2;
-
-                if (shading) {
-                    /* normals and vertexes come from the frame list */
-                    light = shadedots[verts0->lightnormalindex] * blend0;
-                    light += shadedots[verts1->lightnormalindex] * blend;
-                    light *= shadelight;
-                    if (r_fullbright.value)
-                        light = 255.0f;
-                    glColor3f(light, light, light);
-                }
-		glvertex[0] = verts0->v[0] * blend0 + verts1->v[0] * blend;
-		glvertex[1] = verts0->v[1] * blend0 + verts1->v[1] * blend;
-		glvertex[2] = verts0->v[2] * blend0 + verts1->v[2] * blend;
-		glVertex3f(glvertex[0], glvertex[1], glvertex[2]);
-		verts0++;
-		verts1++;
-		lightvert++;
-	    }
-	    glEnd();
-
-            command = (const aliasmeshcmd_t *)coords;
-	}
-	return;
-    }
-#endif
-    while (1) {
-	/* get the vertex count and primitive type */
-	count = command->count;
-	if (!count)
-	    break;
-	if (count < 0) {
-	    count = -count;
-	    glBegin(GL_TRIANGLE_FAN);
-	} else {
-	    glBegin(GL_TRIANGLE_STRIP);
-	}
-
-        coords = command->coords;
-	while (count--) {
-	    float light;
-
-	    /* texture coordinates come from the draw list */
-	    glTexCoord2f(coords[0], coords[1]);
-	    coords += 2;
-
-            if (shading) {
-                /* normals and vertexes come from the frame list */
-                light = shadedots[verts1->lightnormalindex] * shadelight;
-                if (r_fullbright.value)
-                    light = 255.0f;
-                glColor3f(light, light, light);
-            }
-	    glVertex3f(verts1->v[0], verts1->v[1], verts1->v[2]);
-	    verts1++;
-	}
-	glEnd();
-
-        command = (const aliasmeshcmd_t *)coords;
-    }
-}
-
-/*
-=============
-GL_AliasDrawShadow
-=============
-*/
-static void
-GL_AliasDrawShadow(const entity_t *entity, aliashdr_t *paliashdr, int posenum)
-{
-    trivertx_t *verts;
-    int *order;
-    vec3_t point;
-    float height, lheight;
-    int count;
-
-    lheight = entity->origin[2] - lightspot[2];
-    height = -lheight + 1.0;
-
-    verts = (trivertx_t *)((byte *)paliashdr + paliashdr->posedata);
-    verts += posenum * paliashdr->numverts;
-    order = (int *)((byte *)paliashdr + GL_Aliashdr(paliashdr)->commands);
-
-    while (1) {
-	// get the vertex count and primitive type
-	count = *order++;
-	if (!count)
-	    break;		// done
-	if (count < 0) {
-	    count = -count;
-	    glBegin(GL_TRIANGLE_FAN);
-	} else
-	    glBegin(GL_TRIANGLE_STRIP);
-
-	do {
-	    // texture coordinates come from the draw list
-	    // (skipped for shadows) glTexCoord2fv ((float *)order);
-	    order += 2;
-
-	    // normals and vertexes come from the frame list
-	    point[0] =
-		verts->v[0] * paliashdr->scale[0] +
-		paliashdr->scale_origin[0];
-	    point[1] =
-		verts->v[1] * paliashdr->scale[1] +
-		paliashdr->scale_origin[1];
-	    point[2] =
-		verts->v[2] * paliashdr->scale[2] +
-		paliashdr->scale_origin[2];
-
-	    point[0] -= shadevector[0] * (point[2] + lheight);
-	    point[1] -= shadevector[1] * (point[2] + lheight);
-	    point[2] = height;
-//                      height -= 0.001;
-	    glVertex3fv(point);
-
-	    verts++;
-	} while (--count);
-
-	glEnd();
-    }
-}
-
 
 /*
 ===============
@@ -869,15 +694,40 @@ R_AliasDrawModel(entity_t *entity)
     /* Calculate lighting at the lerp origin */
     R_AliasCalcLight(entity, origin, angles);
 
-    /* locate the proper data */
+    /* locate/load the data in the model cache */
     aliashdr = Mod_Extradata(entity->model);
 
-    /* draw all the triangles */
-    c_alias_polys += aliashdr->numtris;
+    /* Generate the vertex/color buffers */
+    int numverts = aliashdr->numverts;
+    vec_t *vertexbuf = alloca(numverts * sizeof(vec3_t));
+    vec_t *colorbuf = alloca(numverts * sizeof(vec3_t));
+    float lerp = R_AliasSetupFrame(entity, aliashdr);
+
+    const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
+    const trivertx_t *src0 = posedata + entity->previouspose * numverts;
+    const trivertx_t *src1 = posedata + entity->currentpose * numverts;
+    vec_t *dstvert = vertexbuf;
+    vec_t *dstcolor = colorbuf;
+    for (i = 0; i < numverts; i++, src0++, src1++) {
+        *dstvert++ = src0->v[0] * (1.0f - lerp) + src1->v[0] * lerp;
+        *dstvert++ = src0->v[1] * (1.0f - lerp) + src1->v[1] * lerp;
+        *dstvert++ = src0->v[2] * (1.0f - lerp) + src1->v[2] * lerp;
+
+        float light;
+        light  = shadedots[src0->lightnormalindex] * (1.0f - lerp);
+        light += shadedots[src1->lightnormalindex] * lerp;
+        light *= shadelight;
+        *dstcolor++ = light;
+        *dstcolor++ = light;
+        *dstcolor++ = light;
+    }
+
+    uint16_t *indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
+    float *texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
+
+    /* Setup state for drawing */
     VectorCopy(origin, r_entorigin);
-
     GL_DisableMultitexture();
-
     glPushMatrix();
     R_RotateForEntity(origin, angles);
 
@@ -888,15 +738,15 @@ R_AliasDrawModel(entity_t *entity)
 #ifdef QW_HACK
     if (!strcmp(model->name, "progs/eyes.mdl")) {
 #endif
-	glTranslatef(aliashdr->scale_origin[0], aliashdr->scale_origin[1],
-		     aliashdr->scale_origin[2] - (22 + 8));
-	glScalef(aliashdr->scale[0] * 2, aliashdr->scale[1] * 2,
-		 aliashdr->scale[2] * 2);
+        const vec_t *scale = aliashdr->scale;
+        const vec_t *origin = aliashdr->scale_origin;
+	glTranslatef(origin[0], origin[1], origin[2] - (22 + 8));
+	glScalef(scale[0] * 2, scale[1] * 2, scale[2] * 2);
     } else {
-	glTranslatef(aliashdr->scale_origin[0], aliashdr->scale_origin[1],
-		     aliashdr->scale_origin[2]);
-	glScalef(aliashdr->scale[0], aliashdr->scale[1],
-		 aliashdr->scale[2]);
+        const vec_t *scale = aliashdr->scale;
+        const vec_t *origin = aliashdr->scale_origin;
+	glTranslatef(origin[0], origin[1], origin[2]);
+	glScalef(scale[0], scale[1], scale[2]);
     }
 
     const qgltexture_t *skin = R_AliasSetupSkin(entity, aliashdr);
@@ -931,23 +781,45 @@ R_AliasDrawModel(entity_t *entity)
 
     if (gl_smoothmodels.value)
 	glShadeModel(GL_SMOOTH);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
     if (gl_affinemodels.value)
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
-    float lerp = R_AliasSetupFrame(entity, aliashdr);
-    GL_AliasDrawModel(entity, lerp, true);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
+    /* Draw */
+    glEnable(GL_VERTEX_ARRAY);
+
+    if (gl_mtexable)
+        qglClientActiveTexture(GL_TEXTURE0);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
+    glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+    if (r_fullbright.value) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+    } else {
+        glEnableClientState(GL_COLOR_ARRAY);
+        glColorPointer(3, GL_FLOAT, 0, colorbuf);
+    }
+    glDrawElements(GL_TRIANGLES, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
+    gl_draw_calls++;
+    gl_verts_submitted += numverts;
+    gl_indices_submitted += aliashdr->numtris * 3;
+
+    glDisableClientState(GL_COLOR_ARRAY);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
     if (skin->fullbright && gl_fullbrights.value) {
-        GL_DisableMultitexture();
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL_Bind(skin->fullbright);
-        GL_AliasDrawModel(entity, lerp, false);
+
+        glDrawElements(GL_TRIANGLES, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
+        gl_draw_calls++;
+        gl_verts_submitted += numverts;
+        gl_indices_submitted += aliashdr->numtris * 3;
+
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
     }
@@ -958,18 +830,11 @@ R_AliasDrawModel(entity_t *entity)
 
     glPopMatrix();
 
-    if (r_shadows.value) {
-	glPushMatrix();
-	R_RotateForEntity(origin, angles);
-	glDisable(GL_TEXTURE_2D);
-	glEnable(GL_BLEND);
-	glColor4f(0, 0, 0, 0.5);
-	GL_AliasDrawShadow(entity, aliashdr, lastposenum);
-	glEnable(GL_TEXTURE_2D);
-	glDisable(GL_BLEND);
-	glColor4f(1, 1, 1, 1);
-	glPopMatrix();
-    }
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisable(GL_VERTEX_ARRAY);
+
+    c_alias_polys += aliashdr->numtris;
 }
 
 void

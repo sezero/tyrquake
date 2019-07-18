@@ -339,8 +339,14 @@ typedef struct {
 #ifdef GLQUAKE
 
 typedef struct {
-    int commands;	// gl command list with embedded s/t
-    int textures;	/* Offset to GLuint texture names */
+    float s;
+    float t;
+} texcoord_t;
+
+typedef struct {
+    int indices;   // Offset to indices for drawing
+    int texcoords; // Offset to texcoords
+    int textures;  // Offset to GLuint texture handles
     aliashdr_t ahdr;
 } gl_aliashdr_t;
 
