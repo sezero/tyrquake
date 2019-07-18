@@ -707,7 +707,7 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 	gl_indices_submitted += buffer->numindices * 2;
     }
 
-    if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright) {
+    if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
 	if (gl_mtexable) {
 	    GL_DisableMultitexture();
 	    qglClientActiveTexture(GL_TEXTURE1);
