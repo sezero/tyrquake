@@ -1271,7 +1271,8 @@ R_DrawWorld(void)
                 continue;
             if (entity->origin[0] || entity->origin[1] || entity->origin[2])
                 continue;
-
+            if (R_CullBox(entity->model->mins, entity->model->maxs))
+                continue;
             R_AddStaticBrushModelToWorldMaterialChains(entity);
         }
     }
