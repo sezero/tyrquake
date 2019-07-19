@@ -226,7 +226,7 @@ lpClientStateFUNC qglClientActiveTexture;
 
 static qboolean mtexenabled = false;
 static GLenum oldtarget = GL_TEXTURE0_ARB;
-static int cnttextures[2] = { -1, -1 };	// cached
+static int cnttextures[3] = { -1, -1, -1 };	// cached
 
 /*
  * Makes the given texture unit active
@@ -647,10 +647,31 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 	qglClientActiveTexture(GL_TEXTURE1);
 	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
 
+        if (gl_num_texture_units > 2) {
+            if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
+                GL_SelectTexture(GL_TEXTURE2);
+                glEnable(GL_TEXTURE_2D);
+                glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+                GL_Bind(texture->gl_texturenum_fullbright);
+                qglClientActiveTexture(GL_TEXTURE2);
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+            }
+        }
+
 	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 	gl_draw_calls++;
 	gl_verts_submitted += buffer->numverts;
 	gl_indices_submitted += buffer->numindices;
+
+        if (gl_num_texture_units > 2) {
+            if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
+                glDisable(GL_TEXTURE_2D);
+                GL_SelectTexture(GL_TEXTURE1);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                qglClientActiveTexture(GL_TEXTURE1);
+            }
+        }
 
     } else {
 
@@ -707,33 +728,35 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 	gl_indices_submitted += buffer->numindices * 2;
     }
 
-    if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
-	if (gl_mtexable) {
-	    GL_DisableMultitexture();
-	    qglClientActiveTexture(GL_TEXTURE1);
-	    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	    GL_SelectTexture(GL_TEXTURE0_ARB);
-	}
+    if (!gl_mtexable || gl_num_texture_units < 3) {
+        if (!(flags & SURF_DRAWSKY) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
+            if (gl_mtexable) {
+                GL_DisableMultitexture();
+                qglClientActiveTexture(GL_TEXTURE1);
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                GL_SelectTexture(GL_TEXTURE0_ARB);
+            }
 
-	glDepthMask(GL_FALSE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDepthMask(GL_FALSE);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	GL_Bind(texture->gl_texturenum_fullbright);
-	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+            GL_Bind(texture->gl_texturenum_fullbright);
+            glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
-	gl_draw_calls++;
-	gl_verts_submitted += buffer->numverts;
-	gl_indices_submitted += buffer->numindices;
+            gl_draw_calls++;
+            gl_verts_submitted += buffer->numverts;
+            gl_indices_submitted += buffer->numindices;
 
-	glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+            glDepthMask(GL_TRUE);
 
-	if (gl_mtexable) {
-	    GL_EnableMultitexture();
-	    qglClientActiveTexture(GL_TEXTURE1);
-	    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
+            if (gl_mtexable) {
+                GL_EnableMultitexture();
+                qglClientActiveTexture(GL_TEXTURE1);
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            }
+        }
     }
 }
 

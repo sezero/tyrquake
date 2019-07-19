@@ -818,15 +818,33 @@ R_AliasDrawModel(entity_t *entity)
         glEnableClientState(GL_COLOR_ARRAY);
         glColorPointer(3, GL_FLOAT, 0, colorbuf);
     }
+
+    if (gl_mtexable && skin->fullbright && gl_fullbrights.value) {
+        GL_EnableMultitexture();
+        GL_Bind(skin->fullbright);
+        qglClientActiveTexture(GL_TEXTURE1);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+    }
+
     glDrawElements(GL_TRIANGLES, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
     gl_draw_calls++;
     gl_verts_submitted += numverts;
     gl_indices_submitted += aliashdr->numtris * 3;
 
+    if (gl_mtexable && skin->fullbright && gl_fullbrights.value) {
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        qglClientActiveTexture(GL_TEXTURE0);
+        glDisable(GL_BLEND);
+        GL_DisableMultitexture();
+    }
+
     glDisableClientState(GL_COLOR_ARRAY);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-    if (skin->fullbright && gl_fullbrights.value) {
+    if (!gl_mtexable && skin->fullbright && gl_fullbrights.value) {
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
