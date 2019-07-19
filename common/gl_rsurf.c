@@ -1201,6 +1201,10 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	    if ((dot < 0) ^ !!(surf->flags & SURF_PLANEBACK))
 		continue;
 
+            // Frustum cull
+            if (R_CullBox(surf->mins, surf->maxs))
+                continue;
+
 	    // skip mirror texture if mirror enabled
 	    if (mirror && surf->texinfo->texture == cl.worldmodel->textures[mirrortexturenum])
 		continue;
