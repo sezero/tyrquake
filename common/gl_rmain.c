@@ -703,23 +703,40 @@ R_AliasDrawModel(entity_t *entity)
     vec_t *colorbuf = alloca(numverts * sizeof(vec3_t));
     float lerp = R_AliasSetupFrame(entity, aliashdr);
 
-    const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
-    const trivertx_t *src0 = posedata + entity->previouspose * numverts;
-    const trivertx_t *src1 = posedata + entity->currentpose * numverts;
-    vec_t *dstvert = vertexbuf;
-    vec_t *dstcolor = colorbuf;
-    for (i = 0; i < numverts; i++, src0++, src1++) {
-        *dstvert++ = src0->v[0] * (1.0f - lerp) + src1->v[0] * lerp;
-        *dstvert++ = src0->v[1] * (1.0f - lerp) + src1->v[1] * lerp;
-        *dstvert++ = src0->v[2] * (1.0f - lerp) + src1->v[2] * lerp;
+    if (lerp == 1.0f) {
+        const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
+        const trivertx_t *src = posedata + entity->currentpose * numverts;
+        vec_t *dstvert = vertexbuf;
+        vec_t *dstcolor = colorbuf;
+        for (i = 0; i < numverts; i++, src++) {
+            *dstvert++ = src->v[0];
+            *dstvert++ = src->v[1];
+            *dstvert++ = src->v[2];
 
-        float light;
-        light  = shadedots[src0->lightnormalindex] * (1.0f - lerp);
-        light += shadedots[src1->lightnormalindex] * lerp;
-        light *= shadelight;
-        *dstcolor++ = light;
-        *dstcolor++ = light;
-        *dstcolor++ = light;
+            float light = shadedots[src->lightnormalindex] * shadelight;
+            *dstcolor++ = light;
+            *dstcolor++ = light;
+            *dstcolor++ = light;
+        }
+    } else {
+        const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
+        const trivertx_t *src0 = posedata + entity->previouspose * numverts;
+        const trivertx_t *src1 = posedata + entity->currentpose * numverts;
+        vec_t *dstvert = vertexbuf;
+        vec_t *dstcolor = colorbuf;
+        for (i = 0; i < numverts; i++, src0++, src1++) {
+            *dstvert++ = src0->v[0] * (1.0f - lerp) + src1->v[0] * lerp;
+            *dstvert++ = src0->v[1] * (1.0f - lerp) + src1->v[1] * lerp;
+            *dstvert++ = src0->v[2] * (1.0f - lerp) + src1->v[2] * lerp;
+
+            float light;
+            light  = shadedots[src0->lightnormalindex] * (1.0f - lerp);
+            light += shadedots[src1->lightnormalindex] * lerp;
+            light *= shadelight;
+            *dstcolor++ = light;
+            *dstcolor++ = light;
+            *dstcolor++ = light;
+        }
     }
 
     uint16_t *indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
