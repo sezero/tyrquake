@@ -742,6 +742,7 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
             GL_Bind(texture->gl_texturenum_fullbright);
+            glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
             glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
             gl_draw_calls++;
