@@ -1332,8 +1332,7 @@ R_RenderScene(void)
     gl_draw_calls = 0;
     gl_verts_submitted = 0;
     gl_indices_submitted = 0;
-    gl_full_vert_buffers = 0;
-    gl_full_index_buffers = 0;
+    gl_full_buffers = 0;
 
     R_SetupFrame();
     R_SetFrustum();
@@ -1349,9 +1348,9 @@ R_RenderScene(void)
     R_DrawParticles();
 
     if (r_speeds.value == 2.0f) {
-        Con_Printf("%4d draw calls, %d tris, %6d verts, %d/%d full buffers\n",
+        Con_Printf("%4d draw calls, %d tris, %6d verts, %d full buffers\n",
                    gl_draw_calls, gl_indices_submitted / 3, gl_verts_submitted,
-                   gl_full_vert_buffers, gl_full_index_buffers);
+                   gl_full_buffers);
     }
 }
 

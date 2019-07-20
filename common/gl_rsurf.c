@@ -382,11 +382,13 @@ R_MirrorChain(msurface_t *surf)
 /* ---------------------------------------------------------------------- */
 
 /*
- * The triangle buffer is on the stack, so we want to keep the size reasonable.
- * These counts put the triangle buffer around ~150kiB.
+ * The triangle buffer is on the stack, so we want to keep the size
+ * reasonable.  We allow for up to 3 indices per vertex, which means
+ * we can never run out of indices and only need to check space for
+ * vertices.
  */
 #define TRIBUF_MAX_VERTS 4096
-#define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 2)
+#define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 3)
 
 typedef struct {
     int numverts;
@@ -399,18 +401,13 @@ typedef struct {
 int gl_draw_calls;
 int gl_verts_submitted;
 int gl_indices_submitted;
-int gl_full_vert_buffers;
-int gl_full_index_buffers;
+int gl_full_buffers;
 
 static qboolean
 TriBuf_CheckSpacePoly(const triangle_buffer_t *buffer, const glpoly_t *poly)
 {
     if (buffer->numverts + poly->numverts > TRIBUF_MAX_VERTS) {
-	gl_full_vert_buffers++;
-	return false;
-    }
-    if (buffer->numindices + (poly->numverts - 2) * 3 > TRIBUF_MAX_INDICES) {
-	gl_full_index_buffers++;
+	gl_full_buffers++;
 	return false;
     }
 

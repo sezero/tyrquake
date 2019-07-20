@@ -200,8 +200,7 @@ extern int c_lightmaps_uploaded;
 extern int gl_draw_calls;
 extern int gl_verts_submitted;
 extern int gl_indices_submitted;
-extern int gl_full_vert_buffers;
-extern int gl_full_index_buffers;
+extern int gl_full_buffers;
 
 //
 // view origin
