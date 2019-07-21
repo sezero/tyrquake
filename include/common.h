@@ -102,16 +102,50 @@ void InsertLinkAfter(link_t *l, link_t *after);
 #define Q_MINLONG ((int)0x80000000)
 #define Q_MINFLOAT ((int)0x7fffffff)
 
-//============================================================================
+/*
+ * ========================================================================
+ *                          BYTE ORDER FUNCTIONS
+ * ========================================================================
+ */
 
-extern qboolean bigendien;
+static inline short bswap16(short s)
+{
+    return ((s & 255) << 8) | ((s >> 8) & 255);
+}
+static inline int bswap32(int l)
+{
+    return
+          (((l >>  0) & 255) << 24)
+        | (((l >>  8) & 255) << 16)
+        | (((l >> 16) & 255) <<  8)
+        | (((l >> 24) & 255) <<  0);
+}
 
-extern short (*BigShort) (short l);
-extern short (*LittleShort) (short l);
-extern int (*BigLong) (int l);
-extern int (*LittleLong) (int l);
-extern float (*BigFloat) (float l);
-extern float (*LittleFloat) (float l);
+#ifdef __BIG_ENDIAN__
+static inline short BigShort(short s) { return s; }
+static inline int BigLong(int l) { return l; }
+static inline float BigFloat(float f) { return f; }
+static inline short LittleShort(short s) { return bswap16(s); }
+static inline int LittleLong(int l) { return bswap32(l); }
+static inline float LittleFloat(float f)
+{
+    union { float f; int l; } u = { .f = f };
+    u.l = bswap32(u.l);
+    return u.f;
+}
+#else
+static inline short BigShort(short s) { return bswap16(s); }
+static inline int BigLong(int l) { return bswap32(l); }
+static inline float BigFloat(float f)
+{
+    union { float f; int l; } u = { .f = f };
+    u.l = bswap32(u.l);
+    return u.f;
+}
+static inline short LittleShort(short s) { return s; }
+static inline int LittleLong(int l) { return l; }
+static inline float LittleFloat(float f) { return f; }
+#endif
 
 //============================================================================
 
