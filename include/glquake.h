@@ -52,9 +52,13 @@ void GL_EndRendering(void);
 #ifndef GL_VERSION_1_2
 #define GL_TEXTURE0_ARB 0x84C0
 #define GL_TEXTURE1_ARB 0x84C1
+#define GL_TEXTURE2_ARB 0x84C2
 #endif
 #ifndef GL_VERSION_1_3
 #define GL_MAX_TEXTURE_UNITS GL_MAX_TEXTURE_UNITS_ARB
+#define GL_TEXTURE0 GL_TEXTURE0_ARB
+#define GL_TEXTURE1 GL_TEXTURE1_ARB
+#define GL_TEXTURE2 GL_TEXTURE2_ARB
 #endif
 
 extern float gldepthmin, gldepthmax;
