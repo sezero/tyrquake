@@ -757,7 +757,6 @@ Draw_ConsolePic(int lines, float offset, const glpic_t *glpic, float alpha)
 
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_BLEND);
-    glCullFace(GL_FRONT);
     glColor4f(1, 1, 1, alpha);
     GL_Bind(glpic->texnum);
 
@@ -957,7 +956,6 @@ GL_Set2D(void)
     glLoadIdentity();
 
     glDisable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
     glEnable(GL_ALPHA_TEST);
 //      glDisable(GL_ALPHA_TEST);

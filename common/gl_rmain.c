@@ -158,7 +158,9 @@ GL_Init(void)
     GL_ExtensionCheck_NPoT();
 
     glClearColor(0.5, 0.5, 0.5, 0);
-    glCullFace(GL_FRONT);
+    glFrontFace(GL_CW);
+    glCullFace(GL_BACK);
+    glEnable(GL_CULL_FACE);
     glEnable(GL_TEXTURE_2D);
 
     glEnable(GL_ALPHA_TEST);
@@ -1313,9 +1315,7 @@ R_SetupGL(void)
 	    glScalef(1, -1, 1);
 	else
 	    glScalef(-1, 1, 1);
-	glCullFace(GL_BACK);
-    } else
-	glCullFace(GL_FRONT);
+    }
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
@@ -1333,7 +1333,6 @@ R_SetupGL(void)
     //
     // set drawing parms
     //
-    glEnable(GL_CULL_FACE);
     glDisable(GL_BLEND);
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_DEPTH_TEST);
@@ -1503,6 +1502,7 @@ R_Mirror(void)
     cl.worldmodel->textures[mirrortexturenum]->texturechain = NULL;
     glDisable(GL_BLEND);
     glColor4f(1, 1, 1, 1);
+    glCullFace(GL_BACK);
 #endif
 }
 #endif
