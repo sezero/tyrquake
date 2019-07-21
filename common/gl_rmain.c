@@ -925,6 +925,11 @@ R_MarkLeaves(void)
     }
 }
 
+typedef struct {
+    entity_t *entity;
+    GLuint texture;
+} aliasskinchain_t;
+
 /*
 ====================
 R_DrawEntitiesOnList
@@ -933,37 +938,69 @@ R_DrawEntitiesOnList
 static void
 R_DrawEntitiesOnList(void)
 {
-    entity_t *e;
-    int i;
+    entity_t *entity;
+    int i, j;
 
     if (!r_drawentities.value)
 	return;
 
-    // draw sprites seperately, because of alpha blending
-    for (i = 0; i < cl_numvisedicts; i++) {
-	e = &cl_visedicts[i];
-	switch (e->model->type) {
-	case mod_alias:
-	    R_AliasDrawModel(e);
-	    break;
-	case mod_brush:
-	    R_DrawDynamicBrushModel(e);
-	    break;
-	default:
-	    break;
-	}
+    /* TODO: make this skin list more efficient */
+    aliasskinchain_t *aliasskinchains = alloca(cl_numvisedicts * sizeof(aliasskinchain_t));
+    memset(aliasskinchains, 0, cl_numvisedicts * sizeof(aliasskinchain_t));
+    int numaliasskins = 0;
+    aliasskinchain_t *chain;
+    const qgltexture_t *skin;
+    entity_t *spritechain = NULL;
+
+    /*
+     * Iterate through potentially visible entities:
+     * - Drawing brush models as they are found
+     * - Group alias models by current skin texture for next pass
+     * - Save chain of sprite models for final pass
+     */
+    entity = cl_visedicts;
+    for (i = 0; i < cl_numvisedicts; i++, entity++) {
+        switch (entity->model->type) {
+            case mod_brush:
+                R_DrawDynamicBrushModel(entity);
+                break;
+            case mod_sprite:
+                entity->chain = spritechain;
+                spritechain = entity;
+                break;
+            case mod_alias:
+                skin = R_AliasSetupSkin(entity, Mod_Extradata(entity->model));
+                for (j = 0; j < numaliasskins; j++) {
+                    chain = &aliasskinchains[j];
+                    if (skin->base == chain->texture) {
+                        entity->chain = chain->entity;
+                        chain->entity = entity;
+                        break;
+                    }
+                }
+                if (j < numaliasskins)
+                    continue;
+                chain = &aliasskinchains[numaliasskins++];
+                chain->texture = skin->base;
+                entity->chain = chain->entity;
+                chain->entity = entity;
+                break;
+        }
     }
 
-    for (i = 0; i < cl_numvisedicts; i++) {
-	e = &cl_visedicts[i];
-	switch (e->model->type) {
-	case mod_sprite:
-	    R_DrawSpriteModel(e);
-	    break;
-	default:
-	    break;
-	}
+    /* Draw alias models in skin order */
+    for (i = 0; i < numaliasskins; i++) {
+        chain = &aliasskinchains[i];
+        entity = chain->entity;
+        while (entity) {
+            R_AliasDrawModel(entity);
+            entity = entity->chain;
+        }
     }
+
+    /* Draw sprites last, because of alpha blending */
+    for (entity = spritechain; entity; entity = entity->chain)
+        R_DrawSpriteModel(entity);
 }
 
 /*

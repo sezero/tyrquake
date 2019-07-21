@@ -52,6 +52,9 @@ typedef struct efrag_s {
 
 
 typedef struct entity_s {
+#ifdef GLQUAKE
+    struct entity_s *chain;
+#endif
 #ifdef NQ_HACK
     qboolean forcelink;		// model changed
 
