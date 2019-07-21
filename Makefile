@@ -83,6 +83,8 @@ else
 ifneq (,$(findstring $(SYSNAME),Darwin))
 HOST_OS = UNIX
 HOST_UNIX = darwin
+OSX_VERSION_MAJOR := $(shell sw_vers -productVersion | cut -d. -f1)
+OSX_VERSION_MINOR := $(shell sw_vers -productVersion | cut -d. -f2)
 else
 ifneq (,$(findstring $(SYSNAME),Linux))
 HOST_OS = UNIX
@@ -573,8 +575,22 @@ $(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwsw,$$(ALL_QWSW_CPPFLAGS),))
 $(eval $(call QWCL_RULES,$$(BUILD_DIR)/qwgl,$$(ALL_QWGL_CPPFLAGS),))
 $(eval $(call QWSV_RULES,$$(BUILD_DIR)/qwsv,$$(ALL_QWSV_CPPFLAGS),))
 
-# OSX building for x86_64 (used to have x86, x86_64, ppc-32 and ppc64, but time moves on...)
+ifeq ($(OSX_VERSION_MAJOR).$(OSX_VERSION_MINOR),10.5)
+
+# On OSX 10.5 we build universal binaries for four archs
+# NOTE: This requires an older or patched version of SDL2 for now
+$(eval $(call TARGET_RULES,osx-intel-32,-arch i386 -mmacosx-version-min=10.5))
+$(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.5))
+$(eval $(call TARGET_RULES,osx-ppc-32,-arch ppc -mmacosx-version-min=10.5))
+$(eval $(call TARGET_RULES,osx-ppc-64,-arch ppc64 -mmacosx-version-min=10.5))
+
+else
+
+# On modern OSX, we only build for intel-64
+#  (support for everything else is now removed from the XCode libraries/utilties!)
 $(eval $(call TARGET_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.6))
+
+endif
 
 # Win32 and Win64 builds ?? - cross compiler...
 $(eval $(call TARGET_RULES,win32,))
@@ -1207,10 +1223,21 @@ $$(BUILD_DIR)/$(1)/qwgl/Launcher: $$(call launcher-objs,$(1),qwgl,QWGL) ; $$(cal
 endef
 
 # Rules to build the individual architecture launchers
+ifeq ($(OSX_VERSION_MAJOR).$(OSX_VERSION_MINOR),10.5)
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-32,-arch i386 -mmacosx-version-min=10.5))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.5))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-ppc-32,-arch ppc -mmacosx-version-min=10.5))
+$(eval $(call LAUNCHER_ARCH_RULES,osx-ppc-64,-arch ppc64 -mmacosx-version-min=10.5))
+launcher-arch-files = \
+	$(BUILD_DIR)/osx-intel-32/$(1)/Launcher \
+	$(BUILD_DIR)/osx-intel-64/$(1)/Launcher \
+	$(BUILD_DIR)/osx-ppc-32/$(1)/Launcher \
+	$(BUILD_DIR)/osx-ppc-64/$(1)/Launcher
+else
 $(eval $(call LAUNCHER_ARCH_RULES,osx-intel-64,-arch x86_64 -mmacosx-version-min=10.6))
-
 launcher-arch-files = \
 	$(BUILD_DIR)/osx-intel-64/$(1)/Launcher
+endif
 
 $(OSX_DIR)/Tyr-Quake.app/Contents/MacOS/Launcher:   $(call launcher-arch-files,nqsw) ; $(do_lipo)
 $(OSX_DIR)/Tyr-GLQuake.app/Contents/MacOS/Launcher: $(call launcher-arch-files,nqgl) ; $(do_lipo)
@@ -1221,6 +1248,15 @@ $(OSX_DIR)/Tyr-GLQWCL.app/Contents/MacOS/Launcher:  $(call launcher-arch-files,q
 $(OSX_DIR)/%/Contents/Frameworks/SDL2.framework: /Library/Frameworks/SDL2.framework
 	$(call do_rsync,-rltp --delete "$<" "$(@D)/")
 
+# TODO: make a way to include the icon in the 10.5 version (commit to source control?)
+ifeq ($(OSX_VERSION_MAJOR).$(OSX_VERSION_MINOR),10.5)
+BUNDLE_FILES = \
+	Contents/PkgInfo				\
+	Contents/Info.plist				\
+	Contents/Resources/English.lproj/Launcher.nib	\
+	Contents/MacOS/Launcher				\
+	Contents/Frameworks/SDL2.framework
+else
 BUNDLE_FILES = \
 	Contents/PkgInfo				\
 	Contents/Info.plist				\
@@ -1228,6 +1264,7 @@ BUNDLE_FILES = \
 	Contents/Resources/TyrQuake.icns		\
 	Contents/MacOS/Launcher				\
 	Contents/Frameworks/SDL2.framework
+endif
 
 NQSW_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-Quake.app/%,$(BUNDLE_FILES))
 NQGL_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-GLQuake.app/%,$(BUNDLE_FILES))
