@@ -725,6 +725,76 @@ CL_RunParticles(void)
     }
 }
 
+#ifdef GLQUAKE
+#define PARTICLE_BUFFER_MAX_VERTS (1024 * 3)
+typedef struct {
+    // Particle orientation
+    vec3_t up;
+    vec3_t right;
+
+    // Triangle buffer
+    int numverts;
+    float verts[PARTICLE_BUFFER_MAX_VERTS][5];
+    byte colors[PARTICLE_BUFFER_MAX_VERTS][4];
+} particle_buffer_t;
+
+static inline void
+PBuf_AddParticle(particle_buffer_t *buffer, const particle_t *particle)
+{
+    vec_t *vertex;
+    vec3_t offset;
+    float scale;
+    qpixel32_t color;
+    int i;
+
+    // hack a scale up to keep particles from disapearing
+    VectorSubtract(particle->org, r_origin, offset);
+    scale = DotProduct(offset, vpn);
+    scale = qmin(1.0f, 1.0f + scale * 0.004f);
+
+    vertex = buffer->verts[buffer->numverts];
+
+    VectorCopy(particle->org, vertex);
+    vertex[3] = 0.0f;
+    vertex[4] = 0.0f;
+    vertex += 5;
+
+    VectorMA(particle->org, scale, buffer->up, vertex);
+    vertex[3] = 1.0f;
+    vertex[4] = 0.0f;
+    vertex += 5;
+
+    VectorMA(particle->org, scale, buffer->right, vertex);
+    vertex[3] = 0.0f;
+    vertex[4] = 1.0f;
+
+    color = qpal_standard.colors[(byte)particle->color];
+    if (particle->type == pt_fire) {
+        color.c.alpha = 255 * (6 - (qmin(5, (int)particle->ramp))) / 6;
+    }
+
+    byte *dstcolor = buffer->colors[buffer->numverts];
+    for (i = 0; i < 3; i++) {
+        *dstcolor++ = color.c.red;
+        *dstcolor++ = color.c.green;
+        *dstcolor++ = color.c.blue;
+        *dstcolor++ = color.c.alpha;
+    }
+
+    buffer->numverts += 3;
+}
+
+static void
+PBuf_Draw(particle_buffer_t *buffer)
+{
+    glVertexPointer(3, GL_FLOAT, 5 * sizeof(float), &buffer->verts[0][0]);
+    glTexCoordPointer(2, GL_FLOAT, 5 * sizeof(float), &buffer->verts[0][3]);
+    glColorPointer(4, GL_UNSIGNED_BYTE, 0, &buffer->colors[0][0]);
+    glDrawArrays(GL_TRIANGLES, 0, buffer->numverts);
+    gl_draw_calls++;
+    gl_verts_submitted += buffer->numverts;
+}
+
 /*
 ===============
 R_DrawParticles
@@ -733,78 +803,72 @@ R_DrawParticles
 void
 R_DrawParticles(void)
 {
-    particle_t *p;
+    particle_t *particle;
+    particle_buffer_t buffer;
 
-#ifdef GLQUAKE
-    qpixel32_t color;
-    qboolean alphaTestEnabled;
-    vec3_t up, right, offset, vertex;
-    float scale;
+    buffer.numverts = 0;
+    VectorScale(vup, 1.5, buffer.up);
+    VectorScale(vright, 1.5, buffer.right);
 
-#ifdef NQ_HACK
-    /*
-     * FIXME - shouldn't need to do this, just get the caller to make sure
-     *         multitexture is not enabled.
-     */
     GL_DisableMultitexture();
-#endif
-    GL_Bind(particletexture);
+    if (gl_mtexable)
+        qglClientActiveTexture(GL_TEXTURE0);
 
-    alphaTestEnabled = glIsEnabled(GL_ALPHA_TEST);
-    if (alphaTestEnabled)
-	glDisable(GL_ALPHA_TEST);
+    GL_Bind(particletexture);
+    glDisable(GL_ALPHA_TEST);
 
     glEnable(GL_BLEND);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     glDepthMask(GL_FALSE);
 
-    glBegin(GL_TRIANGLES);
+    glEnable(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glEnableClientState(GL_COLOR_ARRAY);
 
-    VectorScale(vup, 1.5, up);
-    VectorScale(vright, 1.5, right);
-#else
+    int count = 0;
+    for (particle = active_particles; particle; particle = particle->next) {
+        count++;
+        if (buffer.numverts + 3 > PARTICLE_BUFFER_MAX_VERTS)
+            goto drawBuffer;
+    addParticle:
+        PBuf_AddParticle(&buffer, particle);
+    }
+ drawBuffer:
+    PBuf_Draw(&buffer);
+    buffer.numverts = 0;
+    if (particle)
+        goto addParticle;
+
+    glDisable(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_COLOR_ARRAY);
+
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+}
+#else  // !GLQUAKE
+/*
+===============
+R_DrawParticles
+===============
+*/
+void
+R_DrawParticles(void)
+{
+    particle_t *particle;
+
     D_StartParticles();
 
     VectorScale(vright, xscaleshrink, r_pright);
     VectorScale(vup, yscaleshrink, r_pup);
     VectorCopy(vpn, r_ppn);
-#endif
 
-    for (p = active_particles; p; p = p->next) {
+    for (particle = active_particles; particle; particle = particle->next)
+	D_DrawParticle(particle);
 
-#ifdef GLQUAKE
-	// hack a scale up to keep particles from disapearing
-        VectorSubtract(p->org, r_origin, offset);
-        scale = DotProduct(offset, vpn);
-        scale = qmin(1.0f, 1.0f + scale * 0.004f);
-
-        color = qpal_standard.colors[(byte)p->color];
-        if (p->type == pt_fire) {
-            color.c.alpha = 255 * (6 - (qmin(5, (int)p->ramp))) / 6;
-        }
-	glColor4ub(color.c.red, color.c.green, color.c.blue, color.c.alpha);
-
-	glTexCoord2f(0, 0);
-	glVertex3fv(p->org);
-	glTexCoord2f(1, 0);
-        VectorMA(p->org, scale, up, vertex);
-        glVertex3fv(vertex);
-	glTexCoord2f(0, 1);
-        VectorMA(p->org, scale, right, vertex);
-        glVertex3fv(vertex);
-#else
-	D_DrawParticle(p);
-#endif
-    }
-
-#ifdef GLQUAKE
-    glEnd();
-    glDepthMask(GL_TRUE);
-    glDisable(GL_BLEND);
-    if (alphaTestEnabled)
-	glEnable(GL_ALPHA_TEST);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-#else
     D_EndParticles();
-#endif
 }
+#endif // !GLQUAKE
