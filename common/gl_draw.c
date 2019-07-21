@@ -422,9 +422,9 @@ void
 Draw_InitGLTextures()
 {
     /* Upload the charset and crosshair textures */
-    const qpic8_t charset_pic = { 128, 128, 128, draw_chars };
+    qpic8_t charset_pic = { 128, 128, 128, draw_chars };
     charset_texture = GL_LoadTexture("charset", &charset_pic, TEXTURE_TYPE_CHARSET);
-    const qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
+    qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
     crosshair_texture = GL_LoadTexture("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
 
     /* Upload the console background texture */

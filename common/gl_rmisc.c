@@ -406,7 +406,7 @@ R_TranslatePlayerSkin(int playernum)
     }
 #endif
 
-    const qpic8_t playerpic = {
+    qpic8_t playerpic = {
         .width = inwidth,
         .height = inheight,
         .stride = instride,

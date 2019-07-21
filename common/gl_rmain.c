@@ -402,14 +402,23 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
     skinsize = aliashdr->skinwidth * aliashdr->skinheight;
     textures = (qgltexture_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
     pixels = (byte *)aliashdr + aliashdr->skindata;
-
-    pic.width = pic.stride = aliashdr->skinwidth;
-    pic.height = aliashdr->skinheight;
     pic.pixels = pixels;
+    pic.stride = aliashdr->skinwidth;
 
+    /*
+     * FIXME: This is a bit ugly, having to reset the width/height
+     * each time around the loop, due to the way the expanded texture
+     * width/height is returned for non-POT textures
+     */
     for (i = 0; i < aliashdr->numskins; i++) {
+        pic.width = aliashdr->skinwidth;
+        pic.height = aliashdr->skinheight;
         textures[i].base = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
+        GL_Aliashdr(aliashdr)->texturewidth = pic.width;
+        GL_Aliashdr(aliashdr)->textureheight = pic.height;
         if (QPic_HasFullbrights(&pic)) {
+            pic.width = aliashdr->skinwidth;
+            pic.height  = aliashdr->skinheight;
             textures[i].fullbright = GL_LoadTexture(va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
         } else {
             textures[i].fullbright = 0;

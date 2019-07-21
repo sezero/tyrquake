@@ -90,7 +90,7 @@ R_NetGraph(void)
     y += 8;
 
     // now load the netgraph texture into gl and draw it
-    const qpic8_t netgraph = {
+    qpic8_t netgraph = {
         .width = NET_TIMINGS,
         .height = NET_GRAPHHEIGHT,
         .pixels = &netgraph_pixels[0][0],

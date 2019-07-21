@@ -344,9 +344,11 @@ typedef struct {
 } texcoord_t;
 
 typedef struct {
-    int indices;   // Offset to indices for drawing
-    int texcoords; // Offset to texcoords
-    int textures;  // Offset to GLuint texture handles
+    uint16_t texturewidth;   // Actual texture width after uploading
+    uint16_t textureheight;  //  (may be scaled up to power-of-two boundary)
+    int indices;             // Offset to indices for drawing
+    int texcoords;           // Offset to texcoords
+    int textures;            // Offset to GLuint texture handles
     aliashdr_t ahdr;
 } gl_aliashdr_t;
 

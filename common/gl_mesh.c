@@ -96,12 +96,14 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
      * texture to push the background fill slightly further from the
      * seams.
      */
+    float widthscale = (float)hdr->skinwidth / (float)GL_Aliashdr(hdr)->texturewidth;
+    float heightscale = (float)hdr->skinheight / (float)GL_Aliashdr(hdr)->textureheight;
     texcoord_t *texcoord = Hunk_AllocName((hdr->numverts + num_seam_verts) * sizeof(texcoord_t), "trimesh");
     GL_Aliashdr(hdr)->texcoords = (byte *)texcoord - (byte *)hdr;
     const stvert_t *stvert = stverts;
     for (i = 0; i < hdr->numverts; i++, stvert++, texcoord++) {
-        texcoord->s = (stvert->s + 0.5f) / (hdr->skinwidth + 2);
-        texcoord->t = (stvert->t + 0.5f) / (hdr->skinheight + 2);
+        texcoord->s = (stvert->s + 0.5f) / (hdr->skinwidth + 2) * widthscale;
+        texcoord->t = (stvert->t + 0.5f) / (hdr->skinheight + 2) * heightscale;
     }
     stvert = stverts;
     for (i = 0; i < hdr->numverts; i++, stvert++) {
@@ -110,8 +112,8 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
 
         /* Adjust the s coord to map to the back of the skin */
         int s = stvert->s + (hdr->skinwidth / 2) + 1;
-        texcoord->s = (s         + 0.5f) / (hdr->skinwidth + 2);
-        texcoord->t = (stvert->t + 0.5f) / (hdr->skinheight + 2);
+        texcoord->s = (s         + 0.5f) / (hdr->skinwidth + 2) * widthscale;
+        texcoord->t = (stvert->t + 0.5f) / (hdr->skinheight + 2) * heightscale;
         texcoord++;
     }
 

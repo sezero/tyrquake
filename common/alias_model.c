@@ -488,7 +488,7 @@ Mod_LoadAliasModel(const alias_loader_t *loader, model_t *model, void *buffer, s
     /* Fill in the bounds used for frustum culling */
     Mod_CalculateAliasModelBounds(model, aliashdr);
 
-    /* Get the driver to save the mesh data */
+    /* Get the driver to save the mesh data (must be after skins, for texcoords!) */
     loader->LoadMeshData(model, aliashdr, &meshdata, &posedata);
 
     /* move the complete, relocatable alias model to the cache */

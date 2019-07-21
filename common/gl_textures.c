@@ -202,7 +202,7 @@ GL_FindTexture(const char *name)
  * the scaling/mipmap process.  When done, the width and height the source pic
  * are set to the values used to upload the (miplevel 0) texture.
  *
- * This really only matters in the case of non-power-of-two HUD textures
+ * This matters in the case of non-power-of-two HUD or skin textures
  * getting expanded, since the texture coordinates need to be adjusted
  * accordingly when drawing.
  */
@@ -247,10 +247,18 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
 
     if (width != pic->width || height != pic->height) {
 	scaled = QPic32_Alloc(width, height);
-	if (type == TEXTURE_TYPE_HUD && width >= pic->width && height >= pic->height) {
-	    QPic32_Expand(pic, scaled);
-	} else {
-	    QPic32_Stretch(pic, scaled);
+        switch (type) {
+            case TEXTURE_TYPE_HUD:
+            case TEXTURE_TYPE_ALIAS_SKIN:
+            case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+                if (width >= pic->width && height >= pic->height)
+                    QPic32_Expand(pic, scaled);
+                else
+                    QPic32_Stretch(pic, scaled);
+                break;
+            default:
+                QPic32_Stretch(pic, scaled);
+                break;
 	}
     } else {
 	scaled = pic;
@@ -296,10 +304,13 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
 /*
 ===============
 GL_Upload8
+
+Sets the actual uploaded width/height in the original pic, which matters for skin
+textures that get expanded up to the nearest power-of-two size.
 ===============
 */
 void
-GL_Upload8(const qpic8_t *pic, enum texture_type type)
+GL_Upload8(qpic8_t *pic, enum texture_type type)
 {
     const qpalette32_t *palette = texture_properties[type].palette;
     enum qpic_alpha_operation alpha_op = texture_properties[type].alpha_op;
@@ -312,11 +323,14 @@ GL_Upload8(const qpic8_t *pic, enum texture_type type)
     QPic_8to32(pic, pic32, palette, alpha_op);
     GL_Upload32(pic32, type);
 
+    pic->width = pic32->width;
+    pic->height = pic32->height;
+
     Hunk_FreeToLowMark(mark);
 }
 
 void
-GL_Upload8_Translate(const qpic8_t *pic, enum texture_type type, const byte *translation)
+GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translation)
 {
     const byte *source;
     byte *pixels, *dest;
@@ -412,7 +426,7 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type)
 }
 
 int
-GL_LoadTexture(const char *name, const qpic8_t *pic, enum texture_type type)
+GL_LoadTexture(const char *name, qpic8_t *pic, enum texture_type type)
 {
     int texnum = GL_AllocateTexture(name, pic, type);
 
