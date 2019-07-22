@@ -1132,6 +1132,15 @@ define do_lipo
 	@$(cmd_lipo)
 endef
 
+quiet_cmd_sips = '  SIPS     $@'
+      cmd_sips = sips -z $(1) $(1) $< --out $@ >/dev/null
+
+define do_sips
+	$(do_mkdir)
+	@echo $(call $(quiet)cmd_sips,$(1))
+	@$(call cmd_sips,$(1))
+endef
+
 # ----------------------------------------------------------------------------
 # OSX Launcher - Application stub which launches the main quake executable
 # ----------------------------------------------------------------------------
@@ -1155,16 +1164,42 @@ LAUNCHER_OBJS = \
 
 OSX_DIR = $(DIST_DIR)/osx
 
-$(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png:	icons/quake_%.png
-	$(do_cp)
+# Build Iconset
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_512x512@2x.png:	icons/tyrquake-1024x1024.png  ; $(call do_sips,1024)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_512x512.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,512)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_256x256@2x.png:	icons/tyrquake-1024x1024.png  ; $(call do_sips,512)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_256x256.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,256)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_128x128@2x.png:	icons/tyrquake-1024x1024.png  ; $(call do_sips,256)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_128x128.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,128)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_32x32@2x.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,64)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_32x32.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,32)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_16x16@2x.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,32)
+$(BUILD_DIR)/icons/tyrquake.iconset/icon_16x16.png:		icons/tyrquake-1024x1024.png  ; $(call do_sips,16)
 
-# Just to stop make printing 'rm' commands dirtying up the quiet output
-.PRECIOUS: $(LAUNCHER_DIR)/TyrQuake.iconset/icon_%.png
+.SECONDARY: $(BUILD_DIR)/icons/tyrquake.iconset/icon_%.png
 
-ICNS_FILES = $(LAUNCHER_DIR)/TyrQuake.iconset/icon_32x32.png
+ICNS_FILES = \
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_512x512@2x.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_512x512.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_256x256@2x.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_256x256.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_128x128@2x.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_128x128.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_32x32@2x.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_32x32.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_16x16@2x.png	\
+	$(BUILD_DIR)/icons/tyrquake.iconset/icon_16x16.png
 
-$(OSX_DIR)/%/Contents/Resources/TyrQuake.icns:	$(ICNS_FILES)
-	$(do_iconutil_icns)
+# Pre-built using 'Icon Composer' on OSX 10.5
+ICNS_PREBUILT_10_5 = icons/tyrquake.icns.10.5
+
+# No iconutil on OSX 10.5, so we just use a pre-built version
+ifeq ($(OSX_VERSION_MAJOR).$(OSX_VERSION_MINOR),10.5)
+$(BUILD_DIR)/icons/tyrquake.icns:	$(ICNS_PREBUILT_10_5)	; $(do_cp)
+else
+$(BUILD_DIR)/icons/tyrquake.icns:	$(ICNS_FILES)		; $(do_iconutil_icns)
+endif
+$(OSX_DIR)/%/Contents/Resources/tyrquake.icns:	$(BUILD_DIR)/icons/tyrquake.icns ; $(do_cp)
 
 $(OSX_DIR)/%/Contents/Info.plist: launcher/osx/Info.plist $(BUILD_VERSION_FILE)
 	$(do_mkdir)
@@ -1172,7 +1207,7 @@ $(OSX_DIR)/%/Contents/Info.plist: launcher/osx/Info.plist $(BUILD_VERSION_FILE)
 	$(call do_plist_set,CFBundleName,TyrQuake)
 	$(call do_plist_set,CFBundleExecutable,Launcher)
 	$(call do_plist_set,CFBundleShortVersionString,$(TYR_VERSION))
-	$(call do_plist_set,CFBundleIconFile,TyrQuake)
+	$(call do_plist_set,CFBundleIconFile,tyrquake.icns)
 	$(call do_plist_set,NSMainNibFile,Launcher)
 	@mv $(@D)/.$(@F).tmp $@
 
@@ -1248,23 +1283,13 @@ $(OSX_DIR)/Tyr-GLQWCL.app/Contents/MacOS/Launcher:  $(call launcher-arch-files,q
 $(OSX_DIR)/%/Contents/Frameworks/SDL2.framework: /Library/Frameworks/SDL2.framework
 	$(call do_rsync,-rltp --delete "$<" "$(@D)/")
 
-# TODO: make a way to include the icon in the 10.5 version (commit to source control?)
-ifeq ($(OSX_VERSION_MAJOR).$(OSX_VERSION_MINOR),10.5)
 BUNDLE_FILES = \
 	Contents/PkgInfo				\
 	Contents/Info.plist				\
 	Contents/Resources/English.lproj/Launcher.nib	\
+	Contents/Resources/tyrquake.icns		\
 	Contents/MacOS/Launcher				\
 	Contents/Frameworks/SDL2.framework
-else
-BUNDLE_FILES = \
-	Contents/PkgInfo				\
-	Contents/Info.plist				\
-	Contents/Resources/English.lproj/Launcher.nib	\
-	Contents/Resources/TyrQuake.icns		\
-	Contents/MacOS/Launcher				\
-	Contents/Frameworks/SDL2.framework
-endif
 
 NQSW_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-Quake.app/%,$(BUNDLE_FILES))
 NQGL_BUNDLE_FILES = $(patsubst %,$(OSX_DIR)/Tyr-GLQuake.app/%,$(BUNDLE_FILES))
