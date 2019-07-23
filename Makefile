@@ -402,7 +402,7 @@ cmd_cc_dep_rc = \
 	$(cmd_fixdep)
 
 quiet_cmd_windres_res_rc = '  WINDRES  $@'
-      cmd_windres_res_rc = $(WINDRES) -I $(<D) -i $< -O coff -o $@
+      cmd_windres_res_rc = $(WINDRES) -I $(<D) -I ./build/icons -i $< -O coff -o $@
 
 define do_windres_res_rc
 	@$(do_mkdir);
@@ -529,7 +529,7 @@ $(1)/%.o:	NQ/%.S		; $$(do_cc_o_c)
 $(1)/%.o:	common/%.c	; $$(do_cc_o_c)
 $(1)/%.o:	NQ/%.c		; $$(do_cc_o_c)
 $(1)/%.res:	common/%.rc	; $$(do_windres_res_rc)
-$(1)/%.res:	NQ/%.rc		; $$(do_windres_res_rc)
+$(1)/%.res:	NQ/%.rc	$(BUILD_DIR)/icons/tyrquake.ico	; $$(do_windres_res_rc)
 endef
 define QWCL_RULES
 $(1)/buildinfo.o: $(BUILD_VERSION_FILE) $(BUILD_VERSION_TIME_FILE)
@@ -542,7 +542,7 @@ $(1)/%.o:	common/%.c	; $$(do_cc_o_c)
 $(1)/%.o:	QW/client/%.c	; $$(do_cc_o_c)
 $(1)/%.o:	QW/common/%.c	; $$(do_cc_o_c)
 $(1)/%.res:	common/%.rc	; $$(do_windres_res_rc)
-$(1)/%.res:	QW/client/%.rc	; $$(do_windres_res_rc)
+$(1)/%.res:	QW/client/%.rc $(BUILD_DIR)/icons/tyrquake.ico	; $$(do_windres_res_rc)
 endef
 define QWSV_RULES
 $(1)/buildinfo.o: $(BUILD_VERSION_FILE) $(BUILD_VERSION_TIME_FILE)
@@ -1071,6 +1071,42 @@ clean:
 	@rm -rf $(DOC_DIR)
 	@rm -rf $(DIST_DIR)
 	@find . \( -name '*~' -o -name '#*#' -o -name '*.o' -o -name '*.res' \) -exec rm -f {} +
+
+# ----------------------------------------------------------------------------
+# Windows ICO file
+# ----------------------------------------------------------------------------
+
+quiet_cmd_resize = '  RESIZE   $@'
+      cmd_resize = convert $< -resize $(1)x$(2) -background white $@
+
+define do_resize
+	$(do_mkdir)
+	@echo $(call $(quiet)cmd_resize,$(1),$(2))
+	@$(call cmd_resize,$(1),$(2))
+endef
+
+quiet_cmd_ico = '  ICO      $@'
+      cmd_ico = convert $^ $@
+
+define do_ico
+	$(do_mkdir)
+	@echo $($(quiet)cmd_ico)
+	@$(cmd_ico)
+endef
+
+$(BUILD_DIR)/icons/tyrquake_%.png: icons/tyrquake-1024x1024.png; $(call do_resize,$*,$*)
+$(BUILD_DIR)/icons/tyrquake_%.bmp: icons/tyrquake-1024x1024.png; $(call do_resize,$*,$*)
+
+WINDOWS_ICON_SOURCE_FILES = \
+	$(BUILD_DIR)/icons/tyrquake_256.png \
+	$(BUILD_DIR)/icons/tyrquake_48.bmp  \
+	$(BUILD_DIR)/icons/tyrquake_32.bmp  \
+	$(BUILD_DIR)/icons/tyrquake_16.bmp
+
+.SECONDARY: $(WINDOWS_ICON_SOURCE_FILES)
+
+$(BUILD_DIR)/icons/tyrquake.ico: $(WINDOWS_ICON_SOURCE_FILES)
+	$(do_ico)
 
 # ----------------------------------------------------------------------------
 # OSX Packaging Tools (WIP)
