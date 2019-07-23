@@ -1052,8 +1052,6 @@ R_SetupDynamicBrushModelMaterialChains(const entity_t *entity, const vec3_t mode
 
     memset(materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
 
-    R_SwapAnimationChains(glbrushmodel, materialchains);
-    R_SwapAltAnimationChains(entity, materialchains);
     R_AddBrushModelToMaterialChains(brushmodel, modelorg, materialchains);
     R_SwapAltAnimationChains(entity, materialchains);
     R_SwapAnimationChains(glbrushmodel, materialchains);
@@ -1285,7 +1283,6 @@ R_DrawWorld(void)
 
     /* Build material chains */
     memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
-    R_SwapAnimationChains(glbrushmodel, glbrushmodel->materialchains);
     R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
 
     /* Add static submodels to the material chains */
