@@ -682,6 +682,7 @@ CL_OBJS := \
 	console.o	\
 	keys.o		\
 	menu.o		\
+	pcx.o		\
 	r_efrag.o	\
 	r_light.o	\
 	r_model.o	\

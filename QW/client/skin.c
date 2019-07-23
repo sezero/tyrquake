@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "cmd.h"
 #include "cvar.h"
+#include "pcx.h"
 #include "quakedef.h"
 #include "sys.h"
 
@@ -127,20 +128,19 @@ Skin_Cache(skin_t * skin)
 	if (!pcx)
 	    goto Fail;
     }
-//
-// parse the PCX file
-//
-    if (pcx->manufacturer != 0x0a
-	|| pcx->version != 5
-	|| pcx->encoding != 1
-	|| pcx->bits_per_pixel != 8 || pcx->xmax >= 320 || pcx->ymax >= 200) {
-	Con_Printf("Bad skin %s\n", name);
-	goto Fail;
-    }
+    SwapPCX(pcx);
 
     out = Cache_Alloc(&skin->cache, 320 * 200, skin->name);
     if (!out)
 	Sys_Error("Skin_Cache: couldn't allocate");
+
+    /* Check the PCX header */
+    if (pcx->manufacturer != 0x0a
+	|| pcx->version != 5
+	|| pcx->encoding != 1
+	|| pcx->bits_per_pixel != 8 || pcx->xmax >= 320 || pcx->ymax >= 200) {
+	goto Fail;
+    }
 
     raw = &pcx->data;
     pix = out;
@@ -149,14 +149,14 @@ Skin_Cache(skin_t * skin)
     for (y = 0; y < pcx->ymax; y++, pix += 320) {
 	for (x = 0; x <= pcx->xmax;) {
 	    if (raw - (byte *)pcx > pcxsize)
-		goto Fail_Malformed;
+		goto Fail;
 
 	    dataByte = *raw++;
 
 	    if ((dataByte & 0xC0) == 0xC0) {
 		runLength = dataByte & 0x3F;
 		if (raw - (byte *)pcx > pcxsize)
-		    goto Fail_Malformed;
+		    goto Fail;
 
 		dataByte = *raw++;
 	    } else
@@ -164,7 +164,7 @@ Skin_Cache(skin_t * skin)
 
 	    // skin sanity check
 	    if (runLength + x > pcx->xmax + 2)
-		goto Fail_Malformed;
+		goto Fail;
 
 	    while (runLength-- > 0)
 		pix[x++] = dataByte;
@@ -173,15 +173,14 @@ Skin_Cache(skin_t * skin)
     }
 
     if (raw - (byte *)pcx > pcxsize)
-	goto Fail_Malformed;
+	goto Fail;
 
     skin->failedload = false;
     return out;
 
- Fail_Malformed:
+ Fail:
     Con_Printf("Skin %s was malformed.  You should delete it.\n", name);
     Cache_Free(&skin->cache);
- Fail:
     skin->failedload = true;
     return NULL;
 }
