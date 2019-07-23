@@ -39,6 +39,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // refresh list
 int cl_numvisedicts;
 entity_t cl_visedicts[MAX_VISEDICTS];
+int cl_visedicts_framenum;
 
 static struct predicted_player {
     int flags;
@@ -1075,6 +1076,9 @@ CL_EmitEntities(physent_stack_t *pestack)
     }
     num_saved_visedicts = cl_numvisedicts;
     cl_numvisedicts = 0;
+
+    /* Record the frame number at which we last updated the visedicts */
+    cl_visedicts_framenum++;
 
     CL_LinkPlayers(pestack);
     CL_LinkPacketEntities();

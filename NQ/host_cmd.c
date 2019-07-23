@@ -180,11 +180,11 @@ Host_Restart_f(void)
 
     if (cls.demoplayback || !sv.active)
 	return;
-
     if (cmd_source != src_command)
 	return;
-    strcpy(mapname, sv.name);	// must copy out, because it gets cleared
-    // in sv_spawnserver
+
+    // Must copy out the map name, because it gets cleared in sv_spawnserver
+    strcpy(mapname, sv.name);
     SV_SpawnServer(mapname);
 }
 
@@ -200,7 +200,9 @@ static void
 Host_Reconnect_f(void)
 {
     SCR_BeginLoadingPlaque();
-    cls.signon = 0;		// need new connection messages
+
+    // Need new connection messages
+    cls.signon = 0;
 
     // FIXME - this check is just paranoia until I understand it better
     if (cls.state < ca_connected)

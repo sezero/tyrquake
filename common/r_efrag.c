@@ -238,10 +238,10 @@ R_StoreEfrags(efrag_t **ppefrag)
 	case mod_alias:
 	case mod_brush:
 	case mod_sprite:
-	    if ((pent->visframe != r_framecount) &&
+	    if ((pent->edictframe != cl_visedicts_framenum) &&
 		(cl_numvisedicts < MAX_VISEDICTS)) {
 		/* mark that we've recorded this entity for this frame */
-		pent->visframe = r_framecount;
+		pent->edictframe = cl_visedicts_framenum;
 		cl_visedicts[cl_numvisedicts++] = *pent;
 	    }
 	    ppefrag = &pefrag->leafnext;

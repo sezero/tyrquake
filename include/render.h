@@ -81,8 +81,7 @@ typedef struct entity_s {
     float syncbase;		// for client-side animations
 
     struct efrag_s *efrag;	// linked list of efrags (FIXME)
-    int visframe;		// last frame this entity was
-    // found in an active leaf
+    int edictframe;		// last frame this entity was found in an active leaf
 
 #ifdef NQ_HACK
     int effects;		// light, particals, etc

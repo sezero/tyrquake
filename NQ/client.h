@@ -307,6 +307,7 @@ void CL_NextDemo(void);
 #define MAX_VISEDICTS 1024
 extern int cl_numvisedicts;
 extern entity_t cl_visedicts[];
+extern int cl_visedicts_framenum;
 
 extern int fps_count;
 

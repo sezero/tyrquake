@@ -68,6 +68,7 @@ dlight_t cl_dlights[MAX_DLIGHTS];
 
 int cl_numvisedicts;
 entity_t cl_visedicts[MAX_VISEDICTS];
+int cl_visedicts_framenum;
 
 /*
  * FIXME - horribly hackish because we don't have a way to tell if the
@@ -554,6 +555,9 @@ CL_RelinkEntities(void)
 
 // determine partial update time
     frac = CL_LerpPoint();
+
+    /* Record the frame number at which we last updated the visedicts */
+    cl_visedicts_framenum++;
 
     cl_numvisedicts = 0;
 
