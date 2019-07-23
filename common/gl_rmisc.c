@@ -433,12 +433,24 @@ R_TranslatePlayerSkin(int playernum)
         .stride = instride,
         .pixels = pixels,
     };
-    if (!playertextures[playernum]) {
-        playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
-    }
-    GL_Bind(playertextures[playernum]);
+    playertexture_t *playertexture = &playertextures[playernum];
+    playertexture->fullbright = QPic_HasFullbrights(&playerpic);
+    if (!playertexture->texture.base)
+        playertexture->texture.base = GL_AllocateTexture(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
+    if (!playertexture->texture.fullbright)
+        playertexture->texture.base = GL_AllocateTexture(va("@player%02d_fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
+
+    GL_Bind(playertexture->texture.base);
     translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);
     GL_Upload8_Translate(&playerpic, TEXTURE_TYPE_PLAYER_SKIN, translation);
+
+    if (playertexture->fullbright) {
+	/* Reset the width and height and upload as fullbright mask */
+	playerpic.width = inwidth;
+	playerpic.height = inheight;
+	GL_Bind(playertexture->texture.fullbright);
+	GL_Upload8(&playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
+    }
 
     Hunk_FreeToLowMark(mark);
 }

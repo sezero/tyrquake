@@ -226,7 +226,16 @@ extern qboolean envmap;
 extern GLuint currenttexture;
 extern GLuint particletexture;
 extern GLuint charset_texture;
-extern GLuint playertextures[MAX_CLIENTS];
+
+/*
+ * We'll be keeping the skin textures around for now, so flag whether
+ * the fullbright texture applies to the currently active skin or not
+ */
+typedef struct {
+    qgltexture_t texture;
+    qboolean fullbright;
+} playertexture_t;
+extern playertexture_t playertextures[MAX_CLIENTS];
 
 extern cvar_t r_norefresh;
 extern cvar_t r_drawentities;

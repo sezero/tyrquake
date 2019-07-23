@@ -48,7 +48,7 @@ static int c_alias_polys;
 qboolean envmap;		// true during envmap command capture
 
 GLuint currenttexture = -1;	// to avoid unnecessary texture sets
-GLuint playertextures[MAX_CLIENTS];// up to 16 color translated skins
+playertexture_t playertextures[MAX_CLIENTS];// up to 16 color translated skins
 
 int mirrortexturenum;		// quake texturenum, not gltexturenum
 qboolean mirror;
@@ -778,6 +778,7 @@ R_AliasDrawModel(entity_t *entity)
     }
 
     const qgltexture_t *skin = R_AliasSetupSkin(entity, aliashdr);
+    qboolean fullbright = !!skin->fullbright;
     GL_Bind(skin->base);
 
     /*
@@ -788,8 +789,10 @@ R_AliasDrawModel(entity_t *entity)
     if (entity->colormap != vid.colormap && !gl_nocolors.value) {
 	const int playernum = CL_PlayerEntity(entity);
 	if (playernum) {
-            assert(playertextures[playernum - 1]);
-	    GL_Bind(playertextures[playernum - 1]);
+	    fullbright = playertextures[playernum - 1].fullbright;
+	    skin = &playertextures[playernum - 1].texture;
+            assert(skin->base);
+	    GL_Bind(skin->base);
         }
     }
 #endif
@@ -801,8 +804,10 @@ R_AliasDrawModel(entity_t *entity)
 	    R_TranslatePlayerSkin(playernum);
 	}
 	if (playernum >= 0 && playernum < MAX_CLIENTS) {
-            assert(playertextures[playernum]);
-	    GL_Bind(playertextures[playernum]);
+	    fullbright = playertextures[playernum].fullbright;
+	    skin = &playertextures[playernum].texture;
+            assert(skin->base);
+	    GL_Bind(skin->base);
         }
     }
 #endif
@@ -830,7 +835,7 @@ R_AliasDrawModel(entity_t *entity)
         glColorPointer(3, GL_FLOAT, 0, colorbuf);
     }
 
-    if (gl_mtexable && skin->fullbright && gl_fullbrights.value) {
+    if (gl_mtexable && fullbright && gl_fullbrights.value) {
         GL_EnableMultitexture();
         GL_Bind(skin->fullbright);
         qglClientActiveTexture(GL_TEXTURE1);
@@ -845,7 +850,7 @@ R_AliasDrawModel(entity_t *entity)
     gl_verts_submitted += numverts;
     gl_indices_submitted += aliashdr->numtris * 3;
 
-    if (gl_mtexable && skin->fullbright && gl_fullbrights.value) {
+    if (gl_mtexable && fullbright && gl_fullbrights.value) {
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         qglClientActiveTexture(GL_TEXTURE0);
         glDisable(GL_BLEND);
@@ -855,7 +860,7 @@ R_AliasDrawModel(entity_t *entity)
     glDisableClientState(GL_COLOR_ARRAY);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-    if (!gl_mtexable && skin->fullbright && gl_fullbrights.value) {
+    if (!gl_mtexable && fullbright && gl_fullbrights.value) {
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -889,8 +894,10 @@ R_ResetPlayerTextures()
     int playernum;
 
     for (playernum = 0; playernum < MAX_CLIENTS; playernum++) {
-	if (playertextures[playernum]) {
-	    playertextures[playernum] = 0;
+	qgltexture_t *texture = &playertextures[playernum].texture;
+	if (texture->base) {
+	    texture->base = 0;
+	    texture->fullbright = 0;
 	    R_TranslatePlayerSkin(playernum);
 	}
     }
