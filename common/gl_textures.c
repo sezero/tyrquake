@@ -229,32 +229,18 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
 	height = pic->height;
     }
 
-    /* Allow some textures to be crunched down by player preference */
-    if (texture_properties[type].playermip) {
-        picmip = (int)gl_playermip.value;
-    } else if (texture_properties[type].picmip) {
-        picmip = (int)gl_picmip.value;
-    } else {
-        picmip = 0;
-    }
-
-    width >>= picmip;
-    width = qclamp(width, 1, (int)gl_max_size.value);
-    height >>= picmip;
-    height = qclamp(height, 1, (int)gl_max_size.value);
-
     mark = Hunk_LowMark();
 
+    /* Begin by expanding the texture if needed */
     if (width != pic->width || height != pic->height) {
 	scaled = QPic32_Alloc(width, height);
         switch (type) {
             case TEXTURE_TYPE_HUD:
             case TEXTURE_TYPE_ALIAS_SKIN:
             case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
-                if (width >= pic->width && height >= pic->height)
-                    QPic32_Expand(pic, scaled);
-                else
-                    QPic32_Stretch(pic, scaled);
+            case TEXTURE_TYPE_PLAYER_SKIN:
+            case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
+		QPic32_Expand(pic, scaled);
                 break;
             default:
                 QPic32_Stretch(pic, scaled);
@@ -262,6 +248,23 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
 	}
     } else {
 	scaled = pic;
+    }
+
+    /* Allow some textures to be crunched down by player preference */
+    if (texture_properties[type].playermip) {
+        picmip = qmax(0, (int)gl_playermip.value);
+    } else if (texture_properties[type].picmip) {
+        picmip = qmax(0, (int)gl_picmip.value);
+    } else {
+        picmip = 0;
+    }
+    while (picmip) {
+	if (width == 1 && height == 1)
+	    break;
+	width = qmin(1, width >> 1);
+	height = qmin(1, height >> 1);
+	QPic32_MipMap(scaled, texture_properties[type].alpha_op);
+	picmip--;
     }
 
     /* Set the internal format */
