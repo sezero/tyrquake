@@ -1214,11 +1214,6 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
     /* Gather surfaces for drawing */
     numsurfaces = node->numsurfaces;
     if (numsurfaces) {
-	if (dot < -BACKFACE_EPSILON)
-	    side = SURF_PLANEBACK;
-	else if (dot > BACKFACE_EPSILON)
-	    side = 0;
-
         msurface_t **materialchains = GLBrushModel(cl.worldmodel)->materialchains;
 	surf = cl.worldmodel->surfaces + node->firstsurface;
 	for (; numsurfaces; numsurfaces--, surf++) {
