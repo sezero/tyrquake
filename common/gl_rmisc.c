@@ -363,7 +363,18 @@ R_TranslatePlayerSkin(int playernum)
 
     /*
      * Locate the original skin pixels
+     *
+     * Because the texture upload/translate process allocates low
+     * memory on the hunk and the cached skin pixels are in cache
+     * memory, the cache entry can get evicted during the texture
+     * upload process.  So we need to allocate stable memory on the
+     * low hunk and copy the pixels there.
+     *
+     * TODO: make this cache vs. texture code less trapulent.
      */
+    int mark = Hunk_LowMark();
+    byte *pixels;
+
 #ifdef NQ_HACK
     entity_t *entity = &cl_entities[1 + playernum];
     model_t *model = entity->model;
@@ -387,30 +398,40 @@ R_TranslatePlayerSkin(int playernum)
 
     inwidth = instride = aliashdr->skinwidth;
     inheight = aliashdr->skinheight;
+
+    /* Allocate memory to copy the pixels, then re-check the cache - UGH */
+    pixels = Hunk_AllocName(instride * inheight, "skin");
+    aliashdr = Mod_Extradata(model);
+    original = (const byte *)aliashdr + aliashdr->skindata;
+
 #endif
 #ifdef QW_HACK
     /* Hard coded width from original model */
     inwidth = 296;
     inheight = 194;
 
-    if (!player->skin)
-	Skin_Find(player);
-    if ((original = Skin_Cache(player->skin)) != NULL) {
-	/* Skin data width for custom skins */
-	instride = 320;
+    Skin_Find(player);
+    original = Skin_Cache(player->skin);
+    instride = original ? 320 : inwidth;
+
+    /* Allocate memory to copy the pixels, then re-cache the skin pixels - UGH */
+    pixels = Hunk_AllocName(instride * inheight, "skin");
+    if (original) {
+	original = Skin_Cache(player->skin);
     } else {
 	model_t *model = cl.model_precache[cl_playerindex];
 	const aliashdr_t *aliashdr = Mod_Extradata(model);
 	original = (const byte *)aliashdr + aliashdr->skindata;
-	instride = inwidth;
     }
 #endif
+
+    memcpy(pixels, original, instride * inheight);
 
     qpic8_t playerpic = {
         .width = inwidth,
         .height = inheight,
         .stride = instride,
-        .pixels = original,
+        .pixels = pixels,
     };
     if (!playertextures[playernum]) {
         playertextures[playernum] = GL_AllocateTexture(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
@@ -418,6 +439,8 @@ R_TranslatePlayerSkin(int playernum)
     GL_Bind(playertextures[playernum]);
     translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);
     GL_Upload8_Translate(&playerpic, TEXTURE_TYPE_PLAYER_SKIN, translation);
+
+    Hunk_FreeToLowMark(mark);
 }
 
 
