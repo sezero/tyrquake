@@ -184,6 +184,22 @@ cvar_t r_lockpvs = { "r_lockpvs", "0" };
 cvar_t r_lockfrustum = { "r_lockfrustum", "0" };
 cvar_t r_drawflat = { "r_drawflat", "0" };
 
+static void
+GL_Extensions_f()
+{
+    const char *extensions = (char *)glGetString(GL_EXTENSIONS);
+    while (extensions) {
+	const char *next = strchr(extensions, ' ');
+	int length = next ? (next - extensions) : strlen(extensions);
+	Con_Printf("%.*s\n", length, extensions);
+	if (!next)
+	    break;
+	extensions = next;
+	while (extensions[0] == ' ')
+	    extensions++;
+    }
+}
+
 /*
 ===============
 R_Init
@@ -192,6 +208,7 @@ R_Init
 void
 R_Init(void)
 {
+    Cmd_AddCommand("gl_extensions", GL_Extensions_f);
     Cmd_AddCommand("envmap", R_Envmap_f);
     Cmd_AddCommand("pointfile", R_ReadPointFile_f);
     Cmd_AddCommand("timerefresh", R_TimeRefresh_f);
