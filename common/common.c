@@ -1014,7 +1014,8 @@ COM_CheckExtension(const char *path, const char *extn)
 
 //============================================================================
 
-static char com_tokenbuf[1024];
+#define COM_MAX_TOKEN 4096
+static char com_tokenbuf[COM_MAX_TOKEN];
 const char *com_token = com_tokenbuf;
 unsigned com_argc;
 const char **com_argv;

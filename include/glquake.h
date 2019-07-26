@@ -393,4 +393,18 @@ extern float r_avertexnormals[][3];
 //
 void Draw_InitGLTextures(void);
 
+//
+// gl_fog.c
+//
+void Fog_Init();
+void Fog_SetupGL();
+void Fog_EnableGlobalFog();
+void Fog_DisableGlobalFog();
+void Fog_StartBlend();
+void Fog_StopBlend();
+void Fog_ParseServerMessage();
+void Fog_NewMap();
+
+float Fog_GetDensity();
+
 #endif /* GLQUAKE_H */

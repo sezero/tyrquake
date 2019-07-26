@@ -757,6 +757,7 @@ GL_OBJS := \
 	drawhulls.o	\
 	gl_draw.o	\
 	gl_extensions.o	\
+	gl_fog.o	\
 	gl_mesh.o	\
 	gl_model.o	\
 	gl_rmain.o	\

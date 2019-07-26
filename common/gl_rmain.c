@@ -824,6 +824,7 @@ R_AliasDrawModel(entity_t *entity)
 
     if (gl_mtexable)
         qglClientActiveTexture(GL_TEXTURE0);
+
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
@@ -1343,6 +1344,8 @@ R_SetupGL(void)
     glDisable(GL_BLEND);
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_DEPTH_TEST);
+
+    Fog_SetupGL();
 }
 
 static void
@@ -1391,11 +1394,15 @@ R_RenderScene(void)
     R_SetupGL();
     R_MarkLeaves();		// done here so we know if we're in water
     R_UpdateModelLighting();    // Update dynamic lightmaps on bmodels
+
+    Fog_EnableGlobalFog();
     R_DrawWorld();		// adds static entities to the list
     S_ExtraUpdate();		// don't let sound get messed up if going slow
     R_DrawEntitiesOnList();
-    R_DrawViewModel();
     R_DrawTransparentSurfaces();
+    Fog_DisableGlobalFog();
+
+    R_DrawViewModel();
     GL_DisableMultitexture();
     R_DrawParticles();
 

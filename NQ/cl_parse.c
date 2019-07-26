@@ -945,6 +945,19 @@ SHOWNET(const char *msg)
 }
 
 
+#ifndef GLQUAKE
+// Read and discard fog messages in the software renderer
+void
+Fog_ParseServerMessage()
+{
+    MSG_ReadByte();  // density
+    MSG_ReadByte();  // red
+    MSG_ReadByte();  // green
+    MSG_ReadByte();  // blue
+    MSG_ReadShort(); // time
+}
+#endif
+
 /*
 =====================
 CL_ParseServerMessage
@@ -1222,12 +1235,7 @@ CL_ParseServerMessage(void)
 	    break;
 
 	case svc_fitz_fog:
-	    /* FIXME - TODO */
-	    MSG_ReadByte(); // density
-	    MSG_ReadByte(); // red
-	    MSG_ReadByte(); // green
-	    MSG_ReadByte(); // blue
-	    MSG_ReadShort(); // time
+            Fog_ParseServerMessage();
 	    break;
 
 	default:

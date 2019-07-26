@@ -261,6 +261,8 @@ R_Init(void)
     R_InitParticleTexture();
     R_InitTranslationTable();
     R_InitLightmapFormat();
+
+    Fog_Init();
 }
 
 
@@ -494,6 +496,8 @@ R_NewMap(void)
         mirrortexturenum = i;
         break;
     }
+
+    Fog_NewMap(); // Read fog parameters from worldspawn
 }
 
 

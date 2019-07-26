@@ -692,8 +692,8 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 
         if (gl_num_texture_units > 2 && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
             glDisable(GL_TEXTURE_2D);
-            GL_SelectTexture(GL_TEXTURE1);
             glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            GL_SelectTexture(GL_TEXTURE1);
             qglClientActiveTexture(GL_TEXTURE1);
         }
     } else {
@@ -705,29 +705,31 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
 	glDepthMask(GL_FALSE);
-
         glEnable(GL_BLEND);
+        Fog_StartBlend();
         if (gl_lightmap_format == GL_LUMINANCE)
             glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
         else if (gl_lightmap_format == GL_INTENSITY) {
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
             glColor4f(0, 0, 0, 1);
         }
+
         GL_Bind(block->texture);
         if (block->modified)
-            R_UploadLMBlockUpdate(block);
+        R_UploadLMBlockUpdate(block);
 
         glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
         glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
-        glDisable(GL_BLEND);
         if (gl_lightmap_format == GL_LUMINANCE)
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         else if (gl_lightmap_format == GL_INTENSITY) {
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
             glColor4f(1, 1, 1, 1);
         }
+        Fog_StopBlend();
+        glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
 
 	gl_draw_calls += 2;
