@@ -18,6 +18,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include "console.h"
 #include "glquake.h"
 #include "gl_model.h"
 #include "sys.h"
@@ -591,19 +592,46 @@ GL_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
 {
     const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_LIGHTING];
-    const byte *in;
-    byte *out;
-    int i;
+    litheader_t *litheader;
+    size_t filesize;
+    char litfilename[MAX_QPATH];
 
+    /* Attempt to load a .lit file for colored lighting */
+    int mark = Hunk_LowMark();
+    COM_DefaultExtension(model->name, ".lit", litfilename, sizeof(litfilename));
+    litheader = COM_LoadHunkFile(litfilename, &filesize);
+    if (!litheader)
+        goto fallback;
+    if (filesize < sizeof(litheader_t) + headerlump->filelen * 3)
+        goto fallback_corrupt;
+    if (memcmp(litheader->identifier, "QLIT", 4))
+        goto fallback_corrupt;
+
+    litheader->version = LittleLong(litheader->version);
+    if (litheader->version != 1) {
+        Con_Printf("Unknown .lit file version (%d), ignoring\n", litheader->version);
+        goto fallback;
+    }
+
+    brushmodel->lightdata = (byte *)(litheader + 1);
+    return;
+
+ fallback_corrupt:
+    Con_Printf("Corrupt .lit file, ignoring\n");
+ fallback:
+    Hunk_FreeToLowMark(mark);
+
+    /* Fall back to plain lighting, if any */
     if (!headerlump->filelen) {
 	brushmodel->lightdata = NULL;
         return;
     }
 
-    /* Store in RGB format always */
+    /* Expand to RGB format */
     brushmodel->lightdata = Mod_AllocName(headerlump->filelen * 3, model->name);
-    in = (byte *)header + headerlump->fileofs;
-    out = brushmodel->lightdata;
+    const byte *in = (byte *)header + headerlump->fileofs;
+    byte *out = brushmodel->lightdata;
+    int i;
     for (i = 0; i < headerlump->filelen; i++, in++) {
         *out++ = *in;
         *out++ = *in;

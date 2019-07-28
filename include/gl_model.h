@@ -116,4 +116,10 @@ ConstGLBrushModel(const brushmodel_t *brushmodel)
 /* Allocates lightmap blocks and material lists for all loaded BSP models */
 void GL_BuildMaterials();
 
+/* Colored lighting file header */
+typedef struct {
+    char identifier[4];
+    int version;
+} litheader_t;
+
 #endif /* GL_MODEL_H */
