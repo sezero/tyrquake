@@ -586,9 +586,36 @@ GL_BuildMaterials()
     }
 }
 
+static void
+GL_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
+{
+    const model_t *model = &brushmodel->model;
+    const lump_t *headerlump = &header->lumps[LUMP_LIGHTING];
+    const byte *in;
+    byte *out;
+    int i;
+
+    if (!headerlump->filelen) {
+	brushmodel->lightdata = NULL;
+        return;
+    }
+
+    /* Store in RGB format always */
+    brushmodel->lightdata = Mod_AllocName(headerlump->filelen * 3, model->name);
+    in = (byte *)header + headerlump->fileofs;
+    out = brushmodel->lightdata;
+    for (i = 0; i < headerlump->filelen; i++, in++) {
+        *out++ = *in;
+        *out++ = *in;
+        *out++ = *in;
+    }
+}
+
 static brush_loader_t GL_BrushModelLoader = {
     .Padding = GL_BrushModelPadding,
+    .LoadLighting = GL_BrushModelLoadLighting,
     .PostProcess = GL_BrushModelPostProcess,
+    .lightmap_sample_bytes = gl_lightmap_bytes,
 };
 
 const brush_loader_t *

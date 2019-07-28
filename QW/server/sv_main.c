@@ -1598,11 +1598,18 @@ static alias_loader_t SV_AliasLoader = {
     NULL, /* Does not load alias models */
 };
 
+static void
+SV_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
+{
+    brushmodel->lightdata = Mod_LoadBytes(brushmodel, header, LUMP_LIGHTING);
+}
 static int SV_BrushModelPadding() { return 0; }
-static void SV_BrushModelPostProcess() {}
+static void SV_BrushModelPostProcess(brushmodel_t *brushmodel) {}
 static brush_loader_t SV_BrushLoader = {
     .Padding = SV_BrushModelPadding,
+    .LoadLighting = SV_BrushModelLoadLighting,
     .PostProcess = SV_BrushModelPostProcess,
+    .lightmap_sample_bytes = 1,
 };
 
 /*

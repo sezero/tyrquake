@@ -665,7 +665,7 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
  * Mod_LoadBytes
  * - Common code for loading lighting, visibility and entities
  */
-static void *
+void *
 Mod_LoadBytes(brushmodel_t *brushmodel, dheader_t *header, int lumpnum)
 {
     const model_t *model = &brushmodel->model;
@@ -682,18 +682,6 @@ Mod_LoadBytes(brushmodel_t *brushmodel, dheader_t *header, int lumpnum)
 
     return out;
 }
-
-/*
-=================
-Mod_LoadLighting
-=================
-*/
-static void
-Mod_LoadLighting(brushmodel_t *brushmodel, dheader_t *header)
-{
-    brushmodel->lightdata = Mod_LoadBytes(brushmodel, header, LUMP_LIGHTING);
-}
-
 
 /*
 =================
@@ -1037,6 +1025,7 @@ Mod_LoadFaces_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 {
     const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_FACES];
+    const int lightmap_sample_bytes = brush_loader->lightmap_sample_bytes;
     const bsp29_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
@@ -1079,7 +1068,7 @@ Mod_LoadFaces_BSP29(brushmodel_t *brushmodel, dheader_t *header)
 	if (i == -1)
 	    out->samples = NULL;
 	else
-	    out->samples = brushmodel->lightdata + i;
+	    out->samples = brushmodel->lightdata + i * lightmap_sample_bytes;
 
 	Mod_ProcessSurface(brushmodel, out);
     }
@@ -1090,6 +1079,7 @@ Mod_LoadFaces_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 {
     const model_t *model = &brushmodel->model;
     const lump_t *headerlump = &header->lumps[LUMP_FACES];
+    const int lightmap_sample_bytes = brush_loader->lightmap_sample_bytes;
     const bsp2_dface_t *in;
     msurface_t *out;
     int i, count, surfnum;
@@ -1127,7 +1117,7 @@ Mod_LoadFaces_BSP2(brushmodel_t *brushmodel, dheader_t *header)
 	if (i == -1)
 	    out->samples = NULL;
 	else
-	    out->samples = brushmodel->lightdata + i;
+	    out->samples = brushmodel->lightdata + i * lightmap_sample_bytes;
 
 	Mod_ProcessSurface(brushmodel, out);
     }
@@ -1827,7 +1817,10 @@ Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
     }
     Mod_LoadSurfedges(brushmodel, header);
     Mod_LoadTextures(brushmodel, header);
-    Mod_LoadLighting(brushmodel, header);
+
+    /* Renderer provides the lighting loader */
+    brush_loader->LoadLighting(brushmodel, header);
+
     Mod_LoadPlanes(brushmodel, header);
     Mod_LoadTexinfo(brushmodel, header);
     if (header->version == BSPVERSION) {

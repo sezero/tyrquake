@@ -737,6 +737,37 @@ R_CullSubmodelSurfaces(const brushmodel_t *submodel, const vec3_t vieworg,
     }
 }
 
+static int
+R_LightPoint(const vec3_t point)
+{
+    surf_lightpoint_t lightpoint;
+    qboolean hit;
+
+    if (!cl.worldmodel->lightdata)
+	return 255;
+
+    hit = R_LightSurfPoint(point, &lightpoint);
+    if (!hit)
+        return 0;
+
+    const int ds = lightpoint.s >> 4;
+    const int dt = lightpoint.t >> 4;
+    const msurface_t *surf = lightpoint.surf;
+    const short *extents = surf->extents;
+    const byte *lightmap = surf->samples + dt * ((extents[0] >> 4) + 1) + ds;
+    const int surfbytes = ((extents[0] >> 4) + 1) * ((extents[1] >> 4) + 1);
+
+    /* FIXME: this does not account properly for dynamic lights e.g. rocket */
+    int maps;
+    int lightlevel = 0;
+    foreach_surf_lightstyle(surf, maps) {
+        lightlevel += *lightmap * d_lightstylevalue[surf->styles[maps]];
+        lightmap += surfbytes;
+    }
+
+    return lightlevel >> 8;
+}
+
 /*
 =============
 R_DrawEntitiesOnList

@@ -63,6 +63,11 @@ void GL_EndRendering(void);
 
 extern float gldepthmin, gldepthmax;
 
+#define gl_solid_format GL_RGB
+#define gl_alpha_format GL_RGBA
+#define gl_lightmap_format GL_RGB
+#define gl_lightmap_bytes 3
+
 /*
  * Classify types of texture which may have different settings for mipmap,
  * alpha, filters, etc.
@@ -144,33 +149,6 @@ extern int glx, gly, glwidth, glheight;
 
 void R_TimeRefresh_f(void);
 void R_ReadPointFile_f(void);
-
-typedef struct surfcache_s {
-    struct surfcache_s *next;
-    struct surfcache_s **owner;	// NULL is an empty chunk of memory
-    int lightadj[MAXLIGHTMAPS];	// checked for strobe flush
-    int dlight;
-    int size;			// including header
-    unsigned width;
-    unsigned height;		// DEBUG only needed for debug
-    float mipscale;
-    struct texture_s *texture;	// checked for animating textures
-    byte data[4];		// width*height elements
-} surfcache_t;
-
-
-typedef struct {
-    pixel_t *surfdat;		// destination for generated surface
-    int rowbytes;		// destination logical width in bytes
-    msurface_t *surf;		// description for surface to generate
-    fixed8_t lightadj[MAXLIGHTMAPS];
-    // adjust for lightmap levels for dynamic lighting
-    texture_t *texture;		// corrected for animating textures
-    int surfmip;		// mipmapped ratio of surface texels / world pixels
-    int surfwidth;		// in mipmapped texels
-    int surfheight;		// in mipmapped texels
-} drawsurf_t;
-
 
 typedef enum {
     pt_static, pt_grav, pt_slowgrav, pt_fire, pt_explode, pt_explode2,
@@ -276,9 +254,6 @@ void R_NetGraph(void);
 void R_ResetNetGraphTexture(void);
 #endif
 
-extern int gl_lightmap_format;
-extern int gl_solid_format;
-extern int gl_alpha_format;
 extern int gl_num_texture_units;
 
 extern cvar_t gl_max_size;
@@ -352,7 +327,17 @@ const brush_loader_t *R_BrushModelLoader(void);
 //
 void R_MarkLights(dlight_t *light, int bit, mnode_t *node);
 void R_AnimateLight(void);
-int R_LightPoint(const vec3_t point);
+
+/*
+ * Light Sampling
+ */
+typedef struct {
+    const msurface_t *surf;
+    int s;
+    int t;
+} surf_lightpoint_t;
+
+qboolean R_LightSurfPoint(const vec3_t point, surf_lightpoint_t *lightpoint);
 
 //
 // gl_refrag.c
@@ -375,7 +360,6 @@ void R_InitParticleTexture(void);
 //
 // gl_rsurf.c
 //
-void R_InitLightmapFormat();
 void R_DrawDynamicBrushModel(const entity_t *entity);
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */

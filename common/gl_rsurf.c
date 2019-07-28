@@ -29,38 +29,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
-static int lightmap_bytes;		// 1, 2, or 4
-
-void
-R_InitLightmapFormat()
-{
-    gl_lightmap_format = GL_LUMINANCE;
-    if (COM_CheckParm("-lm_1"))
-	gl_lightmap_format = GL_LUMINANCE;
-    if (COM_CheckParm("-lm_a"))
-	gl_lightmap_format = GL_ALPHA;
-    if (COM_CheckParm("-lm_i"))
-	gl_lightmap_format = GL_INTENSITY;
-    if (COM_CheckParm("-lm_2"))
-	gl_lightmap_format = GL_RGBA4;
-    if (COM_CheckParm("-lm_4"))
-	gl_lightmap_format = GL_RGBA;
-
-    switch (gl_lightmap_format) {
-    case GL_RGBA:
-	lightmap_bytes = 4;
-	break;
-    case GL_RGBA4:
-	lightmap_bytes = 2;
-	break;
-    case GL_LUMINANCE:
-    case GL_INTENSITY:
-    case GL_ALPHA:
-	lightmap_bytes = 1;
-	break;
-    }
-}
-
 /*
  * ===================
  * R_AddDynamicLights
@@ -118,8 +86,12 @@ R_AddDynamicLights(const msurface_t *surf, unsigned *blocklights)
 		    dist = sd + (td >> 1);
 		else
 		    dist = td + (sd >> 1);
-		if (dist < minlight)
-		    blocklights[t * smax + s] += (rad - dist) * 256;
+		if (dist < minlight) {
+                    unsigned *dest = &blocklights[(t * smax + s) * gl_lightmap_bytes];
+		    *dest++ += (rad - dist) * 256;
+		    *dest++ += (rad - dist) * 256;
+		    *dest++ += (rad - dist) * 256;
+                }
 	    }
 	}
     }
@@ -136,79 +108,56 @@ static void
 R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
 {
     int smax, tmax;
-    int t;
     int i, j, size;
     byte *lightmap;
     unsigned scale;
     int map;
-    unsigned blocklights[18 * 18];
-    unsigned *bl;
+    unsigned blocklights[18 * 18 * gl_lightmap_bytes];
+    unsigned *block;
 
     surf->cached_dlight = (surf->dlightframe == r_framecount);
 
     smax = (surf->extents[0] >> 4) + 1;
     tmax = (surf->extents[1] >> 4) + 1;
     size = smax * tmax;
-    lightmap = surf->samples;
 
-// set to full bright if no light data
+    /* set to full bright if no light data */
     if (!cl.worldmodel->lightdata) {
-	for (i = 0; i < size; i++)
-	    blocklights[i] = 255 * 256;
+        memset(blocklights, 255, size * gl_lightmap_bytes * sizeof(blocklights[0]));
 	goto store;
     }
-// clear to no light
-    for (i = 0; i < size; i++)
-	blocklights[i] = 0;
 
-// add all the lightmaps
+    /* clear to no light */
+    memset(blocklights, 0, size * gl_lightmap_bytes * sizeof(blocklights[0]));
+
+    /* add all the lightmaps */
+    lightmap = surf->samples;
     if (lightmap) {
 	foreach_surf_lightstyle(surf, map) {
 	    scale = d_lightstylevalue[surf->styles[map]];
 	    surf->cached_light[map] = scale;	// 8.8 fraction
-	    for (i = 0; i < size; i++)
-		blocklights[i] += lightmap[i] * scale;
-	    lightmap += size;	// skip to next lightmap
+            block = blocklights;
+	    for (i = 0; i < size; i++) {
+                *block++ += *lightmap++ * scale;
+                *block++ += *lightmap++ * scale;
+                *block++ += *lightmap++ * scale;
+            }
 	}
     }
 
-// add all the dynamic lights
+    /* add all the dynamic lights */
     if (surf->dlightframe == r_framecount)
 	R_AddDynamicLights(surf, blocklights);
 
-// bound, invert, and shift
+    /* bound, invert, and shift */
   store:
-    switch (gl_lightmap_format) {
-    case GL_RGBA:
-	stride -= (smax << 2);
-	bl = blocklights;
-	for (i = 0; i < tmax; i++, dest += stride) {
-	    for (j = 0; j < smax; j++) {
-		t = *bl++;
-		t >>= 7;
-		if (t > 255)
-		    t = 255;
-		dest[3] = 255 - t;
-		dest += 4;
-	    }
-	}
-	break;
-    case GL_ALPHA:
-    case GL_LUMINANCE:
-    case GL_INTENSITY:
-	bl = blocklights;
-	for (i = 0; i < tmax; i++, dest += stride) {
-	    for (j = 0; j < smax; j++) {
-		t = *bl++;
-		t >>= 7;
-		if (t > 255)
-		    t = 255;
-		dest[j] = 255 - t;
-	    }
-	}
-	break;
-    default:
-	Sys_Error("Bad lightmap format");
+    block = blocklights;
+    for (i = 0; i < tmax; i++, dest += stride - (smax * 3)) {
+        for (j = 0; j < smax; j++) {
+            *dest++ = qmin(*block++ >> 7, 255u);
+            *dest++ = qmin(*block++ >> 7, 255u);
+            *dest++ = qmin(*block++ >> 7, 255u);
+        }
     }
 }
 
@@ -280,7 +229,7 @@ R_UploadLMBlockUpdate(lm_block_t *block)
     unsigned offset;
 
     rect = &block->rectchange;
-    offset = (BLOCK_WIDTH * rect->t + rect->l) * lightmap_bytes;
+    offset = (BLOCK_WIDTH * rect->t + rect->l) * gl_lightmap_bytes;
     pixels = block->data + offset;
 
     /* set unpacking width to BLOCK_WIDTH, reset after */
@@ -356,9 +305,9 @@ R_UpdateLightmapBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
 	if ((rect->h + rect->t) < (surf->light_t + tmax))
 	    rect->h = (surf->light_t - rect->t) + tmax;
 	base = block->data;
-	base += surf->light_t * BLOCK_WIDTH * lightmap_bytes;
-	base += surf->light_s * lightmap_bytes;
-	R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
+	base += surf->light_t * BLOCK_WIDTH * gl_lightmap_bytes;
+	base += surf->light_s * gl_lightmap_bytes;
+	R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
     }
 }
 
@@ -542,15 +491,14 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 	GL_SelectTexture(GL_TEXTURE0_ARB);
     }
 
-    GL_Bind(texture->gl_texturenum);
-
     if (alpha < 1.0f) {
 	glEnable(GL_BLEND);
-	glColor4f(1, 1, 1, qmax(alpha, 0.0f));
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-    } else {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glColor4f(1, 1, 1, qmax(alpha, 0.0f));
     }
+
+    GL_Bind(texture->gl_texturenum);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
     glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
@@ -560,7 +508,6 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
     gl_indices_submitted += buffer->numindices;
 
     if (alpha < 1.0f) {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	glColor4f(1, 1, 1, 1);
 	glDisable(GL_BLEND);
     }
@@ -661,10 +608,10 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 {
     if (gl_mtexable) {
 	GL_SelectTexture(GL_TEXTURE0_ARB);
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
 	GL_SelectTexture(GL_TEXTURE1_ARB);
-        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_BLEND);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         GL_Bind(block->texture);
         if (block->modified)
             R_UploadLMBlockUpdate(block);
@@ -697,7 +644,7 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
             qglClientActiveTexture(GL_TEXTURE1);
         }
     } else {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
 
 	glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
@@ -706,14 +653,8 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
 
 	glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
+        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
         Fog_StartBlend();
-        if (gl_lightmap_format == GL_LUMINANCE)
-            glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
-        else if (gl_lightmap_format == GL_INTENSITY) {
-            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-            glColor4f(0, 0, 0, 1);
-        }
-
         GL_Bind(block->texture);
         if (block->modified)
         R_UploadLMBlockUpdate(block);
@@ -722,13 +663,19 @@ TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *blo
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
         glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
-        if (gl_lightmap_format == GL_LUMINANCE)
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-        else if (gl_lightmap_format == GL_INTENSITY) {
-            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-            glColor4f(1, 1, 1, 1);
-        }
         Fog_StopBlend();
+
+        if (Fog_GetDensity() > 0) {
+            /* Extra pass for fog with geometry color set to black */
+            glBlendFunc(GL_ONE, GL_ONE);
+            glColor3f(0, 0, 0);
+            GL_Bind(texture->gl_texturenum);
+            glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+            glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+            glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+            glColor3f(1, 1, 1);
+        }
+
         glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
 
@@ -1408,7 +1355,7 @@ GL_UploadLightmaps(const glbrushmodel_resource_t *resources)
 	GL_Bind(block->texture);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, lightmap_bytes, BLOCK_WIDTH,
+	glTexImage2D(GL_TEXTURE_2D, 0, gl_lightmap_bytes, BLOCK_WIDTH,
 		     BLOCK_HEIGHT, 0, gl_lightmap_format, GL_UNSIGNED_BYTE,
 		     block->data);
     }
@@ -1450,8 +1397,8 @@ GL_BuildLightmaps()
 		continue;
 
 	    byte *base = resources->blocks[surf->lightmapblock].data;
-	    base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * lightmap_bytes;
-	    R_BuildLightMap(surf, base, BLOCK_WIDTH * lightmap_bytes);
+	    base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * gl_lightmap_bytes;
+	    R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
 	    BuildSurfaceDisplayList(brushmodel, surf, hunkbase);
 	}
 

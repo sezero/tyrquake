@@ -39,10 +39,6 @@ cvar_t gl_max_size = { "gl_max_size", "1024" };
 static cvar_t gl_nobind = { "gl_nobind", "0" };
 static cvar_t gl_picmip = { "gl_picmip", "0" };
 
-int gl_lightmap_format = GL_RGBA;	// 4
-int gl_solid_format = GL_RGB;	// 3
-int gl_alpha_format = GL_RGBA;	// 4
-
 /* Indexed by enum texture_type */
 const texture_properties_t texture_properties[] = {
     // Palette          Alpha Operation              mipmap picmip playermip

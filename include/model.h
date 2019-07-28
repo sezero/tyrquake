@@ -495,7 +495,11 @@ BrushModel(model_t *model)
 /* Brush model loader structures */
 typedef struct brush_loader {
     int (*Padding)(void);
+    void (*LoadLighting)(brushmodel_t *brushmodel, dheader_t *header);
     void (*PostProcess)(brushmodel_t *brushmodel);
+
+    // Number of bytes per sample in the loaded lightmap data
+    int lightmap_sample_bytes;
 } brush_loader_t;
 
 /* Alias model loader structures */
@@ -618,6 +622,9 @@ void Mod_AddLeafBits(leafbits_t *dst, const leafbits_t *src);
 /* Slightly faster counting of sparse sets for QWSV */
 int Mod_CountLeafBits(const leafbits_t *leafbits);
 #endif
+
+/* Helper to just copy out unprocessed data from the lump */
+void *Mod_LoadBytes(brushmodel_t *brushmodel, dheader_t *header, int lumpnum);
 
 void Mod_LoadAliasModel(const alias_loader_t *loader, model_t *model,
 			void *buffer, size_t buffersize);

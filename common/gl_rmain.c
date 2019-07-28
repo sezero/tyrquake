@@ -608,6 +608,47 @@ R_AliasCalcLerp(entity_t *entity, vec3_t origin, vec3_t angles)
 #endif
 }
 
+static int
+R_LightPoint(const vec3_t point)
+{
+    surf_lightpoint_t lightpoint;
+    qboolean hit;
+
+    if (!cl.worldmodel->lightdata)
+	return 255;
+
+    hit = R_LightSurfPoint(point, &lightpoint);
+    if (!hit)
+        return 0;
+
+    const int ds = lightpoint.s >> 4;
+    const int dt = lightpoint.t >> 4;
+    const msurface_t *surf = lightpoint.surf;
+    const short *extents = surf->extents;
+    const byte *lightmap = surf->samples + (dt * ((extents[0] >> 4) + 1) + ds) * gl_lightmap_bytes;
+    const int surfbytes = ((extents[0] >> 4) + 1) * ((extents[1] >> 4) + 1) * gl_lightmap_bytes;
+
+    /* FIXME: this does not account properly for dynamic lights e.g. rocket */
+    /* FIXME: Color! */
+    int maps;
+    int lightlevel = 0;
+    foreach_surf_lightstyle(surf, maps) {
+        int light = 0;
+        light += lightmap[0] * d_lightstylevalue[surf->styles[maps]];
+        light += lightmap[1] * d_lightstylevalue[surf->styles[maps]];
+        light += lightmap[2] * d_lightstylevalue[surf->styles[maps]];
+        lightlevel += light / 3;
+        lightmap += surfbytes;
+    }
+
+    lightlevel >>= 8;
+
+    if (lightlevel < r_refdef.ambientlight)
+	lightlevel = r_refdef.ambientlight;
+
+    return lightlevel;
+}
+
 static void
 R_AliasCalcLight(const entity_t *entity,
 		 const vec3_t origin, const vec3_t angles)

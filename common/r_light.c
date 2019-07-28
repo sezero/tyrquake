@@ -133,18 +133,17 @@ R_PushDlights(void)
 /* --------------------------------------------------------------------------*/
 
 __attribute__((noinline))
-static int
-R_LightSurfPoint(const mnode_t *node, const vec3_t surfpoint)
+static qboolean
+R_FillLightPoint(const mnode_t *node, const vec3_t surfpoint, surf_lightpoint_t *lightpoint)
 {
     const msurface_t *surf;
-    int i, maps;
+    int i;
 
     /* check for impact on this node */
     surf = cl.worldmodel->surfaces + node->firstsurface;
     for (i = 0; i < node->numsurfaces; i++, surf++) {
 	const mtexinfo_t *tex;
-	const byte *lightmap;
-	int s, t, ds, dt, lightlevel;
+	int s, t, ds, dt;
 
 	if (surf->flags & SURF_DRAWTILED)
 	    continue; /* no lightmaps */
@@ -161,38 +160,31 @@ R_LightSurfPoint(const mnode_t *node, const vec3_t surfpoint)
 	    continue;
 
 	if (!surf->samples)
-	    return 0;
+	    return false;
 
-	ds >>= 4;
-	dt >>= 4;
+        /* Fill in the lightpoint details */
+        lightpoint->surf = surf;
+        lightpoint->s = ds;
+        lightpoint->t = dt;
 
-	/* FIXME: does this account properly for dynamic lights? e.g. rocket */
-	lightlevel = 0;
-	lightmap = surf->samples + dt * ((surf->extents[0] >> 4) + 1) + ds;
-	foreach_surf_lightstyle(surf, maps) {
-	    const short *size = surf->extents;
-	    const int surfbytes = ((size[0] >> 4) + 1) * ((size[1] >> 4) + 1);
-
-	    lightlevel += *lightmap * d_lightstylevalue[surf->styles[maps]];
-	    lightmap += surfbytes;
-	}
-	return lightlevel >> 8;
+        return true;
     }
 
-    return -1;
+    return false;
 }
 
-static int
-RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
+static qboolean
+RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end, surf_lightpoint_t *lightpoint)
 {
     const mplane_t *plane;
     float front, back, frac;
     vec3_t surfpoint;
-    int side, lightlevel;
+    int side;
+    qboolean hit;
 
  restart:
     if (node->contents < 0)
-	return -1; /* didn't hit anything */
+	return false; /* didn't hit anything */
 
     /* calculate surface intersection point */
     plane = node->plane;
@@ -222,19 +214,19 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
     surfpoint[2] = start[2] + (end[2] - start[2]) * frac;
 
     /* go down front side */
-    lightlevel = RecursiveLightPoint(node->children[side], start, surfpoint);
-    if (lightlevel >= 0)
-	return lightlevel; /* hit something */
+    hit = RecursiveLightPoint(node->children[side], start, surfpoint, lightpoint);
+    if (hit)
+        return true;
 
     if ((back < 0) == side)
-	return -1; /* didn't hit anything */
+	return false; /* didn't hit anything */
 
-    lightlevel = R_LightSurfPoint(node, surfpoint);
-    if (lightlevel >= 0)
-	return lightlevel;
+    hit = R_FillLightPoint(node, surfpoint, lightpoint);
+    if (hit)
+	return true;
 
     /* Go down back side */
-    return RecursiveLightPoint(node->children[!side], surfpoint, end);
+    return RecursiveLightPoint(node->children[!side], surfpoint, end, lightpoint);
 }
 
 /*
@@ -242,11 +234,10 @@ RecursiveLightPoint(const mnode_t *node, const vec3_t start, const vec3_t end)
  * light value of a bmodel below the point. Models could easily be standing on
  * a func_plat or similar...
  */
-int
-R_LightPoint(const vec3_t point)
+qboolean
+R_LightSurfPoint(const vec3_t point, surf_lightpoint_t *lightpoint)
 {
     vec3_t end;
-    int lightlevel;
 
     if (!cl.worldmodel->lightdata)
 	return 255;
@@ -255,15 +246,5 @@ R_LightPoint(const vec3_t point)
     end[1] = point[1];
     end[2] = point[2] - (8192 + 2); /* Max distance + error margin */
 
-    lightlevel = RecursiveLightPoint(cl.worldmodel->nodes, point, end);
-
-    if (lightlevel == -1)
-	lightlevel = 0;
-
-#ifndef GLQUAKE
-    if (lightlevel < r_refdef.ambientlight)
-	lightlevel = r_refdef.ambientlight;
-#endif
-
-    return lightlevel;
+    return RecursiveLightPoint(cl.worldmodel->nodes, point, end, lightpoint);
 }

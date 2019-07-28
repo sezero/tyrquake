@@ -260,7 +260,6 @@ R_Init(void)
     R_InitParticles();
     R_InitParticleTexture();
     R_InitTranslationTable();
-    R_InitLightmapFormat();
 
     Fog_Init();
 }

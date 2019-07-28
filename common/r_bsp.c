@@ -53,14 +53,23 @@ static qboolean makeclippededge;
 
 //===========================================================================
 
+/* Save unmodified lighting data into the brushmodel */
+static void
+SW_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
+{
+    brushmodel->lightdata = Mod_LoadBytes(brushmodel, header, LUMP_LIGHTING);
+}
+
 /*
  * Provide brush model loader
  */
 static int SW_BrushModelPadding() { return 0; }
-static void SW_BrushModelPostProcess() {}
+static void SW_BrushModelPostProcess(brushmodel_t *brushmodel) {}
 static brush_loader_t SW_BrushModelLoader = {
     .Padding = SW_BrushModelPadding,
+    .LoadLighting = SW_BrushModelLoadLighting,
     .PostProcess = SW_BrushModelPostProcess,
+    .lightmap_sample_bytes = 1,
 };
 
 const brush_loader_t *
