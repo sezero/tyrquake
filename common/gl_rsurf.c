@@ -523,8 +523,6 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 static void
 TriBuf_DrawFlat(triangle_buffer_t *buffer)
 {
-    Sys_Printf("Drawing %d flat triangles\n", buffer->numindices / 3);
-
     if (gl_mtexable) {
 	GL_DisableMultitexture();
 	qglClientActiveTexture(GL_TEXTURE1);
