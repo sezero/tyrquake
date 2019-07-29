@@ -1315,10 +1315,12 @@ R_SetupGL(void)
     glViewport(glx + x, gly + y2, w, h);
     screenaspect = (float)r_refdef.vrect.width / r_refdef.vrect.height;
 
-    // FIXME - set depth dynamically for improved depth precision in smaller
-    //         spaces
-    //MYgluPerspective (r_refdef.fov_y, screenaspect, 4, 4096);
-    MYgluPerspective(r_refdef.fov_y, screenaspect, 4, 8192);
+    /*
+     * TODO: Set depth dynamically for improved depth precision in smaller spaces?
+     * Max visible depth (currently!) is diagonally across an 8192 cube.
+     */
+    double maxDistance = sqrt(3 * 8192 * 8192);
+    MYgluPerspective(r_refdef.fov_y, screenaspect, 4, maxDistance);
 
     if (mirror) {
 	if (mirror_plane->normal[2])
