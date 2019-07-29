@@ -87,10 +87,11 @@ R_AddDynamicLights(const msurface_t *surf, unsigned *blocklights)
 		else
 		    dist = td + (sd >> 1);
 		if (dist < minlight) {
+                    float scale = (rad - dist) * 256.0f;
                     unsigned *dest = &blocklights[(t * smax + s) * gl_lightmap_bytes];
-		    *dest++ += (rad - dist) * 256;
-		    *dest++ += (rad - dist) * 256;
-		    *dest++ += (rad - dist) * 256;
+		    *dest++ += dl->color[0] * scale;
+		    *dest++ += dl->color[1] * scale;
+		    *dest++ += dl->color[2] * scale;
                 }
 	    }
 	}
