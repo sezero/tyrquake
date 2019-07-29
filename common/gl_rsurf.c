@@ -353,7 +353,7 @@ int gl_verts_submitted;
 int gl_indices_submitted;
 int gl_full_buffers;
 
-static qboolean
+static inline qboolean
 TriBuf_CheckSpacePoly(const triangle_buffer_t *buffer, const glpoly_t *poly)
 {
     if (buffer->numverts + poly->numverts > TRIBUF_MAX_VERTS) {
@@ -786,6 +786,29 @@ DrawFlatChain(triangle_buffer_t *buffer, msurface_t *surf)
 }
 
 static void
+DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbrushmodel, surface_material_t *material)
+{
+    texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
+    lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
+    int flags = surf->flags;
+    for ( ; surf; surf = surf->chain) {
+	if (!surf->polys)
+	    continue;
+	if (!TriBuf_CheckSpacePoly(buffer, surf->polys))
+	    goto drawBuffer;
+    addPoly:
+	R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+	TriBuf_AddPoly(buffer, surf->polys);
+    }
+ drawBuffer:
+    TriBuf_Draw(buffer, texture, block, flags);
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+    if (surf && surf->polys)
+	goto addPoly;
+}
+
+static void
 DrawMaterialChains(const entity_t *e)
 {
     int i;
@@ -834,23 +857,7 @@ DrawMaterialChains(const entity_t *e)
 	    DrawTurbChain(&buffer, surf, texture);
 	    continue;
 	}
-
-	lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
-	for ( ; surf; surf = surf->chain) {
-	    if (!surf->polys)
-		continue;
-	    if (!TriBuf_CheckSpacePoly(&buffer, surf->polys))
-		goto drawBuffer;
-	addPoly:
-	    R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
-	    TriBuf_AddPoly(&buffer, surf->polys);
-	}
-    drawBuffer:
-	TriBuf_Draw(&buffer, texture, block, materialchain->flags);
-	buffer.numverts = 0;
-	buffer.numindices = 0;
-	if (surf && surf->polys)
-	    goto addPoly;
+	DrawSolidChain(&buffer, surf, glbrushmodel, material);
     }
 
     if (gl_mtexable) {
