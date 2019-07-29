@@ -663,9 +663,6 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
 static void
 R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angles, alias_light_t *light)
 {
-    const dlight_t *dlight;
-    int i;
-
     /* Set minimum light level on viewmodel (gun) */
     if (entity == &cl.viewent && light->ambient < 24)
         light->ambient = 24;
@@ -685,19 +682,15 @@ R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angle
     R_LightPoint(origin, light);
 
     /* Add dynamic lights */
-    dlight = cl_dlights;
+    int i;
+    const dlight_t *dlight = cl_dlights;
     for (i = 0; i < MAX_DLIGHTS; i++, dlight++) {
 	if (dlight->die >= cl.time) {
 	    vec3_t lightvec;
-	    vec_t add;
-
 	    VectorSubtract(origin, dlight->origin, lightvec);
-	    add = dlight->radius - Length(lightvec);
-	    if (add > 0) {
-		light->shade[0] += add;
-		light->shade[1] += add;
-		light->shade[2] += add;
-            }
+	    float add = dlight->radius - Length(lightvec);
+	    if (add > 0)
+                VectorMA(light->shade, add, dlight->color, light->shade);
 	}
     }
 
