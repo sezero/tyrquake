@@ -717,7 +717,7 @@ R_AliasDrawModel(entity_t *entity)
     int i;
     float radius;
     aliashdr_t *aliashdr;
-    alias_light_t light = {0};
+    alias_light_t light;
 
     /* Calculate position and cull if out of view */
     R_AliasCalcLerp(entity, origin, angles);
@@ -743,6 +743,7 @@ R_AliasDrawModel(entity_t *entity)
 	return;
 
     /* Calculate lighting at the lerp origin */
+    memset(&light, 0, sizeof(light));
     R_AliasCalcLight(entity, origin, angles, &light);
 
     /* locate/load the data in the model cache */
