@@ -146,8 +146,8 @@ VID_InitModeList(void)
 	    Sys_Error("%s: couldn't get mode %d info (%s)",
 		      __func__, i, SDL_GetError());
 
-	printf("%s: checking mode %i: %dx%d, %s\n", __func__,
-	       i, sdlmode.w, sdlmode.h, SDL_GetPixelFormatName(sdlmode.format));
+	Sys_Printf("%s: checking mode %i: %dx%d, %s\n", __func__,
+		   i, sdlmode.w, sdlmode.h, SDL_GetPixelFormatName(sdlmode.format));
 
 	if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED32)
 	    modelist[nummodes].bpp = 32;
@@ -189,6 +189,16 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
     if (mode - modelist != 0)
 	flags |= SDL_WINDOW_FULLSCREEN;
+
+    /*
+     * Try to set the correct attributes for our desired GL context
+     * - Ensure we request the compatibility context
+     * - Set the requested color buffer BPP (although we may get more?)
+     * - Always try to get a full 32-bit depth buffer because z-fighting sucks
+     */
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, mode->bpp);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
 
     sdl_window = SDL_CreateWindow("TyrQuake",
 				  SDL_WINDOWPOS_UNDEFINED,
