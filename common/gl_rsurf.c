@@ -603,7 +603,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 }
 
 static void
-TriBuf_Draw(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
+TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
 {
     if (gl_mtexable) {
 	GL_SelectTexture(GL_TEXTURE0_ARB);
@@ -734,11 +734,13 @@ DrawSkyChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
 	}
     }
  drawBuffer:
-    TriBuf_DrawSky(buffer, texture);
-    buffer->numverts = 0;
-    buffer->numindices = 0;
-    if (poly)
-	goto addPoly;
+    if (buffer->numindices) {
+	TriBuf_DrawSky(buffer, texture);
+	buffer->numverts = 0;
+	buffer->numindices = 0;
+	if (poly)
+	    goto addPoly;
+    }
 }
 
 static void
@@ -755,11 +757,13 @@ DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
 	}
     }
  drawBuffer:
-    TriBuf_DrawTurb(buffer, texture, r_wateralpha.value);
-    buffer->numverts = 0;
-    buffer->numindices = 0;
-    if (poly)
-	goto addPoly;
+    if (buffer->numindices) {
+	TriBuf_DrawTurb(buffer, texture, r_wateralpha.value);
+	buffer->numverts = 0;
+	buffer->numindices = 0;
+	if (poly)
+	    goto addPoly;
+    }
 }
 
 static void
@@ -776,11 +780,13 @@ DrawFlatChain(triangle_buffer_t *buffer, msurface_t *surf)
 	}
     }
  drawBuffer:
-    TriBuf_DrawFlat(buffer);
-    buffer->numverts = 0;
-    buffer->numindices = 0;
-    if (poly)
-	goto addPoly;
+    if (buffer->numindices) {
+	TriBuf_DrawFlat(buffer);
+	buffer->numverts = 0;
+	buffer->numindices = 0;
+	if (poly)
+	    goto addPoly;
+    }
 }
 
 static void
@@ -799,11 +805,13 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
 	TriBuf_AddPoly(buffer, surf->polys);
     }
  drawBuffer:
-    TriBuf_Draw(buffer, texture, block, flags);
-    buffer->numverts = 0;
-    buffer->numindices = 0;
-    if (surf && surf->polys)
-	goto addPoly;
+    if (buffer->numindices) {
+	TriBuf_DrawSolid(buffer, texture, block, flags);
+	buffer->numverts = 0;
+	buffer->numindices = 0;
+	if (surf && surf->polys)
+	    goto addPoly;
+    }
 }
 
 static void
