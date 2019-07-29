@@ -369,12 +369,10 @@ R_DrawSpriteModel(const entity_t *entity)
 
 #define NUMVERTEXNORMALS 162
 
+// quantized vertex normals for alias models
 float r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
-
-static vec3_t shadevector;
-static float shadelight, ambientlight;
 
 // precalculated dot products for quantized angles
 #define SHADEDOT_QUANT 16
@@ -382,7 +380,11 @@ static float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
 #include "anorm_dots.h"
      ;
 
-static float *shadedots = r_avertexnormal_dots[0];
+typedef struct {
+    float ambient;
+    float shade;
+    float *shadedots;
+} alias_light_t;
 
 /*
  * Upload alias skin textures
@@ -608,18 +610,22 @@ R_AliasCalcLerp(entity_t *entity, vec3_t origin, vec3_t angles)
 #endif
 }
 
-static int
-R_LightPoint(const vec3_t point)
+static void
+R_LightPoint(const vec3_t point, alias_light_t *light)
 {
     surf_lightpoint_t lightpoint;
     qboolean hit;
 
-    if (!cl.worldmodel->lightdata)
-	return 255;
+    if (!cl.worldmodel->lightdata) {
+        light->ambient = light->shade = 255;
+        return;
+    }
 
     hit = R_LightSurfPoint(point, &lightpoint);
-    if (!hit)
-        return 0;
+    if (!hit) {
+        light->shade = 0;
+        return;
+    }
 
     const int ds = lightpoint.s >> 4;
     const int dt = lightpoint.t >> 4;
@@ -642,27 +648,37 @@ R_LightPoint(const vec3_t point)
     }
 
     lightlevel >>= 8;
+    if (lightlevel < light->ambient)
+	lightlevel = light->ambient;
 
-    if (lightlevel < r_refdef.ambientlight)
-	lightlevel = r_refdef.ambientlight;
-
-    return lightlevel;
+    light->shade = lightlevel;
 }
 
 static void
-R_AliasCalcLight(const entity_t *entity,
-		 const vec3_t origin, const vec3_t angles)
+R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angles, alias_light_t *light)
 {
     const dlight_t *dlight;
-    int i, shadequant;
-    float angle;
+    int i;
 
-    ambientlight = shadelight = R_LightPoint(origin);
+    /* Set minimum light level on viewmodel (gun) */
+    if (entity == &cl.viewent && light->ambient < 24)
+        light->ambient = 24;
 
-    /* always give the viewmodel some light */
-    if (entity == &cl.viewent && ambientlight < 24)
-	ambientlight = shadelight = 24;
+    /* Set minimum light level on players */
+#ifdef NQ_HACK
+    if (CL_PlayerEntity(entity)) {
+#endif
+#ifdef QW_HACK
+    if (!strcmp(entity->model->name, "progs/player.mdl")) {
+#endif
+	if (light->ambient < 8)
+	    light->ambient = 8;
+    }
 
+    /* Calculate light level below the model */
+    R_LightPoint(origin, light);
+
+    /* Add dynamic lights */
     dlight = cl_dlights;
     for (i = 0; i < MAX_DLIGHTS; i++, dlight++) {
 	if (dlight->die >= cl.time) {
@@ -671,39 +687,17 @@ R_AliasCalcLight(const entity_t *entity,
 
 	    VectorSubtract(origin, dlight->origin, lightvec);
 	    add = dlight->radius - Length(lightvec);
-	    if (add > 0) {
-		ambientlight += add;
-		shadelight += add;
-	    }
+	    if (add > 0)
+		light->shade += add;
 	}
     }
 
     // clamp lighting so it doesn't overbright as much
-    if (ambientlight > 128)
-	ambientlight = 128;
-    if (ambientlight + shadelight > 192)
-	shadelight = 192 - ambientlight;
+    light->shade = qmin(light->shade, 192.0f);
 
-    // ZOID: never allow players to go totally black
-#ifdef NQ_HACK
-    if (CL_PlayerEntity(entity)) {
-#endif
-#ifdef QW_HACK
-    if (!strcmp(entity->model->name, "progs/player.mdl")) {
-#endif
-	if (ambientlight < 8)
-	    ambientlight = shadelight = 8;
-    }
-
-    shadequant = (int)(angles[1] * (SHADEDOT_QUANT / 360.0));
-    shadedots =	r_avertexnormal_dots[shadequant & (SHADEDOT_QUANT - 1)];
-    shadelight /= 200.0;
-
-    angle = angles[1] / 180 * M_PI;
-    shadevector[0] = cos(-angle);
-    shadevector[1] = sin(-angle);
-    shadevector[2] = 1;
-    VectorNormalize(shadevector);
+    int shadequant = (int)(angles[1] * (SHADEDOT_QUANT / 360.0));
+    light->shadedots = r_avertexnormal_dots[shadequant & (SHADEDOT_QUANT - 1)];
+    light->shade /= 200.0;
 }
 
 /*
@@ -719,6 +713,7 @@ R_AliasDrawModel(entity_t *entity)
     int i;
     float radius;
     aliashdr_t *aliashdr;
+    alias_light_t light = {0};
 
     /* Calculate position and cull if out of view */
     R_AliasCalcLerp(entity, origin, angles);
@@ -744,7 +739,7 @@ R_AliasDrawModel(entity_t *entity)
 	return;
 
     /* Calculate lighting at the lerp origin */
-    R_AliasCalcLight(entity, origin, angles);
+    R_AliasCalcLight(entity, origin, angles, &light);
 
     /* locate/load the data in the model cache */
     aliashdr = Mod_Extradata(entity->model);
@@ -765,10 +760,10 @@ R_AliasDrawModel(entity_t *entity)
             *dstvert++ = src->v[1];
             *dstvert++ = src->v[2];
 
-            float light = shadedots[src->lightnormalindex] * shadelight;
-            *dstcolor++ = light;
-            *dstcolor++ = light;
-            *dstcolor++ = light;
+            float lightvalue = light.shadedots[src->lightnormalindex] * light.shade;
+            *dstcolor++ = lightvalue;
+            *dstcolor++ = lightvalue;
+            *dstcolor++ = lightvalue;
         }
     } else {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
@@ -781,13 +776,13 @@ R_AliasDrawModel(entity_t *entity)
             *dstvert++ = src0->v[1] * (1.0f - lerp) + src1->v[1] * lerp;
             *dstvert++ = src0->v[2] * (1.0f - lerp) + src1->v[2] * lerp;
 
-            float light;
-            light  = shadedots[src0->lightnormalindex] * (1.0f - lerp);
-            light += shadedots[src1->lightnormalindex] * lerp;
-            light *= shadelight;
-            *dstcolor++ = light;
-            *dstcolor++ = light;
-            *dstcolor++ = light;
+            float lightvalue;
+            lightvalue  = light.shadedots[src0->lightnormalindex] * (1.0f - lerp);
+            lightvalue += light.shadedots[src1->lightnormalindex] * lerp;
+            lightvalue *= light.shade;
+            *dstcolor++ = lightvalue;
+            *dstcolor++ = lightvalue;
+            *dstcolor++ = lightvalue;
         }
     }
 
@@ -1071,15 +1066,6 @@ R_DrawViewModel
 static void
 R_DrawViewModel(void)
 {
-    float ambient[4], diffuse[4];
-    int j;
-    int lnum;
-    vec3_t dist;
-    float add;
-    dlight_t *dl;
-    int ambientlight, shadelight;
-    entity_t *e;
-
 #ifdef NQ_HACK
     if (!r_drawviewmodel.value)
 	return;
@@ -1104,41 +1090,12 @@ R_DrawViewModel(void)
     if (cl.stats[STAT_HEALTH] <= 0)
 	return;
 
-    e = &cl.viewent;
-    if (!e->model)
+    if (!cl.viewent.model)
 	return;
-
-    j = R_LightPoint(e->origin);
-
-    if (j < 24)
-	j = 24;			// always give some light on gun
-    ambientlight = j;
-    shadelight = j;
-
-// add dynamic lights
-    for (lnum = 0; lnum < MAX_DLIGHTS; lnum++) {
-	dl = &cl_dlights[lnum];
-	if (!dl->radius)
-	    continue;
-	if (!dl->radius)
-	    continue;
-	if (dl->die < cl.time)
-	    continue;
-
-	VectorSubtract(e->origin, dl->origin, dist);
-	add = dl->radius - Length(dist);
-	if (add > 0)
-	    ambientlight += add;
-    }
-
-    ambient[0] = ambient[1] = ambient[2] = ambient[3] =
-	(float)ambientlight / 128;
-    diffuse[0] = diffuse[1] = diffuse[2] = diffuse[3] =
-	(float)shadelight / 128;
 
     // hack the depth range to prevent view model from poking into walls
     glDepthRange(gldepthmin, gldepthmin + 0.3 * (gldepthmax - gldepthmin));
-    R_AliasDrawModel(e);
+    R_AliasDrawModel(&cl.viewent);
     glDepthRange(gldepthmin, gldepthmax);
 }
 
