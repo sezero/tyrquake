@@ -381,8 +381,8 @@ static float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
      ;
 
 typedef struct {
+    vec3_t shade;
     float ambient;
-    float shade;
     float *shadedots;
 } alias_light_t;
 
@@ -617,13 +617,18 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
     qboolean hit;
 
     if (!cl.worldmodel->lightdata) {
-        light->ambient = light->shade = 255;
+        light->ambient  = 255.0f;
+        light->shade[0] = 255.0f;
+        light->shade[1] = 255.0f;
+        light->shade[2] = 255.0f;
         return;
     }
 
     hit = R_LightSurfPoint(point, &lightpoint);
     if (!hit) {
-        light->shade = 0;
+        light->shade[0] = light->ambient;
+        light->shade[1] = light->ambient;
+        light->shade[2] = light->ambient;
         return;
     }
 
@@ -634,24 +639,25 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
     const byte *lightmap = surf->samples + (dt * ((extents[0] >> 4) + 1) + ds) * gl_lightmap_bytes;
     const int surfbytes = ((extents[0] >> 4) + 1) * ((extents[1] >> 4) + 1) * gl_lightmap_bytes;
 
-    /* FIXME: this does not account properly for dynamic lights e.g. rocket */
-    /* FIXME: Color! */
+    /* Add the light styles together */
     int maps;
-    int lightlevel = 0;
+    light->shade[0] = 0.0f;
+    light->shade[1] = 0.0f;
+    light->shade[2] = 0.0f;
     foreach_surf_lightstyle(surf, maps) {
-        int light = 0;
-        light += lightmap[0] * d_lightstylevalue[surf->styles[maps]];
-        light += lightmap[1] * d_lightstylevalue[surf->styles[maps]];
-        light += lightmap[2] * d_lightstylevalue[surf->styles[maps]];
-        lightlevel += light / 3;
+        const float scale = d_lightstylevalue[surf->styles[maps]] * (1.0f / 256.0f);
+        light->shade[0] += lightmap[0] * scale;
+        light->shade[1] += lightmap[1] * scale;
+        light->shade[2] += lightmap[2] * scale;
         lightmap += surfbytes;
     }
 
-    lightlevel >>= 8;
-    if (lightlevel < light->ambient)
-	lightlevel = light->ambient;
-
-    light->shade = lightlevel;
+    /* Clamp to minimum ambient lighting */
+    if (light->ambient) {
+        light->shade[0] = qmax(light->shade[0], light->ambient);
+        light->shade[1] = qmax(light->shade[1], light->ambient);
+        light->shade[2] = qmax(light->shade[2], light->ambient);
+    }
 }
 
 static void
@@ -687,17 +693,22 @@ R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angle
 
 	    VectorSubtract(origin, dlight->origin, lightvec);
 	    add = dlight->radius - Length(lightvec);
-	    if (add > 0)
-		light->shade += add;
+	    if (add > 0) {
+		light->shade[0] += add;
+		light->shade[1] += add;
+		light->shade[2] += add;
+            }
 	}
     }
 
     // clamp lighting so it doesn't overbright as much
-    light->shade = qmin(light->shade, 192.0f);
+    light->shade[0] = qmin(light->shade[0], 192.0f);
+    light->shade[1] = qmin(light->shade[1], 192.0f);
+    light->shade[2] = qmin(light->shade[2], 192.0f);
 
     int shadequant = (int)(angles[1] * (SHADEDOT_QUANT / 360.0));
     light->shadedots = r_avertexnormal_dots[shadequant & (SHADEDOT_QUANT - 1)];
-    light->shade /= 200.0;
+    VectorScale(light->shade, 1.0f / 200.0f, light->shade);
 }
 
 /*
@@ -760,10 +771,10 @@ R_AliasDrawModel(entity_t *entity)
             *dstvert++ = src->v[1];
             *dstvert++ = src->v[2];
 
-            float lightvalue = light.shadedots[src->lightnormalindex] * light.shade;
-            *dstcolor++ = lightvalue;
-            *dstcolor++ = lightvalue;
-            *dstcolor++ = lightvalue;
+            float lightscale = light.shadedots[src->lightnormalindex];
+            *dstcolor++ = lightscale * light.shade[0];
+            *dstcolor++ = lightscale * light.shade[1];
+            *dstcolor++ = lightscale * light.shade[2];
         }
     } else {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
@@ -776,13 +787,12 @@ R_AliasDrawModel(entity_t *entity)
             *dstvert++ = src0->v[1] * (1.0f - lerp) + src1->v[1] * lerp;
             *dstvert++ = src0->v[2] * (1.0f - lerp) + src1->v[2] * lerp;
 
-            float lightvalue;
-            lightvalue  = light.shadedots[src0->lightnormalindex] * (1.0f - lerp);
-            lightvalue += light.shadedots[src1->lightnormalindex] * lerp;
-            lightvalue *= light.shade;
-            *dstcolor++ = lightvalue;
-            *dstcolor++ = lightvalue;
-            *dstcolor++ = lightvalue;
+            float lightscale;
+            lightscale  = light.shadedots[src0->lightnormalindex] * (1.0f - lerp);
+            lightscale += light.shadedots[src1->lightnormalindex] * lerp;
+            *dstcolor++ = lightscale * light.shade[0];
+            *dstcolor++ = lightscale * light.shade[1];
+            *dstcolor++ = lightscale * light.shade[2];
         }
     }
 
