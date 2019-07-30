@@ -259,6 +259,8 @@ void COM_Gamedir(const char *dir);
 extern struct cvar_s registered;
 extern qboolean standard_quake, rogue, hipnotic;
 
+char *Entity_ValueForKey(const char *string, const char *key, char *buffer, int buflen);
+
 #ifdef QW_HACK
 char *Info_ValueForKey(const char *infostring, const char *key);
 void Info_RemoveKey(char *infostring, const char *key);

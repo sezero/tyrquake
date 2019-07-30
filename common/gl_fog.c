@@ -163,53 +163,6 @@ Fog_Command_f()
 
 /*
   =============
-  Fog_ParseWorldspawn
-
-  called at map load
-  =============
-*/
-void
-Fog_ParseWorldspawn()
-{
-    char key[128], value[4096];
-    const char *data;
-
-    //initially no fog
-    fog.current.density = 0.0f;
-    fog.previous.density = 0.0f;
-    fog.fade_time = 0.0f;
-    fog.fade_done = 0.0f;
-
-    data = COM_Parse(cl.worldmodel->entities);
-    if (!data)
-        return; // error
-    if (com_token[0] != '{')
-        return; // error
-    while (1) {
-        data = COM_Parse(data);
-        if (!data)
-            return; // error
-        if (com_token[0] == '}')
-            break; // end of worldspawn
-        if (com_token[0] == '_')
-            strcpy(key, com_token + 1);
-        else
-            strcpy(key, com_token);
-        while (key[strlen(key)-1] == ' ') // remove trailing spaces
-            key[strlen(key)-1] = 0;
-        data = COM_Parse(data);
-        if (!data)
-            return; // error
-        strcpy(value, com_token);
-
-        if (!strcmp("fog", key)) {
-            sscanf(value, "%f %f %f %f", &fog.current.density, &fog.current.red, &fog.current.green, &fog.current.blue);
-        }
-    }
-}
-
-/*
-  =============
   Fog_GetColor
 
   calculates fog color for this frame, taking into account fade times
@@ -347,7 +300,22 @@ Fog_StopBlend()
 void
 Fog_NewMap()
 {
-    Fog_ParseWorldspawn(); //for global fog
+    char buffer[1024];
+
+    /* Default is no fog */
+    fog.current.density = 0.0f;
+    fog.previous.density = 0.0f;
+    fog.fade_time = 0.0f;
+    fog.fade_done = 0.0f;
+
+    char *fogParams = Entity_ValueForKey(cl.worldmodel->entities, "fog", buffer, sizeof(buffer));
+    if (fogParams) {
+        sscanf(fogParams, "%f %f %f %f",
+               &fog.current.density,
+               &fog.current.red,
+               &fog.current.green,
+               &fog.current.blue);
+    }
 }
 
 /*

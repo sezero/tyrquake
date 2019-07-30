@@ -2045,6 +2045,67 @@ COM_InitFilesystem(void)
 #endif
 }
 
+/*
+ * =====================================================================
+ * Entity Key/Value Parsing
+ * =====================================================================
+ */
+
+/*
+ * Find the value for the given key and write it into the given buffer.
+ * Returns a pointer to the buffer if found, NULL otherwise.
+ */
+char *
+Entity_ValueForKey(const char *string, const char *key, char *buffer, int buflen)
+{
+    assert(buflen > 0);
+
+    buffer[0] = 0;
+
+    /* Ensure we actually find the start of the entity */
+    if (!string)
+        return NULL;
+    string = COM_Parse(string);
+    if (!string)
+        return NULL;
+    if (com_token[0] != '{')
+        return NULL;
+
+    /* Parse the keys until we find the one we want */
+    while (1) {
+        string = COM_Parse(string);
+        if (!string)
+            break;
+        if (com_token[0] == '}')
+            break;
+
+        /*
+         * Clean the key by excluding a leading underscore and
+         * removing trailing whitespace.
+         */
+        const char *cur = (com_token[0] == '_') ? com_token + 1 : com_token;
+        const char *end = cur + strlen(cur) - 1;
+        while (*end == ' ')
+            end--;
+
+        /* If the key doesn't match, discard the value and continue */
+        if (strncmp(cur, key, cur - end + 1)) {
+            string = COM_Parse(string);
+            if (!string)
+                return NULL;
+            continue;
+        }
+
+        /* Key matches - copy the value into the buffer and return */
+        string = COM_Parse(string);
+        qstrncpy(buffer, com_token, buflen);
+        return buffer;
+    }
+
+    return NULL;
+}
+
+
 // FIXME - everything below is QW only... move it?
 #ifdef QW_HACK
 /*
