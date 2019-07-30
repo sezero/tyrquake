@@ -1004,6 +1004,16 @@ Mod_ProcessSurface(brushmodel_t *brushmodel, msurface_t *surf)
 #endif
     } else if (!strncmp(texturename, "*", 1)) {
 	surf->flags |= SURF_DRAWTURB | SURF_DRAWTILED;
+        // Detect special liquid types
+        if (!strncmp (texturename, "*lava", 5))
+            surf->flags |= SURF_DRAWLAVA;
+        else if (!strncmp (texturename, "*slime", 6))
+            surf->flags |= SURF_DRAWSLIME;
+        else if (!strncmp (texturename, "*tele", 5))
+            surf->flags |= SURF_DRAWTELE;
+        else
+            surf->flags |= SURF_DRAWWATER;
+
 	for (i = 0; i < 2; i++) {
 	    surf->extents[i] = 16384;
 	    surf->texturemins[i] = -8192;

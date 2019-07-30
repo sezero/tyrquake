@@ -748,6 +748,15 @@ DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
 {
     glpoly_t *poly = NULL;
 
+    /* Init the correct alpha value */
+    float alpha = map_wateralpha;
+    if (surf->flags & SURF_DRAWSLIME)
+        alpha = map_slimealpha;
+    else if (surf->flags & SURF_DRAWLAVA)
+        alpha = map_lavaalpha;
+    else if (surf->flags & SURF_DRAWTELE)
+        alpha = map_telealpha;
+
     for ( ; surf; surf = surf->chain) {
 	for (poly = surf->polys ; poly; poly = poly->next) {
 	    if (!TriBuf_CheckSpacePoly(buffer, poly))
@@ -758,7 +767,7 @@ DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
     }
  drawBuffer:
     if (buffer->numindices) {
-	TriBuf_DrawTurb(buffer, texture, r_wateralpha.value);
+	TriBuf_DrawTurb(buffer, texture, alpha);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
 	if (poly)
@@ -850,8 +859,12 @@ DrawMaterialChains(const entity_t *e)
             continue;
         }
 	int flags = materialchain->flags;
-	if ((flags & SURF_DRAWTURB) && r_wateralpha.value < 1.0f)
-	    continue; // Transparent surfaces last
+
+        // Skip transparent surfaces for drawing last
+	if ((flags & SURF_DRAWWATER) && map_wateralpha < 1.0f) continue;
+	if ((flags & SURF_DRAWSLIME) && map_slimealpha < 1.0f) continue;
+	if ((flags & SURF_DRAWLAVA) && map_lavaalpha < 1.0f) continue;
+	if ((flags & SURF_DRAWTELE) && map_telealpha < 1.0f) continue;
 
 	surf = materialchain;
 	texture_t *texture = brushmodel->textures[material->texturenum];
@@ -889,9 +902,6 @@ R_DrawTransparentSurfaces(void)
     texture_t *texture;
     triangle_buffer_t buffer = {0};
 
-    if (r_wateralpha.value >= 1.0f)
-	return;
-
     //
     // go back to the world matrix
     //
@@ -916,6 +926,10 @@ R_DrawTransparentSurfaces(void)
 	int flags = materialchain->flags;
 	if (!(flags & SURF_DRAWTURB))
 	    continue;
+        if ((flags & SURF_DRAWWATER) && map_wateralpha >= 1.0f) continue;
+        if ((flags & SURF_DRAWSLIME) && map_slimealpha >= 1.0f) continue;
+        if ((flags & SURF_DRAWLAVA) && map_lavaalpha >= 1.0f) continue;
+        if ((flags & SURF_DRAWTELE) && map_telealpha >= 1.0f) continue;
 
 	texture = brushmodel->textures[material->texturenum];
 	DrawTurbChain(&buffer, materialchain, texture);

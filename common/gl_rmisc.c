@@ -200,6 +200,16 @@ GL_Extensions_f()
     }
 }
 
+void R_WaterAlpha_f(cvar_t *cvar) { map_wateralpha = cvar->value; }
+void R_SlimeAlpha_f(cvar_t *cvar) { map_slimealpha = cvar->value; }
+void R_LavaAlpha_f(cvar_t *cvar)  { map_lavaalpha  = cvar->value; }
+void R_TeleAlpha_f(cvar_t *cvar)  { map_telealpha  = cvar->value; }
+
+cvar_t r_wateralpha = { "r_wateralpha", "1", true, .callback = R_WaterAlpha_f };
+cvar_t r_slimealpha = { "r_slimealpha", "1", true, .callback = R_SlimeAlpha_f };
+cvar_t r_lavaalpha  = { "r_lavaalpha",  "1", true, .callback = R_LavaAlpha_f  };
+cvar_t r_telealpha  = { "r_telealpha",  "1", true, .callback = R_TeleAlpha_f  };
+
 /*
 ===============
 R_Init
@@ -228,7 +238,12 @@ R_Init(void)
     Cvar_RegisterVariable(&r_norefresh);
     Cvar_RegisterVariable(&r_lightmap);
     Cvar_RegisterVariable(&r_mirroralpha);
+
     Cvar_RegisterVariable(&r_wateralpha);
+    Cvar_RegisterVariable(&r_slimealpha);
+    Cvar_RegisterVariable(&r_lavaalpha);
+    Cvar_RegisterVariable(&r_telealpha);
+
     Cvar_RegisterVariable(&r_dynamic);
     Cvar_RegisterVariable(&r_novis);
     Cvar_RegisterVariable(&r_waterwarp);
@@ -456,6 +471,35 @@ R_TranslatePlayerSkin(int playernum)
     Hunk_FreeToLowMark(mark);
 }
 
+float map_wateralpha;
+float map_slimealpha;
+float map_lavaalpha;
+float map_telealpha;
+
+static void
+Alpha_NewMap()
+{
+    char buffer[16];
+    char *value;
+
+    map_wateralpha = r_wateralpha.value;
+    map_slimealpha = r_slimealpha.value;
+    map_lavaalpha = r_lavaalpha.value;
+    map_telealpha = r_telealpha.value;
+
+    value = Entity_ValueForKey(cl.worldmodel->entities, "wateralpha", buffer, sizeof(buffer));
+    map_wateralpha = value ? atof(value) : r_wateralpha.value;
+
+    value = Entity_ValueForKey(cl.worldmodel->entities, "slimealpha", buffer, sizeof(buffer));
+    map_slimealpha = value ? atof(value) : r_slimealpha.value;
+
+    value = Entity_ValueForKey(cl.worldmodel->entities, "lavaalpha", buffer, sizeof(buffer));
+    map_lavaalpha = value ? atof(value) : r_lavaalpha.value;
+
+    value = Entity_ValueForKey(cl.worldmodel->entities, "telealpha", buffer, sizeof(buffer));
+    map_telealpha = value ? atof(value) : r_telealpha.value;
+}
+
 
 /*
 ===============
@@ -496,7 +540,8 @@ R_NewMap(void)
         break;
     }
 
-    Fog_NewMap(); // Read fog parameters from worldspawn
+    Fog_NewMap();   // Read fog parameters from worldspawn
+    Alpha_NewMap(); // Read water/slime/lava/tele alpha values from worldspawn
 }
 
 

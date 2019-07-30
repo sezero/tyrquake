@@ -79,7 +79,6 @@ cvar_t r_drawviewmodel = { "r_drawviewmodel", "1" };
 cvar_t r_speeds = { "r_speeds", "0" };
 cvar_t r_lightmap = { "r_lightmap", "0" };
 cvar_t r_mirroralpha = { "r_mirroralpha", "1" };
-cvar_t r_wateralpha = { "r_wateralpha", "1", true };
 cvar_t r_dynamic = { "r_dynamic", "1" };
 cvar_t r_novis = { "r_novis", "0" };
 #ifdef QW_HACK
