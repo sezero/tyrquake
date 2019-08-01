@@ -100,7 +100,7 @@ R_InitParticleTexture(void)
         .height = 8,
         .pixels = &dottexture[0][0],
     };
-    particletexture = GL_AllocateTexture("@particle", &particle, TEXTURE_TYPE_PARTICLE);
+    particletexture = GL_AllocTexture8("@particle", &particle, TEXTURE_TYPE_PARTICLE);
     GL_Bind(particletexture);
 
     glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 8, 8, 0, GL_RGBA,
@@ -452,9 +452,9 @@ R_TranslatePlayerSkin(int playernum)
     playertexture_t *playertexture = &playertextures[playernum];
     playertexture->fullbright = QPic_HasFullbrights(&playerpic);
     if (!playertexture->texture.base)
-        playertexture->texture.base = GL_AllocateTexture(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
+        playertexture->texture.base = GL_AllocTexture8(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     if (!playertexture->texture.fullbright)
-        playertexture->texture.base = GL_AllocateTexture(va("@player%02d_fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
+        playertexture->texture.base = GL_AllocTexture8(va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
 
     GL_Bind(playertexture->texture.base);
     translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);

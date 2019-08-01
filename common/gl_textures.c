@@ -381,28 +381,25 @@ GL_Upload8_GLPic(glpic_t *glpic)
 
 /*
 ================
-GL_AllocateTexture
+GL_AllocTexture
 
 Return an existing texture reference if we already have one for this
 name (and the CRC matches).  Otherwise allocate and configure a new
 one.
 ================
 */
-int
-GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type)
+static int
+GL_AllocTexture(const char *name, unsigned short crc, int width, int height, enum texture_type type)
 {
     int i;
     gltexture_t *glt;
-    unsigned short crc;
-
-    crc = CRC_Block(pic->pixels, pic->width * pic->height);
 
     /* Check if the texture is already present, if so then return it. */
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
         if (!strcmp(name, glt->name)) {
             if (crc != glt->crc)
                 goto GL_LoadTexture_setup;
-            if (pic->width != glt->width || pic->height != glt->height)
+            if (width != glt->width || height != glt->height)
                 goto GL_LoadTexture_setup;
             return glt->texnum;
         }
@@ -417,17 +414,31 @@ GL_AllocateTexture(const char *name, const qpic8_t *pic, enum texture_type type)
 
   GL_LoadTexture_setup:
     glt->crc = crc;
-    glt->width = pic->width;
-    glt->height = pic->height;
+    glt->width = width;
+    glt->height = height;
     glt->type = type;
 
     return glt->texnum;
 }
 
 int
-GL_LoadTexture(const char *name, qpic8_t *pic, enum texture_type type)
+GL_AllocTexture8(const char *name, const qpic8_t *pic, enum texture_type type)
 {
-    int texnum = GL_AllocateTexture(name, pic, type);
+    unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
+    return GL_AllocTexture(name, crc, pic->width, pic->height, type);
+}
+
+int
+GL_AllocTexture32(const char *name, const qpic32_t *pic, enum texture_type type)
+{
+    unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
+    return GL_AllocTexture(name, crc, pic->width, pic->height, type);
+}
+
+int
+GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type)
+{
+    int texnum = GL_AllocTexture8(name, pic, type);
 
     if (!isDedicated) {
 	GL_Bind(texnum);
@@ -438,9 +449,9 @@ GL_LoadTexture(const char *name, qpic8_t *pic, enum texture_type type)
 }
 
 int
-GL_LoadTexture_GLPic(const char *name, glpic_t *glpic)
+GL_LoadTexture8_GLPic(const char *name, glpic_t *glpic)
 {
-    int texnum = GL_AllocateTexture(name, &glpic->pic, TEXTURE_TYPE_HUD);
+    int texnum = GL_AllocTexture8(name, &glpic->pic, TEXTURE_TYPE_HUD);
 
     if (!isDedicated) {
 	GL_Bind(texnum);

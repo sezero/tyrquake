@@ -1377,7 +1377,7 @@ GL_UploadLightmaps(const glbrushmodel_resource_t *resources)
             pic.width = pic.stride = BLOCK_WIDTH;
             pic.height = BLOCK_HEIGHT;
             pic.pixels = block->data;
-            block->texture = GL_AllocateTexture(va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
+            block->texture = GL_AllocTexture8(va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
         }
 
 	GL_Bind(block->texture);

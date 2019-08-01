@@ -96,7 +96,7 @@ R_NetGraph(void)
         .pixels = &netgraph_pixels[0][0],
     };
     if (!netgraphtexture) {
-        netgraphtexture = GL_AllocateTexture("@netgraph", &netgraph, TEXTURE_TYPE_HUD);
+        netgraphtexture = GL_AllocTexture8("@netgraph", &netgraph, TEXTURE_TYPE_HUD);
     }
     GL_Bind(netgraphtexture);
     GL_Upload8(&netgraph, TEXTURE_TYPE_HUD);

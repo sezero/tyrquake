@@ -247,7 +247,7 @@ GL_LoadSpriteTexture(const char *name, const mspriteframe_t *frame)
     pic.height = frame->height;
     pic.pixels = spritedata->pixels;
 
-    spritedata->texture = GL_LoadTexture(name, &pic, TEXTURE_TYPE_SPRITE);
+    spritedata->texture = GL_LoadTexture8(name, &pic, TEXTURE_TYPE_SPRITE);
 }
 
 void
@@ -416,13 +416,13 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
     for (i = 0; i < aliashdr->numskins; i++) {
         pic.width = aliashdr->skinwidth;
         pic.height = aliashdr->skinheight;
-        textures[i].base = GL_LoadTexture(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
+        textures[i].base = GL_LoadTexture8(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
         GL_Aliashdr(aliashdr)->texturewidth = pic.width;
         GL_Aliashdr(aliashdr)->textureheight = pic.height;
         if (QPic_HasFullbrights(&pic)) {
             pic.width = aliashdr->skinwidth;
             pic.height  = aliashdr->skinheight;
-            textures[i].fullbright = GL_LoadTexture(va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
+            textures[i].fullbright = GL_LoadTexture8(va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
         } else {
             textures[i].fullbright = 0;
         }
