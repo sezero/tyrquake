@@ -240,6 +240,24 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
                 texinfo->texture = basetexture;
         }
     }
+
+    /*
+     * Ensure all sky texinfos point to the active sky texture (there
+     * can be more than one sky texture in a brushmodel, but only the
+     * last one is used).
+     */
+    texture_t *skytexture = NULL;
+    for (i = 0; i < brushmodel->numtextures; i++) {
+        if (!strncmp(brushmodel->textures[i]->name, "sky", 3))
+            skytexture = brushmodel->textures[i];
+    }
+    if (skytexture) {
+        mtexinfo_t *texinfo = brushmodel->texinfo;
+        for (i = 0; i < brushmodel->numtexinfo; i++, texinfo++) {
+            if (!strncmp(texinfo->texture->name, "sky", 3))
+                texinfo->texture = skytexture;
+        }
+    }
 }
 
 static enum material_class
