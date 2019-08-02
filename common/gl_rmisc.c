@@ -251,6 +251,7 @@ R_Init(void)
     Cvar_RegisterVariable(&gl_finish);
     Cvar_RegisterVariable(&gl_texsort);
     Cvar_RegisterVariable(&gl_fullbrights);
+    Cvar_RegisterVariable(&gl_farclip);
 
     Cvar_RegisterVariable(&_gl_allowgammafallback);
     Cvar_RegisterVariable(&_gl_drawhull);
