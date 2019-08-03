@@ -996,20 +996,13 @@ COM_DefaultExtension(const char *path, const char *extension, char *out,
     return 0;
 }
 
-int
-COM_CheckExtension(const char *path, const char *extn)
+static int
+COM_CheckSuffix(const char *path, const char *suffix)
 {
-    char *pos;
-    int ret = 0;
+    int pathlen = strlen(path);
+    int suffixlen = strlen(suffix);
 
-    pos = strrchr(path, '.');
-    if (pos) {
-	if (extn[0] != '.')
-	    pos++;
-	ret = pos && !strcasecmp(pos, extn);
-    }
-
-    return ret;
+    return pathlen >= suffixlen && !strcmp(path + pathlen - suffixlen, suffix);
 }
 
 //============================================================================
@@ -1534,25 +1527,25 @@ COM_FOpenFile(const char *filename, FILE **file)
 }
 
 static void
-COM_ScanDirDir(struct stree_root *root, DIR *dir, const char *pfx,
-	       const char *ext, qboolean stripext)
+COM_ScanDirDir(struct stree_root *root, DIR *dir,
+               const char *prefix, const char *suffix, qboolean strip)
 {
-    int pfx_len, ext_len;
+    int prefix_len, suffix_len;
     struct dirent *d;
     char *fname;
 
-    pfx_len = pfx ? strlen(pfx) : 0;
-    ext_len = ext ? strlen(ext) : 0;
+    prefix_len = prefix ? strlen(prefix) : 0;
+    suffix_len = suffix ? strlen(suffix) : 0;
 
     while ((d = readdir(dir))) {
-	if (pfx && pfx_len && strncasecmp(d->d_name, pfx, pfx_len))
+	if (prefix && prefix_len && strncasecmp(d->d_name, prefix, prefix_len))
 	    continue;
-	if (ext && ext_len && !COM_CheckExtension(d->d_name, ext))
+	if (suffix && suffix_len && !COM_CheckSuffix(d->d_name, suffix))
 	    continue;
 
 	int len = strlen(d->d_name);
-	if (ext && stripext)
-	    len -= ext_len;
+	if (suffix && strip)
+	    len -= suffix_len;
 	fname = Z_StrnDup(d->d_name, len);
 	STree_InsertAlloc(root, fname, true);
 	Z_Free(fname);
@@ -1561,14 +1554,14 @@ COM_ScanDirDir(struct stree_root *root, DIR *dir, const char *pfx,
 
 static void
 COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
-	       const char *pfx, const char *ext, qboolean stripext)
+               const char *prefix, const char *suffix, qboolean strip)
 {
-    int i, path_len, pfx_len, ext_len, len;
+    int i, path_len, prefix_len, suffix_len, len;
     char *pak_f, *fname;
 
     path_len = path ? strlen(path) : 0;
-    pfx_len = pfx ? strlen(pfx) : 0;
-    ext_len = ext ? strlen(ext) : 0;
+    prefix_len = prefix ? strlen(prefix) : 0;
+    suffix_len = suffix ? strlen(suffix) : 0;
 
     for (i = 0; i < pak->numfiles; i++) {
 	/* Check the path prefix */
@@ -1585,16 +1578,16 @@ COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
 	if (strchr(pak_f, '/'))
 	    continue;
 
-	/* Check the prefix and extension, if set */
-	if (pfx && pfx_len && strncasecmp(pak_f, pfx, pfx_len))
+	/* Check the prefix and suffix, if set */
+	if (prefix && prefix_len && strncasecmp(pak_f, prefix, prefix_len))
 	    continue;
-	if (ext && ext_len && !COM_CheckExtension(pak_f, ext))
+	if (suffix && suffix_len && !COM_CheckSuffix(pak_f, suffix))
 	    continue;
 
 	/* Ok, we have a match. Add it */
 	len = strlen(pak_f);
-	if (ext && stripext)
-	    len -= ext_len;
+	if (suffix && strip)
+	    len -= suffix_len;
 	fname = Z_StrnDup(pak_f, len);
 	STree_InsertAlloc(root, fname, true);
 	Z_Free(fname);
@@ -1606,13 +1599,13 @@ COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
 COM_ScanDir
 
 Scan the contents of a the given directory. Any filenames that match
-both the given prefix and extension are added to the string tree.
+both the given prefix and suffix are added to the string tree.
 Caller MUST have already called STree_AllocInit()
 ============
 */
 void
-COM_ScanDir(struct stree_root *root, const char *path, const char *pfx,
-	    const char *ext, qboolean stripext)
+COM_ScanDir(struct stree_root *root, const char *path,
+            const char *prefix, const char *suffix, qboolean strip)
 {
     searchpath_t *search;
     char fullpath[MAX_OSPATH];
@@ -1620,13 +1613,13 @@ COM_ScanDir(struct stree_root *root, const char *path, const char *pfx,
 
     for (search = com_searchpaths; search; search = search->next) {
 	if (search->pack) {
-	    COM_ScanDirPak(root, search->pack, path, pfx, ext, stripext);
+	    COM_ScanDirPak(root, search->pack, path, prefix, suffix, strip);
 	} else {
 	    qsnprintf(fullpath, sizeof(fullpath), "%s/%s", search->filename, path);
 	    fullpath[MAX_OSPATH - 1] = '\0';
 	    dir = opendir(fullpath);
 	    if (dir) {
-		COM_ScanDirDir(root, dir, pfx, ext, stripext);
+		COM_ScanDirDir(root, dir, prefix, suffix, strip);
 		closedir(dir);
 	    }
 	}

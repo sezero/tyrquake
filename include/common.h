@@ -227,13 +227,10 @@ void COM_InitArgv(int argc, const char **argv);
 const char *COM_SkipPath(const char *pathname);
 void COM_StripExtension(const char *filename, char *out, size_t buflen);
 void COM_FileBase(const char *in, char *out, size_t buflen);
-int COM_DefaultExtension(const char *path, const char *extension,
-			 char *out, size_t buflen);
-int COM_CheckExtension(const char *path, const char *extn);
-
-char *va(const char *format, ...) __attribute__((format(printf,1,2)));
+int COM_DefaultExtension(const char *path, const char *extension, char *out, size_t buflen);
 
 // does a varargs printf into a temp buffer
+char *va(const char *format, ...) __attribute__((format(printf,1,2)));
 
 //============================================================================
 
@@ -244,9 +241,7 @@ extern char com_gamedir[MAX_OSPATH];
 
 void COM_WriteFile(const char *filename, const void *data, int len);
 int COM_FOpenFile(const char *filename, FILE **file);
-void COM_ScanDir(struct stree_root *root, const char *path,
-		 const char *pfx, const char *ext, qboolean stripext);
-
+void COM_ScanDir(struct stree_root *root, const char *path, const char *prefix, const char *suffix, qboolean strip);
 void *COM_LoadStackFile(const char *path, void *buffer, size_t buffersize, size_t *size);
 void *COM_LoadTempFile(const char *path, size_t *size);
 void *COM_LoadHunkFile(const char *path, size_t *size);
