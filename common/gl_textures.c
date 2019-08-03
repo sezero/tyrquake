@@ -41,20 +41,20 @@ static cvar_t gl_picmip = { "gl_picmip", "0" };
 
 /* Indexed by enum texture_type */
 const texture_properties_t texture_properties[] = {
-    // Palette          Alpha Operation              mipmap picmip playermip
-    { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // CHARSET
-    { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // HUD
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  true,  false }, // WORLD
-    { &qpal_fullbright, QPIC_ALPHA_OP_NONE,          true,  true,  false }, // WORLD_FULLBRIGHT
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, false }, // SKY_BACKGROUND
-    { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // SKY_FOREGROUND
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, true,  false }, // ALIAS_SKIN
-    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, true,  false }, // ALIAS_SKIN_FULLBRIGHT
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, true  }, // PLAYER_SKIN
-    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, false, true  }, // PLAYER_SKIN_FULLBRIGHT
-    { NULL,             QPIC_ALPHA_OP_NONE,          false, false, false }, // LIGHTMAP
-    { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false }, // PARTICLE
-    { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false }, // SPRITE
+    // Palette          Alpha Operation              mipmap picmip plyrmp repeat
+    { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // CHARSET
+    { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // HUD
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  true,  false, true  }, // WORLD
+    { &qpal_fullbright, QPIC_ALPHA_OP_NONE,          true,  true,  false, true  }, // WORLD_FULLBRIGHT
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // SKY_BACKGROUND
+    { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // SKY_FOREGROUND
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, true,  false, false }, // ALIAS_SKIN
+    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, true,  false, false }, // ALIAS_SKIN_FULLBRIGHT
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, true,  false }, // PLAYER_SKIN
+    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, false, true,  false }, // PLAYER_SKIN_FULLBRIGHT
+    { NULL,             QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
+    { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // PARTICLE
+    { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, false }, // SPRITE
 };
 
 typedef struct {
@@ -292,6 +292,11 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
     }
+
+    /* Set texture wrap mode */
+    GLenum wrap = texture_properties[type].repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
     Hunk_FreeToLowMark(mark);
 

@@ -95,6 +95,7 @@ typedef struct {
     qboolean mipmap;
     qboolean picmip;
     qboolean playermip;
+    qboolean repeat;
 } texture_properties_t;
 
 /* Indexed by enum texture_type */
