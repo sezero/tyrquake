@@ -999,9 +999,6 @@ Mod_ProcessSurface(brushmodel_t *brushmodel, msurface_t *surf)
 
     if (!strncmp(texturename, "sky", 3)) {
 	surf->flags |= SURF_DRAWSKY | SURF_DRAWTILED;
-#ifdef GLQUAKE
-	GL_SubdivideSurface(brushmodel, surf);
-#endif
     } else if (texturename[0] == '*') {
 	surf->flags |= SURF_DRAWTURB | SURF_DRAWTILED;
         // Detect special liquid types

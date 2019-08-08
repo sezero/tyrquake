@@ -290,6 +290,7 @@ R_Init(void)
     R_InitTranslationTable();
 
     Fog_Init();
+    Sky_Init();
 }
 
 
@@ -555,6 +556,7 @@ R_NewMap(void)
 
     Fog_NewMap();   // Read fog parameters from worldspawn
     Alpha_NewMap(); // Read water/slime/lava/tele alpha values from worldspawn
+    Sky_NewMap();
 }
 
 

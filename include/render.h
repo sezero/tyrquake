@@ -112,6 +112,18 @@ typedef struct entity_s {
     float currentanglestime;
 } entity_t;
 
+static inline qboolean
+R_EntityIsRotated(const entity_t *entity)
+{
+    return !!(entity->angles[0] || entity->angles[1] || entity->angles[2]);
+}
+
+static inline qboolean
+R_EntityIsTranslated(const entity_t *entity)
+{
+    return !!(entity->origin[0] || entity->origin[1] || entity->origin[2]);
+}
+
 extern cvar_t r_lerpmodels;
 extern cvar_t r_lerpmove;
 

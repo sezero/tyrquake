@@ -49,9 +49,10 @@ typedef struct lm_block_s {
  * Order is chosen to minimise state changes necessary when rendering.
  */
 enum material_class {
+    MATERIAL_START = 0,
+    MATERIAL_SKY = 0,        // Sky textures
     MATERIAL_BASE,           // World textures, lightmapped
     MATERIAL_FULLBRIGHT,     // World textures with fullbright mask
-    MATERIAL_SKY,            // Sky textures
     MATERIAL_LIQUID,         // Water, Lava, Slime (maybe split later)
     MATERIAL_END,            // Indexes one past the last material
 };
@@ -71,6 +72,10 @@ typedef struct material_animation {
 } material_animation_t;
 
 typedef struct {
+    // Indicates the maximum number of verticies on any submodel sky poly
+    // Used to more efficiently handle sky surfaces on submodels
+    int max_submodel_skypoly_verts;
+
     // Lightmap blocks
     int numblocks;
     lm_block_t *blocks;
@@ -79,6 +84,9 @@ typedef struct {
 typedef struct {
     // Shared resources for all brush models
     glbrushmodel_resource_t *resources;
+
+    // Flag if we need to handle sky textured surfaces on this model
+    qboolean drawsky;
 
     // Indices where each class of material begins in the materials array
     int material_index[MATERIAL_END + 1];

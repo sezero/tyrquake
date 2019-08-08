@@ -201,6 +201,22 @@ QPic_8to32(const qpic8_t *in, qpic32_t *out, const qpalette32_t *palette, enum q
     QPic32_AlphaFix(out, alpha_op);
 }
 
+void
+QPic32_ScaleAlpha(qpic32_t *pic, byte alpha)
+{
+    const int width = pic->width;
+    const int height = pic->height;
+    qpixel32_t *pixel = pic->pixels;
+    int x, y;
+
+    for (y = 0; y < height; y++) {
+	for (x = 0; x < width; x++) {
+	    pixel->c.alpha = ((int)pixel->c.alpha * alpha / 255);
+            pixel++;
+        }
+    }
+}
+
 /*
 ================
 QPic32_Stretch

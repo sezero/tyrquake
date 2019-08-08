@@ -79,6 +79,7 @@ enum texture_type {
     TEXTURE_TYPE_WORLD_FULLBRIGHT,
     TEXTURE_TYPE_SKY_BACKGROUND,
     TEXTURE_TYPE_SKY_FOREGROUND,
+    TEXTURE_TYPE_SKYBOX,
     TEXTURE_TYPE_ALIAS_SKIN,
     TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT,
     TEXTURE_TYPE_PLAYER_SKIN,
@@ -116,8 +117,11 @@ typedef struct {
 void GL_FreeTextures();
 
 void GL_Upload8(qpic8_t *pic, enum texture_type type);
+void GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha);
+void GL_Upload32(qpic32_t *pic, enum texture_type type);
 void GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translation);
 int GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type);
+int GL_LoadTexture8_Alpha(const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
 int GL_LoadTexture8_GLPic(const char *name, glpic_t *glpic);
 int GL_FindTexture(const char *name);
 int GL_AllocTexture8(const char *name, const qpic8_t *pic, enum texture_type type);
@@ -383,6 +387,21 @@ void GL_BuildLightmaps();
 void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
 
 //
+// gl_sky.c
+//
+extern cvar_t r_sky_quality;
+extern cvar_t r_fastsky;
+extern cvar_t r_skyalpha;
+extern texture_t skytextures[6];
+extern char map_skyboxname[256];
+extern float map_skyfog;
+extern vec3_t skyflatcolor;
+void Sky_NewMap();
+void Sky_Init();
+void Sky_InitBounds(float mins[6][2], float maxs[6][2]);
+void Sky_AddPolyToSkyboxBounds(const glpoly_t *poly, float mins[6][2], float maxs[6][2]);
+
+//
 // tga.c
 //
 qpic32_t *TGA_LoadHunkFile(const char *filename, const char *hunkname);
@@ -409,6 +428,7 @@ void Fog_StopBlend();
 void Fog_ParseServerMessage();
 void Fog_NewMap();
 
+const float *Fog_GetColor();
 float Fog_GetDensity();
 
 #endif /* GLQUAKE_H */

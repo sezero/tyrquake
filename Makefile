@@ -763,6 +763,7 @@ GL_OBJS := \
 	gl_rmain.o	\
 	gl_rmisc.o	\
 	gl_rsurf.o	\
+	gl_sky.o	\
 	gl_textures.o	\
 	gl_warp.o	\
 	qpic.o		\

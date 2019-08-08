@@ -48,6 +48,7 @@ const texture_properties_t texture_properties[] = {
     { &qpal_fullbright, QPIC_ALPHA_OP_NONE,          true,  true,  false, true  }, // WORLD_FULLBRIGHT
     { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // SKY_BACKGROUND
     { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // SKY_FOREGROUND
+    { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // SKYBOX
     { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, true,  false, false }, // ALIAS_SKIN
     { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, true,  false, false }, // ALIAS_SKIN_FULLBRIGHT
     { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, true,  false }, // PLAYER_SKIN
@@ -205,7 +206,7 @@ GL_FindTexture(const char *name)
  * getting expanded, since the texture coordinates need to be adjusted
  * accordingly when drawing.
  */
-static void
+void
 GL_Upload32(qpic32_t *pic, enum texture_type type)
 {
     GLint internal_format;
@@ -319,10 +320,12 @@ GL_Upload8
 
 Sets the actual uploaded width/height in the original pic, which matters for skin
 textures that get expanded up to the nearest power-of-two size.
+
+The alpha version will scale the texture alpha channel by a factor of (alpha / 255).
 ===============
 */
 void
-GL_Upload8(qpic8_t *pic, enum texture_type type)
+GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha)
 {
     const qpalette32_t *palette = texture_properties[type].palette;
     enum qpic_alpha_operation alpha_op = texture_properties[type].alpha_op;
@@ -333,12 +336,20 @@ GL_Upload8(qpic8_t *pic, enum texture_type type)
 
     pic32 = QPic32_Alloc(pic->width, pic->height);
     QPic_8to32(pic, pic32, palette, alpha_op);
+    if (alpha != 255)
+        QPic32_ScaleAlpha(pic32, alpha);
     GL_Upload32(pic32, type);
 
     pic->width = pic32->width;
     pic->height = pic32->height;
 
     Hunk_FreeToLowMark(mark);
+}
+
+void
+GL_Upload8(qpic8_t *pic, enum texture_type type)
+{
+    GL_Upload8_Alpha(pic, type, 255);
 }
 
 void
@@ -449,16 +460,22 @@ GL_AllocTexture32(const char *name, const qpic32_t *pic, enum texture_type type)
 }
 
 int
-GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type)
+GL_LoadTexture8_Alpha(const char *name, qpic8_t *pic, enum texture_type type, byte alpha)
 {
     int texnum = GL_AllocTexture8(name, pic, type);
 
     if (!isDedicated) {
 	GL_Bind(texnum);
-	GL_Upload8(pic, type);
+	GL_Upload8_Alpha(pic, type, alpha);
     }
 
     return texnum;
+}
+
+int
+GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type)
+{
+    return GL_LoadTexture8_Alpha(name, pic, type, 255);
 }
 
 int

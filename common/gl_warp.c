@@ -170,29 +170,3 @@ GL_SubdivideSurface(brushmodel_t *brushmodel, msurface_t *surf)
 
 //=========================================================
 
-/*
-=============
-R_InitSky
-
-A sky texture is 256*128, with the right side being a masked overlay
-==============
-*/
-void
-R_InitSky(texture_t *mt)
-{
-    byte *src = (byte *)mt + mt->offsets[0];
-    qpic8_t pic;
-
-    /* Set up the pic to describe the sky texture */
-    pic.width = 128;
-    pic.height = 128;
-    pic.stride = 256;
-
-    /* Create the solid layer */
-    pic.pixels = src + 128;
-    mt->gl_texturenum = GL_LoadTexture8(va("@%s:background", mt->name), &pic, TEXTURE_TYPE_SKY_BACKGROUND);
-
-    /* Create the alpha layer */
-    pic.pixels = src;
-    mt->gl_texturenum_alpha = GL_LoadTexture8(va("@%s:foreground", mt->name), &pic, TEXTURE_TYPE_SKY_FOREGROUND);
-}

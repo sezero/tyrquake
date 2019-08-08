@@ -19,6 +19,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // gl_rsurf.c: surface-related refresh code
 
+#include <float.h>
+
 #include "console.h"
 #include "gl_model.h"
 #include "glquake.h"
@@ -180,7 +182,6 @@ static int cnttextures[3] = { -1, -1, -1 };	// cached
 
 /*
  * Makes the given texture unit active
- * FIXME: only aware of two texture units...
  */
 void
 GL_SelectTexture(GLenum target)
@@ -446,39 +447,6 @@ TriBuf_AddTurbPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
     TriBuf_AddPolyIndices(buffer, poly);
 }
 
-static void
-TriBuf_AddSkyPoly(triangle_buffer_t *buffer, const glpoly_t *poly, float speed1, float speed2)
-{
-    int i;
-    vec3_t dir;
-    float length;
-
-    assert(TriBuf_CheckSpacePoly(buffer, poly));
-
-    const float *src = &poly->verts[0][0];
-    float *dst = &buffer->verts[buffer->numverts][0];
-    for (i = 0; i < poly->numverts; i++) {
-	VectorCopy(src, dst);
-
-	VectorSubtract(src, r_origin, dir);
-	dir[2] *= 3;	// flatten the sphere
-	length = DotProduct(dir, dir);
-	length = sqrtf(length);
-	length = 6 * 63 / length;
-	dir[0] *= length;
-	dir[1] *= length;
-
-	dst[3] = (speed1 + dir[0]) * (1.0 / 128);
-	dst[4] = (speed1 + dir[1]) * (1.0 / 128);
-	dst[5] = (speed2 + dir[0]) * (1.0 / 128);
-	dst[6] = (speed2 + dir[1]) * (1.0 / 128);
-
-	src += VERTEXSIZE;
-	dst += VERTEXSIZE;
-    }
-    TriBuf_AddPolyIndices(buffer, poly);
-}
-
 /*
  * Water/Slime/Lava/Tele are fullbright (no lightmap)
  * May be blended, depending on r_wateralpha setting
@@ -601,6 +569,25 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 	gl_draw_calls += 2;
 	gl_verts_submitted += buffer->numverts * 2;
 	gl_indices_submitted += buffer->numindices * 2;
+    }
+
+    // TODO: Use single pass with a skyfog texture of the right color/alpha
+    if (Fog_GetDensity() > 0 && map_skyfog > 0) {
+        GL_DisableMultitexture();
+        glDisable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        const float *color = Fog_GetColor();
+        glColor4f(color[0], color[1], color[2], qclamp(0.0f, map_skyfog, 1.0f));
+
+	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	gl_draw_calls++;
+	gl_verts_submitted += buffer->numverts;
+	gl_indices_submitted += buffer->numindices;
+
+        glColor4f(1, 1, 1, 1);
+        glDisable(GL_BLEND);
+        glEnable(GL_TEXTURE_2D);
+        GL_EnableMultitexture();
     }
 }
 
@@ -743,33 +730,588 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
     }
 }
 
+// ---------------------------------------------------------------------
+// NEW SKY
+// ---------------------------------------------------------------------
+
+/* Sky face corners, in drawing order */
+static const vec3_t skyfaces[6][4] = {
+    { {  1,  1, -1, }, {  1,  1,  1 }, {  1, -1,  1 }, {  1, -1, -1 } }, // Right (x =>  1)
+    { { -1, -1, -1, }, { -1, -1,  1 }, { -1,  1,  1 }, { -1,  1, -1 } }, // Left  (x => -1)
+    { { -1,  1, -1, }, { -1,  1,  1 }, {  1,  1,  1 }, {  1,  1, -1 } }, // Back  (y =>  1)
+    { {  1, -1, -1, }, {  1, -1,  1 }, { -1, -1,  1 }, { -1, -1, -1 } }, // Front (y => -1)
+    { {  1,  1,  1, }, { -1,  1,  1 }, { -1, -1,  1 }, {  1, -1,  1 } }, // Up    (z =>  1)
+    { { -1,  1, -1, }, {  1,  1, -1 }, {  1, -1, -1 }, { -1, -1, -1 } }, // Down  (z => -1)
+};
+
+/* Indicate which vertices of the sky faces are mins/maxes for bounds checking */
+static const int skyfacebounds[6][2] = {
+    { 3, 1 },
+    { 0, 2 },
+    { 0, 2 },
+    { 3, 1 },
+    { 2, 0 },
+    { 3, 1 },
+};
+
+typedef struct {
+    vec3_t origin;
+    vec3_t forward;
+    vec3_t right;
+    vec3_t up;
+    qboolean rotated;
+} transform_t;
+
 static void
-DrawSkyChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
+SetupEntityTransform(const entity_t *entity, transform_t *xfrm)
 {
+    vec3_t origin;
+
+    if (R_EntityIsRotated(entity)) {
+        VectorSubtract(r_refdef.vieworg, entity->origin, origin);
+        AngleVectors(entity->angles, xfrm->forward, xfrm->right, xfrm->up);
+        xfrm->origin[0] = DotProduct(origin, xfrm->forward);
+        xfrm->origin[1] = DotProduct(origin, xfrm->right);
+        xfrm->origin[2] = DotProduct(origin, xfrm->up);
+        xfrm->rotated = true;
+    } else {
+        VectorSubtract(r_refdef.vieworg, entity->origin, xfrm->origin);
+        xfrm->rotated = false;
+    }
+}
+
+static inline void
+BoundsInit(vec3_t mins, vec3_t maxs)
+{
+    mins[0] = mins[1] = mins[2] = FLT_MAX;
+    maxs[0] = maxs[1] = maxs[2] = -FLT_MAX;
+}
+
+static inline void
+BoundsAddPoint(const vec3_t point, vec3_t mins, vec3_t maxs)
+{
+    int i;
+
+    for (i = 0; i < 3; i++) {
+        if (point[i] < mins[i])
+            mins[i] = point[i];
+        if (point[i] > maxs[i])
+            maxs[i] = point[i];
+    }
+}
+
+/*
+ * Transform the polygon and return bounds
+ */
+static void
+TransformPoly(const entity_t *entity, const transform_t *xfrm,
+              const glpoly_t *inpoly, glpoly_t *outpoly, vec3_t mins, vec3_t maxs)
+{
+    const float *in = inpoly->verts[0];
+    float *out = outpoly->verts[0];
+    int i;
+
+    BoundsInit(mins, maxs);
+    outpoly->numverts = inpoly->numverts;
+    if (xfrm->rotated) {
+        for (i = 0; i < inpoly->numverts; i++, in += VERTEXSIZE, out += VERTEXSIZE) {
+            out[0] = entity->origin[0] + in[0] * xfrm->forward[0] - in[1] * xfrm->right[0] + in[2] * xfrm->up[0];
+            out[1] = entity->origin[1] + in[0] * xfrm->forward[1] - in[1] * xfrm->right[1] + in[2] * xfrm->up[1];
+            out[2] = entity->origin[2] + in[0] * xfrm->forward[2] - in[1] * xfrm->right[2] + in[2] * xfrm->up[2];
+            BoundsAddPoint(out, mins, maxs);
+        }
+    } else {
+        for (i = 0; i < inpoly->numverts; i++, in += VERTEXSIZE, out += VERTEXSIZE) {
+            VectorAdd(in, entity->origin, out);
+            BoundsAddPoint(out, mins, maxs);
+        }
+    }
+}
+
+static void
+TriBuf_SimpleFlush(triangle_buffer_t *buffer)
+{
+    if (!buffer->numindices)
+        return;
+
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    gl_draw_calls++;
+    gl_verts_submitted += buffer->numverts;
+    gl_indices_submitted += buffer->numindices;
+
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+}
+
+/*
+ * Check for a sky material on the brushmodel.
+ * Return the material number, or -1 if none exists.
+ */
+static inline int
+SkyMaterialNum(const glbrushmodel_t *glbrushmodel)
+{
+    int materialnum = glbrushmodel->material_index[MATERIAL_SKY];
+    if (materialnum == glbrushmodel->material_index[MATERIAL_SKY + 1])
+        materialnum = -1;
+    return materialnum;
+}
+
+static void
+DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, msurface_t *surf, float mins[6][2], float maxs[6][2])
+{
+    int i, maxverts, skymaterial;
+    glpoly_t *poly;
+    transform_t xfrm;
+    vec3_t polymins, polymaxs;
+    glbrushmodel_t *glbrushmodel;
+
+    for ( ; surf; surf = surf->chain) {
+        if (!surf->polys)
+            continue;
+        if (mins)
+            Sky_AddPolyToSkyboxBounds(surf->polys, mins, maxs);
+        if (!TriBuf_CheckSpacePoly(buffer, surf->polys))
+            TriBuf_SimpleFlush(buffer);
+        TriBuf_AddPoly(buffer, surf->polys);
+    }
+
+    /* If there are (dynamic) submodels with sky surfaces, draw them now */
+    maxverts = GLBrushModel(cl.worldmodel)->resources->max_submodel_skypoly_verts;
+    if (maxverts && r_drawentities.value) {
+        poly = alloca(sizeof(*poly) + maxverts * sizeof(poly->verts[0]));
+        for (i = 0; i < cl_numvisedicts; i++) {
+            entity_t *entity = &cl_visedicts[i];
+            if (entity->model->type != mod_brush)
+                continue;
+            if (!BrushModel(entity->model)->parent)
+                continue;
+            glbrushmodel = GLBrushModel(BrushModel(entity->model));
+            if (!glbrushmodel->drawsky)
+                continue;
+            if (!R_EntityIsTranslated(entity) && !R_EntityIsRotated(entity))
+                continue;
+
+            skymaterial = SkyMaterialNum(glbrushmodel);
+            if (skymaterial < 0)
+                continue;
+            surf = glbrushmodel->materialchains[skymaterial];
+            if (!surf)
+                continue;
+
+            SetupEntityTransform(entity, &xfrm);
+            for ( ; surf; surf = surf->chain) {
+                if (!surf->polys)
+                    continue;
+                float dot = DotProduct(xfrm.origin, surf->plane->normal) - surf->plane->dist;
+                if ((surf->flags & SURF_PLANEBACK) && dot > BACKFACE_EPSILON)
+                    continue;
+                if (!(surf->flags & SURF_PLANEBACK) && dot < -BACKFACE_EPSILON)
+                    continue;
+                TransformPoly(entity, &xfrm, surf->polys, poly, polymins, polymaxs);
+                if (R_CullBox(polymins, polymaxs))
+                    continue;
+                if (mins)
+                    Sky_AddPolyToSkyboxBounds(poly, mins, maxs);
+                if (!TriBuf_CheckSpacePoly(buffer, poly))
+                    TriBuf_SimpleFlush(buffer);
+                TriBuf_AddPoly(buffer, poly);
+            }
+        }
+    }
+    TriBuf_SimpleFlush(buffer);
+}
+
+static void
+DrawSkyChain_MarkDepthAndBounds(triangle_buffer_t *buffer, msurface_t *surf, float mins[6][2], float maxs[6][2])
+{
+    Sky_InitBounds(mins, maxs);
+
+    /* Render the bsp polys to the z-buffer only */
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_DisableMultitexture();
+        qglClientActiveTexture(GL_TEXTURE0);
+    }
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisable(GL_TEXTURE_2D);
+
+    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+
+    /* Render to the depth buffer and accumulate bounds */
+    DrawSkyChain_RenderSkyBrushPolys(buffer, surf, mins, maxs);
+
+    glEnable(GL_TEXTURE_2D);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_EnableMultitexture();
+    }
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+}
+
+static void
+DrawSkyFast(triangle_buffer_t *buffer, msurface_t *surf)
+{
+    /* Render simple flat shaded polys */
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_DisableMultitexture();
+        qglClientActiveTexture(GL_TEXTURE0);
+    }
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisable(GL_TEXTURE_2D);
+
+    glColor3fv(skyflatcolor);
+    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+
+    /* Simply render the sky brush polys, no bounds checking needed */
+    DrawSkyChain_RenderSkyBrushPolys(buffer, surf, NULL, NULL);
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glEnable(GL_TEXTURE_2D);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_EnableMultitexture();
+    }
+}
+
+static void
+DrawSkyBox(triangle_buffer_t *buffer, msurface_t *surf)
+{
+    int facenum;
+    float mins[6][2];
+    float maxs[6][2];
+
+    /*
+     * Write depth values for the actual sky polys.
+     * Calculate bounds information at the same time.
+     */
+    DrawSkyChain_MarkDepthAndBounds(buffer, surf, mins, maxs);
+
+    /* Render the sky box only where we have written depth values */
+    glDepthMask(GL_FALSE);
+    glDepthFunc(GL_GEQUAL);
+
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_DisableMultitexture();
+        qglClientActiveTexture(GL_TEXTURE0);
+    }
+
+    float scale = gl_farclip.value / sqrtf(3.0f);
+
+    for (facenum = 0; facenum < 6; facenum++) {
+        /* Cull skybox faces covered by geometry */
+        if (mins[facenum][0] >= maxs[facenum][0] || mins[facenum][1] >= maxs[facenum][1])
+            continue;
+
+        float *vert = buffer->verts[0];
+
+        VectorMA(r_origin, scale, skyfaces[facenum][0], vert);
+        vert[3] = 0;
+        vert[4] = 0;
+        vert += VERTEXSIZE;
+
+        VectorMA(r_origin, scale, skyfaces[facenum][1], vert);
+        vert[3] = 0;
+        vert[4] = 1;
+        vert += VERTEXSIZE;
+
+        VectorMA(r_origin, scale, skyfaces[facenum][2], vert);
+        vert[3] = 1;
+        vert[4] = 1;
+        vert += VERTEXSIZE;
+
+        VectorMA(r_origin, scale, skyfaces[facenum][3], vert);
+        vert[3] = 1;
+        vert[4] = 0;
+        vert += VERTEXSIZE;
+
+        /* Cull skybox faces outside the view frustum */
+        if (R_CullBox(buffer->verts[skyfacebounds[facenum][0]], buffer->verts[skyfacebounds[facenum][1]]))
+            continue;
+
+        unsigned short *indices = &buffer->indices[0];
+        indices[0] = 0;
+        indices[1] = 1;
+        indices[2] = 2;
+        indices[3] = 0;
+        indices[4] = 2;
+        indices[5] = 3;
+
+        buffer->numverts   = 4;
+        buffer->numindices = 6;
+
+        GL_Bind(skytextures[facenum].gl_texturenum);
+        glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+        glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+        glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+        gl_draw_calls++;
+        gl_verts_submitted += buffer->numverts;
+        gl_indices_submitted += buffer->numindices;
+
+        // TODO: Use single pass with a skyfog texture of the right color/alpha
+        if (Fog_GetDensity() > 0 && map_skyfog > 0) {
+            glDisable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            const float *color = Fog_GetColor();
+            glColor4f(color[0], color[1], color[2], qclamp(0.0f, map_skyfog, 1.0f));
+
+            glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+            gl_draw_calls++;
+            gl_verts_submitted += buffer->numverts;
+            gl_indices_submitted += buffer->numindices;
+
+            glColor4f(1, 1, 1, 1);
+            glDisable(GL_BLEND);
+            glEnable(GL_TEXTURE_2D);
+        }
+
+        buffer->numverts = 0;
+        buffer->numindices = 0;
+    }
+
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_EnableMultitexture();
+    }
+
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+}
+
+static inline void
+TriBuf_AddSkyVert(triangle_buffer_t *buffer, const vec3_t vert, float speed1, float speed2)
+{
+    vec3_t dir;
+    float length;
+
+    VectorSubtract(vert, r_origin, dir);
+    dir[2] *= 3; // flatten the sphere
+    length = DotProduct(dir, dir);
+    length = sqrtf(length);
+    length = 6 * 63 / length;
+    dir[0] *= length;
+    dir[1] *= length;
+
+    float *dst = buffer->verts[buffer->numverts++];
+    VectorCopy(vert, dst);
+    dst[3] = (speed1 + dir[0]) * (1.0f / 128.0f);
+    dst[4] = (speed1 + dir[1]) * (1.0f / 128.0f);
+    dst[5] = (speed2 + dir[0]) * (1.0f / 128.0f);
+    dst[6] = (speed2 + dir[1]) * (1.0f / 128.0f);
+}
+
+/* DEBUG_SKY is helpful to see how well the skybox culling is working */
+#define DEBUG_SKY 0
+#define SKYCLIP_EPSILON 0.0001f
+#define MAX_SKY_QUALITY (TRIBUF_MAX_INDICES / 6)
+
+static void
+DrawSkyLayers(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
+{
+    int facenum, subdivisions;
+    int s, s_start, s_end, t, t_start, t_end;
+    float ds, dt, t_scale;
     float speed1, speed2;
-    glpoly_t *poly = NULL;
+    float facescale = gl_farclip.value / sqrtf(3.0f);
+
+    vec3_t faceverts[4];
+    vec3_t baseline_edge_verts[2];
+    vec3_t svec, tvec;
+    vec3_t vert;
+    vec3_t t_offset;
+    float mins[6][2];
+    float maxs[6][2];
+
+    /*
+     * Write depth values for the actual sky polys.
+     * Calculate bounds information at the same time.
+     */
+    DrawSkyChain_MarkDepthAndBounds(buffer, surf, mins, maxs);
+
+    /* Render the sky box only where we have written depth values */
+    glDepthMask(GL_FALSE);
+    glDepthFunc(GL_GEQUAL);
 
     speed1 = realtime * 8;
     speed1 -= (int)speed1 & ~127;
     speed2 = realtime * 16;
     speed2 -= (int)speed2 & ~127;
 
-    for ( ; surf; surf = surf->chain) {
-	for (poly = surf->polys ; poly; poly = poly->next) {
-	    if (!TriBuf_CheckSpacePoly(buffer, poly))
-		goto drawBuffer;
-	addPoly:
-	    TriBuf_AddSkyPoly(buffer, poly, speed1, speed2);
-	}
+    /* Subdivide the skybox face so we can simulate the sky curvature. */
+    subdivisions = qclamp(1, (int)r_sky_quality.value, MAX_SKY_QUALITY);
+    ds = 1.0f / subdivisions;
+
+    vec3_t *baseverts = alloca((subdivisions + 1) * sizeof(vec3_t));
+
+    for (facenum = 0; facenum < 6; facenum++) {
+    nextFace:
+        /* Construct the skybox face vertices */
+        VectorMA(r_origin, facescale, skyfaces[facenum][0], faceverts[0]);
+        VectorMA(r_origin, facescale, skyfaces[facenum][1], faceverts[1]);
+        VectorMA(r_origin, facescale, skyfaces[facenum][2], faceverts[2]);
+        VectorMA(r_origin, facescale, skyfaces[facenum][3], faceverts[3]);
+
+        /* Cull skybox faces outside viewable areas */
+        if (R_CullBox(faceverts[skyfacebounds[facenum][0]], faceverts[skyfacebounds[facenum][1]]))
+            continue;
+        if (mins[facenum][0] >= maxs[facenum][0] || mins[facenum][1] >= maxs[facenum][1])
+            continue;
+
+        /* Find which divisions are visible in s, if none early out */
+        s_end = subdivisions + 1;
+        for (s = 0; s < s_end; s++)
+            if (ds * (s + 1) > mins[facenum][0] / 2.0f + 0.5f - SKYCLIP_EPSILON)
+                break;
+        s_start = s;
+        for (s = s_start + 1; s < s_end; s++)
+            if (ds * (s - 1) > maxs[facenum][0] / 2.0f + 0.5f + SKYCLIP_EPSILON)
+                break;
+        s_end = s;
+        if (s_start >= s_end)
+            continue;
+
+        /* Construct S/T vectors for the face */
+        VectorSubtract(faceverts[2], faceverts[1], svec);
+        VectorSubtract(faceverts[2], faceverts[3], tvec);
+
+        /*
+         * Setup subdivisions in T.  For the vertical faces, we make
+         * extra sub-divisions and focus the detail at the horizon
+         * where more is needed.
+         *
+         * The spacings for the vertical subdivisions use the sequence
+         * of 'triangular' numbers (sum of first 'n' integers, e.g. 1,
+         * 3, 6, 10, 15, ...), which worked out better than square
+         * numbers due to diverging less quickly.
+         *
+         * Baseverts verticies are the ones we use to project out each
+         * row by adding a multiple of dt to the t component.  For
+         * vertical faces the baseverts are in the centre of the face
+         * vertically, but for the top/bottom faces they are on the
+         * zero edge.
+         */
+        if (facenum < 4) {
+            dt = 0.5f / (subdivisions * (subdivisions - 1) / 2);
+            t_start = -subdivisions;
+            t_end = subdivisions + 1;
+            VectorMA(faceverts[0], 0.5f, tvec, baseline_edge_verts[0]);
+            VectorMA(faceverts[3], 0.5f, tvec, baseline_edge_verts[1]);
+        } else {
+            dt = 1.0f / subdivisions;
+            t_start = 0;
+            t_end = subdivisions + 1;
+            VectorCopy(faceverts[0], baseline_edge_verts[0]);
+            VectorCopy(faceverts[3], baseline_edge_verts[1]);
+        }
+
+        /* Find which divisions are visible in t, if none early out */
+        for (t = t_start; t < t_end; t++) {
+            float next = (facenum < 4) ? dt * ((t + 1) * (abs(t + 1) - 1) / 2) : dt * (t + 1) - 0.5f;
+            if (next > mins[facenum][1] / 2.0f - SKYCLIP_EPSILON)
+                break;
+        }
+        t_start = t;
+        for (t = t_start + 1; t < t_end; t++) {
+            float prev = (facenum < 4) ? dt * ((t - 1) * (abs(t - 1) - 1) / 2) : dt * (t - 1) - 0.5f;
+            if (prev > maxs[facenum][1] / 2.0f + SKYCLIP_EPSILON)
+                break;
+        }
+        t_end = t;
+        if (t_start >= t_end)
+            continue;
+
+        /* Set up the base verticies - each row will offset from these */
+        for (s = s_start; s < s_end; s++)
+            VectorMA(baseline_edge_verts[0], ds * s, svec, baseverts[s]);
+        VectorCopy(baseline_edge_verts[1], baseverts[s]);
+
+    rowStart:
+        /* Add the first row of vertices to the buffer */
+        t_scale = (facenum < 4) ? dt * (t_start * (abs(t_start) - 1) / 2) : dt * t_start;
+        t_start++;
+
+        /* Add the first row of vertices */
+        VectorScale(tvec, t_scale, t_offset);
+        for (s = s_start; s < s_end; s++) {
+            VectorAdd(baseverts[s], t_offset, vert);
+            TriBuf_AddSkyVert(buffer, vert, speed1, speed2);
+        }
+
+        uint16_t *index = buffer->indices + buffer->numindices;
+        for (t = t_start; t < t_end; t++) {
+            t_scale = (facenum < 4) ? dt * (t * (abs(t) - 1) / 2) : dt * t;
+            VectorScale(tvec, t_scale, t_offset);
+
+            /* Add the first vertex in the row separately, no complete quads yet... */
+            VectorAdd(baseverts[s_start], t_offset, vert);
+            TriBuf_AddSkyVert(buffer, vert, speed1, speed2);
+
+            for (s = s_start + 1; s < s_end; s++) {
+                VectorAdd(baseverts[s], t_offset, vert);
+                TriBuf_AddSkyVert(buffer, vert, speed1, speed2);
+
+                /*
+                 * Now, add the six indicies for the two triangles in
+                 * the quad that this vertex completed.
+                 */
+                *index++ = buffer->numverts - 2 - (s_end - s_start); // previous row, left
+                *index++ = buffer->numverts - 2;                     // this row, left
+                *index++ = buffer->numverts - 1 - (s_end - s_start); // previous row, right
+#if !DEBUG_SKY
+                *index++ = buffer->numverts - 1 - (s_end - s_start); // previous row, right
+                *index++ = buffer->numverts - 2;               // this row, left
+                *index++ = buffer->numverts - 1;               // this row, right
+#endif
+            }
+            buffer->numindices = index - buffer->indices;
+            if (buffer->numindices + (s_end - s_start) * 6 > TRIBUF_MAX_INDICES) {
+                gl_full_buffers++;
+                goto drawBuffer;
+            }
+        }
     }
  drawBuffer:
     if (buffer->numindices) {
-	TriBuf_DrawSky(buffer, texture);
-	buffer->numverts = 0;
-	buffer->numindices = 0;
-	if (poly)
-	    goto addPoly;
+        TriBuf_DrawSky(buffer, texture);
+        buffer->numverts = 0;
+        buffer->numindices = 0;
+        if (t < t_end - 1) {
+            t_start = t;
+            goto rowStart;
+        }
+        if (facenum < 6) {
+            facenum++;
+            goto nextFace;
+        }
     }
+
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_TRUE);
+}
+
+static void
+DrawSkyChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
+{
+    Fog_DisableGlobalFog();
+
+    if (r_fastsky.value)
+        DrawSkyFast(buffer, surf);
+    else if (map_skyboxname[0])
+        DrawSkyBox(buffer, surf);
+    else
+        DrawSkyLayers(buffer, surf, texture);
+
+    Fog_EnableGlobalFog();
 }
 
 static void
@@ -898,10 +1440,16 @@ DrawMaterialChains(const entity_t *e)
 	if ((flags & SURF_DRAWLAVA) && map_lavaalpha < 1.0f) continue;
 	if ((flags & SURF_DRAWTELE) && map_telealpha < 1.0f) continue;
 
+#if DEBUG_SKY
+        // DEBUG: SKY LAST
+        if (flags & SURF_DRAWSKY)
+            continue;
+#endif
+
 	surf = materialchain;
 	texture_t *texture = brushmodel->textures[material->texturenum];
 	if (flags & SURF_DRAWSKY) {
-	    DrawSkyChain(&buffer, surf, texture);
+            DrawSkyChain(&buffer, surf, texture);
 	    continue;
 	}
 	if (flags & SURF_DRAWTURB) {
@@ -910,6 +1458,23 @@ DrawMaterialChains(const entity_t *e)
 	}
 	DrawSolidChain(&buffer, surf, glbrushmodel, material);
     }
+
+#if DEBUG_SKY
+    // DEBUG: SKY LAST
+    material = glbrushmodel->materials;
+    for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
+	materialchain = glbrushmodel->materialchains[i];
+	if (!materialchain)
+	    continue;
+	int flags = materialchain->flags;
+        if (!(flags & SURF_DRAWSKY))
+            continue;
+	surf = materialchain;
+	texture_t *texture = brushmodel->textures[material->texturenum];
+        DrawSkyChain(&buffer, surf, texture);
+        break;
+    }
+#endif
 
     if (gl_mtexable) {
 	GL_DisableMultitexture();
@@ -1064,6 +1629,11 @@ R_SetupDynamicBrushModelMaterialChains(const entity_t *entity, const vec3_t mode
     R_AddBrushModelToMaterialChains(brushmodel, modelorg, materialchains);
     R_SwapAltAnimationChains(entity, materialchains);
     R_SwapAnimationChains(glbrushmodel, materialchains);
+
+    /* Sky is handled separately */
+    int skymaterial = SkyMaterialNum(glbrushmodel);
+    if (skymaterial >= 0)
+        materialchains[skymaterial] = NULL;
 }
 
 static void
@@ -1098,9 +1668,9 @@ R_DrawDynamicBrushModel(const entity_t *entity)
      * Static (non-rotated/translated) models are drawn with the world,
      * so we skip them here
      */
-    if (entity->angles[0] || entity->angles[1] || entity->angles[2])
+    if (R_EntityIsRotated(entity))
 	rotated = true;
-    else if (brushmodel->parent && !entity->origin[0] && !entity->origin[1] && !entity->origin[2])
+    else if (brushmodel->parent && !R_EntityIsTranslated(entity))
         return;
 
     if (rotated) {
@@ -1249,7 +1819,6 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
     R_RecursiveWorldNode(modelorg, node->children[side ? 0 : 1]);
 }
 
-
 /*
 =============
 R_DrawWorld
@@ -1294,7 +1863,13 @@ R_DrawWorld(void)
     memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
     R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
 
-    /* Add static submodels to the material chains */
+    /*
+     * Add static submodels to the material chains.
+     * Setup sky chains on dynamic models.
+     *
+     * TODO: Reorder RenderScene so we only walk visedicts once for
+     *       both this and for R_DrawEntitiesOnList
+     */
     if (r_drawentities.value) {
         for (i = 0; i < cl_numvisedicts; i++) {
             entity_t *entity = &cl_visedicts[i];
@@ -1302,10 +1877,26 @@ R_DrawWorld(void)
                 continue;
             if (!BrushModel(entity->model)->parent)
                 continue;
-            if (entity->angles[0] || entity->angles[1] || entity->angles[2])
+            if (R_EntityIsTranslated(entity) || R_EntityIsRotated(entity)) {
+                brushmodel_t *brushmodel = BrushModel(entity->model);
+                glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
+                if (!glbrushmodel->drawsky)
+                    continue;
+                int skymaterial = SkyMaterialNum(glbrushmodel);
+                if (skymaterial < 0)
+                    continue;
+                msurface_t **materialchains = glbrushmodel->materialchains;
+                msurface_t *surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+                int i;
+                materialchains[skymaterial] = NULL;
+                for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+                    if (!(surf->flags & SURF_DRAWSKY))
+                        continue;
+                    surf->chain = materialchains[skymaterial];
+                    materialchains[skymaterial] = surf;
+                }
                 continue;
-            if (entity->origin[0] || entity->origin[1] || entity->origin[2])
-                continue;
+            }
             if (R_CullBox(entity->model->mins, entity->model->maxs))
                 continue;
             R_AddStaticBrushModelToWorldMaterialChains(entity);
@@ -1356,6 +1947,8 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
 	    vertex = brushmodel->vertexes[edge->v[1]].position;
 	}
 	VectorCopy(vertex, poly->verts[i]);
+        if (surf->flags & SURF_DRAWSKY)
+            continue;
 
 	/* Texture coordinates */
 	s = DotProduct(vertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
@@ -1453,17 +2046,35 @@ GL_BuildLightmaps()
 	resources = GLBrushModel(brushmodel)->resources;
 	surf = brushmodel->surfaces;
 	for (j = 0; j < brushmodel->numsurfaces; j++, surf++) {
-	    if (surf->flags & (SURF_DRAWTURB | SURF_DRAWSKY))
+	    if (surf->flags & (SURF_DRAWTURB))
 		continue;
 
-	    byte *base = resources->blocks[surf->lightmapblock].data;
-	    base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * gl_lightmap_bytes;
-	    R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
+            if (!(surf->flags & SURF_DRAWTILED)) {
+                byte *base = resources->blocks[surf->lightmapblock].data;
+                base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * gl_lightmap_bytes;
+                R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
+            }
 	    BuildSurfaceDisplayList(brushmodel, surf, hunkbase);
 	}
 
 	/* upload all lightmaps that were filled */
 	GL_UploadLightmaps(resources);
+    }
+
+    /* TODO - rename or separate out the things that are not building lightmaps */
+    brushmodel = loaded_brushmodels;
+    for ( ; brushmodel ; brushmodel = brushmodel->next) {
+        if (!brushmodel->parent)
+            continue;
+        surf = brushmodel->surfaces + brushmodel->firstmodelsurface;
+        for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+            if (!(surf->flags & SURF_DRAWSKY) || !surf->polys)
+                continue;
+            GLBrushModel(brushmodel)->drawsky = true;
+            glbrushmodel_resource_t *resources = GLBrushModel(brushmodel)->resources;
+            if (surf->polys->numverts > resources->max_submodel_skypoly_verts)
+                resources->max_submodel_skypoly_verts = surf->polys->numverts;
+        }
     }
 }
 

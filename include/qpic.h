@@ -86,4 +86,7 @@ void QPic32_Expand(const qpic32_t *in, qpic32_t *out);
 /* Shrink texture in place to next mipmap level */
 void QPic32_MipMap(qpic32_t *pic, enum qpic_alpha_operation alpha_op);
 
+/* Scale the alpha channel by (alpha / 255) */
+void QPic32_ScaleAlpha(qpic32_t *pic, byte alpha);
+
 #endif /* QPIC_H */

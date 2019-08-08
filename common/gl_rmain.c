@@ -1396,7 +1396,7 @@ R_RenderScene(void)
     R_UpdateModelLighting();    // Update dynamic lightmaps on bmodels
 
     Fog_EnableGlobalFog();
-    R_DrawWorld();		// adds static entities to the list
+    R_DrawWorld();		// adds static entities to the list, handles sky surfaces for all brush models
     S_ExtraUpdate();		// don't let sound get messed up if going slow
     R_DrawEntitiesOnList();
     R_DrawTransparentSurfaces();

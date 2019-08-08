@@ -44,6 +44,16 @@ static struct {
     float fade_done; //time when fade will be done
 } fog;
 
+float map_skyfog;
+
+static void
+Sky_Skyfog_f(cvar_t *cvar)
+{
+    map_skyfog = cvar->value;
+}
+
+cvar_t r_skyfog = { "r_skyfog", "0.5", true, .callback = Sky_Skyfog_f };
+
 /*
   =============
   Fog_Update
@@ -168,7 +178,7 @@ Fog_Command_f()
   calculates fog color for this frame, taking into account fade times
   =============
 */
-float *
+const float *
 Fog_GetColor()
 {
     static float color[4];
@@ -300,7 +310,7 @@ Fog_StopBlend()
 void
 Fog_NewMap()
 {
-    char buffer[1024];
+    char buffer[64];
 
     /* Default is no fog */
     fog.current.density = 0.0f;
@@ -316,6 +326,9 @@ Fog_NewMap()
                &fog.current.green,
                &fog.current.blue);
     }
+
+    Entity_ValueForKey(cl.worldmodel->entities, "skyfog", buffer, sizeof(buffer));
+    map_skyfog = buffer[0] ? atof(buffer) : r_skyfog.value;
 }
 
 /*
@@ -329,6 +342,7 @@ void
 Fog_Init()
 {
     Cmd_AddCommand("fog", Fog_Command_f);
+    Cvar_RegisterVariable(&r_skyfog);
 
     //set up global fog
     fog.current.density = 0.0f;

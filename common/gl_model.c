@@ -276,9 +276,9 @@ GL_GetTextureMaterialClass(texture_t *texture)
 
 #ifdef DEBUG
 static const char *material_class_names[] = {
+    "MATERIAL_SKY",
     "MATERIAL_BASE",
     "MATERIAL_FULLBRIGHT",
-    "MATERIAL_SKY",
     "MATERIAL_LIQUID",
     "MATERIAL_END",
 };
@@ -294,11 +294,11 @@ Debug_PrintMaterials(glbrushmodel_t *glbrushmodel)
 
     Sys_Printf("====== %s ======\n", glbrushmodel->brushmodel.model.name);
 
-    for (class = MATERIAL_BASE; class <= MATERIAL_END; class++) {
+    for (class = MATERIAL_START; class <= MATERIAL_END; class++) {
         Sys_Printf("%25s: %d\n", material_class_names[class], glbrushmodel->material_index[class]);
     }
 
-    class = MATERIAL_BASE;
+    class = MATERIAL_START;
     material = &glbrushmodel->materials[0];
     for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
         texture_t *texture = brushmodel->textures[material->texturenum];
@@ -482,7 +482,7 @@ GL_BuildMaterials()
         texturechains = glbrushmodel->materialchains; /* saved earlier */
 
         /* To group the materials by class we'll do multiple passes over the texture list */
-        material_class = MATERIAL_BASE;
+        material_class = MATERIAL_START;
         for ( ; material_class < MATERIAL_END; material_class++) {
             glbrushmodel->material_index[material_class] = glbrushmodel->nummaterials;
 
