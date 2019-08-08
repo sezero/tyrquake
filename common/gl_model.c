@@ -248,8 +248,9 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
      */
     texture_t *skytexture = NULL;
     for (i = 0; i < brushmodel->numtextures; i++) {
-        if (!strncmp(brushmodel->textures[i]->name, "sky", 3))
-            skytexture = brushmodel->textures[i];
+        texture_t *texture = brushmodel->textures[i];
+        if (texture && !strncmp(texture->name, "sky", 3))
+            skytexture = texture;
     }
     if (skytexture) {
         mtexinfo_t *texinfo = brushmodel->texinfo;
@@ -443,6 +444,8 @@ GL_BuildMaterials()
         for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++) {
             surf->material = -1;
             texture = surf->texinfo->texture;
+            if (!texture)
+                continue;
             if (texture->anim_total)
                 texture = GL_GetAnimBaseTexture(brushmodel, texture);
             surf->chain = texturechains[texture->texturenum];
@@ -454,7 +457,7 @@ GL_BuildMaterials()
             surf = texturechains[texturenum];
             if (!surf)
                 continue;
-            if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB))
+            if (surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB | SURF_DRAWTILED))
                 continue;
             for ( ; surf; surf = surf->chain) {
                 GL_AllocLightmapBlock(resources, surf);

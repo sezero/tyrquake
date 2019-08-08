@@ -43,9 +43,8 @@ R_InitTextures(void)
     byte *dest;
 
 // create a simple checkerboard texture for the default
-    r_notexture_mip =
-	Hunk_AllocName(sizeof(texture_t) + 16 * 16 + 8 * 8 + 4 * 4 + 2 * 2,
-		       "notexture");
+    r_notexture_mip = Hunk_AllocName(sizeof(texture_t) + 16 * 16 + 8 * 8 + 4 * 4 + 2 * 2, "@notexture");
+    qstrncpy(r_notexture_mip->name, "@notexture", sizeof(r_notexture_mip->name));
 
     r_notexture_mip->width = r_notexture_mip->height = 16;
     r_notexture_mip->offsets[0] = sizeof(texture_t);
@@ -64,6 +63,19 @@ R_InitTextures(void)
 	    }
 	}
     }
+}
+
+void
+GL_LoadNoTexture()
+{
+    qpic8_t pic = {
+        .width = r_notexture_mip->width,
+        .stride = r_notexture_mip->width,
+        .height = r_notexture_mip->height,
+        .pixels = (byte *)(r_notexture_mip + 1),
+    };
+
+    r_notexture_mip->gl_texturenum = GL_LoadTexture8(r_notexture_mip->name, &pic, TEXTURE_TYPE_NOTEXTURE);
 }
 
 static const byte dottexture[8][8] = {

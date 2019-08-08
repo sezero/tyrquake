@@ -36,8 +36,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #ifdef SERVERONLY
 #include "qwsvdef.h"
-/* A dummy texture to point to. FIXME - should server care about textures? */
-static texture_t r_notexture_mip_qwsv;
 #else
 #include "quakedef.h"
 #include "render.h"
@@ -535,8 +533,11 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 
     for (i = 0; i < lump->nummiptex; i++) {
 	lump->dataofs[i] = LittleLong(lump->dataofs[i]);
-	if (lump->dataofs[i] == -1)
+	if (lump->dataofs[i] == -1) {
+            brushmodel->textures[i] = r_notexture_mip;  // checkerboard texture
+            brushmodel->textures[i]->texturenum = i;
 	    continue;
+        }
 	mt = (miptex_t *)((byte *)lump + lump->dataofs[i]);
 	mt->width = (uint32_t)LittleLong(mt->width);
 	mt->height = (uint32_t)LittleLong(mt->height);
@@ -874,23 +875,14 @@ Mod_LoadTexinfo(brushmodel_t *brushmodel, dheader_t *header)
 	out->flags = LittleLong(in->flags);
 
 	if (!brushmodel->textures) {
-#ifndef SERVERONLY
 	    out->texture = r_notexture_mip;	// checkerboard texture
-#else
-	    out->texture = &r_notexture_mip_qwsv;	// checkerboard texture
-#endif
-	    out->flags = 0;
+	    out->flags = TEX_SPECIAL;
 	} else {
 	    if (miptex >= brushmodel->numtextures)
 		SV_Error("miptex >= brushmodel->numtextures");
 	    out->texture = brushmodel->textures[miptex];
-	    if (!out->texture) {
-#ifndef SERVERONLY
-		out->texture = r_notexture_mip;	// texture not found
-#else
-		out->texture = &r_notexture_mip_qwsv;	// texture not found
-#endif
-		out->flags = 0;
+	    if (out->texture == r_notexture_mip) {
+		out->flags |= TEX_SPECIAL;
 	    }
 	}
     }
@@ -960,6 +952,11 @@ CalcSurfaceExtents(const brushmodel_t *brushmodel, msurface_t *surf)
 	surf->extents[i] = (bmaxs[i] - bmins[i]) * 16;
 	if (!(texinfo->flags & TEX_SPECIAL) && surf->extents[i] > 256)
 	    SV_Error("Bad surface extents");
+
+        // This hack is to stop the software renderer crashing if a
+        // bsp with a missing sky texture is loaded.
+        if (texinfo->texture == r_notexture_mip && surf->extents[i] > 256)
+            surf->extents[i] = 240;
     }
 }
 
@@ -997,19 +994,22 @@ Mod_ProcessSurface(brushmodel_t *brushmodel, msurface_t *surf)
     int i;
 
     /* set the surface drawing flags */
+    if (surf->texinfo->flags & TEX_SPECIAL)
+        surf->flags |= SURF_DRAWTILED;
+
     if (!strncmp(texturename, "sky", 3)) {
 	surf->flags |= SURF_DRAWSKY | SURF_DRAWTILED;
 #ifdef GLQUAKE
 	GL_SubdivideSurface(brushmodel, surf);
 #endif
-    } else if (!strncmp(texturename, "*", 1)) {
+    } else if (texturename[0] == '*') {
 	surf->flags |= SURF_DRAWTURB | SURF_DRAWTILED;
         // Detect special liquid types
-        if (!strncmp (texturename, "*lava", 5))
+        if (!strncmp(texturename, "*lava", 5))
             surf->flags |= SURF_DRAWLAVA;
-        else if (!strncmp (texturename, "*slime", 6))
+        else if (!strncmp(texturename, "*slime", 6))
             surf->flags |= SURF_DRAWSLIME;
-        else if (!strncmp (texturename, "*tele", 5))
+        else if (!strncmp(texturename, "*tele", 5))
             surf->flags |= SURF_DRAWTELE;
         else
             surf->flags |= SURF_DRAWWATER;

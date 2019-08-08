@@ -55,6 +55,7 @@ const texture_properties_t texture_properties[] = {
     { NULL,             QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // PARTICLE
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, false }, // SPRITE
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // NOTEXTURE
 };
 
 typedef struct {
@@ -144,6 +145,8 @@ GL_TextureMode_f(void)
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
         if (glt->type == TEXTURE_TYPE_LIGHTMAP)
             continue; /* Lightmap filter is always GL_LINEAR */
+        if (glt->type == TEXTURE_TYPE_NOTEXTURE)
+            continue; /* Notexture is always GL_NEAREST */
         GL_Bind(glt->texnum);
         if (texture_properties[glt->type].mipmap) {
             glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
@@ -289,8 +292,13 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
         glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
                      scaled->width, scaled->height, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+        if (type == TEXTURE_TYPE_NOTEXTURE) {
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        } else {
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+        }
     }
 
     /* Set texture wrap mode */
@@ -502,4 +510,6 @@ GL_InitTextures(void)
     Cmd_AddCommand("gl_texturemode", GL_TextureMode_f);
     Cmd_SetCompletion("gl_texturemode", GL_TextureMode_Arg_f);
     Cmd_AddCommand("gl_printtextures", GL_PrintTextures_f);
+
+    GL_LoadNoTexture();
 }

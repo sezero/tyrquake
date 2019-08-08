@@ -86,6 +86,7 @@ enum texture_type {
     TEXTURE_TYPE_LIGHTMAP,
     TEXTURE_TYPE_PARTICLE,
     TEXTURE_TYPE_SPRITE,
+    TEXTURE_TYPE_NOTEXTURE,
     NUM_TEXTURE_TYPES,
 };
 
@@ -369,6 +370,7 @@ void GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr);
 // gl_rmisc.c
 //
 void R_InitParticleTexture(void);
+void GL_LoadNoTexture();
 
 //
 // gl_rsurf.c

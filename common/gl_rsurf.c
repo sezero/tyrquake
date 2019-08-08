@@ -269,6 +269,8 @@ R_UpdateLightmapBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
 
     if (!r_dynamic.value)
 	return;
+    if (surf->flags & SURF_DRAWTILED)
+        return;
 
     /* Check if any of this surface's lightmaps changed */
     foreach_surf_lightstyle(surf, map)
@@ -603,7 +605,34 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 }
 
 static void
-TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
+TriBuf_DrawFullbrightSolid(triangle_buffer_t *buffer, const texture_t *texture)
+{
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_DisableMultitexture();
+        qglClientActiveTexture(GL_TEXTURE1);
+    }
+
+    GL_Bind(texture->gl_texturenum);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
+    glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
+
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    gl_draw_calls++;
+    gl_verts_submitted += buffer->numverts;
+    gl_indices_submitted += buffer->numindices;
+
+    if (gl_mtexable) {
+        qglClientActiveTexture(GL_TEXTURE1);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        GL_EnableMultitexture();
+    }
+}
+
+static void
+TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block)
 {
     if (gl_mtexable) {
 	GL_SelectTexture(GL_TEXTURE0_ARB);
@@ -815,7 +844,10 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
     }
  drawBuffer:
     if (buffer->numindices) {
-	TriBuf_DrawSolid(buffer, texture, block, flags);
+        if (flags & SURF_DRAWTILED)
+            TriBuf_DrawFullbrightSolid(buffer, texture);
+        else
+            TriBuf_DrawSolid(buffer, texture, block);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
 	if (surf && surf->polys)

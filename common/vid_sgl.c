@@ -219,6 +219,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     GL_Init();
     if (reload_textures) {
+        GL_LoadNoTexture();
         Draw_InitGLTextures();
         Draw_ReloadPicTextures();
         Mod_ReloadTextures();

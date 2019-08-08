@@ -1612,6 +1612,9 @@ static brush_loader_t SV_BrushLoader = {
     .lightmap_sample_bytes = 1,
 };
 
+static texture_t qwsv_notexture_mip;
+texture_t *r_notexture_mip = &qwsv_notexture_mip;
+
 /*
 ====================
 SV_Init
