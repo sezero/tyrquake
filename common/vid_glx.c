@@ -465,16 +465,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     glXMakeCurrent(x_disp, x_win, ctx);
 
     GL_Init();
-    if (reload_textures) {
-        GL_LoadNoTexture();
-        Draw_InitGLTextures();
-        Draw_ReloadPicTextures();
-        Mod_ReloadTextures();
-	R_ResetPlayerTextures();
-#ifdef QW_HACK
-	R_ResetNetGraphTexture();
-#endif
-    }
+    if (reload_textures)
+	GL_ReloadTextures();
 
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;

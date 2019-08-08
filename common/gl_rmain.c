@@ -189,6 +189,24 @@ GL_Shutdown()
 }
 
 /*
+ * Called when context changes and we need to re-upload all textures
+ */
+void
+GL_ReloadTextures()
+{
+    GL_LoadNoTexture();
+    Draw_InitGLTextures();
+    Draw_ReloadPicTextures();
+    Mod_ReloadTextures();
+    R_ResetPlayerTextures();
+    Sky_LoadSkyboxTextures(map_skyboxname);
+#ifdef QW_HACK
+    R_ResetNetGraphTexture();
+#endif
+}
+
+
+/*
 =================
 R_CullBox
 

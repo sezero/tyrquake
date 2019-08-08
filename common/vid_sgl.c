@@ -218,16 +218,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 		  __func__, SDL_GetError());
 
     GL_Init();
-    if (reload_textures) {
-        GL_LoadNoTexture();
-        Draw_InitGLTextures();
-        Draw_ReloadPicTextures();
-        Mod_ReloadTextures();
-	R_ResetPlayerTextures();
-#ifdef QW_HACK
-	R_ResetNetGraphTexture();
-#endif
-    }
+    if (reload_textures)
+	GL_ReloadTextures();
 
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;

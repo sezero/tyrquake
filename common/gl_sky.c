@@ -56,7 +56,7 @@ cvar_t r_fastsky = { "r_fastsky", "0", true };
 cvar_t r_skyalpha = { "r_skyalpha", "1", true, .callback = Sky_Skyalpha_f };
 
 qboolean
-Sky_LoadSkyboxTextures(const char *name)
+Sky_LoadSkyboxTextures(const char *skyboxname)
 {
     const char *suffix[] = { "rt", "lf", "bk", "ft", "up", "dn" };
     qboolean found = false;
@@ -64,10 +64,10 @@ Sky_LoadSkyboxTextures(const char *name)
 
     for (i = 0; i < 6; i++) {
         int mark = Hunk_LowMark();
-        qpic32_t *skypic = TGA_LoadHunkFile(va("gfx/env/%s%s.tga", name, suffix[i]), "SKYBOX");
+        qpic32_t *skypic = TGA_LoadHunkFile(va("gfx/env/%s%s.tga", skyboxname, suffix[i]), "SKYBOX");
         texture_t *texture = &skytextures[i];
         if (skypic) {
-            const char *texturename = va("@skybox:%s%s", name, suffix[i]);
+            const char *texturename = va("@skybox:%s%s", skyboxname, suffix[i]);
             texture->gl_texturenum = GL_AllocTexture32(texturename, skypic, TEXTURE_TYPE_SKYBOX);
             texture->width = skypic->width;
             texture->height = skypic->height;

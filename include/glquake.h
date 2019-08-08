@@ -286,6 +286,7 @@ extern float r_world_matrix[16];
 
 void GL_Init();
 void GL_Shutdown();
+void GL_ReloadTextures();
 
 void GL_InitTextures(void);
 
@@ -400,6 +401,7 @@ void Sky_NewMap();
 void Sky_Init();
 void Sky_InitBounds(float mins[6][2], float maxs[6][2]);
 void Sky_AddPolyToSkyboxBounds(const glpoly_t *poly, float mins[6][2], float maxs[6][2]);
+qboolean Sky_LoadSkyboxTextures(const char *skyboxname);
 
 //
 // tga.c
