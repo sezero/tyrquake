@@ -49,10 +49,10 @@ const texture_properties_t texture_properties[] = {
     { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // SKY_BACKGROUND
     { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // SKY_FOREGROUND
     { &qpal_alpha_zero, QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // SKYBOX
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, true,  false, false }, // ALIAS_SKIN
-    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, true,  false, false }, // ALIAS_SKIN_FULLBRIGHT
-    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          false, false, true,  false }, // PLAYER_SKIN
-    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, false, false, true,  false }, // PLAYER_SKIN_FULLBRIGHT
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  true,  false, false }, // ALIAS_SKIN
+    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  true,  false, false }, // ALIAS_SKIN_FULLBRIGHT
+    { &qpal_standard,   QPIC_ALPHA_OP_NONE,          true,  false, true,  false }, // PLAYER_SKIN
+    { &qpal_fullbright, QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  false, true,  false }, // PLAYER_SKIN_FULLBRIGHT
     { NULL,             QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // PARTICLE
     { &qpal_alpha,      QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, false }, // SPRITE
