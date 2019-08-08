@@ -383,6 +383,11 @@ void GL_BuildLightmaps();
 void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
 
 //
+// tga.c
+//
+qpic32_t *TGA_LoadHunkFile(const char *filename, const char *hunkname);
+
+//
 // r_part.c
 //
 extern float r_avertexnormals[][3];
