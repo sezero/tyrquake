@@ -248,6 +248,18 @@ Prints the available OpenGL extensions (GLQuake/GLQWCL)
 Prints the active hud scaling factor, relative the the current
 resolution.  If given a parameter, sets this as the new scaling factor.
 See also \fIscr_hudscale\fP under CONSOLE VARIABLES.
+.IP "\fBfog\fP (glquake, glqwcl only)"
+Sets fog parameters on the current map. The command takes one, three
+or four arguments between 0 and 1.  The command can set the desity of
+the fog from 0 (no fog) to 1 (completely opaque fog) as well as the
+color of the fog, expressed as fractions of red, green and blue. E.g.:
+.RS
+.IP "\fBfog (density)\fP"
+.IP "\fBfog (red) (green) (blue)\fP"
+.IP "\fBfog (density) (red) (green) (blue)\fP"
+.RE
+.IP "\fBsky\fP name"
+Load the named skybox for the current level.
 .IP "\fBplay\fP"
 .IP "\fBplayvol\fP"
 .IP "\fBstopsound\fP"
@@ -441,12 +453,29 @@ If 1, interpolate movement of alias model entities. Default 0.
 .IP "\fBr_lightmap\fP"
 .IP "\fBr_shadows\fP"
 .IP "\fBr_mirroralpha\fP"
-.IP "\fBr_wateralpha\fP"
+.IP "\fBr_wateralpha, r_slimealpha, r_lavaalpha, r_telealpha\fP"
+Set to a fraction between 0 (fully transparent) and 1 (fully opaque)
+to control the transparency of water/slime/lava/teleport surfaces.
+Default 1.
 .IP "\fBr_dynamic\fP"
 .IP "\fBr_novis\fP"
 .IP "\fBr_waterwarp\fP"
+.IP "\fBr_skyfog\fP"
+Add a flat level of fog to the sky between 0 (no fog) and 1 (fully
+obscured by fog).  Default 0.
+.IP "\fBr_skyalpha\fP"
+Set the transparency level of the sky foreground image for scrolling
+skies.  Set between 0 (fully transparent) and 1 (fully opaque).
+Default 1.
+.IP "\fBr_sky_quality\fP"
+Sets the level of tesselation used to simulate the curved scrolling
+sky.  Lower numbers may improve performance, while higher numbers may
+improve quality.  Default 16.
+.IP "\fBr_fastsky\fP"
+Set to 1 to prevent drawing skybox or scrolling skies and instead just
+draw a flat color where the sky should be.  May be helpful on very low
+performance systems.  Default 0.
 .IP "\fBgl_finish\fP"
-.IP "\fBgl_clear\fP"
 .IP "\fBgl_texsort\fP"
 .IP "\fB_gl_allowgammafallback\fP"
 .IP "\fB_gl_drawhull\fP"
@@ -454,7 +483,6 @@ If 1, interpolate movement of alias model entities. Default 0.
 .IP "\fBgl_smoothmodels\fP"
 .IP "\fBgl_affinemodels\fP"
 .IP "\fBgl_polyblend\fP"
-.IP "\fBgl_flashblend\fP"
 .IP "\fBgl_playermip\fP"
 .IP "\fBgl_nocolors\fP"
 .IP "\fBgl_keeptjunctions\fP"
@@ -543,7 +571,6 @@ command.  Default 0.
 .IP "\fBscr_centertime\fP"
 .IP "\fBscr_printspeed\fP"
 .IP "\fBshow_fps\fP"
-.IP "\fBgl_triplebuffer\fP"
 .IP "\fBscr_allowsnap\fP"
 .IP "\fBnosound\fP"
 .IP "\fBvolume\fP"
