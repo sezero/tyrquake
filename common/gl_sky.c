@@ -59,15 +59,23 @@ qboolean
 Sky_LoadSkyboxTextures(const char *skyboxname)
 {
     const char *suffix[] = { "rt", "lf", "bk", "ft", "up", "dn" };
+    const char *filename, *texturename;
     qboolean found = false;
-    int i;
+    int i, mark;
+    qpic32_t *skypic;
+    texture_t *texture;
 
     for (i = 0; i < 6; i++) {
-        int mark = Hunk_LowMark();
-        qpic32_t *skypic = TGA_LoadHunkFile(va("gfx/env/%s%s.tga", skyboxname, suffix[i]), "SKYBOX");
-        texture_t *texture = &skytextures[i];
+        mark = Hunk_LowMark();
+        filename = va("gfx/env/%s%s.tga", skyboxname, suffix[i]);
+        skypic = TGA_LoadHunkFile(filename, "SKYBOX");
+        if (!skypic) {
+            filename = va("gfx/env/%s%s.pcx", skyboxname, suffix[i]);
+            skypic = PCX_LoadHunkFile(filename, "SKYBOX");
+        }
+        texture = &skytextures[i];
         if (skypic) {
-            const char *texturename = va("@skybox:%s%s", skyboxname, suffix[i]);
+            texturename = va("@skybox:%s%s", skyboxname, suffix[i]);
             texture->gl_texturenum = GL_AllocTexture32(texturename, skypic, TEXTURE_TYPE_SKYBOX);
             texture->width = skypic->width;
             texture->height = skypic->height;
@@ -139,6 +147,7 @@ Sky_SkyCommand_Arg_f(const char *arg)
 	*root = STREE_ROOT;
 	STree_AllocInit();
 	COM_ScanDir(root, "gfx/env", arg, "rt.tga", true);
+	COM_ScanDir(root, "gfx/env", arg, "rt.pcx", true);
     }
 
     return root;

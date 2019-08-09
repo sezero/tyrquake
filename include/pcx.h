@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define PCX_H
 
 typedef struct {
-    char manufacturer;
+    char identifier;
     char version;
     char encoding;
     char bits_per_pixel;
@@ -32,8 +32,8 @@ typedef struct {
     char color_planes;
     unsigned short bytes_per_line;
     unsigned short palette_type;
-    char filler[58];
-    unsigned char data;		// unbounded
+    char reserved2[58];
+    unsigned char data[];
 } pcx_t;
 
 void SwapPCX(pcx_t *pcx);

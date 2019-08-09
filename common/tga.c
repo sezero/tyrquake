@@ -178,23 +178,27 @@ TGA_ReadPacketRAW_RGBA(tga_readstate_t *state, int runlength)
 qpic32_t *
 TGA_LoadHunkFile(const char *filename, const char *hunkname)
 {
-    tga_header_t header;
     FILE *f;
+    int filelen, picmark, tempmark;
+    size_t readcount;
+    tga_header_t header;
+    qpic32_t *pic;
+    void *tgadata;
 
     /* First read in the header and do some sanity checks */
-    int filelen = COM_FOpenFile(filename, &f);
+    filelen = COM_FOpenFile(filename, &f);
     if (!f) {
-        Con_DPrintf("%s(%s): File not found\n", __func__, filename);
+        Con_DPrintf("%s: File not found\n", filename);
         return NULL;
     }
     if (filelen < sizeof(header)) {
-        Con_DPrintf("%s(%s): Corrupt TGA header\n", __func__, filename);
+        Con_DPrintf("%s: Corrupt TGA header\n", filename);
         goto fail_close;
     }
 
-    size_t readcount = fread(&header, 1, sizeof(header), f);
+    readcount = fread(&header, 1, sizeof(header), f);
     if (readcount != sizeof(header)) {
-        Con_DPrintf("%s(%s): File read error\n", __func__, filename);
+        Con_DPrintf("%s: File read error\n", filename);
         goto fail_close;
     }
 
@@ -202,35 +206,35 @@ TGA_LoadHunkFile(const char *filename, const char *hunkname)
 
     /* Only support a limited set of formats */
     if (header.datatypecode != 2 && header.datatypecode != 10) {
-        Con_DPrintf("%s(%s): TGA type %d not supported (only types 2 and 10 supported)\n", __func__, filename, (int)header.datatypecode);
+        Con_DPrintf("%s: TGA type %d not supported (only types 2 and 10 supported)\n", filename, (int)header.datatypecode);
         goto fail_close;
     }
     if (header.colormaptype != 0) {
-        Con_DPrintf("%s(%s): Color mapped TGAs not supported\n", __func__, filename);
+        Con_DPrintf("%s: Color mapped TGAs not supported\n", filename);
         goto fail_close;
     }
     if (header.bitsperpixel != 24 && header.bitsperpixel != 32) {
-        Con_DPrintf("%s(%s): %d bpp images not supported (24 or 32 bpp only)\n", __func__, filename, (int)header.bitsperpixel);
+        Con_DPrintf("%s: %d bpp images not supported (24 or 32 bpp only)\n", filename, (int)header.bitsperpixel);
         goto fail_close;
     }
     if (header.imagedescriptor & TGA_DATA_INTERLEAVING_MASK) {
-        Con_DPrintf("%s(%s) TGA interleaved data format not supported\n", __func__, filename);
+        Con_DPrintf("%s: TGA interleaved data format not supported\n", filename);
         goto fail_close;
     }
 
     /* Allocate space for the image data */
-    int picmark = Hunk_LowMark();
-    qpic32_t *pic = QPic32_Alloc(header.width, header.height);
+    picmark = Hunk_LowMark();
+    pic = QPic32_Alloc(header.width, header.height);
     pic->width = header.width;
     pic->height = header.height;
 
     /* Load the rest of the file for processing */
-    int tempmark = Hunk_LowMark();
-    void *tgadata = Hunk_AllocName(filelen - sizeof(header), "TGA_DATA");
+    tempmark = Hunk_LowMark();
+    tgadata = Hunk_AllocName(filelen - sizeof(header), "TGA_DATA");
     readcount = fread(tgadata, 1, filelen - sizeof(header), f);
     fclose(f);
     if (readcount != filelen - sizeof(header)) {
-        Con_DPrintf("%s(%s): File read error\n", __func__, filename);
+        Con_DPrintf("%s: File read error\n", filename);
         goto fail_free;
     }
 
@@ -240,7 +244,7 @@ TGA_LoadHunkFile(const char *filename, const char *hunkname)
      * parts of the RLE expansion logic.
      */
     int bytes_per_pixel = header.bitsperpixel / 8;
-    qboolean flipped = !!(header.imagedescriptor & TGA_SCREEN_ORIGIN_MASK);
+    qboolean flipped = !(header.imagedescriptor & TGA_SCREEN_ORIGIN_MASK);
     qpixel32_t *outstart = flipped ? (pic->pixels + (pic->height - 1) * pic->width) : pic->pixels;
     tga_readstate_t state = {
         .in = tgadata,
@@ -307,7 +311,7 @@ TGA_LoadHunkFile(const char *filename, const char *hunkname)
     }
 
  done_short:
-    Con_DPrintf("WARNING: %s(%s): Corrupt TGA, data truncated\n", __func__, filename);
+    Con_DPrintf("WARNING: %s: Corrupt TGA, data truncated\n", filename);
  done:
     /* Free the raw data and return the image */
     Hunk_FreeToLowMark(tempmark);

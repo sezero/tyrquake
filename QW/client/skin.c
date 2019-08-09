@@ -135,14 +135,14 @@ Skin_Cache(skin_t * skin)
 	Sys_Error("Skin_Cache: couldn't allocate");
 
     /* Check the PCX header */
-    if (pcx->manufacturer != 0x0a
+    if (pcx->identifier != 0x0a
 	|| pcx->version != 5
 	|| pcx->encoding != 1
 	|| pcx->bits_per_pixel != 8 || pcx->xmax >= 320 || pcx->ymax >= 200) {
 	goto Fail;
     }
 
-    raw = &pcx->data;
+    raw = pcx->data;
     pix = out;
     memset(out, 0, 320 * 200);
 

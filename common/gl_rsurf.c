@@ -1016,22 +1016,22 @@ DrawSkyBox(triangle_buffer_t *buffer, msurface_t *surf)
 
         VectorMA(r_origin, scale, skyfaces[facenum][0], vert);
         vert[3] = 0;
-        vert[4] = 0;
+        vert[4] = 1;
         vert += VERTEXSIZE;
 
         VectorMA(r_origin, scale, skyfaces[facenum][1], vert);
         vert[3] = 0;
-        vert[4] = 1;
+        vert[4] = 0;
         vert += VERTEXSIZE;
 
         VectorMA(r_origin, scale, skyfaces[facenum][2], vert);
         vert[3] = 1;
-        vert[4] = 1;
+        vert[4] = 0;
         vert += VERTEXSIZE;
 
         VectorMA(r_origin, scale, skyfaces[facenum][3], vert);
         vert[3] = 1;
-        vert[4] = 0;
+        vert[4] = 1;
         vert += VERTEXSIZE;
 
         /* Cull skybox faces outside the view frustum */
