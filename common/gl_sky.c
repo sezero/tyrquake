@@ -203,7 +203,7 @@ static void
 Sky_AddClippedPolyToBounds(clippoly_t *skypoly, float mins[6][2], float maxs[6][2])
 {
     int i, facenum;
-    float *vert;
+    const float *vert;
     float s, t, dist;
     vec3_t bias = { 0, 0, 0 };
     vec3_t sizes;
@@ -361,7 +361,7 @@ Sky_ClipPolyForBounds(clippoly_t *skypoly, float mins[6][2], float maxs[6][2], i
             newpoly->numverts++;
         }
         if (clipnum == 5)
-            Sky_AddClippedPolyToBounds(skypoly, mins, maxs);
+            Sky_AddClippedPolyToBounds(newpoly, mins, maxs);
         else
             Sky_ClipPolyForBounds(newpoly, mins, maxs, clipnum + 1);
     }
