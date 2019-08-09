@@ -285,6 +285,7 @@ WINDRES ?= windres
 
 CFLAGS ?=
 CFLAGS := $(CFLAGS) -Wall -Wno-trigraphs -Wwrite-strings
+CFLAGS += $(call cc-option,-std=gnu99)
 
 ifeq ($(DEBUG),Y)
 CFLAGS += -g
