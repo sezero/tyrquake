@@ -51,7 +51,8 @@ struct rb_root {
     struct rb_node *rb_node;
 };
 
-#define QRB_ROOT	(struct rb_root) { NULL, }
+#define QRB_ROOT (struct rb_root) { NULL, }
+#define QRB_ROOT_INITIALIZER { NULL, }
 
 /*
  *

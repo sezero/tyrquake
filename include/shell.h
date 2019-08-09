@@ -56,14 +56,14 @@ struct stree_root {
 };
 
 #define STREE_ROOT (struct stree_root) { 0, 0, -1, QRB_ROOT, NULL }
-#define DECLARE_STREE_ROOT(_x) \
-	struct stree_root _x = { \
-		.entries = 0,    \
-		.maxlen = 0,     \
-		.minlen = -1,    \
-      		.root = QRB_ROOT,\
-		.stack = NULL    \
-	}
+#define DECLARE_STREE_ROOT(_x)		\
+    struct stree_root _x = {		\
+	.entries = 0,			\
+	.maxlen = 0,			\
+	.minlen = -1,			\
+	.root = QRB_ROOT_INITIALIZER,	\
+	.stack = NULL			\
+    }
 
 void STree_AllocInit(void);
 qboolean STree_Insert(struct stree_root *root, struct stree_node *node);
