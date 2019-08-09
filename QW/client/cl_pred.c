@@ -170,7 +170,7 @@ CL_PredictMove(physent_stack_t *pestack)
 	return;
 
     for (i = 0; i < 3; i++) {
-	if (fabs(fromstate->origin[i] - tostate->origin[i]) > 128) {
+	if (fabsf(fromstate->origin[i] - tostate->origin[i]) > 128) {
 	    /* teleported, so don't lerp */
 	    VectorCopy(tostate->velocity, cl.simvel);
 	    VectorCopy(tostate->origin, cl.simorg);

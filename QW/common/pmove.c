@@ -319,7 +319,7 @@ PM_Friction(playermove_t *pmove, const physent_stack_t *pestack)
 	return;
 
     vel = pmove->velocity;
-    speed = sqrt(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
+    speed = sqrtf(vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]);
     if (speed < 1) {
 	vel[0] = 0;
 	vel[1] = 0;

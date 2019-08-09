@@ -166,7 +166,7 @@ winding_for_plane(const mplane_t *p)
     max = -BOGUS_RANGE;
     axis = -1;
     for (i = 0; i < 3; i++) {
-	v = fabs(p->normal[i]);
+	v = fabsf(p->normal[i]);
 	if (v > max) {
 	    axis = i;
 	    max = v;

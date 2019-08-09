@@ -448,9 +448,8 @@ PF_normalize(void)
 
     value1 = G_VECTOR(OFS_PARM0);
 
-    new =
-	value1[0] * value1[0] + value1[1] * value1[1] + value1[2] * value1[2];
-    new = sqrt(new);
+    new = value1[0] * value1[0] + value1[1] * value1[1] + value1[2] * value1[2];
+    new = sqrtf(new);
 
     if (new == 0)
 	newvalue[0] = newvalue[1] = newvalue[2] = 0;
@@ -479,9 +478,8 @@ PF_vlen(void)
 
     value1 = G_VECTOR(OFS_PARM0);
 
-    new =
-	value1[0] * value1[0] + value1[1] * value1[1] + value1[2] * value1[2];
-    new = sqrt(new);
+    new = value1[0] * value1[0] + value1[1] * value1[1] + value1[2] * value1[2];
+    new = sqrtf(new);
 
     G_FLOAT(OFS_RETURN) = new;
 }
@@ -540,7 +538,7 @@ PF_vectoangles(void)
 	if (yaw < 0)
 	    yaw += 360;
 
-	forward = sqrt(value1[0] * value1[0] + value1[1] * value1[1]);
+	forward = sqrtf(value1[0] * value1[0] + value1[1] * value1[1]);
 	pitch = (int)(atan2(value1[2], forward) * 180 / M_PI);
 	if (pitch < 0)
 	    pitch += 360;
@@ -1047,7 +1045,7 @@ PF_fabs(void)
     float v;
 
     v = G_FLOAT(OFS_PARM0);
-    G_FLOAT(OFS_RETURN) = fabs(v);
+    G_FLOAT(OFS_RETURN) = fabsf(v);
 }
 
 static void
@@ -1356,13 +1354,13 @@ PF_rint(void)
 static void
 PF_floor(void)
 {
-    G_FLOAT(OFS_RETURN) = floor(G_FLOAT(OFS_PARM0));
+    G_FLOAT(OFS_RETURN) = floorf(G_FLOAT(OFS_PARM0));
 }
 
 static void
 PF_ceil(void)
 {
-    G_FLOAT(OFS_RETURN) = ceil(G_FLOAT(OFS_PARM0));
+    G_FLOAT(OFS_RETURN) = ceilf(G_FLOAT(OFS_PARM0));
 }
 
 

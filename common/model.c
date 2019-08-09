@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // on the same machine.
 
 #include <float.h>
+#include <math.h>
 #include <stdint.h>
 
 #include "cmd.h"
@@ -945,8 +946,8 @@ CalcSurfaceExtents(const brushmodel_t *brushmodel, msurface_t *surf)
     }
 
     for (i = 0; i < 2; i++) {
-	bmins[i] = floor(mins[i] / 16);
-	bmaxs[i] = ceil(maxs[i] / 16);
+	bmins[i] = floorf(mins[i] / 16);
+	bmaxs[i] = ceilf(maxs[i] / 16);
 
 	surf->texturemins[i] = bmins[i] * 16;
 	surf->extents[i] = (bmaxs[i] - bmins[i]) * 16;
@@ -1659,7 +1660,7 @@ RadiusFromBounds(vec3_t mins, vec3_t maxs)
     vec3_t corner;
 
     for (i = 0; i < 3; i++)
-	corner[i] = qmax(fabs(mins[i]), fabs(maxs[i]));
+	corner[i] = qmax(fabsf(mins[i]), fabsf(maxs[i]));
 
     return Length(corner);
 }

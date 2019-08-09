@@ -72,7 +72,7 @@ SubdividePolygon(msurface_t *surf, int numverts, vec_t *verts,
 
     for (i = 0; i < 3; i++) {
 	m = (mins[i] + maxs[i]) * 0.5;
-	m = floor(m / gl_subdivide_size.value + 0.5);
+	m = floorf(m / gl_subdivide_size.value + 0.5);
 	m *= gl_subdivide_size.value;
 	if (maxs[i] - m < 8)
 	    continue;

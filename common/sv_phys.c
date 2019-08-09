@@ -859,8 +859,8 @@ SV_TryUnstick(edict_t *player, const vec3_t oldvel)
 	player->v.velocity[2] = 0;
 	clip = SV_FlyMove(player, 0.1, &trace);
 
-	if (fabs(oldorg[1] - player->v.origin[1]) > 4
-	    || fabs(oldorg[0] - player->v.origin[0]) > 4) {
+	if (fabsf(oldorg[1] - player->v.origin[1]) > 4
+	    || fabsf(oldorg[0] - player->v.origin[0]) > 4) {
 	    return clip;
 	}
 
@@ -948,8 +948,8 @@ SV_WalkMove(edict_t *player)
      * floats in the clipping hulls.
      */
     if (clip) {
-	if (fabs(oldorg[1] - player->v.origin[1]) < 0.03125 &&
-	    fabs(oldorg[0] - player->v.origin[0]) < 0.03125) {
+	if (fabsf(oldorg[1] - player->v.origin[1]) < 0.03125 &&
+	    fabsf(oldorg[0] - player->v.origin[0]) < 0.03125) {
 	    /* stepping up didn't make any progress */
 	    clip = SV_TryUnstick(player, oldvel);
 	}

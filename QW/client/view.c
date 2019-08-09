@@ -88,7 +88,7 @@ V_CalcRoll(vec3_t angles, vec3_t velocity)
     AngleVectors(angles, forward, right, up);
     side = DotProduct(velocity, right);
     sign = side < 0 ? -1 : 1;
-    side = fabs(side);
+    side = fabsf(side);
 
     value = cl_rollangle.value;
 
@@ -137,9 +137,8 @@ V_CalcBob(void)
 // bob is proportional to simulated velocity in the xy plane
 // (don't count Z, or jumping messes it up)
 
-    bob =
-	sqrt(cl.simvel[0] * cl.simvel[0] +
-	     cl.simvel[1] * cl.simvel[1]) * cl_bob.value;
+    bob = sqrtf(cl.simvel[0] * cl.simvel[0] +
+		cl.simvel[1] * cl.simvel[1]) * cl_bob.value;
     bob = bob * 0.3 + bob * 0.7 * sin(cycle);
     if (bob > 4)
 	bob = 4;

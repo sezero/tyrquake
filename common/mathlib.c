@@ -73,9 +73,9 @@ PerpendicularVector(vec3_t dst, const vec3_t src)
        ** find the smallest magnitude axially aligned vector
      */
     for (pos = 0, i = 0; i < 3; i++) {
-	if (fabs(src[i]) < minelem) {
+	if (fabsf(src[i]) < minelem) {
 	    pos = i;
-	    minelem = fabs(src[i]);
+	    minelem = fabsf(src[i]);
 	}
     }
     tempvec[0] = tempvec[1] = tempvec[2] = 0.0F;
@@ -393,8 +393,6 @@ CrossProduct(const vec3_t v1, const vec3_t v2, vec3_t cross)
     cross[2] = v1[0] * v2[1] - v1[1] * v2[0];
 }
 
-double sqrt(double x);
-
 vec_t
 Length(vec3_t v)
 {
@@ -404,7 +402,7 @@ Length(vec3_t v)
     length = 0;
     for (i = 0; i < 3; i++)
 	length += v[i] * v[i];
-    length = sqrt(length);	// FIXME
+    length = sqrtf(length);	// FIXME
 
     return length;
 }
@@ -415,7 +413,7 @@ VectorNormalize(vec3_t v)
     float length, ilength;
 
     length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-    length = sqrt(length);	// FIXME
+    length = sqrtf(length);	// FIXME
 
     if (length) {
 	ilength = 1 / length;

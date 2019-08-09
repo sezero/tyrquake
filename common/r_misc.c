@@ -170,11 +170,11 @@ R_TimeGraph(void)
     r_time2 = Sys_DoubleTime();
 
     a = (r_time2 - r_time1) / 0.001;
-//a = fabs(mouse_y * 0.05);
+//a = fabsf(mouse_y * 0.05);
 //a = (int)((r_refdef.vieworg[2] + 1024)/1)%(int)r_graphheight.value;
 //a = (int)((pmove.velocity[2] + 500)/10);
-//a = fabs(velocity[0])/20;
-//a = ((int)fabs(origin[0])/8)%20;
+//a = fabsf(velocity[0])/20;
+//a = ((int)fabsf(origin[0])/8)%20;
 //a = (cl.idealpitch + 30)/5;
 //a = (int)(cl.simangles[YAW] * 64/360) & 63;
 

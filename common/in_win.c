@@ -1017,7 +1017,7 @@ IN_JoyMove(usercmd_t *cmd)
 	case AxisForward:
 	    if ((joy_advanced.value == 0.0) && ((in_mlook.state & 1) ^ (int)m_freelook.value)) {
 		// user wants forward control to become look control
-		if (fabs(fAxisValue) > joy_pitchthreshold.value) {
+		if (fabsf(fAxisValue) > joy_pitchthreshold.value) {
 		    // if mouse invert is on, invert the joystick pitch value
 		    // only absolute control support here (joy_advanced is false)
 		    if (m_pitch.value < 0.0) {
@@ -1033,7 +1033,7 @@ IN_JoyMove(usercmd_t *cmd)
 		}
 	    } else {
 		// user wants forward control to be forward control
-		if (fabs(fAxisValue) > joy_forwardthreshold.value) {
+		if (fabsf(fAxisValue) > joy_forwardthreshold.value) {
 		    cmd->forwardmove +=
 			(fAxisValue * joy_forwardsensitivity.value) * speed *
 			cl_forwardspeed.value;
@@ -1042,7 +1042,7 @@ IN_JoyMove(usercmd_t *cmd)
 	    break;
 
 	case AxisSide:
-	    if (fabs(fAxisValue) > joy_sidethreshold.value) {
+	    if (fabsf(fAxisValue) > joy_sidethreshold.value) {
 		cmd->sidemove +=
 		    (fAxisValue * joy_sidesensitivity.value) * speed *
 		    cl_sidespeed.value;
@@ -1053,14 +1053,14 @@ IN_JoyMove(usercmd_t *cmd)
 	    if ((in_strafe.state & 1)
 		|| (lookstrafe.value && ((in_mlook.state & 1) ^ (int)m_freelook.value))) {
 		// user wants turn control to become side control
-		if (fabs(fAxisValue) > joy_sidethreshold.value) {
+		if (fabsf(fAxisValue) > joy_sidethreshold.value) {
 		    cmd->sidemove -=
 			(fAxisValue * joy_sidesensitivity.value) * speed *
 			cl_sidespeed.value;
 		}
 	    } else {
 		// user wants turn control to be turn control
-		if (fabs(fAxisValue) > joy_yawthreshold.value) {
+		if (fabsf(fAxisValue) > joy_yawthreshold.value) {
 		    if (dwControlMap[i] == JOY_ABSOLUTE_AXIS) {
 			cl.viewangles[YAW] +=
 			    (fAxisValue * joy_yawsensitivity.value) * aspeed *
@@ -1077,7 +1077,7 @@ IN_JoyMove(usercmd_t *cmd)
 
 	case AxisLook:
 	    if ((in_mlook.state & 1) ^ (int)m_freelook.value) {
-		if (fabs(fAxisValue) > joy_pitchthreshold.value) {
+		if (fabsf(fAxisValue) > joy_pitchthreshold.value) {
 		    // pitch movement detected and pitch movement desired by user
 		    if (dwControlMap[i] == JOY_ABSOLUTE_AXIS) {
 			cl.viewangles[PITCH] +=

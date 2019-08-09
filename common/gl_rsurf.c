@@ -20,6 +20,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // gl_rsurf.c: surface-related refresh code
 
 #include <float.h>
+#include <math.h>
 
 #include "console.h"
 #include "gl_model.h"
@@ -62,7 +63,7 @@ R_AddDynamicLights(const msurface_t *surf, unsigned *blocklights)
 
 	rad = dl->radius;
 	dist = DotProduct(dl->origin, surf->plane->normal) - surf->plane->dist;
-	rad -= fabs(dist);
+	rad -= fabsf(dist);
 	minlight = dl->minlight;
 	if (rad < minlight)
 	    continue;

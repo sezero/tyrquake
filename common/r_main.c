@@ -496,9 +496,8 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
     for (i = 0; i < 4; i++)
 	VectorNormalize(screenedge[i].normal);
 
-    res_scale =
-	sqrt((double)(r_refdef.vrect.width * r_refdef.vrect.height) /
-	     (320.0 * 152.0)) * (2.0 / r_refdef.horizontalFieldOfView);
+    res_scale =	sqrtf((r_refdef.vrect.width * r_refdef.vrect.height) /
+		      (320.0 * 152.0)) * (2.0 / r_refdef.horizontalFieldOfView);
     r_aliastransition = r_aliastransbase.value * res_scale;
     r_resfudge = r_aliastransadj.value * res_scale;
 

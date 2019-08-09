@@ -91,7 +91,7 @@ V_CalcRoll(vec3_t angles, vec3_t velocity)
     AngleVectors(angles, forward, right, up);
     side = DotProduct(velocity, right);
     sign = side < 0 ? -1 : 1;
-    side = fabs(side);
+    side = fabsf(side);
 
     value = cl_rollangle.value;
 //      if (cl.inwater)
@@ -134,9 +134,8 @@ V_CalcBob(void)
 // bob is proportional to velocity in the xy plane
 // (don't count Z, or jumping messes it up)
 
-    bob =
-	sqrt(cl.velocity[0] * cl.velocity[0] +
-	     cl.velocity[1] * cl.velocity[1]) * cl_bob.value;
+    bob = sqrtf(cl.velocity[0] * cl.velocity[0] +
+		cl.velocity[1] * cl.velocity[1]) * cl_bob.value;
 //Con_Printf ("speed: %5.1f\n", Length(cl.velocity));
     bob = bob * 0.3 + bob * 0.7 * sin(cycle);
     if (bob > 4)
@@ -203,7 +202,7 @@ V_DriftPitch(void)
     }
 // don't count small mouse motion
     if (cl.nodrift) {
-	if (fabs(cl.cmd.forwardmove) < cl_forwardspeed.value)
+	if (fabsf(cl.cmd.forwardmove) < cl_forwardspeed.value)
 	    cl.driftmove = 0;
 	else
 	    cl.driftmove += host_frametime;

@@ -119,7 +119,7 @@ SV_UserFriction(edict_t *player)
     vec3_t start, stop;
     trace_t trace;
 
-    speed = sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
+    speed = sqrtf(velocity[0] * velocity[0] + velocity[1] * velocity[1]);
     if (!speed)
 	return;
 
