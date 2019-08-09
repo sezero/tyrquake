@@ -23,9 +23,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_local.h"
 #include "sound.h"
 
-// FIXME - header hacks
-extern int screenwidth;
-
 #if 0
 // FIXME
 /*

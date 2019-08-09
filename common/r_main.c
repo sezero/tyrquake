@@ -76,8 +76,6 @@ float xscaleinv, yscaleinv;
 float xscaleshrink, yscaleshrink;
 float aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
 
-int screenwidth;
-
 float pixelAspect;
 static float screenAspect;
 static float verticalFieldOfView;

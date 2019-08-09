@@ -214,6 +214,9 @@ enum {
     m_none, m_main, m_options, m_video, m_keys, m_quit
 } m_state;
 #endif
+#ifdef NQ_HACK
+m_state_t m_state;
+#endif
 
 /*
 ================

@@ -555,7 +555,7 @@ void GL_LoadSpriteTextures(const model_t *model);
 void Mod_ReloadTextures();
 #endif
 
-brushmodel_t *loaded_brushmodels;
+extern brushmodel_t *loaded_brushmodels;
 
 /*
  * PVS/PHS information
