@@ -650,24 +650,57 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
         return;
     }
 
-    const int ds = lightpoint.s >> 4;
-    const int dt = lightpoint.t >> 4;
     const msurface_t *surf = lightpoint.surf;
-    const short *extents = surf->extents;
-    const byte *lightmap = surf->samples + (dt * ((extents[0] >> 4) + 1) + ds) * gl_lightmap_bytes;
-    const int surfbytes = ((extents[0] >> 4) + 1) * ((extents[1] >> 4) + 1) * gl_lightmap_bytes;
+    const int surfwidth = (surf->extents[0] >> 4) + 1;
+    const int surfheight = (surf->extents[1] >> 4) + 1;
+    const int ds = qmin((int)floorf(lightpoint.s), surfwidth - 2);
+    const int dt = qmin((int)floorf(lightpoint.t), surfheight - 2);
+    const int surfbytes = surfwidth * surfheight * gl_lightmap_bytes;
+    const byte *row0 = surf->samples + (dt * surfwidth + ds) * gl_lightmap_bytes;
+    const byte *row1 = row0 + surfwidth * gl_lightmap_bytes;
+    vec3_t samples[2][2];
 
-    /* Add the light styles together */
+    /* Calculate a 2x2 sample, adding the light styles together */
+    memset(samples, 0, sizeof(samples));
+
     int maps;
-    light->shade[0] = 0.0f;
-    light->shade[1] = 0.0f;
-    light->shade[2] = 0.0f;
     foreach_surf_lightstyle(surf, maps) {
         const float scale = d_lightstylevalue[surf->styles[maps]] * (1.0f / 256.0f);
-        light->shade[0] += lightmap[0] * scale;
-        light->shade[1] += lightmap[1] * scale;
-        light->shade[2] += lightmap[2] * scale;
-        lightmap += surfbytes;
+        samples[0][0][0] += row0[0] * scale;
+        samples[0][0][1] += row0[1] * scale;
+        samples[0][0][2] += row0[2] * scale;
+
+        samples[0][1][0] += row0[3] * scale;
+        samples[0][1][1] += row0[4] * scale;
+        samples[0][1][2] += row0[5] * scale;
+
+        samples[1][0][0] += row1[0] * scale;
+        samples[1][0][1] += row1[1] * scale;
+        samples[1][0][2] += row1[2] * scale;
+
+        samples[1][1][0] += row1[3] * scale;
+        samples[1][1][1] += row1[4] * scale;
+        samples[1][1][2] += row1[5] * scale;
+
+        row0 += surfbytes;
+        row1 += surfbytes;
+    }
+
+    /* Interpolate within the 2x2 sample */
+    const float dsfrac = lightpoint.s - ds;
+    const float dtfrac = lightpoint.t - dt;
+    float weight00 = (1.0f - dsfrac) * (1.0f - dtfrac);
+    float weight01 = dsfrac * (1.0f - dtfrac);
+    float weight10 = (1.0f - dsfrac) * dtfrac;
+    float weight11 = dsfrac * dtfrac;
+
+    int i;
+    for (i = 0; i < 3; i++) {
+        light->shade[i] =
+            samples[0][0][i] * weight00 +
+            samples[0][1][i] * weight01 +
+            samples[1][0][i] * weight10 +
+            samples[1][1][i] * weight11;
     }
 
     /* Clamp to minimum ambient lighting */

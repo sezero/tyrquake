@@ -747,22 +747,42 @@ R_LightPoint(const vec3_t point)
     if (!hit)
         return 0;
 
-    const int ds = lightpoint.s >> 4;
-    const int dt = lightpoint.t >> 4;
     const msurface_t *surf = lightpoint.surf;
-    const short *extents = surf->extents;
-    const byte *lightmap = surf->samples + dt * ((extents[0] >> 4) + 1) + ds;
-    const int surfbytes = ((extents[0] >> 4) + 1) * ((extents[1] >> 4) + 1);
+    const int surfwidth = (surf->extents[0] >> 4) + 1;
+    const int surfheight = (surf->extents[1] >> 4) + 1;
+    const int ds = qmin((int)floorf(lightpoint.s), surfwidth - 2);
+    const int dt = qmin((int)floorf(lightpoint.t), surfheight - 2);
+    const int surfbytes = surfwidth * surfheight;
+    const byte *row0 = surf->samples + (dt * surfwidth + ds);
+    const byte *row1 = row0 + surfwidth;
+    float samples[2][2];
 
-    /* FIXME: this does not account properly for dynamic lights e.g. rocket */
+    /* Calculate a 2x2 sample, adding the light styles together */
+    memset(samples, 0, sizeof(samples));
+
     int maps;
-    int lightlevel = 0;
     foreach_surf_lightstyle(surf, maps) {
-        lightlevel += *lightmap * d_lightstylevalue[surf->styles[maps]];
-        lightmap += surfbytes;
+        const float scale = d_lightstylevalue[surf->styles[maps]] * (1.0f / 256.0f);
+        samples[0][0] += row0[0] * scale;
+        samples[0][1] += row0[1] * scale;
+        samples[1][0] += row1[0] * scale;
+        samples[1][1] += row1[1] * scale;
+        row0 += surfbytes;
+        row1 += surfbytes;
     }
 
-    return lightlevel >> 8;
+    /* Interpolate within the 2x2 sample */
+    const float dsfrac = lightpoint.s - ds;
+    const float dtfrac = lightpoint.t - dt;
+    float weight00 = (1.0f - dsfrac) * (1.0f - dtfrac);
+    float weight01 = dsfrac * (1.0f - dtfrac);
+    float weight10 = (1.0f - dsfrac) * dtfrac;
+    float weight11 = dsfrac * dtfrac;
+
+    return floorf(samples[0][0] * weight00 +
+                  samples[0][1] * weight01 +
+                  samples[1][0] * weight10 +
+                  samples[1][1] * weight11);
 }
 
 /*

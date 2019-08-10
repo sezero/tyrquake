@@ -271,8 +271,8 @@ void R_MarkLights(dlight_t *light, int bit, mnode_t *node);
  */
 typedef struct {
     const msurface_t *surf;
-    int s;
-    int t;
+    float s;
+    float t;
 } surf_lightpoint_t;
 
 qboolean R_LightSurfPoint(const vec3_t point, surf_lightpoint_t *lightpoint);

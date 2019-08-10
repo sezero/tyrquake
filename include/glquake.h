@@ -352,8 +352,8 @@ void R_AnimateLight(void);
  */
 typedef struct {
     const msurface_t *surf;
-    int s;
-    int t;
+    float s;
+    float t;
 } surf_lightpoint_t;
 
 qboolean R_LightSurfPoint(const vec3_t point, surf_lightpoint_t *lightpoint);

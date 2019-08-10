@@ -145,29 +145,29 @@ R_FillLightPoint(const mnode_t *node, const vec3_t surfpoint, surf_lightpoint_t 
     surf = cl.worldmodel->surfaces + node->firstsurface;
     for (i = 0; i < node->numsurfaces; i++, surf++) {
 	const mtexinfo_t *tex;
-	int s, t, ds, dt;
+	float s, t;
+        int ds, dt;
 
 	if (surf->flags & SURF_DRAWTILED)
 	    continue; /* no lightmaps */
 
 	tex = surf->texinfo;
-	s = DotProduct(surfpoint, tex->vecs[0]) + tex->vecs[0][3];
-	t = DotProduct(surfpoint, tex->vecs[1]) + tex->vecs[1][3];
-	if (s < surf->texturemins[0] || t < surf->texturemins[1])
-	    continue;
+	s = (DotProduct(surfpoint, tex->vecs[0]) + tex->vecs[0][3] - surf->texturemins[0]) * 0.0625f;
+        t = (DotProduct(surfpoint, tex->vecs[1]) + tex->vecs[1][3] - surf->texturemins[1]) * 0.0625f;
 
-	ds = s - surf->texturemins[0];
-	dt = t - surf->texturemins[1];
-	if (ds > surf->extents[0] || dt > surf->extents[1])
+        ds = floor(s);
+        dt = floor(t);
+	if (ds < 0 || dt < 0)
 	    continue;
-
+        if (ds > surf->extents[0] >> 4 || dt > surf->extents[1] >> 4)
+            continue;
 	if (!surf->samples)
 	    return false;
 
         /* Fill in the lightpoint details */
         lightpoint->surf = surf;
-        lightpoint->s = ds;
-        lightpoint->t = dt;
+        lightpoint->s = s;
+        lightpoint->t = t;
 
         return true;
     }
