@@ -287,6 +287,32 @@ CFLAGS ?=
 CFLAGS := $(CFLAGS) -Wall -Wno-trigraphs -Wwrite-strings
 CFLAGS += $(call cc-option,-std=gnu99)
 
+ifeq ($(G4),Y)
+# Playing with PPC OSX GCC Flags
+CFLAGS += -mcpu=7450 -mtune=7450
+
+# This stuff is enabled by Apple's "-fast" option, but you can't
+# override any of the options if you use "-fast" and some are
+# problematic (see below)
+CFLAGS += -O3
+CFLAGS += -falign-loops-max-skip=15
+CFLAGS += -falign-jumps-max-skip=15
+CFLAGS += -falign-loops=16
+CFLAGS += -falign-jumps=16
+CFLAGS += -falign-functions=16
+CFLAGS += -malign-natural
+CFLAGS += -ffast-math
+CFLAGS += -fstrict-aliasing
+CFLAGS += -funroll-loops
+#CFLAGS += -ftree-loop-linear # This one generates bad code, at least in Mod_CalculateAliasModelBounds()
+#CFLAGS += -ftree-loop-memset # This one ICE's on Con_DrawInput()
+CFLAGS += -fsched-interblock
+CFLAGS += -fgcse-sm
+
+# Not part of "-fast"
+CFLAGS += -ftree-vectorize
+endif
+
 ifeq ($(DEBUG),Y)
 CFLAGS += -g
 else
