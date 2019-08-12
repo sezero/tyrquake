@@ -1104,13 +1104,16 @@ CL_MuzzleFlash(void)
     dl->color = dl_colors[DLIGHT_FLASH];
 
     /*
-     * TODO: do something about disabling lerping of the muzzle flash
-     * animation on other player models.  Just doing LERP_RESETANIM2
-     * on the player doesn't help, as there are more frames in the
-     * animation that the viewent.
+     * The view model usually needs 2 animation frames for the muzzle
+     * flash.  It seems the player models need three.
      */
-    if (r_lerpmodels.value != 2 && (i - 1) == cl.playernum)
-        cl.viewent.lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2;
+    if (r_lerpmodels.value != 2) {
+        if ((i - 1) == cl.playernum) {
+            cl.viewent.lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2;
+        } else  {
+	    cl_player_entities[i - 1].lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2 | LERP_RESETANIM3;
+        }
+    }
 }
 
 

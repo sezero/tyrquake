@@ -119,6 +119,12 @@ R_AliasSetupAnimationLerp(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *le
             entity->lerp.pose.previous = pose;
             entity->lerp.pose.current = pose;
             entity->lerp.flags &= ~LERP_RESETANIM2;
+	} else if (entity->lerp.flags & LERP_RESETANIM3) {
+            /* Defer lerping one more time */
+            entity->lerp.pose.start = 0.0f;
+            entity->lerp.pose.previous = pose;
+            entity->lerp.pose.current = pose;
+            entity->lerp.flags &= ~LERP_RESETANIM3;
         } else {
             entity->lerp.pose.start = cl.time;
             entity->lerp.pose.previous = entity->lerp.pose.current;

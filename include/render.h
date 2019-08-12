@@ -53,6 +53,7 @@ typedef struct efrag_s {
 #define LERP_MOVESTEP   (1U << 0) // this is a MOVETYPE_STEP entity, enable movement lerp
 #define LERP_RESETANIM  (1U << 1) // disable anim lerping until next anim frame
 #define LERP_RESETANIM2 (1U << 2) // set this to disable lerping the next anim frames
+#define LERP_RESETANIM3 (1U << 3) // set this to disable lerping the next anim frames
 #define LERP_RESETMOVE  (1U << 4) // disable movement lerping until next origin/angles change
 #define LERP_FINISH     (1U << 5) // use lerpfinish time from server update instead of assuming interval of 0.1
 
