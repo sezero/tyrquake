@@ -122,14 +122,11 @@ cvar_t gl_farclip = { "gl_farclip", "16384", true };
 
 cvar_t _gl_allowgammafallback = { "_gl_allowgammafallback", "1" };
 
-#ifdef NQ_HACK
 /*
- * incomplete model interpolation support
- * -> default to off and don't save to config for now
+ * model interpolation support
  */
 cvar_t r_lerpmodels = { "r_lerpmodels", "1", false };
 cvar_t r_lerpmove = { "r_lerpmove", "1", false };
-#endif
 
 qboolean gl_mtexable = false;
 int gl_num_texture_units;
@@ -485,149 +482,6 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
     return &textures[frame];
 }
 
-/*
- * Returns the lerp value between 0 and 1, where 0.0f is the previous
- * pose frame and 1.0f is the current pose frame.
- */
-static float
-R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr)
-{
-    int framenum, pose, numposes;
-    const float *intervals;
-
-    framenum = entity->frame;
-    if ((framenum >= aliashdr->numframes) || (framenum < 0)) {
-	Con_DPrintf("%s: no such frame %d\n", __func__, framenum);
-	framenum = 0;
-    }
-
-    pose = aliashdr->frames[framenum].firstpose;
-    numposes = aliashdr->frames[framenum].numposes;
-
-    if (numposes > 1) {
-	const float frametime = cl.time + entity->syncbase;
-	intervals = (float *)((byte *)aliashdr + aliashdr->poseintervals);
-	pose += Mod_FindInterval(intervals + pose, numposes, frametime);
-    }
-
-#ifdef NQ_HACK
-    if (r_lerpmodels.value) {
-	const maliasframedesc_t *currentframe, *previousframe;
-	float delta, time, blend;
-
-	/* A few quick sanity checks to abort lerping */
-	if (entity->currentframetime < entity->previousframetime)
-	    goto nolerp;
-	if (entity->currentframetime - entity->previousframetime > 1.0f)
-	    goto nolerp;
-	/* FIXME - hack to skip the viewent (weapon) */
-	if (entity == &cl.viewent)
-	    goto nolerp;
-
-	currentframe = &aliashdr->frames[entity->currentframe];
-	if (numposes > 1) {
-	    /* FIXME - merge with Mod_FindInterval? */
-	    int i;
-	    float fullinterval, targettime;
-	    fullinterval = intervals[numposes - 1];
-	    time = cl.time + entity->syncbase;
-	    targettime = time - (int)(time / fullinterval) * fullinterval;
-	    for (i = 0; i < numposes - 1; i++)
-		if (intervals[i] > targettime)
-		    break;
-
-	    entity->currentpose = currentframe->firstpose + i;
-	    if (i == 0) {
-		entity->previouspose = currentframe->firstpose + numposes - 1;
-		time = targettime;
-		delta = intervals[0];
-	    } else {
-		entity->previouspose = entity->currentpose - 1;
-		time = targettime - intervals[i - 1];
-		delta = intervals[i] - intervals[i - 1];
-	    }
-	} else {
-	    previousframe = &aliashdr->frames[entity->previousframe];
-	    entity->currentpose = currentframe->firstpose;
-	    entity->previouspose = previousframe->firstpose;
-	    time = cl.time - entity->currentframetime;
-	    delta = entity->currentframetime - entity->previousframetime;
-	}
-	blend = qclamp(time / delta, 0.0f, 1.0f);
-
-	return blend;
-    }
- nolerp:
-#endif
-
-    entity->currentpose = pose;
-    entity->previouspose = pose;
-
-    return 1.0f;
-}
-
-
-/*
-=================
-R_AliasCalcLerp
-=================
-*/
-static void
-R_AliasCalcLerp(entity_t *entity, vec3_t origin, vec3_t angles)
-{
-#ifdef NQ_HACK
-    /* FIXME - hack to skip viewent (weapon) lerp */
-    if (entity == &cl.viewent)
-	goto nolerp_origin;
-
-    /* Origin LERP */
-    if (r_lerpmove.value) {
-	float delta, frac;
-	vec3_t lerpvec;
-
-	delta = entity->currentorigintime - entity->previousorigintime;
-	frac = qclamp((cl.time - entity->currentorigintime) / delta, 0.0, 1.0);
-	VectorSubtract(entity->currentorigin, entity->previousorigin, lerpvec);
-	VectorMA(entity->previousorigin, frac, lerpvec, origin);
-    } else {
- nolerp_origin:
-	VectorCopy(entity->origin, origin);
-    }
-
-    /* FIXME - hack to skip the viewent (weapon) */
-    if (entity == &cl.viewent)
-	goto nolerp_angles;
-
-    /* Angles lerp */
-    if (entity->previousanglestime == entity->currentanglestime)
-	goto nolerp_angles;
-    if (r_lerpmove.value) {
-	float delta, frac;
-	vec3_t lerpvec;
-	int i;
-
-	delta = entity->currentanglestime - entity->previousanglestime;
-	frac = qclamp((cl.time - entity->currentanglestime) / delta, 0.0, 1.0);
-	VectorSubtract(entity->currentangles, entity->previousangles, lerpvec);
-	for (i = 0; i < 3; i++) {
-	    if (lerpvec[i] > 180.0f)
-		lerpvec[i] -= 360.0f;
-	    else if (lerpvec[i] < -180.0f)
-		lerpvec[i] += 360.0f;
-	}
-	VectorMA(entity->previousangles, frac, lerpvec, angles);
-	//angles[PITCH] = -angles[PITCH];
-    } else {
-    nolerp_angles:
-	VectorCopy(entity->angles, angles);
-    }
-#endif
-#ifdef QW_HACK
-    VectorCopy(entity->origin, origin);
-    VectorCopy(entity->angles, angles);
-#endif
-}
-
 static void
 R_LightPoint(const vec3_t point, alias_light_t *light)
 {
@@ -764,51 +618,52 @@ static void
 R_AliasDrawModel(entity_t *entity)
 {
     const model_t *model = entity->model;
-    vec3_t origin, angles, mins, maxs;
+    vec3_t mins, maxs;
     int i;
     float radius;
     aliashdr_t *aliashdr;
     alias_light_t light;
+    lerpdata_t lerpdata;
 
-    /* Calculate position and cull if out of view */
-    R_AliasCalcLerp(entity, origin, angles);
-    if (entity->angles[0] || entity->angles[2]) {
+    /* Calculate lerped position and cull if out of view */
+    R_AliasSetupTransformLerp(entity, &lerpdata);
+    if (lerpdata.angles[0] || lerpdata.angles[2]) {
 	radius = model->radius;
 	for (i = 0; i < 3; i++) {
-	    mins[i] = origin[i] - radius;
-	    maxs[i] = origin[i] + radius;
+	    mins[i] = lerpdata.origin[i] - radius;
+	    maxs[i] = lerpdata.origin[i] + radius;
 	}
-    } else if (entity->angles[1]) {
+    } else if (lerpdata.angles[1]) {
 	radius = model->xy_radius;
-	mins[0] = origin[0] - radius;
-	mins[1] = origin[1] - radius;
-	mins[2] = origin[2] + model->mins[2];
-	maxs[0] = origin[0] + radius;
-	maxs[1] = origin[1] + radius;
-	maxs[2] = origin[2] + model->maxs[2];
+	mins[0] = lerpdata.origin[0] - radius;
+	mins[1] = lerpdata.origin[1] - radius;
+	mins[2] = lerpdata.origin[2] + model->mins[2];
+	maxs[0] = lerpdata.origin[0] + radius;
+	maxs[1] = lerpdata.origin[1] + radius;
+	maxs[2] = lerpdata.origin[2] + model->maxs[2];
     } else {
-	VectorAdd(origin, model->mins, mins);
-	VectorAdd(origin, model->maxs, maxs);
+	VectorAdd(lerpdata.origin, model->mins, mins);
+	VectorAdd(lerpdata.origin, model->maxs, maxs);
     }
     if (R_CullBox(mins, maxs))
 	return;
 
     /* Calculate lighting at the lerp origin */
     memset(&light, 0, sizeof(light));
-    R_AliasCalcLight(entity, origin, angles, &light);
+    R_AliasCalcLight(entity, lerpdata.origin, lerpdata.angles, &light);
 
     /* locate/load the data in the model cache */
     aliashdr = Mod_Extradata(entity->model);
+    R_AliasSetupAnimationLerp(entity, aliashdr, &lerpdata);
 
     /* Generate the vertex/color buffers */
     int numverts = aliashdr->numverts;
     vec_t *vertexbuf = alloca(numverts * sizeof(vec3_t));
     vec_t *colorbuf = alloca(numverts * sizeof(vec3_t));
-    float lerp = R_AliasSetupFrame(entity, aliashdr);
 
-    if (lerp == 1.0f) {
+    if (lerpdata.blend == 1.0f) {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
-        const trivertx_t *src = posedata + entity->currentpose * numverts;
+        const trivertx_t *src = posedata + lerpdata.pose1 * numverts;
         vec_t *dstvert = vertexbuf;
         vec_t *dstcolor = colorbuf;
         for (i = 0; i < numverts; i++, src++) {
@@ -823,18 +678,18 @@ R_AliasDrawModel(entity_t *entity)
         }
     } else {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
-        const trivertx_t *src0 = posedata + entity->previouspose * numverts;
-        const trivertx_t *src1 = posedata + entity->currentpose * numverts;
+        const trivertx_t *src0 = posedata + lerpdata.pose0 * numverts;
+        const trivertx_t *src1 = posedata + lerpdata.pose1 * numverts;
         vec_t *dstvert = vertexbuf;
         vec_t *dstcolor = colorbuf;
         for (i = 0; i < numverts; i++, src0++, src1++) {
-            *dstvert++ = src0->v[0] * (1.0f - lerp) + src1->v[0] * lerp;
-            *dstvert++ = src0->v[1] * (1.0f - lerp) + src1->v[1] * lerp;
-            *dstvert++ = src0->v[2] * (1.0f - lerp) + src1->v[2] * lerp;
+            *dstvert++ = src0->v[0] * (1.0f - lerpdata.blend) + src1->v[0] * lerpdata.blend;
+            *dstvert++ = src0->v[1] * (1.0f - lerpdata.blend) + src1->v[1] * lerpdata.blend;
+            *dstvert++ = src0->v[2] * (1.0f - lerpdata.blend) + src1->v[2] * lerpdata.blend;
 
             float lightscale;
-            lightscale  = light.shadedots[src0->lightnormalindex] * (1.0f - lerp);
-            lightscale += light.shadedots[src1->lightnormalindex] * lerp;
+            lightscale  = light.shadedots[src0->lightnormalindex] * (1.0f - lerpdata.blend);
+            lightscale += light.shadedots[src1->lightnormalindex] * lerpdata.blend;
             *dstcolor++ = lightscale * light.shade[0];
             *dstcolor++ = lightscale * light.shade[1];
             *dstcolor++ = lightscale * light.shade[2];
@@ -845,10 +700,10 @@ R_AliasDrawModel(entity_t *entity)
     float *texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
 
     /* Setup state for drawing */
-    VectorCopy(origin, r_entorigin);
+    VectorCopy(lerpdata.origin, r_entorigin);
     GL_DisableMultitexture();
     glPushMatrix();
-    R_RotateForEntity(origin, angles);
+    R_RotateForEntity(lerpdata.origin, lerpdata.angles);
 
     /* double size of eyes, since they are really hard to see in gl */
 #ifdef NQ_HACK
@@ -1068,8 +923,8 @@ R_DrawEntitiesOnList(void)
      * - Group alias models by current skin texture for next pass
      * - Save chain of sprite models for final pass
      */
-    entity = cl_visedicts;
-    for (i = 0; i < cl_numvisedicts; i++, entity++) {
+    for (i = 0; i < cl_numvisedicts; i++) {
+        entity = cl_visedicts[i];
         switch (entity->model->type) {
             case mod_brush:
                 R_DrawDynamicBrushModel(entity);
@@ -1408,8 +1263,8 @@ R_UpdateModelLighting()
     if (r_drawflat.value)
         return;
 
-    entity = cl_visedicts;
-    for (i = 0; i < cl_numvisedicts; i++, entity++) {
+    for (i = 0; i < cl_numvisedicts; i++) {
+        entity = cl_visedicts[i];
         if (entity->model->type != mod_brush)
             continue;
         brushmodel_t *brushmodel = BrushModel(entity->model);
@@ -1530,7 +1385,7 @@ R_Mirror(void)
     /* Add the player to visedicts they can see their reflection */
     ent = &cl_entities[cl.viewentity];
     if (cl_numvisedicts < MAX_VISEDICTS) {
-	cl_visedicts[cl_numvisedicts] = *ent;
+	cl_visedicts[cl_numvisedicts] = ent;
 	cl_numvisedicts++;
     }
 

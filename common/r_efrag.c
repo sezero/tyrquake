@@ -227,22 +227,22 @@ R_StoreEfrags
 void
 R_StoreEfrags(efrag_t **ppefrag)
 {
-    entity_t *pent;
+    entity_t *entity;
     model_t *clmodel;
     efrag_t *pefrag;
 
     while ((pefrag = *ppefrag) != NULL) {
-	pent = pefrag->entity;
-	clmodel = pent->model;
+	entity = pefrag->entity;
+	clmodel = entity->model;
 	switch (clmodel->type) {
 	case mod_alias:
 	case mod_brush:
 	case mod_sprite:
-	    if ((pent->edictframe != cl_visedicts_framenum) &&
+	    if ((entity->edictframe != cl_visedicts_framenum) &&
 		(cl_numvisedicts < MAX_VISEDICTS)) {
 		/* mark that we've recorded this entity for this frame */
-		pent->edictframe = cl_visedicts_framenum;
-		cl_visedicts[cl_numvisedicts++] = *pent;
+		entity->edictframe = cl_visedicts_framenum;
+		cl_visedicts[cl_numvisedicts++] = entity;
 	    }
 	    ppefrag = &pefrag->leafnext;
 	    break;

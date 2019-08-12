@@ -115,6 +115,7 @@ CL_EntityNum(int num)
 	    Host_Error("CL_EntityNum: %i is an invalid number", num);
 	while (cl.num_entities <= num) {
 	    cl_entities[cl.num_entities].colormap = vid.colormap;
+            cl_entities[cl.num_entities].lerp.flags = LERP_RESETMOVE | LERP_RESETANIM;
 	    cl.num_entities++;
 	}
     }
@@ -474,6 +475,14 @@ CL_ParseUpdate(unsigned int bits)
     else
 	forcelink = false;
 
+    /*
+     * If more than 0.2 seconds since the last message we might have
+     * missed a think and be lerping to the wrong frame (most entities
+     * think every 0.1 sec)
+     */
+    if (ent->msgtime + 0.2f < cl.mtime[0])
+        ent->lerp.flags |= LERP_RESETANIM;
+
     ent->msgtime = cl.mtime[0];
 
     if (bits & U_MODEL) {
@@ -488,14 +497,11 @@ CL_ParseUpdate(unsigned int bits)
     else
 	ent->frame = ent->baseline.frame;
 
-    /* ANIMATION LERPING INFO */
-    if (ent->currentframe != ent->frame) {
-	/* TODO: invalidate things when they fall off the
-	   currententities list or haven't been updated for a while */
-	ent->previousframe = ent->currentframe;
-	ent->previousframetime = ent->currentframetime;
-	ent->currentframe = ent->frame;
-	ent->currentframetime = cl.time;
+    if (bits & U_NOLERP) {
+        ent->lerp.flags |= LERP_MOVESTEP;
+        ent->forcelink = true;
+    } else {
+        ent->lerp.flags &= ~LERP_MOVESTEP;
     }
 
     if (bits & U_COLORMAP)
@@ -565,9 +571,6 @@ CL_ParseUpdate(unsigned int bits)
 	ent->msg_angles[0][2] = ent->baseline.angles[2];
 
     if (cl.protocol == PROTOCOL_VERSION_FITZ) {
-	if (bits & U_NOLERP) {
-	    // FIXME - TODO (called U_STEP in FQ)
-	}
 	if (bits & U_FITZ_ALPHA) {
 	    MSG_ReadByte(); // FIXME - TODO
 	}
@@ -576,8 +579,11 @@ CL_ParseUpdate(unsigned int bits)
 	if (bits & U_FITZ_MODEL2)
 	    modnum = (modnum & 0xFF)| (MSG_ReadByte() << 8);
 	if (bits & U_FITZ_LERPFINISH) {
-	    MSG_ReadByte(); // FIXME - TODO
-	}
+	    ent->lerp.finish = ent->msgtime + MSG_ReadByte() / 255.0f;
+            ent->lerp.flags |= LERP_FINISH;
+	} else {
+            ent->lerp.flags &= ~LERP_FINISH;
+        }
     }
 
     model = cl.model_precache[modnum];
@@ -589,42 +595,17 @@ CL_ParseUpdate(unsigned int bits)
 	    if (model->synctype == ST_RAND)
 		ent->syncbase = (float)(rand() & 0x7fff) / 0x7fff;
 	    else
-		ent->syncbase = 0.0;
-	} else
+		ent->syncbase = 0.0f;
+	} else {
 	    forcelink = true;	// hack to make null model players work
-
+        }
 #ifdef GLQUAKE
 	if (num > 0 && num <= cl.maxclients)
 	    R_TranslatePlayerSkin(num - 1);
 #endif
-    }
 
-    /* MOVEMENT LERP INFO - could I just extend baseline instead? */
-    if (!VectorCompare(ent->msg_origins[0], ent->currentorigin)) {
-	if (ent->currentorigintime) {
-	    VectorCopy(ent->currentorigin, ent->previousorigin);
-	    ent->previousorigintime = ent->currentorigintime;
-	} else {
-	    VectorCopy(ent->msg_origins[0], ent->previousorigin);
-	    ent->previousorigintime = cl.mtime[0];
-	}
-	VectorCopy(ent->msg_origins[0], ent->currentorigin);
-	ent->currentorigintime = cl.mtime[0];
+        ent->lerp.flags |= LERP_RESETANIM; // Don't lerp if model changed
     }
-    if (!VectorCompare(ent->msg_angles[0], ent->currentangles)) {
-	if (ent->currentanglestime) {
-	    VectorCopy(ent->currentangles, ent->previousangles);
-	    ent->previousanglestime = ent->currentanglestime;
-	} else {
-	    VectorCopy(ent->msg_angles[0], ent->previousangles);
-	    ent->previousanglestime = cl.mtime[0];
-	}
-	VectorCopy(ent->msg_angles[0], ent->currentangles);
-	ent->currentanglestime = cl.mtime[0];
-    }
-
-    if (bits & U_NOLERP)
-	ent->forcelink = true;
 
     if (forcelink) {		// didn't have an update last message
 	VectorCopy(ent->msg_origins[0], ent->msg_origins[1]);
@@ -791,6 +772,10 @@ CL_ParseClientdata(void)
 	cl.stats[STAT_WEAPONFRAME] |= MSG_ReadByte() << 8;
     if (bits & SU_FITZ_WEAPONALPHA)
 	MSG_ReadByte(); // FIXME - TODO
+
+    /* Check if weapon changed and reset lerp on viewmodel */
+    if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]])
+        cl.viewent.lerp.flags |= LERP_RESETANIM;
 }
 
 /*
@@ -854,26 +839,13 @@ CL_ParseStatic(unsigned int bits)
     cl.num_statics++;
     CL_ParseBaseline(ent, bits);
 
-// copy it to the current state
+    /* Copy it to the current state */
     ent->model = cl.model_precache[ent->baseline.modelindex];
+    ent->lerp.flags |= LERP_RESETANIM;
     ent->frame = ent->baseline.frame;
     ent->colormap = vid.colormap;
     ent->skinnum = ent->baseline.skinnum;
     ent->effects = ent->baseline.effects;
-
-    /* Initilise frames for model lerp */
-    ent->currentframe = ent->baseline.frame;
-    ent->previousframe = ent->baseline.frame;
-    ent->currentframetime = cl.time;
-    ent->previousframetime = cl.time;
-
-    /* Initialise movelerp data */
-    ent->previousorigintime = cl.time;
-    ent->currentorigintime = cl.time;
-    VectorCopy(ent->baseline.origin, ent->previousorigin);
-    VectorCopy(ent->baseline.origin, ent->currentorigin);
-    VectorCopy(ent->baseline.angles, ent->previousangles);
-    VectorCopy(ent->baseline.angles, ent->currentangles);
 
     VectorCopy(ent->baseline.origin, ent->origin);
     VectorCopy(ent->baseline.angles, ent->angles);

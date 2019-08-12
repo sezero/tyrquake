@@ -59,6 +59,11 @@ static sfx_t *cl_sfx_ric2;
 static sfx_t *cl_sfx_ric3;
 static sfx_t *cl_sfx_r_exp3;
 
+#define	MAX_TEMP_ENTITIES	64	// lightning bolts, etc
+
+static int num_temp_entities;
+static entity_t cl_temp_entities[MAX_TEMP_ENTITIES];
+
 /*
 =================
 CL_InitTEnts
@@ -329,18 +334,22 @@ CL_NewTempEntity
 entity_t *
 CL_NewTempEntity(void)
 {
-    entity_t *ent;
+    entity_t *entity;
 
     if (cl_numvisedicts == MAX_VISEDICTS)
 	return NULL;
-    ent = &cl_visedicts[cl_numvisedicts];
-    cl_numvisedicts++;
-    ent->keynum = 0;
+    if (num_temp_entities == MAX_TEMP_ENTITIES)
+        return NULL;
 
-    memset(ent, 0, sizeof(*ent));
+    entity = &cl_temp_entities[num_temp_entities++];
+    memset(entity, 0, sizeof(*entity));
 
-    ent->colormap = vid.colormap;
-    return ent;
+    entity->colormap = vid.colormap;
+    entity->lerp.flags = LERP_RESETMOVE | LERP_RESETANIM;
+
+    cl_visedicts[cl_numvisedicts++] = entity;
+
+    return entity;
 }
 
 
@@ -449,6 +458,8 @@ CL_UpdateTEnts
 void
 CL_UpdateTEnts(void)
 {
+    num_temp_entities = 0;
+
     CL_UpdateBeams();
     CL_UpdateExplosions();
 }

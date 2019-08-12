@@ -106,7 +106,7 @@ max_sounds(int p)
 #define	U_ORIGIN2	(1<<2)
 #define	U_ORIGIN3	(1<<3)
 #define	U_ANGLE2	(1<<4)
-#define	U_NOLERP	(1<<5)	// don't interpolate movement
+#define	U_NOLERP	(1<<5)	// don't interpolate movement (MOVETYPE_STEP)
 #define	U_FRAME		(1<<6)
 #define U_SIGNAL	(1<<7)	// just differentiates from other updates
 
@@ -120,12 +120,12 @@ max_sounds(int p)
 #define	U_LONGENTITY	(1<<14)
 
 // Extra FITZ bits
-#define U_FITZ_EXTEND1  (1<<15)
-#define U_FITZ_ALPHA    (1<<16) // alpha byte follows
-#define U_FITZ_FRAME2   (1<<17) // byte for frame high bits follows
-#define U_FITZ_MODEL2   (1<<18) // byte for model high bits follows
-#define U_FITZ_LERPFINISH (1<<19)
-#define U_FITZ_EXTEND2  (1<<23)
+#define U_FITZ_EXTEND1    (1<<15)
+#define U_FITZ_ALPHA      (1<<16) // alpha byte follows
+#define U_FITZ_FRAME2     (1<<17) // byte for frame high bits follows
+#define U_FITZ_MODEL2     (1<<18) // byte for model high bits follows
+#define U_FITZ_LERPFINISH (1<<19) // 0-255 maps to 0.0 - 1.0, assume 0.1 if not present.
+#define U_FITZ_EXTEND2    (1<<23)
 
 #define	SU_VIEWHEIGHT	(1<<0)
 #define	SU_IDEALPITCH	(1<<1)

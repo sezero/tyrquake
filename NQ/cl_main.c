@@ -67,7 +67,7 @@ lightstyle_t cl_lightstyle[MAX_LIGHTSTYLES];
 dlight_t cl_dlights[MAX_DLIGHTS];
 
 int cl_numvisedicts;
-entity_t cl_visedicts[MAX_VISEDICTS];
+entity_t *cl_visedicts[MAX_VISEDICTS];
 int cl_visedicts_framenum;
 
 /*
@@ -91,7 +91,7 @@ CL_PlayerEntity(const entity_t *e)
     /* ...but if not, try to find a match */
     for (i = 1; i <= cl.maxclients; i++) {
 	/* Compare just the top of the struct, up to the lerp info */
-	if (!memcmp(e, &cl_entities[i], offsetof(entity_t, previouspose)))
+	if (!memcmp(e, &cl_entities[i], offsetof(entity_t, lerp)))
 	    return i;
     }
 
@@ -547,7 +547,7 @@ CL_RelinkEntities(void)
 {
     entity_t *ent;
     int i, j;
-    float frac, f, d;
+    float frac, lerpfrac, angledelta;
     vec3_t delta;
     float bobjrotate;
     vec3_t oldorg;
@@ -571,12 +571,12 @@ CL_RelinkEntities(void)
     if (cls.demoplayback) {
 	// interpolate the angles
 	for (j = 0; j < 3; j++) {
-	    d = cl.mviewangles[0][j] - cl.mviewangles[1][j];
-	    if (d >= 180)
-		d -= 360;
-	    else if (d < -180)
-		d += 360;
-	    cl.viewangles[j] = cl.mviewangles[1][j] + frac * d;
+	    angledelta = cl.mviewangles[0][j] - cl.mviewangles[1][j];
+	    if (angledelta >= 180)
+		angledelta -= 360;
+	    else if (angledelta < -180)
+		angledelta += 360;
+	    cl.viewangles[j] = cl.mviewangles[1][j] + frac * angledelta;
 	}
     }
 
@@ -589,16 +589,11 @@ CL_RelinkEntities(void)
 		R_RemoveEfrags(ent);	// just became empty
 	    continue;
 	}
-// if the object wasn't included in the last packet, remove it
+
+        /* if the object wasn't included in the last packet, remove it */
 	if (ent->msgtime != cl.mtime[0]) {
 	    ent->model = NULL;
-	    /* Reset lerp info as well */
-	    ent->previousframe = 0;
-	    ent->currentframe = 0;
-	    ent->previousorigintime = 0;
-	    ent->currentorigintime = 0;
-	    ent->previousanglestime = 0;
-	    ent->currentanglestime = 0;
+            ent->lerp.flags |= LERP_RESETMOVE | LERP_RESETANIM;
 	    continue;
 	}
 
@@ -612,24 +607,29 @@ CL_RelinkEntities(void)
 	    VectorCopy(ent->msg_origins[0], ent->origin);
 	    VectorCopy(ent->msg_angles[0], ent->angles);
 	} else {
-	    f = frac;
+	    lerpfrac = frac;
 	    for (j = 0; j < 3; j++) {
 		delta[j] = ent->msg_origins[0][j] - ent->msg_origins[1][j];
-		if (delta[j] > 100 || delta[j] < -100)
-		    f = 1;	/* assume a teleport and don't lerp */
+		if (delta[j] > 100 || delta[j] < -100) {
+		    lerpfrac = 1; /* assume a teleport and don't lerp */
+                    ent->lerp.flags |= LERP_RESETMOVE;
+                }
 	    }
+            /* Don't cl_lerp entities that will r_lerped */
+            if (r_lerpmove.value && (ent->lerp.flags & LERP_MOVESTEP))
+                lerpfrac = 1;
 
 	    /*
 	     * interpolate the origin and angles
 	     */
 	    for (j = 0; j < 3; j++) {
-		ent->origin[j] = ent->msg_origins[1][j] + f * delta[j];
-		d = ent->msg_angles[0][j] - ent->msg_angles[1][j];
-		if (d >= 180)
-		    d -= 360;
-		else if (d < -180)
-		    d += 360;
-		ent->angles[j] = ent->msg_angles[1][j] + f * d;
+		ent->origin[j] = ent->msg_origins[1][j] + lerpfrac * delta[j];
+		angledelta = ent->msg_angles[0][j] - ent->msg_angles[1][j];
+		if (angledelta >= 180)
+		    angledelta -= 360;
+		else if (angledelta < -180)
+		    angledelta += 360;
+		ent->angles[j] = ent->msg_angles[1][j] + lerpfrac * angledelta;
 	    }
 	}
 
@@ -657,6 +657,18 @@ CL_RelinkEntities(void)
 	    dl->minlight = 32;
 	    dl->die = cl.time + 0.1;
 	    dl->color = dl_colors[DLIGHT_FLASH];
+
+            /*
+             * Assume muzzle flash is accompanied by muzzle flare,
+             * which looks bad when lerped.  Disable lerping for two
+             * frames.
+             */
+            if (r_lerpmodels.value != 2) {
+                if (ent == &cl_entities[cl.viewentity])
+                    cl.viewent.lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2;
+                else
+                    ent->lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2;
+            }
 	}
 	if (ent->effects & EF_BRIGHTLIGHT) {
 	    dl = CL_AllocDlight(i);
@@ -718,7 +730,7 @@ CL_RelinkEntities(void)
 	    continue;
 
 	if (cl_numvisedicts < MAX_VISEDICTS) {
-	    cl_visedicts[cl_numvisedicts] = *ent;
+	    cl_visedicts[cl_numvisedicts] = ent;
 	    cl_numvisedicts++;
 	}
     }

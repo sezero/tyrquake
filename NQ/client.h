@@ -254,7 +254,6 @@ extern cvar_t m_side;
 extern cvar_t m_freelook;
 
 
-#define	MAX_TEMP_ENTITIES	64	// lightning bolts, etc
 #define	MAX_STATIC_ENTITIES	1024	// torches, etc
 
 extern client_state_t cl;
@@ -265,7 +264,6 @@ extern entity_t cl_entities[MAX_EDICTS];
 extern entity_t cl_static_entities[MAX_STATIC_ENTITIES];
 extern lightstyle_t cl_lightstyle[MAX_LIGHTSTYLES];
 extern dlight_t cl_dlights[MAX_DLIGHTS];
-extern entity_t cl_temp_entities[MAX_TEMP_ENTITIES];
 
 /*
  * CL_PlayerEntity()
@@ -306,7 +304,7 @@ void CL_NextDemo(void);
 
 #define MAX_VISEDICTS 1024
 extern int cl_numvisedicts;
-extern entity_t cl_visedicts[];
+extern entity_t *cl_visedicts[];
 extern int cl_visedicts_framenum;
 
 extern int fps_count;

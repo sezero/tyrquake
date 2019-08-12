@@ -760,6 +760,7 @@ CL_ParseStatic(void)
     ent->frame = es.frame;
     ent->colormap = vid.colormap;
     ent->skinnum = es.skinnum;
+    ent->lerp.flags |= LERP_RESETANIM;
 
     VectorCopy(es.origin, ent->origin);
     VectorCopy(es.angles, ent->angles);
@@ -1101,6 +1102,15 @@ CL_MuzzleFlash(void)
     dl->minlight = 32;
     dl->die = cl.time + 0.1;
     dl->color = dl_colors[DLIGHT_FLASH];
+
+    /*
+     * TODO: do something about disabling lerping of the muzzle flash
+     * animation on other player models.  Just doing LERP_RESETANIM2
+     * on the player doesn't help, as there are more frames in the
+     * animation that the viewent.
+     */
+    if (r_lerpmodels.value != 2 && (i - 1) == cl.playernum)
+        cl.viewent.lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2;
 }
 
 

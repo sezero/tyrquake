@@ -50,6 +50,19 @@ typedef struct efrag_s {
     struct efrag_s *entnext;
 } efrag_t;
 
+#define LERP_MOVESTEP   (1U << 0) // this is a MOVETYPE_STEP entity, enable movement lerp
+#define LERP_RESETANIM  (1U << 1) // disable anim lerping until next anim frame
+#define LERP_RESETANIM2 (1U << 2) // set this to disable lerping the next anim frames
+#define LERP_RESETMOVE  (1U << 4) // disable movement lerping until next origin/angles change
+#define LERP_FINISH     (1U << 5) // use lerpfinish time from server update instead of assuming interval of 0.1
+
+typedef struct {
+    short pose0;
+    short pose1;
+    float blend;
+    vec3_t origin;
+    vec3_t angles;
+} lerpdata_t;
 
 typedef struct entity_s {
 #ifdef GLQUAKE
@@ -96,20 +109,27 @@ typedef struct entity_s {
 				//  not split
 
     /* Alias model lerping */
-    short previouspose;
-    short currentpose;
-    short previousframe;
-    short currentframe;
-    float previousframetime;
-    float currentframetime;
-    vec3_t previousorigin;
-    vec3_t currentorigin;
-    float previousorigintime;
-    float currentorigintime;
-    vec3_t previousangles;
-    vec3_t currentangles;
-    float previousanglestime;
-    float currentanglestime;
+    struct {
+        uint32_t flags;
+        float finish;
+        struct {
+            float start;
+            struct {
+                vec3_t current;
+                vec3_t previous;
+            } origin;
+            struct {
+                vec3_t current;
+                vec3_t previous;
+            } angles;
+        } move;
+        struct {
+            float start;
+            float duration;
+            short current;
+            short previous;
+        } pose;
+    } lerp;
 } entity_t;
 
 static inline qboolean
@@ -123,6 +143,9 @@ R_EntityIsTranslated(const entity_t *entity)
 {
     return !!(entity->origin[0] || entity->origin[1] || entity->origin[2]);
 }
+
+void R_AliasSetupTransformLerp(entity_t *entity, lerpdata_t *lerpdata);
+void R_AliasSetupAnimationLerp(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata);
 
 extern cvar_t r_lerpmodels;
 extern cvar_t r_lerpmove;

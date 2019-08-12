@@ -40,15 +40,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 				// if bbox is trivially rejected
 
 //===========================================================================
-// viewmodel lighting
-
-typedef struct {
-    int ambientlight;
-    int shadelight;
-    float *plightvec;
-} alight_t;
-
-//===========================================================================
 // clipped bmodel edges
 
 typedef struct bedge_s {
@@ -140,7 +131,7 @@ void R_DrawSolidClippedSubmodelPolygons(const entity_t *entity);
 
 void R_AddPolygonEdges(emitpoint_t *pverts, int numverts, int miplevel);
 surf_t *R_GetSurf(void);
-void R_AliasDrawModel(entity_t *e, alight_t *plighting);
+void R_AliasDrawModel(entity_t *e);
 void R_BeginEdgeFrame(void);
 void R_ScanEdges(void);
 void R_InsertNewEdges(edge_t *edgestoadd, edge_t *edgelist);
@@ -189,8 +180,6 @@ extern int numtriangles;
 extern float leftclip, topclip, rightclip, bottomclip;
 extern int r_acliptype;
 extern float r_avertexnormals[][3];
-
-qboolean R_AliasCheckBBox(entity_t *e);
 
 //=========================================================
 // turbulence stuff
@@ -276,5 +265,6 @@ typedef struct {
 } surf_lightpoint_t;
 
 qboolean R_LightSurfPoint(const vec3_t point, surf_lightpoint_t *lightpoint);
+int R_LightPoint(const vec3_t point);
 
 #endif /* R_LOCAL_H */

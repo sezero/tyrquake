@@ -45,6 +45,11 @@ static sfx_t *cl_sfx_ric2;
 static sfx_t *cl_sfx_ric3;
 static sfx_t *cl_sfx_r_exp3;
 
+#define	MAX_TEMP_ENTITIES	64	// lightning bolts, etc
+
+static int num_temp_entities;
+static entity_t cl_temp_entities[MAX_TEMP_ENTITIES];
+
 /*
 =================
 CL_InitTEnts
@@ -281,18 +286,22 @@ CL_NewTempEntity
 static entity_t *
 CL_NewTempEntity(void)
 {
-    entity_t *ent;
+    entity_t *entity;
 
     if (cl_numvisedicts == MAX_VISEDICTS)
+        return NULL;
+    if (num_temp_entities == MAX_TEMP_ENTITIES)
 	return NULL;
 
-    ent = &cl_visedicts[cl_numvisedicts];
-    cl_numvisedicts++;
+    entity = &cl_temp_entities[num_temp_entities++];
+    memset(entity, 0, sizeof(*entity));
 
-    memset(ent, 0, sizeof(*ent));
+    entity->colormap = vid.colormap;
+    entity->lerp.flags = LERP_RESETMOVE | LERP_RESETANIM;
 
-    ent->colormap = vid.colormap;
-    return ent;
+    cl_visedicts[cl_numvisedicts++] = entity;
+
+    return entity;
 }
 
 
@@ -311,6 +320,8 @@ CL_UpdateTEnts(void)
     entity_t *ent;
     float yaw, pitch;
     float forward;
+
+    num_temp_entities = 0;
 
 // update lightning
     for (i = 0, b = cl_beams; i < MAX_BEAMS; i++, b++) {
@@ -357,17 +368,6 @@ CL_UpdateTEnts(void)
 
 	    VectorMA(org, 30, dist, org);
 	    d -= 30;
-
-	    /* Initilise model lerp info */
-	    ent->frame = 0;
-	    ent->currentframe = 0;
-	    ent->previousframe = 0;
-	    ent->currentframetime = cl.time;
-	    ent->previousframetime = cl.time;
-	    VectorCopy(ent->origin, ent->currentorigin);
-	    VectorCopy(ent->origin, ent->previousorigin);
-	    ent->currentorigintime = cl.time;
-	    ent->previousorigintime = cl.time;
 	}
     }
 }

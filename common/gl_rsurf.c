@@ -881,7 +881,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, msurface_t *surf, fl
     if (maxverts && r_drawentities.value) {
         poly = alloca(sizeof(*poly) + maxverts * sizeof(poly->verts[0]));
         for (i = 0; i < cl_numvisedicts; i++) {
-            entity_t *entity = &cl_visedicts[i];
+            entity_t *entity = cl_visedicts[i];
             if (entity->model->type != mod_brush)
                 continue;
             if (!BrushModel(entity->model)->parent)
@@ -1873,7 +1873,7 @@ R_DrawWorld(void)
      */
     if (r_drawentities.value) {
         for (i = 0; i < cl_numvisedicts; i++) {
-            entity_t *entity = &cl_visedicts[i];
+            entity_t *entity = cl_visedicts[i];
             if (entity->model->type != mod_brush)
                 continue;
             if (!BrushModel(entity->model)->parent)

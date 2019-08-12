@@ -41,9 +41,6 @@ float r_aliasuvscale = 1.0;
 int r_outofsurfaces;
 int r_outofedges;
 
-static vec3_t viewlightvec;
-static alight_t r_viewlighting = { 128, 192, viewlightvec };
-
 qboolean r_dowarp, r_dowarpold, r_viewchanged;
 
 int c_surf;
@@ -222,10 +219,9 @@ R_Init(void)
     Cvar_RegisterVariable(&r_ambient);
     Cvar_RegisterVariable(&r_numsurfs);
     Cvar_RegisterVariable(&r_numedges);
-#ifdef NQ_HACK
+
     Cvar_RegisterVariable(&r_lerpmodels);
     Cvar_RegisterVariable(&r_lerpmove);
-#endif
     Cvar_RegisterVariable(&r_lockpvs);
     Cvar_RegisterVariable(&r_lockfrustum);
 
@@ -734,7 +730,7 @@ R_CullSubmodelSurfaces(const brushmodel_t *submodel, const vec3_t vieworg,
     }
 }
 
-static int
+int
 R_LightPoint(const vec3_t point)
 {
     surf_lightpoint_t lightpoint;
@@ -793,82 +789,31 @@ R_DrawEntitiesOnList
 static void
 R_DrawEntitiesOnList(void)
 {
-    entity_t *e;
-    int i, j;
-    int lnum;
-    alight_t lighting;
-
-// FIXME: remove and do real lighting
-    float lightvec[3] = { -1, 0, 0 };
-    vec3_t dist;
-    float add;
+    int i;
+    entity_t *entity;
 
     if (!r_drawentities.value)
 	return;
 
     for (i = 0; i < cl_numvisedicts; i++) {
-	e = &cl_visedicts[i];
+	entity = cl_visedicts[i];
 #ifdef NQ_HACK
-	if (e == &cl_entities[cl.viewentity])
+	if (entity == &cl_entities[cl.viewentity])
 	    continue;		// don't draw the player
 #endif
-	switch (e->model->type) {
+	switch (entity->model->type) {
 	case mod_sprite:
-	    VectorCopy(e->origin, r_entorigin);
+	    VectorCopy(entity->origin, r_entorigin);
 	    VectorSubtract(r_origin, r_entorigin, modelorg);
-	    R_DrawSprite(e);
+	    R_DrawSprite(entity);
 	    break;
 
-	case mod_alias:
-#ifdef NQ_HACK
-	    if (r_lerpmove.value) {
-		float delta = e->currentorigintime - e->previousorigintime;
-		float frac = qclamp((cl.time - e->currentorigintime) / delta, 0.0, 1.0);
-		vec3_t lerpvec;
-
-		/* FIXME - hack to skip the viewent (weapon) */
-		if (e == &cl.viewent)
-		    goto nolerp;
-
-		VectorSubtract(e->currentorigin, e->previousorigin, lerpvec);
-		VectorMA(e->previousorigin, frac, lerpvec, r_entorigin);
-	    } else
-	    nolerp:
-#endif
-	    {
-		VectorCopy(e->origin, r_entorigin);
-	    }
-	    VectorSubtract(r_origin, r_entorigin, modelorg);
-
-	    // see if the bounding box lets us trivially reject, also sets
-	    // trivial accept status
-	    if (R_AliasCheckBBox(e)) {
-		j = R_LightPoint(e->origin);
-
-		lighting.ambientlight = j;
-		lighting.shadelight = j;
-
-		lighting.plightvec = lightvec;
-
-		for (lnum = 0; lnum < MAX_DLIGHTS; lnum++) {
-		    if (cl_dlights[lnum].die >= cl.time) {
-			VectorSubtract(e->origin, cl_dlights[lnum].origin,
-				       dist);
-			add = cl_dlights[lnum].radius - Length(dist);
-
-			if (add > 0)
-			    lighting.ambientlight += add;
-		    }
-		}
-
-		// clamp lighting so it doesn't overbright as much
-		if (lighting.ambientlight > 128)
-		    lighting.ambientlight = 128;
-		if (lighting.ambientlight + lighting.shadelight > 192)
-		    lighting.shadelight = 192 - lighting.ambientlight;
-
-		R_AliasDrawModel(e, &lighting);
-	    }
+        case mod_alias:
+            /*
+             * Allow drawing function to set up r_entorigin and
+             * modelorg internally, to properly account for lerping
+             */
+            R_AliasDrawModel(entity);
 	    break;
 
 	default:
@@ -885,14 +830,7 @@ R_DrawViewModel
 static void
 R_DrawViewModel(void)
 {
-    entity_t *e;
-// FIXME: remove and do real lighting
-    float lightvec[3] = { -1, 0, 0 };
-    int j;
-    int lnum;
-    vec3_t dist;
-    float add;
-    dlight_t *dl;
+    entity_t *entity;
 
 #ifdef NQ_HACK
     if (!r_drawviewmodel.value)
@@ -909,48 +847,11 @@ R_DrawViewModel(void)
     if (cl.stats[STAT_HEALTH] <= 0)
 	return;
 
-    e = &cl.viewent;
-    if (!e->model)
+    entity = &cl.viewent;
+    if (!entity->model)
 	return;
 
-    VectorCopy(e->origin, r_entorigin);
-    VectorSubtract(r_origin, r_entorigin, modelorg);
-
-    VectorCopy(vup, viewlightvec);
-    VectorInverse(viewlightvec);
-
-    j = R_LightPoint(e->origin);
-
-    if (j < 24)
-	j = 24;			// always give some light on gun
-    r_viewlighting.ambientlight = j;
-    r_viewlighting.shadelight = j;
-
-// add dynamic lights
-    for (lnum = 0; lnum < MAX_DLIGHTS; lnum++) {
-	dl = &cl_dlights[lnum];
-	if (!dl->radius)
-	    continue;
-	if (!dl->radius)
-	    continue;
-	if (dl->die < cl.time)
-	    continue;
-
-	VectorSubtract(e->origin, dl->origin, dist);
-	add = dl->radius - Length(dist);
-	if (add > 0)
-	    r_viewlighting.ambientlight += add;
-    }
-
-// clamp lighting so it doesn't overbright as much
-    if (r_viewlighting.ambientlight > 128)
-	r_viewlighting.ambientlight = 128;
-    if (r_viewlighting.ambientlight + r_viewlighting.shadelight > 192)
-	r_viewlighting.shadelight = 192 - r_viewlighting.ambientlight;
-
-    r_viewlighting.plightvec = lightvec;
-
-    R_AliasDrawModel(e, &r_viewlighting);
+    R_AliasDrawModel(entity);
 }
 
 
@@ -1015,7 +916,7 @@ R_DrawBEntitiesOnList(void)
     r_dlightframecount = r_framecount;
 
     for (i = 0; i < cl_numvisedicts; i++) {
-	entity = &cl_visedicts[i];
+	entity = cl_visedicts[i];
 	if (entity->model->type != mod_brush)
 	    continue;
 

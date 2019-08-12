@@ -710,6 +710,7 @@ CL_OBJS := \
 	keys.o		\
 	menu.o		\
 	pcx.o		\
+	r_lerp.o	\
 	r_efrag.o	\
 	r_light.o	\
 	r_model.o	\

@@ -280,7 +280,7 @@ typedef struct {
     brushmodel_t *worldmodel;	// cl_entitites[0].model
     efrag_t *free_efrags;
     int num_entities;		// stored bottom up in cl_entities array
-    int num_statics;		// stored top down in cl_entitiers
+    int num_statics;		// stored top down in cl_entities
 
     int cdtrack;		// cd audio
 
@@ -345,6 +345,7 @@ extern client_state_t cl;
 extern entity_state_t cl_baselines[MAX_EDICTS];
 extern efrag_t cl_efrags[MAX_EFRAGS];
 extern entity_t cl_static_entities[MAX_STATIC_ENTITIES];
+extern entity_t cl_player_entities[MAX_CLIENTS];
 extern lightstyle_t cl_lightstyle[MAX_LIGHTSTYLES];
 extern dlight_t cl_dlights[MAX_DLIGHTS];
 
@@ -381,9 +382,9 @@ qboolean CL_DemoBehind(void);
 
 void CL_BeginServerConnect(void);
 
-#define MAX_VISEDICTS 256
+#define MAX_VISEDICTS 1024
 extern int cl_numvisedicts;
-extern entity_t cl_visedicts[];
+extern entity_t *cl_visedicts[];
 extern int cl_visedicts_framenum;
 
 extern int fps_count;
