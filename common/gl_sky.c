@@ -434,7 +434,7 @@ R_InitSky(texture_t *mt)
 
     /* Create the alpha layer */
     pic.pixels = src;
-    byte alpha = qclamp(0.0f, r_skyalpha.value, 1.0f) * 255.0f;
+    byte alpha = qclamp(r_skyalpha.value, 0.0f, 1.0f) * 255.0f;
     mt->gl_texturenum_alpha = GL_LoadTexture8_Alpha(va("@%s:foreground", mt->name), &pic, TEXTURE_TYPE_SKY_FOREGROUND, alpha);
 
     /*

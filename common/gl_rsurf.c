@@ -578,7 +578,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
         glDisable(GL_TEXTURE_2D);
         glEnable(GL_BLEND);
         const float *color = Fog_GetColor();
-        glColor4f(color[0], color[1], color[2], qclamp(0.0f, map_skyfog, 1.0f));
+        glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
 	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 	gl_draw_calls++;
@@ -1063,7 +1063,7 @@ DrawSkyBox(triangle_buffer_t *buffer, msurface_t *surf)
             glDisable(GL_TEXTURE_2D);
             glEnable(GL_BLEND);
             const float *color = Fog_GetColor();
-            glColor4f(color[0], color[1], color[2], qclamp(0.0f, map_skyfog, 1.0f));
+            glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
             glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
             gl_draw_calls++;
@@ -1149,7 +1149,7 @@ DrawSkyLayers(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
     speed2 -= (int)speed2 & ~127;
 
     /* Subdivide the skybox face so we can simulate the sky curvature. */
-    subdivisions = qclamp(1, (int)r_sky_quality.value, MAX_SKY_QUALITY);
+    subdivisions = qclamp((int)r_sky_quality.value, 1, MAX_SKY_QUALITY);
     ds = 1.0f / subdivisions;
 
     vec3_t *baseverts = alloca((subdivisions + 1) * sizeof(vec3_t));

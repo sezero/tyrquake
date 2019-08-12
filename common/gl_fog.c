@@ -149,23 +149,23 @@ Fog_Command_f()
             break;
         case 4:
             Fog_Update(fog.current.density,
-                       qclamp(0.0f, (float)atof(Cmd_Argv(1)), 1.0f),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(2)), 1.0f),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(3)), 1.0f),
+                       qclamp((float)atof(Cmd_Argv(1)), 0.0f, 1.0f),
+                       qclamp((float)atof(Cmd_Argv(2)), 0.0f, 1.0f),
+                       qclamp((float)atof(Cmd_Argv(3)), 0.0f, 1.0f),
                        0.0f);
             break;
         case 5:
             Fog_Update(qmax(0.0f, (float)atof(Cmd_Argv(1))),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(2)), 1.0f),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(3)), 1.0f),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(4)), 1.0f),
+                       qclamp((float)atof(Cmd_Argv(2)), 0.0f, 1.0f),
+                       qclamp((float)atof(Cmd_Argv(3)), 0.0f, 1.0f),
+                       qclamp((float)atof(Cmd_Argv(4)), 0.0f, 1.0f),
                        0.0f);
             break;
         case 6: //TEST
             Fog_Update(qmax(0.0f, (float)atof(Cmd_Argv(1))),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(2)), 1.0f),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(3)), 1.0f),
-                       qclamp(0.0f, (float)atof(Cmd_Argv(4)), 1.0f),
+                       qclamp((float)atof(Cmd_Argv(2)), 0.0f, 1.0f),
+                       qclamp((float)atof(Cmd_Argv(3)), 0.0f, 1.0f),
+                       qclamp((float)atof(Cmd_Argv(4)), 0.0f, 1.0f),
                        atof(Cmd_Argv(5)));
             break;
     }
