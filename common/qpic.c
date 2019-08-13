@@ -583,6 +583,7 @@ qpalette32_t qpal_standard;
 qpalette32_t qpal_fullbright;
 qpalette32_t qpal_alpha_zero;
 qpalette32_t qpal_alpha;
+qpalette32_t qpal_alpha_fullbright;
 
 void
 QPic32_InitPalettes(const byte *palette)
@@ -614,8 +615,13 @@ QPic32_InitPalettes(const byte *palette)
     qpal_alpha_zero.colors[0].c.alpha = 0;
     qpal_alpha_zero.alpha = true;
 
-    /* HUD/sprite palette - 255 is transparent */
+    /* HUD/sprite/fence palette - 255 is transparent */
     memcpy(&qpal_alpha, &qpal_standard, sizeof(qpalette32_t));
     qpal_alpha.colors[255].c.alpha = 0;
     qpal_alpha.alpha = true;
+
+    /* Fullbright mask for alpha (fence) textures */
+    memcpy(&qpal_alpha_fullbright, &qpal_fullbright, sizeof(qpalette32_t));
+    qpal_alpha_fullbright.colors[255].c.alpha = 0;
+    qpal_alpha_fullbright.alpha = true;
 }

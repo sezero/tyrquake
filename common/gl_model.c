@@ -266,6 +266,8 @@ GL_GetTextureMaterialClass(texture_t *texture)
 {
     if (texture->name[0] == '*')
         return MATERIAL_LIQUID;
+    if (texture->name[0] == '{')
+        return (texture->gl_texturenum_fullbright) ? MATERIAL_FENCE_FULLBRIGHT : MATERIAL_FENCE;
     if (!strncmp(texture->name, "sky", 3))
         return MATERIAL_SKY;
     if (texture->gl_texturenum_fullbright)
@@ -279,6 +281,8 @@ static const char *material_class_names[] = {
     "MATERIAL_SKY",
     "MATERIAL_BASE",
     "MATERIAL_FULLBRIGHT",
+    "MATERIAL_FENCE",
+    "MATERIAL_FENCE_FULLBRIGHT",
     "MATERIAL_LIQUID",
     "MATERIAL_END",
 };

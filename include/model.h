@@ -110,12 +110,13 @@ typedef struct texture_s {
 #define SURF_DRAWTURB           (1 <<  4)
 #define SURF_DRAWTILED          (1 <<  5)
 #define SURF_DRAWBACKGROUND     (1 <<  6)
+#define SURF_DRAWFENCE          (1 <<  7)
 
 /* Flag different types for independent alpha values */
-#define SURF_DRAWWATER          (1 <<  7)
-#define SURF_DRAWSLIME          (1 <<  8)
-#define SURF_DRAWLAVA           (1 <<  9)
-#define SURF_DRAWTELE           (1 << 10)
+#define SURF_DRAWWATER          (1 <<  8)
+#define SURF_DRAWSLIME          (1 <<  9)
+#define SURF_DRAWLAVA           (1 << 10)
+#define SURF_DRAWTELE           (1 << 11)
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct {

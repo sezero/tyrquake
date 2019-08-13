@@ -620,8 +620,11 @@ TriBuf_DrawFullbrightSolid(triangle_buffer_t *buffer, const texture_t *texture)
 }
 
 static void
-TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block)
+TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
 {
+    if (flags & SURF_DRAWFENCE)
+        glEnable(GL_ALPHA_TEST);
+
     if (gl_mtexable) {
 	GL_SelectTexture(GL_TEXTURE0_ARB);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -660,14 +663,19 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             qglClientActiveTexture(GL_TEXTURE1);
         }
     } else {
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
 
 	glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
 	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
 	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
-	glDepthMask(GL_FALSE);
+        /*
+         * By using the depth equal test, we automatically mask the
+         * lightmap correctly on fence textures
+         */
+        glDepthFunc(GL_EQUAL);
+
         glEnable(GL_BLEND);
         glBlendFunc(GL_ZERO, GL_SRC_COLOR);
         Fog_StartBlend();
@@ -693,7 +701,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         }
 
         glDisable(GL_BLEND);
-	glDepthMask(GL_TRUE);
+        glDepthFunc(GL_LEQUAL);
 
 	gl_draw_calls += 2;
 	gl_verts_submitted += buffer->numverts * 2;
@@ -729,6 +737,9 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         }
     }
+
+    if (flags & SURF_DRAWFENCE)
+        glDisable(GL_ALPHA_TEST);
 }
 
 // ---------------------------------------------------------------------
@@ -1390,7 +1401,7 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
         if (flags & SURF_DRAWTILED)
             TriBuf_DrawFullbrightSolid(buffer, texture);
         else
-            TriBuf_DrawSolid(buffer, texture, block);
+            TriBuf_DrawSolid(buffer, texture, block, flags);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
 	if (surf && surf->polys)

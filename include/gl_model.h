@@ -50,11 +50,13 @@ typedef struct lm_block_s {
  */
 enum material_class {
     MATERIAL_START = 0,
-    MATERIAL_SKY = 0,        // Sky textures
-    MATERIAL_BASE,           // World textures, lightmapped
-    MATERIAL_FULLBRIGHT,     // World textures with fullbright mask
-    MATERIAL_LIQUID,         // Water, Lava, Slime (maybe split later)
-    MATERIAL_END,            // Indexes one past the last material
+    MATERIAL_SKY = 0,          // Sky textures
+    MATERIAL_BASE,             // World textures, lightmapped
+    MATERIAL_FULLBRIGHT,       // World textures with fullbright mask
+    MATERIAL_FENCE,            // World fence textures, lightmapped
+    MATERIAL_FENCE_FULLBRIGHT, // World textures with fullbright mask
+    MATERIAL_LIQUID,           // Water, Lava, Slime (maybe split later)
+    MATERIAL_END,              // Indexes one past the last material
 };
 
 // Material - combination of gl textures required to render the surface

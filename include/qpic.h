@@ -64,7 +64,8 @@ enum qpic_alpha_operation {
 extern qpalette32_t qpal_standard;
 extern qpalette32_t qpal_fullbright;
 extern qpalette32_t qpal_alpha_zero; /* Charset and sky foreground */
-extern qpalette32_t qpal_alpha; /* HUD and sprites */
+extern qpalette32_t qpal_alpha; /* HUD, sprites and fence textures */
+extern qpalette32_t qpal_alpha_fullbright;
 
 void QPic32_InitPalettes(const byte *palette);
 
