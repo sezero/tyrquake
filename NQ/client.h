@@ -79,7 +79,7 @@ typedef struct {
 
 #define	NUM_CSHIFTS	4
 
-#define	MAX_EFRAGS	4096
+#define	MAX_EFRAGS	8192
 
 #define	MAX_MAPSTRING	2048
 #define	MAX_DEMOS	8
@@ -254,7 +254,7 @@ extern cvar_t m_side;
 extern cvar_t m_freelook;
 
 
-#define	MAX_STATIC_ENTITIES	1024	// torches, etc
+#define	MAX_STATIC_ENTITIES 8192 // torches, etc
 
 extern client_state_t cl;
 
@@ -302,7 +302,7 @@ void CL_Disconnect(void);
 void CL_Disconnect_f(void);
 void CL_NextDemo(void);
 
-#define MAX_VISEDICTS 1024
+#define MAX_VISEDICTS 4096
 extern int cl_numvisedicts;
 extern entity_t *cl_visedicts[];
 extern int cl_visedicts_framenum;
