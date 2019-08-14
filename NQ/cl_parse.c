@@ -380,9 +380,8 @@ CL_ParseServerInfo(void)
     noclip_anglehack = false;	// noclip is turned off at start
 }
 
-
 static int
-CL_ReadModelIndex(unsigned int bits)
+CL_ReadModelIndex(unsigned int bits, msgtype_t type)
 {
     switch (cl.protocol) {
     case PROTOCOL_VERSION_NQ:
@@ -392,9 +391,9 @@ CL_ReadModelIndex(unsigned int bits)
     case PROTOCOL_VERSION_BJP3:
 	return MSG_ReadShort();
     case PROTOCOL_VERSION_FITZ:
-	if (bits & B_FITZ_LARGEMODEL)
-	    return MSG_ReadShort();
-	return MSG_ReadByte();
+        if (type == msgtype_baseline && (bits & B_FITZ_LARGEMODEL))
+            return MSG_ReadShort();
+        return MSG_ReadByte();
     default:
 	Host_Error("%s: Unknown protocol version (%d)\n", __func__,
 		   cl.protocol);
@@ -402,7 +401,7 @@ CL_ReadModelIndex(unsigned int bits)
 }
 
 static int
-CL_ReadModelFrame(unsigned int bits)
+CL_ReadModelFrame(unsigned int bits, msgtype_t type)
 {
     switch (cl.protocol) {
     case PROTOCOL_VERSION_NQ:
@@ -411,7 +410,7 @@ CL_ReadModelFrame(unsigned int bits)
     case PROTOCOL_VERSION_BJP3:
 	return MSG_ReadByte();
     case PROTOCOL_VERSION_FITZ:
-	if (bits & B_FITZ_LARGEFRAME)
+        if (type == msgtype_baseline && (bits & B_FITZ_LARGEFRAME))
 	    return MSG_ReadShort();
 	return MSG_ReadByte();
     default:
@@ -486,7 +485,7 @@ CL_ParseUpdate(unsigned int bits)
     ent->msgtime = cl.mtime[0];
 
     if (bits & U_MODEL) {
-	modnum = CL_ReadModelIndex(0);
+	modnum = CL_ReadModelIndex(0, msgtype_update);
 	if (modnum >= max_models(cl.protocol))
 	    Host_Error("CL_ParseModel: bad modnum");
     } else
@@ -626,8 +625,8 @@ CL_ParseBaseline(entity_t *ent, unsigned int bits)
 {
     int i;
 
-    ent->baseline.modelindex = CL_ReadModelIndex(bits);
-    ent->baseline.frame = CL_ReadModelFrame(bits);
+    ent->baseline.modelindex = CL_ReadModelIndex(bits, msgtype_baseline);
+    ent->baseline.frame = CL_ReadModelFrame(bits, msgtype_baseline);
     ent->baseline.colormap = MSG_ReadByte();
     ent->baseline.skinnum = MSG_ReadByte();
     for (i = 0; i < 3; i++) {
@@ -711,7 +710,7 @@ CL_ParseClientdata(void)
     }
 
     if (bits & SU_WEAPON)
-	i = CL_ReadModelIndex(0);
+	i = CL_ReadModelIndex(0, msgtype_clientdata);
     else
 	i = 0;
     if (cl.stats[STAT_WEAPON] != i) {

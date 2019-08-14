@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "model.h"
 #include "progs.h"
+#include "protocol.h"
 #include "client.h"
 
 typedef enum { ss_loading, ss_active } server_state_t;
@@ -243,6 +244,6 @@ void SV_SpawnServer(char *server);
  * Protocol dependent write of model index to buffer
  * (shared with pr_cmds.c)
  */
-void SV_WriteModelIndex(sizebuf_t *sb, int c, unsigned int bits);
+void SV_WriteModelIndex(sizebuf_t *sb, int c, unsigned int bits, msgtype_t type);
 
 #endif /* SERVER_H */

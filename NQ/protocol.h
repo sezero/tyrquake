@@ -100,6 +100,18 @@ max_sounds(int p)
     return qmax(max_sounds_dynamic(p), max_sounds_static(p));
 }
 
+/*
+ * Used to differentiate the type of message when calling into
+ * CL_ReadModelIndex, CL_ReadModelFrame, etc. which have different
+ * flags for extended model/frame ranges depending on the message
+ * type.
+ */
+typedef enum {
+    msgtype_baseline,
+    msgtype_clientdata,
+    msgtype_update,
+} msgtype_t;
+
 // if the high bit of the servercmd is set, the low bits are fast update flags:
 #define	U_MOREBITS	(1<<0)
 #define	U_ORIGIN1	(1<<1)

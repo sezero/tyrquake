@@ -496,7 +496,7 @@ SV_ClearDatagram(void)
 //=============================================================================
 
 void
-SV_WriteModelIndex(sizebuf_t *sb, int c, unsigned int bits)
+SV_WriteModelIndex(sizebuf_t *sb, int c, unsigned int bits, msgtype_t type)
 {
     switch (sv.protocol) {
     case PROTOCOL_VERSION_NQ:
@@ -508,7 +508,7 @@ SV_WriteModelIndex(sizebuf_t *sb, int c, unsigned int bits)
 	MSG_WriteShort(sb, c);
 	break;
     case PROTOCOL_VERSION_FITZ:
-	if (bits & B_FITZ_LARGEMODEL)
+	if (type == msgtype_baseline && (bits & B_FITZ_LARGEMODEL))
 	    MSG_WriteShort(sb, c);
 	else
 	    MSG_WriteByte(sb, c);
@@ -637,7 +637,7 @@ SV_WriteEntitiesToClient(edict_t *clent, sizebuf_t *msg)
 	    MSG_WriteByte(msg, e);
 
 	if (bits & U_MODEL)
-	    SV_WriteModelIndex(msg, ent->v.modelindex, 0);
+	    SV_WriteModelIndex(msg, ent->v.modelindex, 0, msgtype_update);
 	if (bits & U_FRAME)
 	    MSG_WriteByte(msg, ent->v.frame);
 	if (bits & U_COLORMAP)
@@ -840,7 +840,7 @@ SV_WriteClientdataToMessage(edict_t *player, sizebuf_t *msg)
     if (bits & SU_ARMOR)
 	MSG_WriteByte(msg, player->v.armorvalue);
     if (bits & SU_WEAPON)
-	SV_WriteModelIndex(msg, SV_ModelIndex(PR_GetString(player->v.weaponmodel)), 0);
+	SV_WriteModelIndex(msg, SV_ModelIndex(PR_GetString(player->v.weaponmodel)), 0, msgtype_update);
 
     MSG_WriteShort(msg, player->v.health);
     MSG_WriteByte(msg, player->v.currentammo);
@@ -1153,7 +1153,7 @@ SV_CreateBaseline(void)
 	    MSG_WriteShort(&sv.signon, entnum);
 	}
 
-	SV_WriteModelIndex(&sv.signon, svent->baseline.modelindex, bits);
+	SV_WriteModelIndex(&sv.signon, svent->baseline.modelindex, bits, msgtype_baseline);
 	if (bits & B_FITZ_LARGEFRAME)
 	    MSG_WriteShort(&sv.signon, svent->baseline.frame);
 	else

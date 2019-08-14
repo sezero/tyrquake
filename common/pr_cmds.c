@@ -1788,7 +1788,7 @@ PF_makestatic(void)
     } else {
 	MSG_WriteByte(&sv.signon, svc_spawnstatic);
     }
-    SV_WriteModelIndex(&sv.signon, SV_ModelIndex(PR_GetString(ent->v.model)), bits);
+    SV_WriteModelIndex(&sv.signon, SV_ModelIndex(PR_GetString(ent->v.model)), bits, msgtype_baseline);
 #endif
 #ifdef QW_HACK
     MSG_WriteByte(&sv.signon, svc_spawnstatic);
