@@ -573,7 +573,7 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
             tx->gl_texturenum = GL_LoadTexture8(tx->name, &pic, type);
 
 	    /* Fullbright mask if required (not on liquids) */
-	    if (QPic_HasFullbrights(&pic) && tx->name[0] != '*') {
+	    if (QPic_HasFullbrights(&pic, type) && tx->name[0] != '*') {
                 type = (tx->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
                 tx->gl_texturenum_fullbright = GL_LoadTexture8(va("%s:fullbright", tx->name), &pic, type);
             } else {
@@ -1907,7 +1907,7 @@ GL_LoadBrushModelTextures(const brushmodel_t *brushmodel)
 	texture->gl_texturenum = GL_LoadTexture8(texture->name, &pic, type);
 
 	/* Fullbright mask if required (not on liquids) */
-	if (QPic_HasFullbrights(&pic) && texture->name[0] != '*') {
+	if (QPic_HasFullbrights(&pic, type) && texture->name[0] != '*') {
             type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
             texture->gl_texturenum_fullbright = GL_LoadTexture8(va("%s:fullbright", texture->name), &pic, type);
         } else {

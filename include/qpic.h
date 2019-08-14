@@ -60,6 +60,43 @@ enum qpic_alpha_operation {
     QPIC_ALPHA_OP_CLAMP_TO_ZERO,
 };
 
+/*
+ * Classify types of texture which may have different settings for mipmap,
+ * alpha, filters, etc.
+ */
+enum texture_type {
+    TEXTURE_TYPE_CHARSET,
+    TEXTURE_TYPE_HUD,
+    TEXTURE_TYPE_WORLD,
+    TEXTURE_TYPE_WORLD_FULLBRIGHT,
+    TEXTURE_TYPE_FENCE,
+    TEXTURE_TYPE_FENCE_FULLBRIGHT,
+    TEXTURE_TYPE_SKY_BACKGROUND,
+    TEXTURE_TYPE_SKY_FOREGROUND,
+    TEXTURE_TYPE_SKYBOX,
+    TEXTURE_TYPE_ALIAS_SKIN,
+    TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT,
+    TEXTURE_TYPE_PLAYER_SKIN,
+    TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT,
+    TEXTURE_TYPE_LIGHTMAP,
+    TEXTURE_TYPE_PARTICLE,
+    TEXTURE_TYPE_SPRITE,
+    TEXTURE_TYPE_NOTEXTURE,
+    NUM_TEXTURE_TYPES,
+};
+
+typedef struct {
+    const qpalette32_t *palette;
+    enum qpic_alpha_operation alpha_op;
+    qboolean mipmap;
+    qboolean picmip;
+    qboolean playermip;
+    qboolean repeat;
+} texture_properties_t;
+
+/* Indexed by enum texture_type */
+extern const texture_properties_t texture_properties[NUM_TEXTURE_TYPES];
+
 /* Palettes for converting the base 8 bit texures to 32 bit RGBA */
 extern qpalette32_t qpal_standard;
 extern qpalette32_t qpal_fullbright;
@@ -70,7 +107,7 @@ extern qpalette32_t qpal_alpha_fullbright;
 void QPic32_InitPalettes(const byte *palette);
 
 /* Detect fullbright pixels in a source texture */
-qboolean QPic_HasFullbrights(const qpic8_t *pic);
+qboolean QPic_HasFullbrights(const qpic8_t *pic, enum texture_type type);
 
 /* Allocate hunk space for a texture */
 qpic32_t *QPic32_Alloc(int width, int height);

@@ -28,19 +28,44 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "vid.h"
 #include "zone.h"
 
+/* Indexed by enum texture_type */
+const texture_properties_t texture_properties[] = {
+    // Palette                Alpha Operation              mipmap picmip plyrmp repeat
+    { &qpal_alpha_zero,       QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // CHARSET
+    { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // HUD
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          true,  true,  false, true  }, // WORLD
+    { &qpal_fullbright,       QPIC_ALPHA_OP_NONE,          true,  true,  false, true  }, // WORLD_FULLBRIGHT
+    { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, true  }, // FENCE
+    { &qpal_alpha_fullbright, QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, true  }, // FENCE_FULLBRIGHT
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // SKY_BACKGROUND
+    { &qpal_alpha_zero,       QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // SKY_FOREGROUND
+    { &qpal_alpha_zero,       QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // SKYBOX
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          true,  true,  false, false }, // ALIAS_SKIN
+    { &qpal_fullbright,       QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  true,  false, false }, // ALIAS_SKIN_FULLBRIGHT
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          true,  false, true,  false }, // PLAYER_SKIN
+    { &qpal_fullbright,       QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  false, true,  false }, // PLAYER_SKIN_FULLBRIGHT
+    { NULL,                   QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
+    { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // PARTICLE
+    { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, false }, // SPRITE
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // NOTEXTURE
+};
+
 /*
  * Detect 8-bit textures containing fullbrights
  */
 qboolean
-QPic_HasFullbrights(const qpic8_t *pic)
+QPic_HasFullbrights(const qpic8_t *pic, enum texture_type type)
 {
     int i, j;
     const byte *pixel;
+    const qpalette32_t *palette;
 
+    palette = texture_properties[type].palette;
     pixel = pic->pixels;
     for (i = 0; i < pic->height; i++) {
         for (j = 0; j < pic->width; j++) {
-            if (*pixel++ > 223)
+            byte index = *pixel++;
+            if (index > 223 && palette->colors[index].c.alpha)
                 return true;
         }
         pixel += pic->stride - pic->width;

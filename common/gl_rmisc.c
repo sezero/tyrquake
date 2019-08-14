@@ -466,7 +466,7 @@ R_TranslatePlayerSkin(int playernum)
         .pixels = pixels,
     };
     playertexture_t *playertexture = &playertextures[playernum];
-    playertexture->fullbright = QPic_HasFullbrights(&playerpic);
+    playertexture->fullbright = QPic_HasFullbrights(&playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     if (!playertexture->texture.base)
         playertexture->texture.base = GL_AllocTexture8(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     if (!playertexture->texture.fullbright)

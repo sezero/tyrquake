@@ -437,7 +437,7 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
         textures[i].base = GL_LoadTexture8(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
         GL_Aliashdr(aliashdr)->texturewidth = pic.width;
         GL_Aliashdr(aliashdr)->textureheight = pic.height;
-        if (QPic_HasFullbrights(&pic)) {
+        if (QPic_HasFullbrights(&pic, TEXTURE_TYPE_ALIAS_SKIN)) {
             pic.width = aliashdr->skinwidth;
             pic.height  = aliashdr->skinheight;
             textures[i].fullbright = GL_LoadTexture8(va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
