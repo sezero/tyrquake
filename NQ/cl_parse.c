@@ -927,6 +927,13 @@ Fog_ParseServerMessage()
     MSG_ReadByte();  // blue
     MSG_ReadShort(); // time
 }
+// Read and discard skybox messages
+qboolean
+Sky_LoadSkyboxTextures(const char *skyboxname)
+{
+    MSG_ReadString();
+    return false;
+}
 #endif
 
 /*
@@ -1197,9 +1204,9 @@ CL_ParseServerMessage(void)
 	    break;
 
 	/* Various FITZ protocol messages - FIXME - !protocol => Host_Error */
-	case svc_fitz_skybox:
-	    MSG_ReadString(); // FIXME - TODO
-	    break;
+        case svc_fitz_skybox:
+            Sky_LoadSkyboxTextures(MSG_ReadString());
+            break;
 
 	case svc_fitz_bf:
 	    Cmd_ExecuteString("bf", src_command);
