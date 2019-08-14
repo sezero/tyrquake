@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_main.c
 
 #include "console.h"
+#include "developer.h"
+#include "draw.h"
 #include "gl_model.h"
 #include "glquake.h"
 #include "mathlib.h"
@@ -833,6 +835,9 @@ R_AliasDrawModel(entity_t *entity)
     glDisable(GL_VERTEX_ARRAY);
 
     c_alias_polys += aliashdr->numtris;
+
+    if (_debug_models.value)
+        DEBUG_DrawModelInfo(entity, lerpdata.origin);
 }
 
 void

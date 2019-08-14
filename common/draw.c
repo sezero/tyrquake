@@ -60,7 +60,7 @@ static wad_t host_gfx; /* gfx.wad */
 const byte *draw_chars; /* 8*8 graphic characters */
 const qpic8_t *draw_disc;
 
-static const qpic8_t *draw_backtile;
+const qpic8_t *draw_backtile;
 
 #define CHAR_WIDTH	8
 #define CHAR_HEIGHT	8

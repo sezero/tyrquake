@@ -707,6 +707,7 @@ CL_OBJS := \
 	cl_parse.o	\
 	cl_tent.o	\
 	console.o	\
+	developer.o	\
 	keys.o		\
 	menu.o		\
 	pcx.o		\

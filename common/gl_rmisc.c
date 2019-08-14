@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "cmd.h"
 #include "console.h"
+#include "developer.h"
 #include "glquake.h"
 #include "protocol.h"
 #include "quakedef.h"
@@ -283,6 +284,8 @@ R_Init(void)
 #ifdef QW_HACK
     Cvar_RegisterVariable(&r_netgraph);
 #endif
+
+    Cvar_RegisterVariable(&_debug_models);
 
     R_InitParticles();
     R_InitParticleTexture();

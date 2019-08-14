@@ -45,7 +45,7 @@ static cvar_t gl_constretch = { "gl_constretch", "0", true };
 static wad_t host_gfx; /* gfx.wad */
 const byte *draw_chars; /* 8*8 graphic characters */
 const qpic8_t *draw_disc;
-static const qpic8_t *draw_backtile;
+const qpic8_t *draw_backtile;
 
 GLuint charset_texture;
 static GLuint crosshair_texture;

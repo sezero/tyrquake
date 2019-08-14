@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // to touch the vid buffer
 
 extern const qpic8_t *draw_disc;	// also used on sbar
+extern const qpic8_t *draw_backtile;
 extern const byte *draw_chars;
 
 void Draw_Init(void);
