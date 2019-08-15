@@ -462,7 +462,7 @@ SV_CheckForNewClients(void)
 	    if (!svs.clients[i].active)
 		break;
 	if (i == svs.maxclients)
-	    Sys_Error("%s: no free clients", __func__);
+	    Host_Error("%s: no free clients", __func__);
 
 	svs.clients[i].netconnection = sock;
 	SV_ConnectClient(i);
@@ -1087,7 +1087,7 @@ SV_ModelIndex(const char *name)
 	if (!strcmp(sv.model_precache[i], name))
 	    return i;
     if (i == MAX_MODELS || !sv.model_precache[i])
-	Sys_Error("%s: model %s not precached", __func__, name);
+	Host_Error("Model %s not precached", name);
     return i;
 }
 
