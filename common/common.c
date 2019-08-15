@@ -1519,8 +1519,6 @@ COM_FOpenFile(const char *filename, FILE **file)
 	    return COM_filelength(*file);
 	}
     }
-
-    Sys_Printf("FindFile: can't find %s\n", filename);
     *file = NULL;
 
     return -1;

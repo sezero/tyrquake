@@ -25,7 +25,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "glquake.h"
 #include "model.h"
 #include "quakedef.h"
-#include "sys.h"
 
 /*
 =================================================================
@@ -138,7 +137,4 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
     }
 
     hdr->numverts += num_seam_verts;
-
-    Sys_Printf("%d tris, %d verts, %d onseam (total verts: %d)\n",
-               hdr->numtris, hdr->numverts, num_seam_verts, hdr->numverts);
 }

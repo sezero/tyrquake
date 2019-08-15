@@ -522,7 +522,7 @@ IN_ProcessEvents(void)
 	    }
 	    Key_Event(keynum, keystate);
 
-#ifdef DEBUG
+#if 0
 	    Sys_Printf("%s: SDL keycode = %s (%d), SDL scancode = %s (%d), "
 		       "Quake key = %s (%d)\n", __func__,
 		       SDL_GetKeyName(keycode), (int)keycode,
