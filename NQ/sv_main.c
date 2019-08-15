@@ -275,7 +275,7 @@ SV_StartSound(edict_t *entity, int channel, const char *sample, int volume,
 	    break;
 
     if (sound_num == MAX_SOUNDS || !sv.sound_precache[sound_num]) {
-	Con_Printf("%s: %s not precacheed\n", __func__, sample);
+	Con_Printf("%s: %s not precached\n", __func__, sample);
 	return;
     }
 
@@ -539,7 +539,7 @@ SV_WriteEntitiesToClient(edict_t *clent, sizebuf_t *msg)
     VectorAdd(clent->v.origin, clent->v.view_ofs, org);
     pvs = Mod_FatPVS(sv.worldmodel, org);
 
-// send over all entities (excpet the client) that touch the pvs
+// send over all entities (except the client) that touch the pvs
     ent = NEXT_EDICT(sv.edicts);
     for (e = 1; e < sv.num_edicts; e++, ent = NEXT_EDICT(ent)) {
 

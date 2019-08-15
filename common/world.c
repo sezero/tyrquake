@@ -475,7 +475,7 @@ SV_LinkEdict(edict_t *ent, qboolean touch_triggers)
 	InsertLinkBefore(&ent->area, &node->solid_edicts);
 
     if (touch_triggers)
-	/* touch all entities at this node and decend for more */
+	/* touch all entities at this node and descend for more */
 	SV_TouchLinks(ent, sv_areanodes);
 }
 
