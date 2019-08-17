@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "quakedef.h"
 #include "r_local.h"
+#include "r_shared.h"
 #include "screen.h"
 #include "sound.h"
 #include "sys.h"
@@ -129,9 +130,9 @@ static cvar_t r_timegraph = { "r_timegraph", "0" };
 static cvar_t r_aliasstats = { "r_polymodelstats", "0" };
 static cvar_t r_dspeeds = { "r_dspeeds", "0" };
 static cvar_t r_reportsurfout = { "r_reportsurfout", "0" };
-static cvar_t r_maxsurfs = { "r_maxsurfs", "0" };
+static cvar_t r_maxsurfs = { "r_maxsurfs", stringify(MAXSTACKSURFACES) };
 static cvar_t r_reportedgeout = { "r_reportedgeout", "0" };
-static cvar_t r_maxedges = { "r_maxedges", "0" };
+static cvar_t r_maxedges = { "r_maxedges", stringify(MAXSTACKEDGES) };
 static cvar_t r_aliastransbase = { "r_aliastransbase", "200" };
 static cvar_t r_aliastransadj = { "r_aliastransadj", "100" };
 
@@ -242,15 +243,10 @@ R_Init(void)
     Cvar_RegisterVariable(&r_zgraph);
 #endif
 
-    Cvar_SetValue("r_maxedges", (float)NUMSTACKEDGES);
-    Cvar_SetValue("r_maxsurfs", (float)NUMSTACKSURFACES);
-
     view_clipplanes[0].leftedge = true;
     view_clipplanes[1].rightedge = true;
-    view_clipplanes[1].leftedge = view_clipplanes[2].leftedge =
-	view_clipplanes[3].leftedge = false;
-    view_clipplanes[0].rightedge = view_clipplanes[2].rightedge =
-	view_clipplanes[3].rightedge = false;
+    view_clipplanes[1].leftedge = view_clipplanes[2].leftedge = view_clipplanes[3].leftedge = false;
+    view_clipplanes[0].rightedge = view_clipplanes[2].rightedge = view_clipplanes[3].rightedge = false;
 
     r_refdef.xOrigin = XCENTERING;
     r_refdef.yOrigin = YCENTERING;
@@ -292,7 +288,7 @@ R_NewMap(void)
     if (r_cnumsurfs <= MINSURFACES)
 	r_cnumsurfs = MINSURFACES;
 
-    if (r_cnumsurfs > NUMSTACKSURFACES) {
+    if (r_cnumsurfs > MAXSTACKSURFACES) {
 	surfaces = Hunk_AllocName(r_cnumsurfs * sizeof(surf_t), "surfaces");
 	surface_p = surfaces;
 	surf_max = &surfaces[r_cnumsurfs];
@@ -313,11 +309,10 @@ R_NewMap(void)
     if (r_numallocatededges < MINEDGES)
 	r_numallocatededges = MINEDGES;
 
-    if (r_numallocatededges <= NUMSTACKEDGES) {
+    if (r_numallocatededges <= MAXSTACKEDGES) {
 	auxedges = NULL;
     } else {
-	auxedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t),
-				  "edges");
+	auxedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "edges");
     }
 
     r_dowarpold = false;
@@ -987,28 +982,10 @@ R_DrawBEntitiesOnList(void)
 R_EdgeDrawing
 ================
 */
- __attribute__((noinline))
+__attribute__((noinline))
 static void
 R_EdgeDrawing(void)
 {
-    edge_t ledges[CACHE_PAD_ARRAY(NUMSTACKEDGES, edge_t)];
-    surf_t lsurfs[CACHE_PAD_ARRAY(NUMSTACKSURFACES, surf_t)];
-
-    if (auxedges) {
-	r_edges = auxedges;
-    } else {
-	r_edges = CACHE_ALIGN_PTR(ledges);
-    }
-
-    if (r_surfsonstack) {
-	surfaces = CACHE_ALIGN_PTR(lsurfs);
-	surf_max = &surfaces[r_cnumsurfs];
-	// surface 0 doesn't really exist; it's just a dummy because index 0
-	// is used to indicate no edge attached to surface
-	surfaces--;
-	R_SurfacePatch();
-    }
-
     R_BeginEdgeFrame();
 
     if (r_dspeeds.value) {
@@ -1050,6 +1027,7 @@ R_RenderView
 r_refdef must be set before the first call
 ================
 */
+__attribute__((noinline))
 static void
 R_RenderView_(void)
 {
@@ -1077,6 +1055,23 @@ R_RenderView_(void)
 	VID_UnlockBuffer();
 	S_ExtraUpdate();	// don't let sound get messed up if going slow
 	VID_LockBuffer();
+    }
+
+    /* Allocate stack space for surfs and edges if limits are low enough */
+    if (auxedges) {
+        r_edges = auxedges;
+    } else {
+        edge_t *stackedges = alloca(CACHE_PAD_ARRAY(r_numallocatededges, edge_t) * sizeof(edge_t));
+        r_edges = CACHE_ALIGN_PTR(stackedges);
+    }
+    if (r_surfsonstack) {
+        surf_t *stacksurfs = alloca(CACHE_PAD_ARRAY(r_cnumsurfs, surf_t) * sizeof(surf_t));
+        surfaces = CACHE_ALIGN_PTR(stacksurfs);
+        surf_max = &surfaces[r_cnumsurfs];
+	// surface 0 doesn't really exist; it's just a dummy because index 0
+	// is used to indicate no edge attached to surface
+        surfaces--;
+        R_SurfacePatch();
     }
 
     R_EdgeDrawing();

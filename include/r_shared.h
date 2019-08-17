@@ -65,12 +65,28 @@ extern vec3_t vup, base_vup;
 extern vec3_t vpn, base_vpn;
 extern vec3_t vright, base_vright;
 
-// FIXME - reasoning behind number choice?
-#define NUMSTACKEDGES		3000
-#define	MINEDGES		NUMSTACKEDGES
-#define NUMSTACKSURFACES	1500
-#define MINSURFACES		NUMSTACKSURFACES
-#define	MAXSPANS		3000
+/*
+ * Min edges/surfaces are just a reasonable number to play the
+ * original id/hipnotic/rouge maps
+ */
+#define MINEDGES    2400
+#define MINSURFACES  800
+
+/*
+ * Maxs for stack allocated edges/surfs here are based on having at
+ * least 1MB of available stack size on a 32-bit platform.  This could
+ * be tweaked per-target, but for now this will do.
+ *
+ * Automated formula would be something like 1:3 surf:edge ratio
+ *
+ * edge_t  = 36 bytes * 16000 =   576000
+ * surf_t  = 64 bytes *  6500 =   416000
+ * espan_t = 16 bytes *  3000 =    48000
+ *                            => 1040000
+ */
+#define MAXSTACKEDGES    16000
+#define MAXSTACKSURFACES  6500
+#define MAXSPANS          3000
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct espan_s {
