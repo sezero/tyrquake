@@ -634,7 +634,7 @@ CL_RelinkEntities(void)
 	}
 
 // rotate binary objects locally
-	if (ent->model->flags & EF_ROTATE)
+	if (ent->model->flags & MOD_EF_ROTATE)
 	    ent->angles[1] = bobjrotate;
 
 	/*
@@ -642,9 +642,9 @@ CL_RelinkEntities(void)
 	 * work out which bits can be done better (e.g. I've already done the
 	 * RED|BLUE bit a little better...)
 	 */
-	if (ent->effects & EF_BRIGHTFIELD)
+	if (ent->effects & ENT_EF_BRIGHTFIELD)
 	    R_EntityParticles(ent);
-	if (ent->effects & EF_MUZZLEFLASH) {
+	if (ent->effects & ENT_EF_MUZZLEFLASH) {
 	    vec3_t fv, rv, uv;
 
 	    dl = CL_AllocDlight(i);
@@ -670,7 +670,7 @@ CL_RelinkEntities(void)
                     ent->lerp.flags |= LERP_RESETANIM | LERP_RESETANIM2;
             }
 	}
-	if (ent->effects & EF_BRIGHTLIGHT) {
+	if (ent->effects & ENT_EF_BRIGHTLIGHT) {
 	    dl = CL_AllocDlight(i);
 	    VectorCopy(ent->origin, dl->origin);
 	    dl->origin[2] += 16;
@@ -678,26 +678,26 @@ CL_RelinkEntities(void)
 	    dl->die = cl.time + 0.001;
 	    dl->color = dl_colors[DLIGHT_FLASH];
 	}
-	if (ent->effects & EF_DIMLIGHT) {
+	if (ent->effects & ENT_EF_DIMLIGHT) {
 	    dl = CL_AllocDlight(i);
 	    VectorCopy(ent->origin, dl->origin);
 	    dl->radius = 200 + (rand() & 31);
 	    dl->die = cl.time + 0.001;
 	    dl->color = dl_colors[DLIGHT_FLASH];
 	}
-	if ((ent->effects & (EF_RED | EF_BLUE)) == (EF_RED | EF_BLUE)) {
+	if ((ent->effects & (ENT_EF_RED | ENT_EF_BLUE)) == (ENT_EF_RED | ENT_EF_BLUE)) {
 	    dl = CL_AllocDlight(i);
 	    VectorCopy(ent->origin, dl->origin);
 	    dl->radius = 200 + (rand() & 31);
 	    dl->die = cl.time + 0.001;
 	    dl->color = dl_colors[DLIGHT_PURPLE];
-	} else if (ent->effects & EF_BLUE) {
+	} else if (ent->effects & ENT_EF_BLUE) {
 	    dl = CL_AllocDlight(i);
 	    VectorCopy(ent->origin, dl->origin);
 	    dl->radius = 200 + (rand() & 31);
 	    dl->die = cl.time + 0.001;
 	    dl->color = dl_colors[DLIGHT_BLUE];
-	} else if (ent->effects & EF_RED) {
+	} else if (ent->effects & ENT_EF_RED) {
 	    dl = CL_AllocDlight(i);
 	    VectorCopy(ent->origin, dl->origin);
 	    dl->radius = 200 + (rand() & 31);
@@ -705,23 +705,23 @@ CL_RelinkEntities(void)
 	    dl->color = dl_colors[DLIGHT_RED];
 	}
 
-	if (ent->model->flags & EF_GIB)
+	if (ent->model->flags & MOD_EF_GIB)
 	    R_RocketTrail(oldorg, ent->origin, 2);
-	else if (ent->model->flags & EF_ZOMGIB)
+	else if (ent->model->flags & MOD_EF_ZOMGIB)
 	    R_RocketTrail(oldorg, ent->origin, 4);
-	else if (ent->model->flags & EF_TRACER)
+	else if (ent->model->flags & MOD_EF_TRACER)
 	    R_RocketTrail(oldorg, ent->origin, 3);
-	else if (ent->model->flags & EF_TRACER2)
+	else if (ent->model->flags & MOD_EF_TRACER2)
 	    R_RocketTrail(oldorg, ent->origin, 5);
-	else if (ent->model->flags & EF_ROCKET) {
+	else if (ent->model->flags & MOD_EF_ROCKET) {
 	    R_RocketTrail(oldorg, ent->origin, 0);
 	    dl = CL_AllocDlight(i);
 	    VectorCopy(ent->origin, dl->origin);
 	    dl->radius = 200;
 	    dl->die = cl.time + 0.01;
-	} else if (ent->model->flags & EF_GRENADE)
+	} else if (ent->model->flags & MOD_EF_GRENADE)
 	    R_RocketTrail(oldorg, ent->origin, 1);
-	else if (ent->model->flags & EF_TRACER3)
+	else if (ent->model->flags & MOD_EF_TRACER3)
 	    R_RocketTrail(oldorg, ent->origin, 6);
 
 	ent->forcelink = false;

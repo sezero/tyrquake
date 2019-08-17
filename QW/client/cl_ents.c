@@ -432,16 +432,16 @@ CL_LinkPacketEntities(void)
 	s2 = s1;		// FIXME: no interpolation right now
 
 	// spawn light flashes, even ones coming from invisible objects
-	if ((s1->effects & (EF_BLUE | EF_RED)) == (EF_BLUE | EF_RED))
+	if ((s1->effects & (ENT_EF_BLUE | ENT_EF_RED)) == (ENT_EF_BLUE | ENT_EF_RED))
 	    CL_NewDlight(s1->number, s1->origin, 200 + (rand() & 31), 0.1, DLIGHT_PURPLE);
-	else if (s1->effects & EF_BLUE)
+	else if (s1->effects & ENT_EF_BLUE)
 	    CL_NewDlight(s1->number, s1->origin, 200 + (rand() & 31), 0.1, DLIGHT_BLUE);
-	else if (s1->effects & EF_RED)
+	else if (s1->effects & ENT_EF_RED)
 	    CL_NewDlight(s1->number, s1->origin, 200 + (rand() & 31), 0.1, DLIGHT_RED);
-	else if (s1->effects & EF_BRIGHTLIGHT) {
+	else if (s1->effects & ENT_EF_BRIGHTLIGHT) {
             vec3_t dlightorigin = { s1->origin[0], s1->origin[1], s1->origin[2] + 16 };
 	    CL_NewDlight(s1->number, dlightorigin, 400 + (rand() & 31), 0.1, DLIGHT_FLASH);
-        } else if (s1->effects & EF_DIMLIGHT)
+        } else if (s1->effects & ENT_EF_DIMLIGHT)
 	    CL_NewDlight(s1->number, s1->origin, 200 + (rand() & 31), 0.1, DLIGHT_FLASH);
 
 	// if set to invisible, skip
@@ -473,7 +473,7 @@ CL_LinkPacketEntities(void)
 	entity->frame = s1->frame;
 
 	// rotate binary objects locally
-	if (model->flags & EF_ROTATE) {
+	if (model->flags & MOD_EF_ROTATE) {
 	    entity->angles[0] = 0;
 	    entity->angles[1] = autorotate;
 	    entity->angles[2] = 0;
@@ -514,23 +514,23 @@ CL_LinkPacketEntities(void)
 		VectorCopy(entity->origin, old_origin);
 		break;
 	    }
-	if (model->flags & EF_ROCKET) {
+	if (model->flags & MOD_EF_ROCKET) {
 	    R_RocketTrail(old_origin, entity->origin, 0);
 	    dl = CL_AllocDlight(s1->number);
 	    VectorCopy(entity->origin, dl->origin);
 	    dl->radius = 200;
 	    dl->die = cl.time + 0.1;
-	} else if (model->flags & EF_GRENADE)
+	} else if (model->flags & MOD_EF_GRENADE)
 	    R_RocketTrail(old_origin, entity->origin, 1);
-	else if (model->flags & EF_GIB)
+	else if (model->flags & MOD_EF_GIB)
 	    R_RocketTrail(old_origin, entity->origin, 2);
-	else if (model->flags & EF_ZOMGIB)
+	else if (model->flags & MOD_EF_ZOMGIB)
 	    R_RocketTrail(old_origin, entity->origin, 4);
-	else if (model->flags & EF_TRACER)
+	else if (model->flags & MOD_EF_TRACER)
 	    R_RocketTrail(old_origin, entity->origin, 3);
-	else if (model->flags & EF_TRACER2)
+	else if (model->flags & MOD_EF_TRACER2)
 	    R_RocketTrail(old_origin, entity->origin, 5);
-	else if (model->flags & EF_TRACER3)
+	else if (model->flags & MOD_EF_TRACER3)
 	    R_RocketTrail(old_origin, entity->origin, 6);
     }
 }
@@ -809,16 +809,16 @@ CL_LinkPlayers(physent_stack_t *pestack)
 #ifdef GLQUAKE
 	if (playernum != cl.playernum) {
 #endif
-	    if ((state->effects & (EF_BLUE | EF_RED)) == (EF_BLUE | EF_RED))
+	    if ((state->effects & (ENT_EF_BLUE | ENT_EF_RED)) == (ENT_EF_BLUE | ENT_EF_RED))
 		CL_NewDlight(playernum, state->origin, 200 + (rand() & 31), 0.1, DLIGHT_PURPLE);
-	    else if (state->effects & EF_BLUE)
+	    else if (state->effects & ENT_EF_BLUE)
 		CL_NewDlight(playernum, state->origin, 200 + (rand() & 31), 0.1, DLIGHT_BLUE);
-	    else if (state->effects & EF_RED)
+	    else if (state->effects & ENT_EF_RED)
 		CL_NewDlight(playernum, state->origin, 200 + (rand() & 31), 0.1, DLIGHT_RED);
-	    else if (state->effects & EF_BRIGHTLIGHT) {
+	    else if (state->effects & ENT_EF_BRIGHTLIGHT) {
                 vec3_t dlightorigin = { state->origin[0], state->origin[1], state->origin[2] + 16 };
 		CL_NewDlight(playernum, dlightorigin, 400 + (rand() & 31), 0.1, DLIGHT_FLASH);
-            } else if (state->effects & EF_DIMLIGHT)
+            } else if (state->effects & ENT_EF_DIMLIGHT)
 		CL_NewDlight(playernum, state->origin, 200 + (rand() & 31), 0.1, DLIGHT_FLASH);
 #ifdef GLQUAKE
 	}
@@ -874,9 +874,9 @@ CL_LinkPlayers(physent_stack_t *pestack)
 	    VectorCopy(exact.origin, entity->origin);
 	}
 
-	if (state->effects & EF_FLAG1)
+	if (state->effects & ENT_EF_FLAG1)
 	    CL_AddFlagModels(entity, 0);
-	else if (state->effects & EF_FLAG2)
+	else if (state->effects & ENT_EF_FLAG2)
 	    CL_AddFlagModels(entity, 1);
 
     }

@@ -58,14 +58,14 @@ m*_t structures are in-memory
 */
 
 // entity effects
-#define EF_BRIGHTFIELD	1
-#define EF_MUZZLEFLASH 	2
-#define EF_BRIGHTLIGHT 	4
-#define EF_DIMLIGHT 	8
-#define EF_FLAG1	16
-#define EF_FLAG2	32
-#define EF_BLUE		64
-#define EF_RED		128
+#define ENT_EF_BRIGHTFIELD (1 << 0)
+#define ENT_EF_MUZZLEFLASH (1 << 1)
+#define ENT_EF_BRIGHTLIGHT (1 << 2)
+#define ENT_EF_DIMLIGHT    (1 << 3)
+#define ENT_EF_FLAG1       (1 << 4)
+#define ENT_EF_FLAG2       (1 << 5)
+#define ENT_EF_BLUE        (1 << 6)
+#define ENT_EF_RED         (1 << 7)
 
 /*
 ==============================================================================
@@ -393,14 +393,14 @@ SW_Aliashdr(aliashdr_t *h)
 
 typedef enum { mod_brush, mod_sprite, mod_alias } modtype_t;
 
-#define	EF_ROCKET	1	// leave a trail
-#define	EF_GRENADE	2	// leave a trail
-#define	EF_GIB		4	// leave a trail
-#define	EF_ROTATE	8	// rotate (bonus items)
-#define	EF_TRACER	16	// green split trail
-#define	EF_ZOMGIB	32	// small blood trail
-#define	EF_TRACER2	64	// orange split trail + rotate
-#define	EF_TRACER3	128	// purple trail
+#define MOD_EF_ROCKET   (1 << 0) // leave a trail
+#define MOD_EF_GRENADE  (1 << 1) // leave a trail
+#define MOD_EF_GIB      (1 << 2) // leave a trail
+#define MOD_EF_ROTATE   (1 << 3) // rotate (bonus items)
+#define MOD_EF_TRACER   (1 << 4) // green split trail
+#define MOD_EF_ZOMGIB   (1 << 5) // small blood trail
+#define MOD_EF_TRACER2  (1 << 6) // orange split trail + rotate
+#define MOD_EF_TRACER3  (1 << 7) // purple trail
 
 typedef struct model_s {
     char name[MAX_QPATH];
