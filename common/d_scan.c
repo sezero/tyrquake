@@ -427,10 +427,17 @@ D_DrawZSpans(espan_t *pspan)
 
 	if ((doublecount = count >> 1) > 0) {
 	    do {
+#ifdef __BIG_ENDIAN__
+		ltemp = izi & 0xFFFF0000;
+		izi += izistep;
+		ltemp |= izi >> 16;
+		izi += izistep;
+#else
 		ltemp = izi >> 16;
 		izi += izistep;
 		ltemp |= izi & 0xFFFF0000;
 		izi += izistep;
+#endif
 		*(int *)pdest = ltemp;
 		pdest += 2;
 	    } while (--doublecount > 0);
