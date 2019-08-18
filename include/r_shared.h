@@ -67,22 +67,29 @@ extern vec3_t vright, base_vright;
 
 /*
  * Min edges/surfaces are just a reasonable number to play the
- * original id/hipnotic/rouge maps
+ * original id/hipnotic/rouge maps.  Surfaces we want to reference
+ * using shorts to pack the edge_t struct into cache lines, so the
+ * upper limit on those is 16 bits.  Edges is just 32 bit limited, but
+ * no need for quite that many if we don't have the surfs...
  */
-#define MINEDGES    2400
-#define MINSURFACES  800
+#define MINSURFACES    800
+#define MINEDGES      2400
+#define MAXSURFACES 0xffff
+#define MAXEDGES (MAXSURFACES << 2)
 
 /*
  * Maxs for stack allocated edges/surfs here are based on having at
  * least 1MB of available stack size on a 32-bit platform.  This could
- * be tweaked per-target, but for now this will do.
+ * be tweaked per-target, but for now this will do.  Alias model
+ * rendering still needs to use the stack on top of this, so don't go
+ * crazy.
  *
  * Automated formula would be something like 1:3 surf:edge ratio
  *
- * edge_t  = 36 bytes * 16000 =   576000
+ * edge_t  = 32 bytes * 16000 =   512000
  * surf_t  = 64 bytes *  6500 =   416000
  * espan_t = 16 bytes *  3000 =    48000
- *                            => 1040000
+ *                            =>  976000
  */
 #define MAXSTACKEDGES    16000
 #define MAXSTACKSURFACES  6500
@@ -163,7 +170,7 @@ typedef struct edge_s {
     fixed16_t u;
     fixed16_t u_step;
     struct edge_s *prev, *next;
-    unsigned int surfs[2];
+    uint16_t surfs[2];
     struct edge_s *nextremove;
     float nearzi;
     medge_t *owner;

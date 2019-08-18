@@ -347,9 +347,11 @@ C(R_GenerateSpans):
 
 Lgs_edgeloop:
 
-	movl	et_surfs+4(%ebx),%edi
-	movl	et_surfs(%ebx),%esi
-	movl	C(surfaces),%eax
+        movl    et_surfs(%ebx),%edi
+        movl    C(surfaces),%eax
+        movl    %edi,%esi
+        andl    $0xFFFF0000,%edi
+        andl    $0x0000FFFF,%esi
 	jz	Lgs_leading		// not a trailing edge
 
 // it has a left surface, so a surface is going away for this span
@@ -367,7 +369,7 @@ Lgs_edgeloop:
 // ---------------------------------------------------------------
 
 Lgs_leading:
-	shll	$SURF_T_SHIFT,%edi
+    shrl    $16-SURF_T_SHIFT,%edi
 	movl	C(surfaces),%eax
 	addl	%eax,%edi
 	movl	0x12345678,%esi		// surf2 = surfaces[1].next;
