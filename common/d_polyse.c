@@ -24,11 +24,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_local.h"
 #include "d_local.h"
 
-// TODO: put in span spilling to shrink list size
-// !!! if this is changed, it must be changed in d_polysa.s too !!!
-#define DPS_MAXSPANS MAXHEIGHT+1
-			// 1 extra for spanpackage that marks end
-
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct {
     void *pdest;
@@ -110,10 +105,8 @@ void D_RasterizeAliasPolySmooth(void);
 void D_PolysetScanLeftEdge(int height);
 
 #ifndef USE_X86_ASM
-
-static void D_DrawSubdiv(void);
-static void D_DrawNonSubdiv(void);
 static void D_PolysetRecursiveTriangle(int *p1, int *p2, int *p3);
+#endif
 
 /*
 ================
@@ -123,18 +116,26 @@ D_PolysetDraw
 void
 D_PolysetDraw(void)
 {
-    spanpackage_t spans[CACHE_PAD_ARRAY(DPS_MAXSPANS + 1, spanpackage_t)];
-    /* one extra because of cache line pretouching */
+    int maxspans;
+    spanpackage_t *spans;
+
+    /*
+     * Allocate one extra for spanpackage that marks end and then one
+     * more because of cache line pretouching.
+     *
+     * TODO: put in span spilling to shrink list size
+     */
+    maxspans = r_refdef.vrectbottom + 2;
+    spans = alloca(CACHE_PAD_ARRAY(maxspans, spanpackage_t) * sizeof(spanpackage_t));
 
     a_spans = CACHE_ALIGN_PTR(spans);
-
-    if (r_affinetridesc.drawtype) {
+    if (r_affinetridesc.drawtype)
 	D_DrawSubdiv();
-    } else {
+    else
 	D_DrawNonSubdiv();
-    }
 }
 
+#ifndef USE_X86_ASM
 
 /*
 ================
@@ -172,7 +173,7 @@ D_PolysetDrawFinalVerts(finalvert_t *fv, int numverts)
 D_DrawSubdiv
 ================
 */
-static void
+void
 D_DrawSubdiv(void)
 {
     mtriangle_t *ptri;
@@ -229,7 +230,7 @@ D_DrawSubdiv(void)
 D_DrawNonSubdiv
 ================
 */
-static void
+void
 D_DrawNonSubdiv(void)
 {
     mtriangle_t *ptri;

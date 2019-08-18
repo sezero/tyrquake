@@ -132,7 +132,9 @@ void D_BeginDirectRect(int x, int y, const byte *pbitmap, int width,
 		       int height);
 void D_DisableBackBufferAccess(void);
 void D_EndDirectRect(int x, int y, int width, int height);
-void D_PolysetDraw(void);
+void D_PolysetDraw();
+void D_DrawSubdiv();
+void D_DrawNonSubdiv();
 void D_PolysetDrawFinalVerts(finalvert_t *fv, int numverts);
 void D_DrawParticle(particle_t *pparticle);
 void D_DrawSprite(void);

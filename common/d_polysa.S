@@ -27,12 +27,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "asm_draw.h"
 #include "d_ifacea.h"
 
-// !!! if this is changed, it must be changed in d_polyse.c too !!!
-#define DPS_MAXSPANS (MAXHEIGHT+1)
-			// 1 extra for spanpackage that marks end
-#define DPS_CACHE_PAD (((CACHE_SIZE - 1) / spanpackage_t_size) + 1)
-#define SPAN_SIZE ((DPS_MAXSPANS + DPS_CACHE_PAD + 1) * spanpackage_t_size)
-			// 1 extra because of cache line pretouching
 	.data
 	.align	4
 
@@ -1072,34 +1066,12 @@ C(D_Aff8Patch):
 
 
 //----------------------------------------------------------------------
-// Alias model polygon dispatching code, combined with subdivided affine
-// triangle drawing code
+// Subdivided affine triangle drawing code
 //----------------------------------------------------------------------
 
-.globl C(D_PolysetDraw)
-C(D_PolysetDraw):
-
-//	spanpackage_t spans[DPS_MAXSPANS + 1 +
-//			    ((CACHE_SIZE - 1) / sizeof(spanpackage_t)) + 1];
-//		// one extra because of cache line pretouching
-//
-//	a_spans = (spanpackage_t *)
-//			(((long)&spans[0] + CACHE_SIZE - 1) & ~(CACHE_SIZE - 1));
-	subl	$(SPAN_SIZE),%esp
-	movl	%esp,%eax
-	addl	$(CACHE_SIZE - 1),%eax
-	andl	$(~(CACHE_SIZE - 1)),%eax
-	movl	%eax,C(a_spans)
-
-//	if (r_affinetridesc.drawtype)
-//		D_DrawSubdiv ();
-//	else
-//		D_DrawNonSubdiv ();
-	movl	C(r_affinetridesc)+atd_drawtype,%eax
-	testl	%eax,%eax
-	jz	C(D_DrawNonSubdiv)
-
-	pushl	%ebp		// preserve caller stack frame pointer
+.globl C(D_DrawSubdiv)
+C(D_DrawSubdiv):
+	pushl	%ebp			// preserve caller stack frame pointer
 
 //	lnumtriangles = r_affinetridesc.numtriangles;
 	movl	C(r_affinetridesc)+atd_numtriangles,%ebp
@@ -1262,8 +1234,6 @@ Ldone2:
 	popl	%ebx
 	popl	%esi				// restore register variables
 	popl	%ebp
-
-	addl	$(SPAN_SIZE),%esp
 
 	ret
 
@@ -1728,7 +1698,5 @@ LNextTri:
 	popl	%esi
 	popl	%ebx
 	popl	%ebp
-
-	addl	$(SPAN_SIZE),%esp
 
 	ret
