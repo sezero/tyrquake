@@ -42,6 +42,9 @@ float r_aliasuvscale = 1.0;
 int r_outofsurfaces;
 int r_outofedges;
 
+static edge_t *saveedges;
+static surf_t *savesurfs;
+
 qboolean r_dowarp, r_dowarpold, r_viewchanged;
 
 int c_surf;
@@ -306,6 +309,10 @@ R_NewMap(void)
     } else {
 	auxedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "edges");
     }
+
+    /* For transparency */
+    savesurfs = Hunk_AllocName(r_cnumsurfs * sizeof(surf_t), "savesurf");
+    saveedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "saveedge");
 
     r_dowarpold = false;
     r_viewchanged = false;
@@ -974,9 +981,8 @@ R_DrawBEntitiesOnList(void)
 R_EdgeDrawing
 ================
 */
-__attribute__((noinline))
 static void
-R_EdgeDrawing(void)
+R_EdgeDrawingPrepare()
 {
     R_BeginEdgeFrame();
 
@@ -1007,8 +1013,6 @@ R_EdgeDrawing(void)
 	S_ExtraUpdate();	// don't let sound get messed up if going slow
 	VID_LockBuffer();
     }
-
-    R_ScanEdges();
 }
 
 
@@ -1024,6 +1028,8 @@ static void
 R_RenderView_(void)
 {
     byte warpbuffer[WARP_WIDTH * WARP_HEIGHT];
+    scanflags_t scanflags;
+    int numsavesurfs, numsaveedges;
 
     r_warpbuffer = warpbuffer;
 
@@ -1066,7 +1072,24 @@ R_RenderView_(void)
         R_SurfacePatch();
     }
 
-    R_EdgeDrawing();
+    R_EdgeDrawingPrepare();
+
+    /* Save a copy of the sorted surfs/edges for special surface passes */
+    numsavesurfs = surface_p - (surfaces + 1);
+    memcpy(savesurfs, surfaces + 1, numsavesurfs * sizeof(*surfaces));
+    numsaveedges = edge_p - r_edges;
+    memcpy(saveedges, r_edges, numsaveedges * sizeof(*r_edges));
+
+    /* Draw the world (zero flags) and collect scanline flags for special surfaces */
+    memset(&scanflags, 0, sizeof(scanflags));
+    R_ScanEdges(0, &scanflags);
+
+    /* Now draw fence(mask) surfaces over the top */
+    if (scanflags.fence.found) {
+        memcpy(surfaces + 1, savesurfs, numsavesurfs * sizeof(*surfaces));
+        memcpy(r_edges, saveedges, numsaveedges * sizeof(*r_edges));
+        R_ScanEdges(SURF_DRAWFENCE, &scanflags);
+    }
 
     if (!r_dspeeds.value) {
 	VID_UnlockBuffer();

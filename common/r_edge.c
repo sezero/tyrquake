@@ -54,7 +54,8 @@ int current_iv;
 
 int edge_head_u_shift20, edge_tail_u_shift20;
 
-static void (*pdrawfunc) (void);
+static int (*GenerateSpans)();
+static void (*GenerateSpansWithFlag)(int);
 
 edge_t edge_head;
 edge_t edge_tail;
@@ -63,12 +64,9 @@ edge_t edge_sentinel;
 
 float fv;
 
-void R_GenerateSpans(void);
-void R_GenerateSpansBackward(void);
-
-void R_LeadingEdge(edge_t *edge);
-void R_LeadingEdgeBackwards(edge_t *edge);
-void R_TrailingEdge(surf_t *surf, edge_t *edge);
+int R_GenerateSpans();
+static int R_GenerateSpansBackward();
+static void R_GenerateSpansWithFlag(int flags);
 
 //=============================================================================
 
@@ -92,19 +90,27 @@ R_BeginEdgeFrame(void)
 
 // put the background behind everything in the world
     if (r_draworder.value) {
-	pdrawfunc = R_GenerateSpansBackward;
+	GenerateSpans = R_GenerateSpansBackward;
+        GenerateSpansWithFlag = R_GenerateSpansWithFlag;
 	surfaces[1].key = 0;
 	r_currentkey = 1;
     } else {
-	pdrawfunc = R_GenerateSpans;
+	GenerateSpans = R_GenerateSpans;
+        GenerateSpansWithFlag = R_GenerateSpansWithFlag;
 	surfaces[1].key = 0x7FFFFFFF;
 	r_currentkey = 0;
     }
 
+#if 0
+    v = r_refdef.vrect.y;
+    memset(&newedges[v], 0, (r_refdef.vrectbottom - v) * sizeof(newedges[0]));
+    memset(&removeedges[v], 0, (r_refdef.vrectbottom - v) * sizeof(removeedges[0]));
+#else
 // FIXME: set with memset
     for (v = r_refdef.vrect.y; v < r_refdef.vrectbottom; v++) {
 	newedges[v] = removeedges[v] = NULL;
     }
+#endif
 }
 
 
@@ -121,7 +127,7 @@ sentinel at the end (actually, this is the active edge table starting at
 edge_head.next).
 ==============
 */
-void
+static void
 R_InsertNewEdges(edge_t *edgestoadd, edge_t *edgelist)
 {
     edge_t *next_edge;
@@ -162,7 +168,7 @@ R_InsertNewEdges(edge_t *edgestoadd, edge_t *edgelist)
 R_RemoveEdges
 ==============
 */
-void
+static void
 R_RemoveEdges(edge_t *pedge)
 {
 
@@ -182,7 +188,7 @@ R_RemoveEdges(edge_t *pedge)
 R_StepActiveU
 ==============
 */
-void
+static void
 R_StepActiveU(edge_t *pedge)
 {
     edge_t *pnext_edge, *pwedge;
@@ -249,7 +255,7 @@ R_StepActiveU(edge_t *pedge)
 R_CleanupSpan
 ==============
 */
-void
+static void
 R_CleanupSpan()
 {
     surf_t *surf;
@@ -260,7 +266,7 @@ R_CleanupSpan()
 // unfinished surfaces, so emit a span for whatever's on top
     surf = surfaces[1].next;
     iu = edge_tail_u_shift20;
-    if (iu > surf->last_u) {
+    if (iu > surf->last_u && !(surf->flags & SURF_DRAWFENCE)) {
 	span = span_p++;
 	span->u = surf->last_u;
 	span->count = iu - span->u;
@@ -281,7 +287,7 @@ R_CleanupSpan()
 R_LeadingEdgeBackwards
 ==============
 */
-void
+static int
 R_LeadingEdgeBackwards(edge_t *edge)
 {
     espan_t *span;
@@ -290,12 +296,14 @@ R_LeadingEdgeBackwards(edge_t *edge)
 
 // it's adding a new surface in, so find the correct place
     surf = &surfaces[edge->surfs[1]];
+    if (surf->flags & SURF_DRAWFENCE)
+        return SURF_DRAWFENCE;
 
 // don't start a span if this is an inverted span, with the end
 // edge preceding the start edge (that is, we've already seen the
 // end edge)
     if (++surf->spanstate != 1)
-	return;
+	return 0;
 
     surf2 = surfaces[1].next;
 
@@ -349,6 +357,8 @@ R_LeadingEdgeBackwards(edge_t *edge)
     surf->prev = surf2->prev;
     surf2->prev->next = surf;
     surf2->prev = surf;
+
+    return 0;
 }
 
 
@@ -357,17 +367,20 @@ R_LeadingEdgeBackwards(edge_t *edge)
 R_TrailingEdge
 ==============
 */
-void
+static int
 R_TrailingEdge(surf_t *surf, edge_t *edge)
 {
     espan_t *span;
     int iu;
 
+    if (surf->flags & SURF_DRAWFENCE)
+        return SURF_DRAWFENCE;
+
 // don't generate a span if this is an inverted span, with the end
 // edge preceding the start edge (that is, we haven't seen the
 // start edge yet)
     if (--surf->spanstate != 0)
-	return;
+	return 0;
 
     if (surf->insubmodel)
 	r_bmodelactive--;
@@ -388,6 +401,8 @@ R_TrailingEdge(surf_t *surf, edge_t *edge)
     }
     surf->prev->next = surf->next;
     surf->next->prev = surf->prev;
+
+    return 0;
 }
 
 
@@ -398,8 +413,255 @@ R_TrailingEdge(surf_t *surf, edge_t *edge)
 R_LeadingEdge
 ==============
 */
-void
+static int
 R_LeadingEdge(edge_t *edge)
+{
+    espan_t *span;
+    surf_t *surf, *surf2;
+    int iu;
+    double fu, newzi, testzi, newzitop, newzibottom;
+
+    if (!edge->surfs[1])
+	return 0;
+
+    // it's adding a new surface in, so find the correct place
+    surf = &surfaces[edge->surfs[1]];
+    if (surf->flags & SURF_DRAWFENCE)
+        return SURF_DRAWFENCE;
+
+    // don't start a span if this is an inverted span, with the end
+    // edge preceding the start edge (that is, we've already seen the
+    // end edge)
+    if (++surf->spanstate != 1)
+	return 0;
+
+    if (surf->insubmodel)
+	r_bmodelactive++;
+
+    surf2 = surfaces[1].next;
+
+    if (surf->key < surf2->key)
+	goto newtop;
+
+    // if it's two surfaces on the same plane, the one that's already
+    // active is in front, so keep going unless it's a bmodel
+    if (surf->insubmodel && (surf->key == surf2->key)) {
+	// must be two bmodels in the same leaf; sort on 1/z
+	fu = (float)(edge->u - 0xFFFFF) * (1.0 / 0x100000);
+	newzi = surf->d_ziorigin + fv * surf->d_zistepv + fu * surf->d_zistepu;
+	newzibottom = newzi * 0.99;
+
+	testzi = surf2->d_ziorigin + fv * surf2->d_zistepv +
+	    fu * surf2->d_zistepu;
+
+	if (newzibottom >= testzi)
+	    goto newtop;
+
+	newzitop = newzi * 1.01;
+	if (newzitop >= testzi && surf->d_zistepu >= surf2->d_zistepu)
+	    goto newtop;
+    }
+
+ continue_search:
+
+    do {
+	surf2 = surf2->next;
+    } while (surf->key > surf2->key);
+
+    if (surf->key != surf2->key)
+	goto gotposition;
+
+    // if it's two surfaces on the same plane, the one that's already
+    // active is in front, so keep going unless it's a bmodel
+    if (!surf->insubmodel)
+	goto continue_search;
+
+    /*
+     * TODO - support clipping intersecting bmodels?
+     *
+     * Current edge code only supports "abutting" bmodels - if two non-world
+     * bmodels intersect, the surfaces will not be rendered correctly by the
+     * edge renderer.
+     */
+
+    // must be two bmodels in the same leaf; sort on 1/z
+    fu = (float)(edge->u - 0xFFFFF) * (1.0 / 0x100000);
+    newzi = surf->d_ziorigin + fv * surf->d_zistepv + fu * surf->d_zistepu;
+    newzibottom = newzi * 0.99;
+
+    testzi = surf2->d_ziorigin + fv * surf2->d_zistepv + fu * surf2->d_zistepu;
+    if (newzibottom >= testzi)
+	goto gotposition;
+
+    newzitop = newzi * 1.01;
+    if (newzitop >= testzi && surf->d_zistepu >= surf2->d_zistepu)
+	goto gotposition;
+
+    goto continue_search;
+
+ newtop:
+    // emit a span (obscures current top)
+    iu = edge->u >> 20;
+
+    if (iu > surf2->last_u && !(surf2->flags & SURF_DRAWFENCE)) {
+	span = span_p++;
+	span->u = surf2->last_u;
+	span->count = iu - span->u;
+	span->v = current_iv;
+	span->pnext = surf2->spans;
+	surf2->spans = span;
+    }
+    // set last_u on the new span
+    surf->last_u = iu;
+
+ gotposition:
+    // insert before surf2
+    surf->next = surf2;
+    surf->prev = surf2->prev;
+    surf2->prev->next = surf;
+    surf2->prev = surf;
+
+    return 0;
+}
+
+/*
+==============
+R_GenerateSpans
+==============
+*/
+int
+R_GenerateSpans(void)
+{
+    edge_t *edge;
+    surf_t *surf;
+    int flags;
+
+    flags = 0;
+    r_bmodelactive = 0;
+
+// clear active surfaces to just the background surface
+    surfaces[1].next = surfaces[1].prev = &surfaces[1];
+    surfaces[1].last_u = edge_head_u_shift20;
+
+// generate spans
+    for (edge = edge_head.next; edge != &edge_tail; edge = edge->next) {
+	if (edge->surfs[0]) {
+	    // it has a left surface, so a surface is going away for this span
+	    surf = &surfaces[edge->surfs[0]];
+	    flags |= R_TrailingEdge(surf, edge);
+	    if (!edge->surfs[1])
+		continue;
+	}
+	flags |= R_LeadingEdge(edge);
+    }
+
+    R_CleanupSpan();
+
+    return flags;
+}
+
+#endif /* USE_X86_ASM */
+
+
+/*
+==============
+R_GenerateSpansBackward
+==============
+*/
+static int
+R_GenerateSpansBackward(void)
+{
+    edge_t *edge;
+    int flags;
+
+    flags = 0;
+    r_bmodelactive = 0;
+
+// clear active surfaces to just the background surface
+    surfaces[1].next = surfaces[1].prev = &surfaces[1];
+    surfaces[1].last_u = edge_head_u_shift20;
+
+// generate spans
+    for (edge = edge_head.next; edge != &edge_tail; edge = edge->next) {
+	if (edge->surfs[0])
+	    flags |= R_TrailingEdge(&surfaces[edge->surfs[0]], edge);
+
+	if (edge->surfs[1])
+	    flags |= R_LeadingEdgeBackwards(edge);
+    }
+
+    R_CleanupSpan();
+
+    return flags;
+}
+
+/*
+ * ==========================================================
+ * Span generation for flagged surfaces (fence, transparency)
+ * ==========================================================
+ */
+
+static void
+R_CleanupSpanWithFlag(int flags)
+{
+    surf_t *surf;
+    int iu;
+    espan_t *span;
+
+// now that we've reached the right edge of the screen, we're done with any
+// unfinished surfaces, so emit a span for whatever's on top
+    surf = surfaces[1].next;
+    iu = edge_tail_u_shift20;
+    if (iu > surf->last_u && (surf->flags & flags)) {
+	span = span_p++;
+	span->u = surf->last_u;
+	span->count = iu - span->u;
+	span->v = current_iv;
+	span->pnext = surf->spans;
+	surf->spans = span;
+    }
+// reset spanstate for all surfaces in the surface stack
+    do {
+	surf->spanstate = 0;
+	surf = surf->next;
+    } while (surf != &surfaces[1]);
+}
+
+static void
+R_TrailingEdgeWithFlag(surf_t *surf, edge_t *edge, int flags)
+{
+    espan_t *span;
+    int iu;
+
+// don't generate a span if this is an inverted span, with the end
+// edge preceding the start edge (that is, we haven't seen the
+// start edge yet)
+    if (--surf->spanstate != 0)
+	return;
+
+    if (surf->insubmodel)
+	r_bmodelactive--;
+
+    if (surf == surfaces[1].next) {
+	// emit a span (current top going away)
+	iu = edge->u >> 20;
+	if (iu > surf->last_u && (surf->flags & flags)) {
+	    span = span_p++;
+	    span->u = surf->last_u;
+	    span->count = iu - span->u;
+	    span->v = current_iv;
+	    span->pnext = surf->spans;
+	    surf->spans = span;
+	}
+	// set last_u on the surface below
+	surf->next->last_u = iu;
+    }
+    surf->prev->next = surf->next;
+    surf->next->prev = surf->prev;
+}
+
+static void
+R_LeadingEdgeWithFlag(edge_t *edge, int flags)
 {
     espan_t *span;
     surf_t *surf, *surf2;
@@ -486,7 +748,7 @@ R_LeadingEdge(edge_t *edge)
     // emit a span (obscures current top)
     iu = edge->u >> 20;
 
-    if (iu > surf2->last_u) {
+    if (iu > surf2->last_u && (surf2->flags & flags)) {
 	span = span_p++;
 	span->u = surf2->last_u;
 	span->count = iu - span->u;
@@ -505,14 +767,8 @@ R_LeadingEdge(edge_t *edge)
     surf2->prev = surf;
 }
 
-
-/*
-==============
-R_GenerateSpans
-==============
-*/
-void
-R_GenerateSpans(void)
+static void
+R_GenerateSpansWithFlag(int flags)
 {
     edge_t *edge;
     surf_t *surf;
@@ -528,50 +784,17 @@ R_GenerateSpans(void)
 	if (edge->surfs[0]) {
 	    // it has a left surface, so a surface is going away for this span
 	    surf = &surfaces[edge->surfs[0]];
-
-	    R_TrailingEdge(surf, edge);
-
+	    R_TrailingEdgeWithFlag(surf, edge, flags);
 	    if (!edge->surfs[1])
 		continue;
 	}
-
-	R_LeadingEdge(edge);
+	R_LeadingEdgeWithFlag(edge, flags);
     }
 
-    R_CleanupSpan();
+    R_CleanupSpanWithFlag(flags);
 }
 
-#endif /* USE_X86_ASM */
-
-
-/*
-==============
-R_GenerateSpansBackward
-==============
-*/
-void
-R_GenerateSpansBackward(void)
-{
-    edge_t *edge;
-
-    r_bmodelactive = 0;
-
-// clear active surfaces to just the background surface
-    surfaces[1].next = surfaces[1].prev = &surfaces[1];
-    surfaces[1].last_u = edge_head_u_shift20;
-
-// generate spans
-    for (edge = edge_head.next; edge != &edge_tail; edge = edge->next) {
-	if (edge->surfs[0])
-	    R_TrailingEdge(&surfaces[edge->surfs[0]], edge);
-
-	if (edge->surfs[1])
-	    R_LeadingEdgeBackwards(edge);
-    }
-
-    R_CleanupSpan();
-}
-
+/* ===================================================== */
 
 /*
 ==============
@@ -583,10 +806,11 @@ newedges[] array
 
 Output:
 Each surface has a linked list of its visible spans
+Scanlines having fence surfaces are flagged in the scanline flags struct.
 ==============
 */
 void
-R_ScanEdges(void)
+R_ScanEdges(int drawflags, scanflags_t *scanflags)
 {
     int iv, bottom;
     espan_t basespans[CACHE_PAD_ARRAY(MAXSPANS, espan_t)];
@@ -641,14 +865,17 @@ R_ScanEdges(void)
 	    R_InsertNewEdges(newedges[iv], edge_head.next);
 	}
 
-	(*pdrawfunc) ();
+        if (!drawflags) {
+            int flags = GenerateSpans();
+            scanflags->fence.lines[iv] = !!(flags & SURF_DRAWFENCE); // TODO: Bitfield?
+            scanflags->fence.found |= !!(flags & SURF_DRAWFENCE);
+        } else if ((drawflags & SURF_DRAWFENCE) && scanflags->fence.lines[iv]) {
+            GenerateSpansWithFlag(SURF_DRAWFENCE);
+        }
 
 	// flush the span list if we can't be sure we have enough spans left
 	// for the next scan
-
-	// FIXME - which is correct QW had >, NQ had >= (and QF has >)
-	//if (span_p >= max_span_p) {
-	if (span_p > max_span_p) {
+	if (span_p >= max_span_p) {
 	    VID_UnlockBuffer();
 	    S_ExtraUpdate();	// don't let sound get messed up if going slow
 	    VID_LockBuffer();
@@ -680,7 +907,13 @@ R_ScanEdges(void)
     if (newedges[iv])
 	R_InsertNewEdges(newedges[iv], edge_head.next);
 
-    (*pdrawfunc) ();
+    if (!drawflags) {
+        int flags = GenerateSpans();
+        scanflags->fence.lines[iv] = !!(flags & SURF_DRAWFENCE);
+        scanflags->fence.found |= !!(flags & SURF_DRAWFENCE);
+    } else if ((drawflags & SURF_DRAWFENCE) && scanflags->fence.lines[iv]) {
+        GenerateSpansWithFlag(SURF_DRAWFENCE);
+    }
 
 // draw whatever's left in the span list
     D_DrawSurfaces();

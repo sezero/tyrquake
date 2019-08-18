@@ -129,14 +129,25 @@ void R_Surf16Patch(void);
 void R_DrawSubmodelPolygons(const entity_t *entity, int clipflags);
 void R_DrawSolidClippedSubmodelPolygons(const entity_t *entity);
 
+typedef struct {
+    struct {
+        qboolean found;
+        qboolean lines[MAXHEIGHT + 1];
+    } fence;
+} scanflags_t;
+
+void R_ScanEdges(int drawflags, scanflags_t *scanflags);
+
 void R_AddPolygonEdges(emitpoint_t *pverts, int numverts, int miplevel);
 surf_t *R_GetSurf(void);
 void R_AliasDrawModel(entity_t *e);
 void R_BeginEdgeFrame(void);
-void R_ScanEdges(void);
+
+#ifdef USE_X86_ASM
 void R_InsertNewEdges(edge_t *edgestoadd, edge_t *edgelist);
 void R_StepActiveU(edge_t *pedge);
 void R_RemoveEdges(edge_t *pedge);
+#endif
 
 extern void R_Surf8Start(void);
 extern void R_Surf8End(void);
