@@ -250,16 +250,21 @@ LUDone:
 
 	.align 4
 TrailingEdge:
+    movl    st_flags(%esi),%eax   // if (surf->flags & SURF_DRAWFENCE)
+    andl    $SURF_DRAWFENCE,%eax
+    jnz LFlagged
+
+    pushl   %edi // preserve caller register
 	movl	st_spanstate(%esi),%eax	// check for edge inversion
 	decl	%eax
 	jnz	LInverted
 
 	movl	%eax,st_spanstate(%esi)
-	movl	st_insubmodel(%esi),%ecx
+	movl	st_insubmodel(%esi),%edi
 	movl	0x12345678,%edx		// surfaces[1].st_next
 LPatch0:
 	movl	C(r_bmodelactive),%eax
-	subl	%ecx,%eax
+	subl	%edi,%eax
 	cmpl	%esi,%edx
 	movl	%eax,C(r_bmodelactive)
 	jnz	LNoEmit		// surface isn't on top, just remove
@@ -268,11 +273,11 @@ LPatch0:
 	movl	et_u(%ebx),%eax
 	shrl	$20,%eax		// iu = integral pixel u
 	movl	st_last_u(%esi),%edx
-	movl	st_next(%esi),%ecx
+	movl	st_next(%esi),%edi
 	cmpl	%edx,%eax
 	jle	LNoEmit2	// iu <= surf->last_u, so nothing to emit
 
-	movl	%eax,st_last_u(%ecx)	// surf->next->last_u = iu;
+	movl	%eax,st_last_u(%edi)	// surf->next->last_u = iu;
 	subl	%edx,%eax
 	movl	%edx,espan_t_u(%ebp)	// span->u = surf->last_u;
 
@@ -289,15 +294,17 @@ LPatch0:
 
 	movl	%edx,st_next(%esi)
 	movl	%esi,st_prev(%edx)
+    popl    %edi
 	ret
 
 LNoEmit2:
-	movl	%eax,st_last_u(%ecx)	// surf->next->last_u = iu;
+	movl	%eax,st_last_u(%edi)	// surf->next->last_u = iu;
 	movl	st_next(%esi),%edx	// remove the surface from the surface
 	movl	st_prev(%esi),%esi	// stack
 
 	movl	%edx,st_next(%esi)
 	movl	%esi,st_prev(%edx)
+    popl    %edi
 	ret
 
 LNoEmit:
@@ -306,11 +313,17 @@ LNoEmit:
 
 	movl	%edx,st_next(%esi)
 	movl	%esi,st_prev(%edx)
+    popl    %edi
 	ret
 
 LInverted:
 	movl	%eax,st_spanstate(%esi)
+    popl    %edi
 	ret
+
+LFlagged:
+    orl     %eax,%ecx  // flags |= R_TrailingEdge()
+    ret
 
 //--------------------------------------------------------------------
 
@@ -334,7 +347,8 @@ C(R_GenerateSpans):
 // %ebp = span_p throughout
 	movl	C(span_p),%ebp
 
-	movl	$0,C(r_bmodelactive)
+    xorl    %ecx,%ecx             // flags = 0; Use ecx, so ax is free FP status
+	movl	$0,C(r_bmodelactive)  // r_bmodelactive = 0;
 
 	movl	%eax,st_next(%eax)
 	movl	%eax,st_prev(%eax)
@@ -374,7 +388,14 @@ Lgs_leading:
 	addl	%eax,%edi
 	movl	0x12345678,%esi		// surf2 = surfaces[1].next;
 LPatch2:
-	movl	st_spanstate(%edi),%edx
+
+    // if (surf->flags & SURF_DRAWFENCE)
+    //     return SURF_DRAWFENCE;
+    movl    st_flags(%edi),%eax   // if (surf->flags & SURF_DRAWFENCE)
+    andl    $SURF_DRAWFENCE,%eax
+    jnz Lxl_skipsurf
+
+    movl	st_spanstate(%edi),%edx
 	movl	st_insubmodel(%edi),%eax
 	testl	%eax,%eax
 	jnz	Lbmodel_leading
@@ -390,10 +411,9 @@ LPatch2:
 // if (surf->key < surf2->key)
 //		goto newtop;
 	incl	%edx
-	movl	st_key(%edi),%eax
+	movl	st_key(%edi),%eax        // %edi holds surf
 	movl	%edx,st_spanstate(%edi)
-	movl	st_key(%esi),%ecx
-	cmpl	%ecx,%eax
+    cmpl    st_key(%esi),%eax        // %esi holds surf2
 	jl	Lnewtop
 
 // main sorting loop to search through surface stack until insertion point
@@ -404,8 +424,7 @@ LPatch2:
 // } while (surf->key >= surf2->key);
 Lsortloopnb:
 	movl	st_next(%esi),%esi
-	movl	st_key(%esi),%ecx
-	cmpl	%ecx,%eax
+    cmpl    st_key(%esi),%eax
 	jge	Lsortloopnb
 
 	jmp	LInsertAndExit
@@ -420,17 +439,16 @@ Lbmodel_leading:
 	testl	%edx,%edx
 	jnz	Lxl_done
 
-	movl	C(r_bmodelactive),%ecx
+	movl	C(r_bmodelactive),%eax
 	incl	%edx
-	incl	%ecx
+	incl	%eax
 	movl	%edx,st_spanstate(%edi)
-	movl	%ecx,C(r_bmodelactive)
+	movl	%eax,C(r_bmodelactive)
 
 // if (surf->key < surf2->key)
 //		goto newtop;
 	movl	st_key(%edi),%eax
-	movl	st_key(%esi),%ecx
-	cmpl	%ecx,%eax
+	cmpl	st_key(%esi),%eax
 	jl	Lnewtop
 
 // if ((surf->key == surf2->key) && surf->insubmodel)
@@ -445,8 +463,7 @@ Lbmodel_leading:
 // } while (surf->key > surf2->key);
 Lsortloop:
 	movl	st_next(%esi),%esi
-	movl	st_key(%esi),%ecx
-	cmpl	%ecx,%eax
+	cmpl	st_key(%esi),%eax
 	jg	Lsortloop
 
 	jne	LInsertAndExit
@@ -551,12 +568,17 @@ Lnewtop_fpop2:
 Lnewtop:
 	movl	et_u(%ebx),%eax
 	movl	st_last_u(%esi),%edx
-	shrl	$20,%eax		// iu = integral pixel u
-	movl	%eax,st_last_u(%edi)	// surf->last_u = iu;
+	shrl	$20,%eax                // iu = integral pixel u
+	movl	%eax,st_last_u(%edi)    // surf->last_u = iu;
 	cmpl	%edx,%eax
-	jle	LInsertAndExit		// iu <= surf->last_u, so nothing to emit
+	jle	LInsertAndExit              // iu <= surf->last_u, so nothing to emit
 
-	subl	%edx,%eax
+    movl    st_flags(%esi),%edx     // !(surf2->flags & SURF_DRAWFENCE)
+    andl    $SURF_DRAWFENCE,%edx
+    jnz LInsertAndExit
+    movl    st_last_u(%esi),%edx    // Reload surf2->last_u to continue
+
+	subl	%edx,%eax               // %eax contains iu, %edx contains surf2->last_u (i.e. iu - span->u)
 	movl	%edx,espan_t_u(%ebp)	// span->u = surf->last_u;
 
 	movl	%eax,espan_t_count(%ebp)// span->count = iu - span->u;
@@ -588,18 +610,22 @@ Lgs_nextedge:
 	cmpl	$(C(edge_tail)),%ebx
 	jnz	Lgs_edgeloop
 
-// clean up at the right edge
+// clean up at the right edge (R_CleanupSpan)
 Lgs_lastspan:
 
 // now that we've reached the right edge of the screen, we're done with any
 // unfinished surfaces, so emit a span for whatever's on top
 	movl	0x12345678,%esi		// surfaces[1].st_next
 LPatch3:
-	movl	C(edge_tail_u_shift20),%eax
-	xorl	%ecx,%ecx
+	movl	C(edge_tail_u_shift20),%eax  // if (iu > surf->last_u
+	xorl	%edi,%edi
 	movl	st_last_u(%esi),%edx
 	subl	%edx,%eax
 	jle	Lgs_resetspanstate
+
+    movl    st_flags(%esi),%ebx          //    && !(surf->flags & SURF_DRAWFENCE))
+    andl    $SURF_DRAWFENCE,%ebx
+    jnz Lgs_resetspanstate
 
 	movl	%edx,espan_t_u(%ebp)
 	movl	%eax,espan_t_count(%ebp)
@@ -612,7 +638,7 @@ LPatch3:
 
 // reset spanstate for all surfaces in the surface stack
 Lgs_resetspanstate:
-	movl	%ecx,st_spanstate(%esi)
+	movl	%edi,st_spanstate(%esi)
 	movl	st_next(%esi),%esi
 	cmpl	$0x12345678,%esi	// &surfaces[1]
 LPatch4:
@@ -621,23 +647,27 @@ LPatch4:
 // store the final span_p
 	movl	%ebp,C(span_p)
 
-	popl	%ebx			// restore register variables
+	popl	%ebx			// restore caller register variables
 	popl	%esi
 	popl	%edi
 	popl	%ebp			// restore the caller's stack frame
+    movl    %ecx,%eax       // place flags into return register
 	ret
 
 
 // ---------------------------------------------------------------
 // 1/z sorting for bmodels in the same leaf
 // ---------------------------------------------------------------
+    .align  4
+Lxl_skipsurf:          // The added flag is in %eax
+    orl     %eax,%ecx  // flags |= R_LeadingEdge()
+    jmp Lgs_nextedge
+
 	.align	4
 Lxl_done:
 	incl	%edx
 	movl	%edx,st_spanstate(%edi)
-
 	jmp	Lgs_nextedge
-
 
 	.align	4
 Lzcheck_for_newtop:

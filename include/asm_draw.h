@@ -65,6 +65,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define spanpackage_t_zi				28
 #define spanpackage_t_size				32
 
+// Model surface flags (MUST TRACK model.h)
+// TODO: find a common spot for these
+#define SURF_DRAWFENCE (1 << 7)
+
 // edge_t structure
 // !!! if this is changed, it must be changed in r_shared.h too !!!
 #define et_u            0

@@ -104,6 +104,7 @@ typedef struct texture_s {
     char name[16];
 } texture_t;
 
+// If these SURF_* flags change, update in asm_draw.h also
 #define SURF_PLANEBACK          (1 <<  1)
 #define SURF_DRAWSKY            (1 <<  2)
 #define SURF_DRAWSPRITE         (1 <<  3)
