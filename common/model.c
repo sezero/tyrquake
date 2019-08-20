@@ -43,6 +43,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #ifdef QW_HACK
 #include "crc.h"
+#include "quakedef.h" // host_basepal
+#endif
+#ifdef NQ_HACK
+#include "host.h" // host_basepal
 #endif
 /* FIXME - quick hack to enable merging of NQ/QWSV shared code */
 #define SV_Error Sys_Error
@@ -62,6 +66,138 @@ static const alias_loader_t *alias_loader;
 static const brush_loader_t *brush_loader;
 
 static void PVSCache_f(void);
+
+// ======================================================================
+// Mipmap code for 8-bit fence textures
+// TODO: maybe rework texture_t to better integrate with qpic8_t?
+
+static byte
+qpal_24to8(const byte palette[768], const int rgb[3], int alpha)
+{
+    int index, best_index, channel;
+    int dist, best_dist, delta;
+
+    best_dist = INT_MAX;
+    best_index = 0;
+
+    for (index = 0; index < 224; index++) {
+        if (index == alpha)
+            continue;
+        dist = 0;
+        for (channel = 0; channel < 3; channel++) {
+            delta = abs(rgb[channel] - palette[index * 3 + channel]);
+            dist += delta * delta;
+        }
+        if (dist < best_dist) {
+            best_index = index;
+            best_dist = dist;
+        }
+    }
+
+    return (byte)best_index;
+}
+
+static byte
+qpal_24to8_fullbright(const byte palette[768], const int rgb[3], int alpha)
+{
+    int index, best_index, channel;
+    int dist, best_dist, delta;
+
+    best_index = 0;
+    best_dist = INT_MAX;
+    best_dist = -1;
+
+    for (index = 224; index < 256; index++) {
+        if (index == alpha)
+            continue;
+        dist = 0;
+        for (channel = 0; channel < 3; channel++) {
+            delta = abs(rgb[channel] - palette[index * 3 + channel]);
+            dist += delta * delta;
+        }
+        if (dist < best_dist) {
+            best_index = index;
+            best_dist = dist;
+        }
+    }
+
+    return (byte)best_index;
+}
+
+/**
+ * Calculate a new sample index based on the four samples provided.
+ * Accounts for fullbright/alpha pixles by keeping them if they
+ * dominate the samples (i.e. contribute > 50%).
+ */
+static byte
+QPal_Resample_Alpha(const byte palette[768], byte samples[4], byte alpha)
+{
+    int i, j;
+    int rgb[3];
+    int numfullbright, numalpha;
+
+    /* Count average colors, excluding alpha */
+    numfullbright = numalpha = 0;
+    rgb[0] = rgb[1] = rgb[2] = 0;
+    for (i = 0; i < 4; i++) {
+        if (samples[i] == alpha) {
+            numalpha++;
+            continue; // alpha doesn't contribute to any color
+        }
+        if (samples[i] > 223)
+            numfullbright++;
+        for (j = 0; j < 3; j++)
+            rgb[j] += palette[samples[i] * 3 + j];
+    }
+
+    /* If alpha dominant, keep it */
+    if (numalpha > 2)
+        return alpha;
+
+    /* Otherwise, average the other colors */
+    for (i = 0; i < 3; i++)
+        rgb[i] = roundf(rgb[i] / (4.0f - numalpha));
+
+    /* If fullbrights dominant, try to find the best matching fullbright */
+    if (numfullbright > 2)
+        return qpal_24to8_fullbright(palette, rgb, alpha);
+
+    /* Otherwise, choose from the non-fullbright colors */
+    return qpal_24to8(palette, rgb, alpha);
+}
+
+static void
+Remip_FenceTexture(texture_t *texture, const byte palette[768])
+{
+    int s, t, width, height, miplevel;
+    const byte *in;
+    byte *out;
+    byte samples[4];
+
+    width = texture->width;
+    height = texture->height;
+
+    for (miplevel = 0; miplevel < MIPLEVELS - 1; miplevel++) {
+        in = (byte *)texture + texture->offsets[miplevel];
+        out = (byte *)texture + texture->offsets[miplevel + 1];
+
+        for (t = 0; t < height; t += 2, in += width) {
+            for (s = 0; s < width; s += 2, in += 2, out++) {
+                samples[0] = in[0];
+                samples[1] = in[1];
+                samples[2] = in[width];
+                samples[3] = in[width + 1];
+                *out = QPal_Resample_Alpha(palette, samples, 255);
+            }
+        }
+
+        width >>= 1;
+        height >>= 1;
+    }
+}
+
+// ======================================================================
+
 
 /*
 ===============
@@ -563,6 +699,16 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	memcpy(tx + 1, mt + 1, pixels);
 
 #ifndef SERVERONLY
+        if (tx->name[0] == '{') {
+            /*
+             * Re-sample mipmaps on fence textures, because they're
+             * often not properly done in source maps due to most
+             * software renderers not supporting them (and OpenGL
+             * renders generally do their own mipmapping in RGBA
+             * colorspace.
+             */
+            Remip_FenceTexture(tx, host_basepal);
+        }
 	if (!strncmp(mt->name, "sky", 3)) {
 	    R_InitSky(tx);
 #ifdef GLQUAKE
