@@ -292,7 +292,7 @@ M_Main_Draw(void)
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     pic = Draw_CachePic("gfx/ttl_main.lmp");
-    M_DrawPic((320 - pic->width) / 2, 4, pic);
+    M_DrawTransPic((320 - pic->width) / 2, 4, pic);
     M_DrawTransPic(72, 32, Draw_CachePic("gfx/mainmenu.lmp"));
 
     flash = (int)(realtime * 10) % 6;
