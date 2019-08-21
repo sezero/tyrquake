@@ -156,7 +156,7 @@ D_DrawSurfaces
 ==============
 */
 void
-D_DrawSurfaces(void)
+D_DrawSurfaces()
 {
     const entity_t *e;
     surf_t *s;
@@ -183,7 +183,12 @@ D_DrawSurfaces(void)
 	    D_DrawZSpans(s->spans);
 	}
     } else {
-	for (s = &surfaces[1]; s < surface_p; s++) {
+        /*
+         * Surfs are stored in front to back order, so we have to go
+         * backwards if we're drawing overlapping spans, as in the case of
+         * fence surfaces
+         */
+	for (s = surface_p - 1; s >= &surfaces[1]; s--) {
 	    if (!s->spans)
 		continue;
 
