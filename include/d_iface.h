@@ -138,7 +138,7 @@ void D_DrawNonSubdiv();
 void D_PolysetDrawFinalVerts(finalvert_t *fv, int numverts);
 void D_DrawParticle(particle_t *pparticle);
 void D_DrawSprite(void);
-void D_DrawSurfaces(void);
+void D_DrawSurfaces(qboolean sort_submodels);
 void D_EnableBackBufferAccess(void);
 void D_EndParticles(void);
 void D_Init(void);

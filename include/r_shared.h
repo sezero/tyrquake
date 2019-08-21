@@ -123,7 +123,7 @@ typedef struct surf_s {
     int pad[2];			// to 64 bytes
 } surf_t;
 
-extern surf_t *surfaces, *surface_p, *surf_max;
+extern surf_t *surfaces, *surface_p, *surf_max, *bmodel_surfaces;
 
 // surfaces are generated in back to front order by the bsp, so if a surf
 // pointer is greater than another one, it should be drawn in front

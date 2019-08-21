@@ -992,6 +992,9 @@ R_EdgeDrawingPrepare()
 
     R_RenderWorld();
 
+    // Once the world is done, mark where the bmodel surfs will be starting
+    bmodel_surfaces = surface_p;
+
     // only the world can be drawn back to front with no z reads or compares,
     // just z writes, so have the driver turn z compares on now
     D_TurnZOn();

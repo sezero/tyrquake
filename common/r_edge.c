@@ -36,7 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 edge_t *auxedges;
 edge_t *r_edges, *edge_p, *edge_max;
 
-surf_t *surfaces, *surface_p, *surf_max;
+surf_t *surfaces, *surface_p, *surf_max, *bmodel_surfaces;
 
 // surfaces are generated in back to front order by the bsp, so if a surf
 // pointer is greater than another one, it should be drawn in front
@@ -879,7 +879,7 @@ R_ScanEdges(int drawflags, scanflags_t *scanflags)
 	    S_ExtraUpdate();	// don't let sound get messed up if going slow
 	    VID_LockBuffer();
 
-	    D_DrawSurfaces();
+	    D_DrawSurfaces(!!drawflags);
 
 	    // clear the surface span pointers
 	    for (s = &surfaces[1]; s < surface_p; s++)
@@ -915,5 +915,5 @@ R_ScanEdges(int drawflags, scanflags_t *scanflags)
     }
 
 // draw whatever's left in the span list
-    D_DrawSurfaces();
+    D_DrawSurfaces(!!drawflags);
 }
