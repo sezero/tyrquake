@@ -1128,6 +1128,14 @@ R_RenderView_(void)
 
     R_DrawParticles();
 
+    /* Now translucent liquids! */
+    if (scanflags.found & r_surfalpha_flags) {
+        memcpy(surfaces + 1, savesurfs, numsavesurfs * sizeof(*surfaces));
+        memcpy(r_edges, saveedges, numsaveedges * sizeof(*r_edges));
+        VectorCopy(r_origin, modelorg);
+        R_ScanEdges(r_surfalpha_flags, &scanflags);
+    }
+
     if (r_dspeeds.value)
 	dp_time2 = Sys_DoubleTime();
 
