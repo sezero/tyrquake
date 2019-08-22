@@ -157,8 +157,6 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
     surfcache_t *pcurrentcache;
     vec3_t local_modelorg;
 
-    r_drawnpolycount++;
-
     d_zistepu = surf->d_zistepu;
     d_zistepv = surf->d_zistepv;
     d_ziorigin = surf->d_ziorigin;
@@ -180,6 +178,23 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
         D_DrawSolidSurface(surf, (int)r_clearcolor.value & 0xFF);
         D_DrawZSpans(surf->spans);
     } else if (surf->flags & SURF_DRAWTURB) {
+
+        // Set the translucency table to trigger alpha blending
+        if (surf->flags & r_surfalpha_flags) {
+            if (surf->flags & SURF_DRAWWATER)
+                r_turb_transtable = transtable_water;
+            else if (surf->flags & SURF_DRAWSLIME)
+                r_turb_transtable = transtable_slime;
+            else if (surf->flags & SURF_DRAWLAVA)
+                r_turb_transtable = transtable_lava;
+            else if (surf->flags & SURF_DRAWTELE)
+                r_turb_transtable = transtable_tele;
+            if (!r_turb_transtable)
+                return; // Completely transparent
+        } else {
+            r_turb_transtable = NULL;
+        }
+
         pface = surf->data;
         miplevel = 0;
         cacheblock = (pixel_t *)((byte *)pface->texinfo->texture + pface->texinfo->texture->offsets[0]);
@@ -283,6 +298,8 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
             R_TransformFrustum();
         }
     }
+
+    r_drawnpolycount++;
 }
 
 

@@ -94,6 +94,7 @@ extern void D_PolysetAff8End(void);
 
 extern short *d_pzbuffer;
 extern unsigned int d_zrowbytes, d_zwidth;
+extern const byte *r_turb_transtable;
 
 extern int *d_pscantable;
 extern int d_scantable[MAXHEIGHT];

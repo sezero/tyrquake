@@ -122,6 +122,34 @@ D_DrawTurbulent8Span(void)
 
 #endif /* USE_X86_ASM */
 
+static int r_turb_izi;
+static int r_turb_izistep;
+static short *r_turb_pz;
+const byte *r_turb_transtable;
+
+static void
+D_DrawTurbulentTranslucent8Span()
+{
+    int sturb, tturb;
+    byte pixel;
+
+    do {
+        if ((r_turb_izi >> 16) >= *r_turb_pz) {
+            sturb = r_turb_s + r_turb_turb[(r_turb_t >> 16) & (TURB_CYCLE - 1)];
+            sturb = (sturb >> 16) & (TURB_TEX_SIZE - 1);
+            tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
+            tturb = (tturb >> 16) & (TURB_TEX_SIZE - 1);
+            pixel = *(r_turb_pbase + (tturb * TURB_TEX_SIZE) + sturb);
+            *r_turb_pdest = r_turb_transtable[((int)(*r_turb_pdest) << 8) + pixel];
+        }
+        r_turb_pdest++;
+        r_turb_pz++;
+        r_turb_izi += r_turb_izistep;
+        r_turb_s += r_turb_sstep;
+	r_turb_t += r_turb_tstep;
+    } while (--r_turb_spancount > 0);
+}
+
 
 /*
 =============
@@ -147,9 +175,11 @@ Turbulent8(espan_t *pspan)
     tdivz16stepu = d_tdivzstepu * 16;
     zi16stepu = d_zistepu * 16;
 
+    r_turb_izistep = (int)(d_zistepu * 0x8000 * 0x10000);
+
     do {
-	r_turb_pdest = (unsigned char *)((byte *)d_viewbuffer +
-					 (screenwidth * pspan->v) + pspan->u);
+	r_turb_pdest = (unsigned char *)((byte *)d_viewbuffer + (screenwidth * pspan->v) + pspan->u);
+        r_turb_pz = d_pzbuffer + (d_zwidth * pspan->v) + pspan->u;
 
 	count = pspan->count;
 
@@ -161,6 +191,7 @@ Turbulent8(espan_t *pspan)
 	tdivz = d_tdivzorigin + dv * d_tdivzstepv + du * d_tdivzstepu;
 	zi = d_ziorigin + dv * d_zistepv + du * d_zistepu;
 	z = (float)0x10000 / zi;	// prescale to 16.16 fixed-point
+        r_turb_izi = (int)(zi * 0x8000 * 0x10000);
 
 	r_turb_s = (int)(sdivz * z) + sadjust;
 	if (r_turb_s > bbextents)
@@ -242,7 +273,10 @@ Turbulent8(espan_t *pspan)
 	    r_turb_s = r_turb_s & ((TURB_CYCLE << 16) - 1);
 	    r_turb_t = r_turb_t & ((TURB_CYCLE << 16) - 1);
 
-	    D_DrawTurbulent8Span();
+            if (r_turb_transtable)
+                D_DrawTurbulentTranslucent8Span();
+            else
+                D_DrawTurbulent8Span();
 
 	    r_turb_s = snext;
 	    r_turb_t = tnext;
