@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "r_local.h"
+#include "render.h"
 #include "sound.h"
 
 #if 0
@@ -71,6 +72,17 @@ static void R_GenerateSpansWithFlag(int flags);
 //=============================================================================
 
 /*
+ * When scanning edges, if surfaces with these flags are encountered
+ * do not emit a span and instead return the corresponding surface
+ * flag.
+ */
+#ifdef USE_X86_ASM
+int r_translucent_flags;
+#else
+static int r_translucent_flags;
+#endif
+
+/*
 ==============
 R_BeginEdgeFrame
 ==============
@@ -111,6 +123,9 @@ R_BeginEdgeFrame(void)
 	newedges[v] = removeedges[v] = NULL;
     }
 #endif
+
+    /* Setup scan flags for translucent surfaces */
+    r_translucent_flags = SURF_DRAWFENCE | r_surfalpha_flags;
 }
 
 
@@ -249,7 +264,6 @@ R_StepActiveU(edge_t *pedge)
 
 #endif /* USE_X86_ASM */
 
-
 /*
 ==============
 R_CleanupSpan
@@ -266,7 +280,7 @@ R_CleanupSpan()
 // unfinished surfaces, so emit a span for whatever's on top
     surf = surfaces[1].next;
     iu = edge_tail_u_shift20;
-    if (iu > surf->last_u && !(surf->flags & SURF_DRAWFENCE)) {
+    if (iu > surf->last_u && !(surf->flags & r_translucent_flags)) {
 	span = span_p++;
 	span->u = surf->last_u;
 	span->count = iu - span->u;
@@ -295,8 +309,8 @@ R_LeadingEdgeBackwards(surf_t *surf, edge_t *edge)
     int iu;
 
 // it's adding a new surface in, so find the correct place
-    if (surf->flags & SURF_DRAWFENCE)
-        return SURF_DRAWFENCE;
+    if (surf->flags & r_translucent_flags)
+        return surf->flags & r_translucent_flags;
 
 // don't start a span if this is an inverted span, with the end
 // edge preceding the start edge (that is, we've already seen the
@@ -372,8 +386,8 @@ R_TrailingEdge(surf_t *surf, edge_t *edge)
     espan_t *span;
     int iu;
 
-    if (surf->flags & SURF_DRAWFENCE)
-        return SURF_DRAWFENCE;
+    if (surf->flags & r_translucent_flags)
+        return surf->flags & r_translucent_flags;
 
 // don't generate a span if this is an inverted span, with the end
 // edge preceding the start edge (that is, we haven't seen the
@@ -421,8 +435,8 @@ R_LeadingEdge(surf_t *surf, edge_t *edge)
     double fu, newzi, testzi, newzitop, newzibottom;
 
     // it's adding a new surface in, so find the correct place
-    if (surf->flags & SURF_DRAWFENCE)
-        return SURF_DRAWFENCE;
+    if (surf->flags & r_translucent_flags)
+        return surf->flags & r_translucent_flags;
 
     // don't start a span if this is an inverted span, with the end
     // edge preceding the start edge (that is, we've already seen the
@@ -489,7 +503,7 @@ R_LeadingEdge(surf_t *surf, edge_t *edge)
     // emit a span (obscures current top)
     iu = edge->u >> 20;
 
-    if (iu > surf2->last_u && !(surf2->flags & SURF_DRAWFENCE)) {
+    if (iu > surf2->last_u && !(surf2->flags & r_translucent_flags)) {
 	span = span_p++;
 	span->u = surf2->last_u;
 	span->count = iu - span->u;
@@ -649,18 +663,18 @@ R_TrailingEdgeWithFlag(surf_t *surf, edge_t *edge, int flags)
             visible = true;
             break;
         }
-        if (!(surf2->flags & flags))
+        if (!(surf2->flags & r_translucent_flags))
             break;
         surf2 = surf2->next;
     }
 
     // If the ending surf was visible AND solid...
     // Set last_u on all surfaces below, down to the first solid
-    if (visible && !(surf->flags & flags)) {
+    if (visible && !(surf->flags & r_translucent_flags)) {
         surf2 = surf->next;
         while (1) {
             surf2->last_u = iu;
-            if (!(surf2->flags & flags))
+            if (!(surf2->flags & r_translucent_flags))
                 break;
             surf2 = surf2->next;
         }
@@ -734,7 +748,7 @@ R_LeadingEdgeWithFlag(surf_t *surf, edge_t *edge, int flags)
             visible = true;
             break;
         }
-        if (!(search->flags & flags))
+        if (!(search->flags & r_translucent_flags))
             break;
         search = search->next;
     }
@@ -746,7 +760,7 @@ R_LeadingEdgeWithFlag(surf_t *surf, edge_t *edge, int flags)
          */
         iu = edge->u >> 20;
 
-        if (!(surf->flags & flags)) {
+        if (!(surf->flags & r_translucent_flags)) {
             surf_t *emit = surf2;
             while (emit->flags & flags) {
                 if (iu > emit->last_u) {
@@ -866,10 +880,10 @@ R_ScanEdges(int drawflags, scanflags_t *scanflags)
 
         if (!drawflags) {
             int flags = GenerateSpans();
-            scanflags->fence.lines[iv] = !!(flags & SURF_DRAWFENCE); // TODO: Bitfield?
-            scanflags->fence.found |= !!(flags & SURF_DRAWFENCE);
-        } else if ((drawflags & SURF_DRAWFENCE) && scanflags->fence.lines[iv]) {
-            GenerateSpansWithFlag(SURF_DRAWFENCE);
+            scanflags->lines[iv] = flags;
+            scanflags->found |= flags;
+        } else if (scanflags->lines[iv] & drawflags) {
+            GenerateSpansWithFlag(drawflags);
         }
 
 	// flush the span list if we can't be sure we have enough spans left
@@ -908,10 +922,10 @@ R_ScanEdges(int drawflags, scanflags_t *scanflags)
 
     if (!drawflags) {
         int flags = GenerateSpans();
-        scanflags->fence.lines[iv] = !!(flags & SURF_DRAWFENCE);
-        scanflags->fence.found |= !!(flags & SURF_DRAWFENCE);
-    } else if ((drawflags & SURF_DRAWFENCE) && scanflags->fence.lines[iv]) {
-        GenerateSpansWithFlag(SURF_DRAWFENCE);
+        scanflags->lines[iv] = flags;
+        scanflags->found |= flags;
+    } else if (scanflags->lines[iv] & drawflags) {
+        GenerateSpansWithFlag(drawflags);
     }
 
 // draw whatever's left in the span list

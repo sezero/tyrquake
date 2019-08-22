@@ -1095,7 +1095,7 @@ R_RenderView_(void)
     R_ScanEdges(0, &scanflags);
 
     /* Now draw fence(mask) surfaces over the top */
-    if (scanflags.fence.found) {
+    if (scanflags.found & SURF_DRAWFENCE) {
         memcpy(surfaces + 1, savesurfs, numsavesurfs * sizeof(*surfaces));
         memcpy(r_edges, saveedges, numsaveedges * sizeof(*r_edges));
         R_ScanEdges(SURF_DRAWFENCE, &scanflags);

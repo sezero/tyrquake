@@ -130,10 +130,8 @@ void R_DrawSubmodelPolygons(const entity_t *entity, int clipflags);
 void R_DrawSolidClippedSubmodelPolygons(const entity_t *entity);
 
 typedef struct {
-    struct {
-        qboolean found;
-        qboolean lines[MAXHEIGHT + 1];
-    } fence;
+    int found;
+    int lines[MAXHEIGHT + 1];
 } scanflags_t;
 
 void R_ScanEdges(int drawflags, scanflags_t *scanflags);

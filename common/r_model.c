@@ -44,7 +44,7 @@ static void Alpha_Updated() { }
 #else
 
 static int num_transtables;
-int translucent_flags;
+int r_surfalpha_flags;
 const byte *transtable_water;
 const byte *transtable_slime;
 const byte *transtable_lava;
@@ -67,7 +67,7 @@ Alpha_Init()
         QPal_CreateTranslucencyTable(host_transtables[i], host_basepal, alphastep * (i + 1));
     }
 
-    translucent_flags = 0;
+    r_surfalpha_flags = 0;
 }
 
 /*
@@ -88,15 +88,15 @@ Alpha_Transtable(float alpha)
 static void
 Alpha_Updated()
 {
-    translucent_flags = 0;
+    r_surfalpha_flags = 0;
     if (map_wateralpha < 1.0f)
-        translucent_flags |= SURF_DRAWWATER;
+        r_surfalpha_flags |= SURF_DRAWWATER;
     if (map_slimealpha < 1.0f)
-        translucent_flags |= SURF_DRAWSLIME;
+        r_surfalpha_flags |= SURF_DRAWSLIME;
     if (map_lavaalpha < 1.0f)
-        translucent_flags |= SURF_DRAWLAVA;
+        r_surfalpha_flags |= SURF_DRAWLAVA;
     if (map_telealpha < 1.0f)
-        translucent_flags |= SURF_DRAWTELE;
+        r_surfalpha_flags |= SURF_DRAWTELE;
 
     transtable_water = Alpha_Transtable(map_wateralpha);
     transtable_slime = Alpha_Transtable(map_slimealpha);

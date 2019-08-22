@@ -250,8 +250,8 @@ LUDone:
 
 	.align 4
 TrailingEdge:
-    movl    st_flags(%esi),%eax   // if (surf->flags & SURF_DRAWFENCE)
-    andl    $SURF_DRAWFENCE,%eax
+    movl    st_flags(%esi),%eax   // if (surf->flags & r_translucent_flags)
+    andl    C(r_translucent_flags),%eax
     jnz LFlagged
 
     pushl   %edi // preserve caller register
@@ -389,10 +389,10 @@ Lgs_leading:
 	movl	0x12345678,%esi		// surf2 = surfaces[1].next;
 LPatch2:
 
-    // if (surf->flags & SURF_DRAWFENCE)
-    //     return SURF_DRAWFENCE;
-    movl    st_flags(%edi),%eax   // if (surf->flags & SURF_DRAWFENCE)
-    andl    $SURF_DRAWFENCE,%eax
+    // if (surf->flags & r_translucent_flags)
+    //     return surf_flags & r_translucent_flags;
+    movl    st_flags(%edi),%eax   // if (surf->flags & r_translucent_flags)
+    andl    C(r_translucent_flags),%eax
     jnz Lxl_skipsurf
 
     movl	st_spanstate(%edi),%edx
@@ -573,8 +573,8 @@ Lnewtop:
 	cmpl	%edx,%eax
 	jle	LInsertAndExit              // iu <= surf->last_u, so nothing to emit
 
-    movl    st_flags(%esi),%edx     // !(surf2->flags & SURF_DRAWFENCE)
-    andl    $SURF_DRAWFENCE,%edx
+    movl    st_flags(%esi),%edx     // !(surf2->flags & r_translucent_flags)
+    andl    C(r_translucent_flags),%edx
     jnz LInsertAndExit
     movl    st_last_u(%esi),%edx    // Reload surf2->last_u to continue
 
@@ -623,8 +623,8 @@ LPatch3:
 	subl	%edx,%eax
 	jle	Lgs_resetspanstate
 
-    movl    st_flags(%esi),%ebx          //    && !(surf->flags & SURF_DRAWFENCE))
-    andl    $SURF_DRAWFENCE,%ebx
+    movl    st_flags(%esi),%ebx          //    && !(surf->flags & r_translucent_flags))
+    andl    C(r_translucent_flags),%ebx
     jnz Lgs_resetspanstate
 
 	movl	%edx,espan_t_u(%ebp)
@@ -654,10 +654,6 @@ LPatch4:
     movl    %ecx,%eax       // place flags into return register
 	ret
 
-
-// ---------------------------------------------------------------
-// 1/z sorting for bmodels in the same leaf
-// ---------------------------------------------------------------
     .align  4
 Lxl_skipsurf:          // The added flag is in %eax
     orl     %eax,%ecx  // flags |= R_LeadingEdge()
@@ -668,6 +664,10 @@ Lxl_done:
 	incl	%edx
 	movl	%edx,st_spanstate(%edi)
 	jmp	Lgs_nextedge
+
+// ---------------------------------------------------------------
+// 1/z sorting for bmodels in the same leaf
+// ---------------------------------------------------------------
 
 	.align	4
 Lzcheck_for_newtop:

@@ -255,7 +255,7 @@ void R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj);
 void Alpha_Init();
 void Alpha_NewMap();
 
-extern int translucent_flags;
+extern int r_surfalpha_flags;
 extern const byte *transtable_water;
 extern const byte *transtable_slime;
 extern const byte *transtable_lava;

@@ -190,6 +190,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 	.extern C(r_sstepy)
 	.extern C(r_tstepy)
 	.extern C(r_zistepy)
+	.extern C(r_translucent_flags)
 	.extern C(D_PolysetSetEdgeTable)
 	.extern C(D_RasterizeAliasPolySmooth)
 
