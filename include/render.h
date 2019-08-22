@@ -249,4 +249,9 @@ void D_DeleteSurfaceCache(void);
 void D_InitCaches(void *buffer, int size);
 void R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj);
 
+//
+// translucency related
+//
+void Alpha_Init();
+
 #endif /* RENDER_H */

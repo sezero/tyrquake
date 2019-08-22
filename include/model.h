@@ -671,4 +671,7 @@ qboolean Mod_TraceHull(const hull_t *hull, int nodenum,
 		       const vec3_t p1, const vec3_t p2,
 		       trace_t *trace);
 
+// TODO: move this somewhere more appropriate...
+void QPal_CreateTranslucencyTable(byte transtable[65536], const byte palette[768], float alpha);
+
 #endif /* MODEL_H */

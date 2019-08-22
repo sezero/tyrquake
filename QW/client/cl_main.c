@@ -146,6 +146,7 @@ int minimum_memory;
 
 byte *host_basepal;
 byte *host_colormap;
+byte **host_transtables;
 
 netadr_t master_adr;		// address of the master server
 
@@ -1448,6 +1449,9 @@ Host_Init(quakeparms_t *parms)
     CL_Init();
     IN_Init();
     Mod_InitAliasCache();
+
+    Con_Printf("Initializing palettes...\n");
+    Alpha_Init();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();

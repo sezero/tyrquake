@@ -77,6 +77,7 @@ static jmp_buf host_abort;
 
 byte *host_basepal;
 byte *host_colormap;
+byte **host_transtables;
 
 cvar_t host_framerate = { "host_framerate", "0" };	// set for slow motion
 cvar_t host_speeds = { "host_speeds", "0" };	// set for running times
@@ -831,7 +832,7 @@ Host_Init(quakeparms_t *parms)
 	if (!host_colormap)
 	    Sys_Error("Couldn't load gfx/colormap.lmp");
 
-	VID_Init(host_basepal);
+        VID_Init(host_basepal);
 
 	Draw_Init();
 	SCR_Init();
@@ -846,6 +847,9 @@ Host_Init(quakeparms_t *parms)
 	IN_Init();
     }
     Mod_InitAliasCache();
+
+    Con_Printf("Initializing palettes...\n");
+    Alpha_Init();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();

@@ -20,9 +20,45 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // Shared model functions for renderers
 
+#include "client.h"
 #include "mathlib.h"
 #include "qtypes.h"
 #include "render.h"
+
+#ifdef NQ_HACK
+#include "host.h"
+#endif
+#ifdef QW_HACK
+#include "quakedef.h"
+#endif
+
+#ifdef GLQUAKE
+// Stubs for GLQuake
+void Alpha_Init() { }
+#else
+
+static int num_transtables;
+int translucent_flags;
+
+void
+Alpha_Init()
+{
+    int i;
+    float alphastep;
+    byte *tables;
+
+    num_transtables = 4; // TODO: Add cvar to configure
+    host_transtables = Hunk_AllocName((sizeof(byte *) + 65536) * num_transtables, "translucency");
+    tables = (byte *)&host_transtables[num_transtables];
+
+    alphastep = 1.0f / (num_transtables + 1);
+    for (i = 0; i < num_transtables; i++) {
+        host_transtables[i] = &tables[i * 65536];
+        QPal_CreateTranslucencyTable(host_transtables[i], host_basepal, alphastep * (i + 1));
+    }
+
+    translucent_flags = 0;
+}
 
 /*
  * Find the correct interval based on time

@@ -196,6 +196,46 @@ Remip_FenceTexture(texture_t *texture, const byte palette[768])
     }
 }
 
+/*
+ * Take the color specified in index0 and alpha blend the color in
+ * index1 over the top using an alpha value between zero and one.
+ * Return the nearest color index in the palette.
+ *
+ * Only returns standard colours, fullbrights will be matched to the
+ * nearest color in the standard palette.
+ */
+static byte
+QPal_AlphaBlendColorIndices(const byte palette[768], byte index0, byte index1, float alpha)
+{
+    int rgb[3];
+
+    rgb[0] = roundf(palette[index1 * 3 + 0] * alpha + palette[index0 * 3 + 0] * (1.0f - alpha));
+    rgb[1] = roundf(palette[index1 * 3 + 1] * alpha + palette[index0 * 3 + 1] * (1.0f - alpha));
+    rgb[2] = roundf(palette[index1 * 3 + 2] * alpha + palette[index0 * 3 + 2] * (1.0f - alpha));
+
+    // Exclude black, since it looks terrible on any transparency
+    // TODO: find black instead of assuming index 0
+    return qpal_24to8(palette, rgb, 0);
+}
+
+/*
+ * Create a transulcency color map
+ * Provides a lookup table for nearest color matching for a fixed alpha value
+ */
+void
+QPal_CreateTranslucencyTable(byte transtable[65536], const byte palette[768], float alpha)
+{
+    int baseindex, blendindex;
+    byte index;
+
+    for (baseindex = 0; baseindex < 256; baseindex++) {
+        for (blendindex = 0; blendindex < 256; blendindex++) {
+            index = QPal_AlphaBlendColorIndices(palette, baseindex, blendindex, alpha);
+            transtable[(baseindex << 8) + blendindex] = index;
+        }
+    }
+}
+
 // ======================================================================
 
 
