@@ -246,6 +246,11 @@ R_Init(void)
     Cvar_RegisterVariable(&r_zgraph);
 #endif
 
+    Cvar_RegisterVariable(&r_wateralpha);
+    Cvar_RegisterVariable(&r_slimealpha);
+    Cvar_RegisterVariable(&r_lavaalpha);
+    Cvar_RegisterVariable(&r_telealpha);
+
     view_clipplanes[0].leftedge = true;
     view_clipplanes[1].rightedge = true;
     view_clipplanes[1].leftedge = view_clipplanes[2].leftedge = view_clipplanes[3].leftedge = false;
@@ -316,6 +321,8 @@ R_NewMap(void)
 
     r_dowarpold = false;
     r_viewchanged = false;
+
+    Alpha_NewMap();
 }
 
 

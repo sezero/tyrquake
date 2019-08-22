@@ -197,16 +197,6 @@ extern cvar_t r_fullbright;
 extern cvar_t r_lightmap;
 extern cvar_t r_mirroralpha;
 
-extern cvar_t r_wateralpha;
-extern cvar_t r_slimealpha;
-extern cvar_t r_lavaalpha;
-extern cvar_t r_telealpha;
-
-extern float map_wateralpha;
-extern float map_slimealpha;
-extern float map_lavaalpha;
-extern float map_telealpha;
-
 extern cvar_t r_dynamic;
 extern cvar_t r_novis;
 

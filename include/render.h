@@ -253,5 +253,22 @@ void R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj);
 // translucency related
 //
 void Alpha_Init();
+void Alpha_NewMap();
+
+extern int translucent_flags;
+extern const byte *transtable_water;
+extern const byte *transtable_slime;
+extern const byte *transtable_lava;
+extern const byte *transtable_tele;
+
+extern cvar_t r_wateralpha;
+extern cvar_t r_slimealpha;
+extern cvar_t r_lavaalpha;
+extern cvar_t r_telealpha;
+
+extern float map_wateralpha;
+extern float map_slimealpha;
+extern float map_lavaalpha;
+extern float map_telealpha;
 
 #endif /* RENDER_H */
