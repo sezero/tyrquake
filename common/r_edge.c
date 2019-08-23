@@ -607,8 +607,8 @@ R_CleanupSpanWithFlag(int flags)
     surf = surfaces[1].next;
     iu = edge_tail_u_shift20;
 
-    while (surf->flags & flags) {
-        if (iu > surf->last_u) {
+    while (surf->flags & r_translucent_flags) {
+        if ((surf->flags & flags) && iu > surf->last_u) {
             span = span_p++;
             span->u = surf->last_u;
             span->count = iu - span->u;
@@ -762,8 +762,8 @@ R_LeadingEdgeWithFlag(surf_t *surf, edge_t *edge, int flags)
 
         if (!(surf->flags & r_translucent_flags)) {
             surf_t *emit = surf2;
-            while (emit->flags & flags) {
-                if (iu > emit->last_u) {
+            while (emit->flags & r_translucent_flags) {
+                if ((emit->flags & flags) && iu > emit->last_u) {
                     span = span_p++;
                     span->u = emit->last_u;
                     span->count = iu - span->u;
