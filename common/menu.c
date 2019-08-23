@@ -502,7 +502,7 @@ M_Options_Draw(void)
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     pic = Draw_CachePic("gfx/p_option.lmp");
-    M_DrawPic((320 - pic->width) / 2, 4, pic);
+    M_DrawTransPic((320 - pic->width) / 2, 4, pic);
 
     M_Print(16, height = 32, "    Customize controls");
     M_Print(16, height += 8, "         Go to console");
@@ -726,7 +726,7 @@ M_Keys_Draw(void)
     m_keys_cursor_t line;
 
     pic = Draw_CachePic("gfx/ttl_cstm.lmp");
-    M_DrawPic((320 - pic->width) / 2, 4, pic);
+    M_DrawTransPic((320 - pic->width) / 2, 4, pic);
 
     /* Draw the key bindings list */
     for (line = 0; line < M_KEYS_CURSOR_LINES; line++) {
@@ -1164,7 +1164,7 @@ M_SinglePlayer_Draw(void)
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     p = Draw_CachePic("gfx/ttl_sgl.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
     M_DrawTransPic(72, 32, Draw_CachePic("gfx/sp_menu.lmp"));
 
     f = (int)(host_time * 10) % 6;
@@ -1292,7 +1292,7 @@ M_Load_Draw(void)
     const qpic8_t *p;
 
     p = Draw_CachePic("gfx/p_load.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
 
     for (i = 0; i < MAX_SAVEGAMES; i++)
 	M_Print(16, 32 + 8 * i, m_filenames[i]);
@@ -1308,7 +1308,7 @@ M_Save_Draw(void)
     const qpic8_t *p;
 
     p = Draw_CachePic("gfx/p_save.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
 
     for (i = 0; i < MAX_SAVEGAMES; i++)
 	M_Print(16, 32 + 8 * i, m_filenames[i]);
@@ -1422,7 +1422,7 @@ M_MultiPlayer_Draw(void)
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
     M_DrawTransPic(72, 32, Draw_CachePic("gfx/mp_menu.lmp"));
 
     f = (int)(host_time * 10) % 6;
@@ -1521,7 +1521,7 @@ M_Setup_Draw(void)
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
 
     M_Print(64, 40, "Hostname");
     M_DrawTextBox(160, 32, 16, 1);
@@ -1676,7 +1676,7 @@ M_Menu_Help_f(void)
 static void
 M_Help_Draw(void)
 {
-    M_DrawPic(0, 0, Draw_CachePic(va("gfx/help%i.lmp", help_page)));
+    M_DrawTransPic(0, 0, Draw_CachePic(va("gfx/help%i.lmp", help_page)));
 }
 
 static void
@@ -1762,7 +1762,7 @@ M_LanConfig_Draw(void)
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     p = Draw_CachePic("gfx/p_multi.lmp");
     basex = (320 - p->width) / 2;
-    M_DrawPic(basex, 4, p);
+    M_DrawTransPic(basex, 4, p);
 
     if (StartingGame)
 	startJoin = "New Game";
@@ -2078,7 +2078,7 @@ M_GameOptions_Draw(void)
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
     p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
 
     M_DrawTextBox(152, 32, 10, 1);
     M_Print(160, 40, "begin game");
@@ -2410,7 +2410,7 @@ M_Search_Draw(void)
     int x;
 
     p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
     x = (320 / 2) - ((12 * 8) / 2) + 4;
     M_DrawTextBox(x - 8, 32, 12, 1);
     M_Print(x, 40, "Searching...");
@@ -2485,7 +2485,7 @@ M_ServerList_Draw(void)
     }
 
     p = Draw_CachePic("gfx/p_multi.lmp");
-    M_DrawPic((320 - p->width) / 2, 4, p);
+    M_DrawTransPic((320 - p->width) / 2, 4, p);
     for (n = 0; n < hostCacheCount; n++) {
 	if (hostcache[n].maxusers) {
 	    qsnprintf(string, sizeof(string), "%-15.15s %-15.15s %2u/%2u\n", hostcache[n].name,
