@@ -67,11 +67,13 @@ C(bbextentt):		.long	0
 .globl	C(cacheblock)
 .globl	C(d_viewbuffer)
 .globl	C(cachewidth)
+.globl	C(cacheheight)
 .globl	C(d_pzbuffer)
 .globl	C(d_zrowbytes)
 .globl	C(d_zwidth)
 C(cacheblock):		.long	0
 C(cachewidth):		.long	0
+C(cacheheight):		.long	0
 C(d_viewbuffer):	.long	0
 C(d_pzbuffer):		.long	0
 C(d_zrowbytes):		.long	0

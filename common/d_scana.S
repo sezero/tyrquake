@@ -64,7 +64,7 @@ Llp:
 	sarl	$16,%edx
 	andl	$(TURB_TEX_SIZE-1),%eax
 	andl	$(TURB_TEX_SIZE-1),%edx
-	shll	$6,%edx
+	shll	$(TURB_TEX_SHIFT),%edx
 	movl	C(r_turb_pbase),%ebp
 	addl	%eax,%edx
 	incl	%edi

@@ -36,7 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define ALIAS_ONSEAM	0x0020
 
 // !!! if this is changed, it must be changed in d_iface.h too !!!
-#define TURB_TEX_SIZE	64	// base turbulent texture size
+#define TURB_TEX_SIZE   64 // base turbulent texture size
+#define TURB_TEX_SHIFT   6
 
 // !!! if this is changed, it must be changed in d_iface.h too !!!
 #define	TURB_CYCLE	128

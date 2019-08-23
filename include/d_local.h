@@ -76,8 +76,13 @@ void D_DrawSpans16(espan_t *pspans);
 extern void (*D_DrawSpans)(espan_t *pspan);
 
 void D_DrawZSpans(espan_t *pspans);
-void Turbulent8(espan_t *pspan);
 void D_SpriteDrawSpans(sspan_t * pspan);
+
+void Turbulent8(espan_t *pspan);
+void D_DrawTurbulent8Span();
+void D_DrawTurbulent8Span_NonStd();
+void D_DrawTurbulentTranslucent8Span();
+void D_DrawTurbulentTranslucent8Span_NonStd();
 
 void D_DrawSkyScans8(espan_t *pspan);
 void D_DrawSkyScans16(espan_t *pspan);
@@ -95,6 +100,7 @@ extern void D_PolysetAff8End(void);
 extern short *d_pzbuffer;
 extern unsigned int d_zrowbytes, d_zwidth;
 extern const byte *r_turb_transtable;
+extern void (*D_DrawTurbSpanFunc)(void);
 
 extern int *d_pscantable;
 extern int d_scantable[MAXHEIGHT];

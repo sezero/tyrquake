@@ -32,9 +32,6 @@ fixed16_t r_turb_s, r_turb_t, r_turb_sstep, r_turb_tstep;
 int *r_turb_turb;
 int r_turb_spancount;
 
-void D_DrawTurbulent8Span(void);
-
-
 /*
 =============
 D_WarpScreen
@@ -114,7 +111,7 @@ D_DrawTurbulent8Span(void)
 	sturb = (sturb >> 16) & (TURB_TEX_SIZE - 1);
 	tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
 	tturb = (tturb >> 16) & (TURB_TEX_SIZE - 1);
-	*r_turb_pdest++ = *(r_turb_pbase + (tturb * TURB_TEX_SIZE) + sturb);
+	*r_turb_pdest++ = *(r_turb_pbase + (tturb << TURB_TEX_SHIFT) + sturb);
 	r_turb_s += r_turb_sstep;
 	r_turb_t += r_turb_tstep;
     } while (--r_turb_spancount > 0);
@@ -122,12 +119,35 @@ D_DrawTurbulent8Span(void)
 
 #endif /* USE_X86_ASM */
 
+/*
+=============
+D_DrawTurbulent8Span_NonStd
+
+Slow path to draw turb spans where the source texture is not 64x64.
+=============
+*/
+void
+D_DrawTurbulent8Span_NonStd(void)
+{
+    unsigned int sturb, tturb;
+
+    do {
+	sturb = r_turb_s + r_turb_turb[(r_turb_t >> 16) & (TURB_CYCLE - 1)];
+	sturb = (sturb >> 16) % cachewidth;
+	tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
+	tturb = (tturb >> 16) % cacheheight;
+	*r_turb_pdest++ = *(r_turb_pbase + (tturb * cachewidth) + sturb);
+	r_turb_s += r_turb_sstep;
+	r_turb_t += r_turb_tstep;
+    } while (--r_turb_spancount > 0);
+}
+
 static int r_turb_izi;
 static int r_turb_izistep;
 static short *r_turb_pz;
 const byte *r_turb_transtable;
 
-static void
+void
 D_DrawTurbulentTranslucent8Span()
 {
     int sturb, tturb;
@@ -139,7 +159,7 @@ D_DrawTurbulentTranslucent8Span()
             sturb = (sturb >> 16) & (TURB_TEX_SIZE - 1);
             tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
             tturb = (tturb >> 16) & (TURB_TEX_SIZE - 1);
-            pixel = *(r_turb_pbase + (tturb * TURB_TEX_SIZE) + sturb);
+            pixel = *(r_turb_pbase + (tturb << TURB_TEX_SHIFT) + sturb);
             *r_turb_pdest = r_turb_transtable[((int)(*r_turb_pdest) << 8) + pixel];
         }
         r_turb_pdest++;
@@ -150,6 +170,30 @@ D_DrawTurbulentTranslucent8Span()
     } while (--r_turb_spancount > 0);
 }
 
+void
+D_DrawTurbulentTranslucent8Span_NonStd()
+{
+    unsigned int sturb, tturb;
+    byte pixel;
+
+    do {
+        if ((r_turb_izi >> 16) >= *r_turb_pz) {
+            sturb = r_turb_s + r_turb_turb[(r_turb_t >> 16) & (TURB_CYCLE - 1)];
+            sturb = (sturb >> 16) % cachewidth;
+            tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
+            tturb = (tturb >> 16) % cacheheight;
+            pixel = *(r_turb_pbase + (tturb * cachewidth) + sturb);
+            *r_turb_pdest = r_turb_transtable[((int)(*r_turb_pdest) << 8) + pixel];
+        }
+        r_turb_pdest++;
+        r_turb_pz++;
+        r_turb_izi += r_turb_izistep;
+        r_turb_s += r_turb_sstep;
+	r_turb_t += r_turb_tstep;
+    } while (--r_turb_spancount > 0);
+}
+
+void (*D_DrawTurbSpanFunc)(void);
 
 /*
 =============
@@ -238,6 +282,7 @@ Turbulent8(espan_t *pspan)
 
 		r_turb_sstep = (snext - r_turb_s) >> 4;
 		r_turb_tstep = (tnext - r_turb_t) >> 4;
+
 	    } else {
 		// calculate s/z, t/z, zi->fixed s and t at last pixel in span (so
 		// can't step off polygon), clamp, calculate s and t steps across
@@ -263,20 +308,15 @@ Turbulent8(espan_t *pspan)
 		    tnext = 16;	// guard against round-off error on <0 steps
 
 		if (r_turb_spancount > 1) {
-		    r_turb_sstep =
-			(snext - r_turb_s) / (r_turb_spancount - 1);
-		    r_turb_tstep =
-			(tnext - r_turb_t) / (r_turb_spancount - 1);
+		    r_turb_sstep = (snext - r_turb_s) / (r_turb_spancount - 1);
+		    r_turb_tstep = (tnext - r_turb_t) / (r_turb_spancount - 1);
 		}
 	    }
 
 	    r_turb_s = r_turb_s & ((TURB_CYCLE << 16) - 1);
 	    r_turb_t = r_turb_t & ((TURB_CYCLE << 16) - 1);
 
-            if (r_turb_transtable)
-                D_DrawTurbulentTranslucent8Span();
-            else
-                D_DrawTurbulent8Span();
+            D_DrawTurbSpanFunc();
 
 	    r_turb_s = snext;
 	    r_turb_t = tnext;

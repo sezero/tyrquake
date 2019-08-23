@@ -193,7 +193,8 @@ void R_DrawSurface(void);
 
 
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
-#define TURB_TEX_SIZE	64	// base turbulent texture size
+#define TURB_TEX_SIZE   64 // base turbulent texture size
+#define TURB_TEX_SHIFT   6
 
 // !!! if this is changed, it must be changed in d_ifacea.h too !!!
 #define	TURB_CYCLE	128	// turbulent cycle size

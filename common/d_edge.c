@@ -198,9 +198,23 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
         pface = surf->data;
         miplevel = 0;
         cacheblock = (pixel_t *)((byte *)pface->texinfo->texture + pface->texinfo->texture->offsets[0]);
-        cachewidth = 64;
+        cachewidth = pface->texinfo->texture->width;
+        cacheheight = pface->texinfo->texture->height;
 
-        if (surf->insubmodel) {
+        /* Set the appropriate span drawing function */
+        if (cachewidth == 64 && cacheheight == 64) {
+            if (r_turb_transtable)
+                D_DrawTurbSpanFunc = D_DrawTurbulentTranslucent8Span;
+            else
+                D_DrawTurbSpanFunc = D_DrawTurbulent8Span;
+        } else {
+            if (r_turb_transtable)
+                D_DrawTurbSpanFunc = D_DrawTurbulentTranslucent8Span_NonStd;
+            else
+                D_DrawTurbSpanFunc = D_DrawTurbulent8Span_NonStd;
+        }
+
+            if (surf->insubmodel) {
             // FIXME: we don't want to do all this for every polygon!
             // TODO: store once at start of frame
             VectorSubtract(r_origin, entity->origin, local_modelorg);
@@ -211,7 +225,10 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
 
         D_CalcGradients(pface);
         Turbulent8(surf->spans);
-        D_DrawZSpans(surf->spans);
+
+        // Only need to fill Z for opaque surfaces
+        if (!r_turb_transtable)
+            D_DrawZSpans(surf->spans);
 
         if (surf->insubmodel) {
             //
