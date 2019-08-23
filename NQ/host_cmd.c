@@ -199,6 +199,15 @@ This is sent just before a server changes levels
 static void
 Host_Reconnect_f(void)
 {
+    int i;
+
+    // TODO: Consolidate this state reset stuff into a common func
+    S_StopAllSounds(true);
+    scr_centertime_off = 0;
+    for (i = 0; i < NUM_CSHIFTS; i++)
+        cl.cshifts[i].percent = 0;
+    VID_SetPalette(host_basepal);
+
     SCR_BeginLoadingPlaque();
 
     // Need new connection messages

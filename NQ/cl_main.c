@@ -145,12 +145,15 @@ This is also called on Host_Error, so it shouldn't cause any errors
 void
 CL_Disconnect(void)
 {
+    int i;
+
 // stop sounds (especially looping!)
     S_StopAllSounds(true);
 
     /* Clear up view, remove palette shift */
     scr_centertime_off = 0;
-    cl.cshifts[0].percent = 0;
+    for (i = 0; i < NUM_CSHIFTS; i++)
+        cl.cshifts[i].percent = 0;
     VID_SetPalette(host_basepal);
 
 // if running a local server, shut it down

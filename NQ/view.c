@@ -481,8 +481,7 @@ V_CalcBlend(void)
 
     if (gl_cshiftpercent.value) {
 	for (j = 0; j < NUM_CSHIFTS; j++) {
-	    a2 = ((cl.cshifts[j].percent * gl_cshiftpercent.value) / 100.0) /
-		255.0;
+	    a2 = ((cl.cshifts[j].percent * gl_cshiftpercent.value) / 100.0) / 255.0;
 	    if (!a2)
 		continue;
 	    a = a + a2 * (1 - a);

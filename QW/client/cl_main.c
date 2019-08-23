@@ -410,6 +410,7 @@ This is also called on Host_Error, so it shouldn't cause any errors
 void
 CL_Disconnect(void)
 {
+    int i;
     byte final[10];
 
     connect_time = -1;
@@ -420,6 +421,12 @@ CL_Disconnect(void)
 
 // stop sounds (especially looping!)
     S_StopAllSounds(true);
+
+    /* Clear up view, remove palette shift */
+    scr_centertime_off = 0;
+    for (i = 0; i < NUM_CSHIFTS; i++)
+        cl.cshifts[i].percent = 0;
+    VID_SetPalette(host_basepal);
 
 // if running a local server, shut it down
     if (cls.demoplayback)
@@ -765,10 +772,16 @@ The server is changing levels
 void
 CL_Reconnect_f(void)
 {
+    int i;
+
     if (cls.download)		// don't change when downloading
 	return;
 
     S_StopAllSounds(true);
+    scr_centertime_off = 0;
+    for (i = 0; i < NUM_CSHIFTS; i++)
+        cl.cshifts[i].percent = 0;
+    VID_SetPalette(host_basepal);
 
     if (cls.state == ca_connected) {
 	Con_Printf("reconnecting...\n");
