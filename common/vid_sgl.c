@@ -175,8 +175,9 @@ qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
     Uint32 flags;
-    int err;
+    int i, err;
     qboolean reload_textures = false;
+    int depths[] = { 32, 24, 16 };
 
     if (gl_context) {
         GL_Shutdown();
@@ -194,16 +195,20 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
      * Try to set the correct attributes for our desired GL context
      * - Ensure we request the compatibility context
      * - Set the requested color buffer BPP (although we may get more?)
-     * - Always try to get a full 32-bit depth buffer because z-fighting sucks
+     * - Try to get the best depth buffer we can, try 32, 24, then 16 bits.
      */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, mode->bpp);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
 
-    sdl_window = SDL_CreateWindow("TyrQuake",
-				  SDL_WINDOWPOS_UNDEFINED,
-				  SDL_WINDOWPOS_UNDEFINED,
-				  mode->width, mode->height, flags);
+    for (i = 0; i < ARRAY_SIZE(depths); i++) {
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, depths[i]);
+        sdl_window = SDL_CreateWindow("TyrQuake",
+                                      SDL_WINDOWPOS_UNDEFINED,
+                                      SDL_WINDOWPOS_UNDEFINED,
+                                      mode->width, mode->height, flags);
+        if (sdl_window)
+            break;
+    }
     if (!sdl_window)
 	Sys_Error("%s: Unable to create window: %s", __func__, SDL_GetError());
 
