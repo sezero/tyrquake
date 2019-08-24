@@ -272,18 +272,19 @@ SV_WritePlayersToClient(client_t *client, edict_t *clent,
 	ent = cl->edict;
 
 	// ZOID visibility tracking
-	if (ent != clent &&
-	    !(client->spec_track && client->spec_track - 1 == j)) {
+	if (ent != clent && !(client->spec_track && client->spec_track - 1 == j)) {
 	    if (cl->spectator)
 		continue;
 
-	    // ignore if not touching a PV leaf
-	    for (i = 0; i < ent->num_leafs; i++)
-		if (Mod_TestLeafBit(pvs, ent->leafnums[i]))
-		    break;
-	    if (i == ent->num_leafs)
-		continue;	// not visible
-	}
+	    // ignore if not touching a PV leaf, unless num leafs overflowed
+            if (ent->num_leafs < MAX_ENT_LEAFS) {
+                for (i = 0; i < ent->num_leafs; i++)
+                    if (Mod_TestLeafBit(pvs, ent->leafnums[i]))
+                        break;
+                if (i == ent->num_leafs)
+                    continue;	// not visible
+            }
+        }
 
 	pflags = PF_MSEC | PF_COMMAND;
 
@@ -408,13 +409,14 @@ SV_WriteEntitiesToClient(client_t *client, sizebuf_t *msg)
 	if (!ent->v.modelindex || !*PR_GetString(ent->v.model))
 	    continue;
 
-	// ignore if not touching a PV leaf
-	for (i = 0; i < ent->num_leafs; i++)
-	    if (Mod_TestLeafBit(pvs, ent->leafnums[i]))
-		break;
-
-	if (i == ent->num_leafs)
-	    continue;		// not visible
+	// ignore if not touching a PV leaf, unless num_leafs overflowed
+        if (ent->num_leafs < MAX_ENT_LEAFS) {
+            for (i = 0; i < ent->num_leafs; i++)
+                if (Mod_TestLeafBit(pvs, ent->leafnums[i]))
+                    break;
+            if (i == ent->num_leafs)
+                continue; // not visible
+        }
 
 	if (SV_AddNailUpdate(ent))
 	    continue;		// added to the special update list

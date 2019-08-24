@@ -550,14 +550,15 @@ SV_WriteEntitiesToClient(edict_t *clent, sizebuf_t *msg)
 	    if (!ent->v.modelindex || !*PR_GetString(ent->v.model))
 		continue;
 
-// ignore if not touching a PV leaf
-	    for (i = 0; i < ent->num_leafs; i++)
-		if (Mod_TestLeafBit(pvs, ent->leafnums[i]))
-		    break;
-
-	    if (i == ent->num_leafs)
-		continue;	// not visible
-	}
+// ignore if not touching a PV leaf, unless num_leafs overflowed
+            if (ent->num_leafs < MAX_ENT_LEAFS) {
+                for (i = 0; i < ent->num_leafs; i++)
+                    if (Mod_TestLeafBit(pvs, ent->leafnums[i]))
+                        break;
+                if (i == ent->num_leafs)
+                    continue;	// not visible
+            }
+        }
 
 	if (msg->maxsize - msg->cursize < 16) {
 	    Con_Printf("packet overflow\n");
