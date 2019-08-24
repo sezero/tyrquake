@@ -353,13 +353,13 @@ D_DrawSurfaces(qboolean sort_submodels)
         surf_t *surf2;
 
         /* Sort bmodel surfaces by depth */
-        bsurfs.d_ziorigin = FLT_MAX;
+        bsurfs.nearzi = FLT_MAX;
         bsurfs.next = bsurfs.prev = &bsurfs;
         for (surf = bmodel_surfaces; surf < surface_p; surf++) {
             if (!surf->spans)
                 continue;
             surf2 = bsurfs.next;
-            while (surf->d_ziorigin > surf2->d_ziorigin)
+            while (surf->nearzi > surf2->nearzi)
                 surf2 = surf2->next;
             surf->next = surf2;
             surf2->prev->next = surf;
@@ -368,10 +368,10 @@ D_DrawSurfaces(qboolean sort_submodels)
         }
 
         /* Draw the world back to front, inserting bmodel surfs at the correct depth */
-        bsurfs.d_ziorigin = -FLT_MAX;
+        bsurfs.nearzi = -FLT_MAX;
         surf2 = bsurfs.next;
 	for (surf = bmodel_surfaces - 1; surf >= &surfaces[1]; surf--) {
-            while (surf2->d_ziorigin > surf->d_ziorigin) {
+            while (surf2->nearzi > surf->nearzi) {
                 D_DrawSurface(surf2, surf2->entity, world_transformed_modelorg);
                 surf2 = surf2->next;
             }
