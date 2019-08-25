@@ -315,9 +315,13 @@ R_NewMap(void)
 	auxedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "edges");
     }
 
-    /* For transparency */
+    /* surfs/edges for transparency */
     savesurfs = Hunk_AllocName(r_cnumsurfs * sizeof(surf_t), "savesurf");
     saveedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "saveedge");
+
+    /* brushmodel clipping */
+    r_numbclipverts = MIN_STACK_BMODEL_VERTS;
+    r_numbclipedges = MIN_STACK_BMODEL_EDGES;
 
     r_dowarpold = false;
     r_viewchanged = false;

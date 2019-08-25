@@ -44,9 +44,6 @@ int r_currentbkey;
 
 typedef enum { touchessolid, drawnode, nodrawnode } solidstate_t;
 
-#define MAX_BMODEL_VERTS 512  // vert = 12b => 6k
-#define MAX_BMODEL_EDGES 1024 // edge = 28b/32b => 28k/32k
-
 static qboolean bverts_overflow, bedges_overflow;
 
 static mvertex_t *pfrontenter, *pfrontexit;
@@ -175,6 +172,8 @@ R_RotateBmodel(const entity_t *e)
     R_TransformFrustum();
 }
 
+int r_numbclipverts;
+int r_numbclipedges;
 
 // Common info to be passed down the stack for the recursive clip
 typedef struct {
@@ -227,7 +226,7 @@ R_RecursiveClipBPoly(bclip_t *bclip, int numbedges, int numbverts, bedge_t *pedg
 
 	if (side != lastside) {
 	    // clipped
-	    if (numbverts >= MAX_BMODEL_VERTS) {
+	    if (numbverts >= r_numbclipverts) {
                 bverts_overflow = true;
 		return;
             }
@@ -242,7 +241,7 @@ R_RecursiveClipBPoly(bclip_t *bclip, int numbedges, int numbverts, bedge_t *pedg
 	    // split into two edges, one on each side, and remember entering
 	    // and exiting points
 	    // FIXME: share the clip edge by having a winding direction flag?
-	    if (numbedges > MAX_BMODEL_EDGES - 2) {
+	    if (numbedges > r_numbclipedges - 2) {
                 bedges_overflow = true;
 		return;
 	    }
@@ -279,7 +278,7 @@ R_RecursiveClipBPoly(bclip_t *bclip, int numbedges, int numbverts, bedge_t *pedg
 // if anything was clipped, reconstitute and add the edges along the clip
 // plane to both sides (but in opposite directions)
     if (makeclippededge) {
-	if (numbedges > MAX_BMODEL_EDGES - 2) {
+	if (numbedges > r_numbclipedges - 2) {
             bedges_overflow = true;
 	    return;
 	}
@@ -337,12 +336,12 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *entity)
     int i, j;
     msurface_t *surf;
     bclip_t bclip;
-    mvertex_t bverts[MAX_BMODEL_VERTS];
-    bedge_t bedges[MAX_BMODEL_EDGES];
 
     bclip.entity = entity;
-    bclip.edges = bedges;
-    bclip.verts = bverts;
+    bclip.edges = alloca(r_numbclipedges * sizeof(bedge_t));
+    bclip.verts = alloca(r_numbclipverts * sizeof(mvertex_t));
+
+    bverts_overflow = bedges_overflow = false;
 
     surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
     for (i = 0; i < numsurfaces; i++, surf++) {
@@ -353,39 +352,47 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *entity)
 	// copy the edges to bedges, flipping if necessary so always
 	// clockwise winding
 
-	/*
-	 * FIXME: if edges and vertices get caches, these assignments must
-	 * move outside the loop, and overflow checking must be done here
-	 */
-        bverts_overflow = bedges_overflow = false;
-
 	for (j = 0; j < surf->numedges; j++) {
 	    const int edgenum = brushmodel->surfedges[surf->firstedge + j];
 	    if (edgenum > 0) {
 		const medge_t *const edge = &brushmodel->edges[edgenum];
-		bedges[j].v[0] = &brushmodel->vertexes[edge->v[0]];
-		bedges[j].v[1] = &brushmodel->vertexes[edge->v[1]];
+		bclip.edges[j].v[0] = &brushmodel->vertexes[edge->v[0]];
+		bclip.edges[j].v[1] = &brushmodel->vertexes[edge->v[1]];
 	    } else {
 		const medge_t *const edge = &brushmodel->edges[-edgenum];
-		bedges[j].v[0] = &brushmodel->vertexes[edge->v[1]];
-		bedges[j].v[1] = &brushmodel->vertexes[edge->v[0]];
+		bclip.edges[j].v[0] = &brushmodel->vertexes[edge->v[1]];
+		bclip.edges[j].v[1] = &brushmodel->vertexes[edge->v[0]];
 	    }
-	    bedges[j].pnext = &bedges[j + 1];
+	    bclip.edges[j].pnext = &bclip.edges[j + 1];
 	}
-	bedges[j - 1].pnext = NULL;	// mark end of edges
+	bclip.edges[j - 1].pnext = NULL;	// mark end of edges
 
         bclip.surf = surf;
-	R_RecursiveClipBPoly(&bclip, surf->numedges, 0, bedges, entity->topnode);
+	R_RecursiveClipBPoly(&bclip, surf->numedges, 0, bclip.edges, entity->topnode);
+    }
 
-        if (developer.value && (bedges_overflow || bverts_overflow)) {
+    /*
+     * If we didn't have enough space to properly clip this frame,
+     * increment the limits for the next frame.
+     */
+    if (bedges_overflow && r_numbclipedges < MAX_STACK_BMODEL_EDGES) {
+        r_numbclipedges += STACK_BMODEL_EDGES_INCREMENT;
+        bedges_overflow = false;
+    }
+    if (bverts_overflow && r_numbclipverts < MAX_STACK_BMODEL_VERTS) {
+        r_numbclipverts += STACK_BMODEL_VERTS_INCREMENT;
+        bverts_overflow = false;
+    }
+
+    if (developer.value && (bedges_overflow || bverts_overflow)) {
             Con_DPrintf("Submodel %s:", entity->model->name);
             if (bedges_overflow)
-                Con_DPrintf(" edges overflowed (max %d).", MAX_BMODEL_EDGES);
+                Con_DPrintf(" edges overflowed (max %d).", MAX_STACK_BMODEL_EDGES);
             if (bverts_overflow)
-                Con_DPrintf(" verts overflowed (max %d).", MAX_BMODEL_VERTS);
+                Con_DPrintf(" verts overflowed (max %d).", MAX_STACK_BMODEL_VERTS);
             Con_DPrintf("\n");
         }
-    }
+
 }
 
 

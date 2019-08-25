@@ -96,6 +96,26 @@ extern vec3_t vright, base_vright;
 #define MAXSTACKSURFACES  6500
 #define MAXSPANS          3000
 
+/*
+ * Edges and vertices generated when clipping bmodels against the
+ * world are stored on the stack.  Some level designers will create
+ * huge brushmodels that cover large areas (e.g. a water brush that
+ * flood fills a complex room) which can generate many, many extra
+ * verts and edges when clipped to the geometry.
+ *
+ * We keep the stack size relatively small for the common case, but
+ * bump up the size if we encounter the need.
+ */
+#define MIN_STACK_BMODEL_VERTS  256 // vert = 12b     => 3k
+#define MIN_STACK_BMODEL_EDGES  512 // edge = 28b/32b => 14k/16k
+#define MAX_STACK_BMODEL_VERTS 2048 // vert = 12b     => 24k
+#define MAX_STACK_BMODEL_EDGES 6144 // edge = 28b/32b => 172k/196k
+#define STACK_BMODEL_VERTS_INCREMENT 128
+#define STACK_BMODEL_EDGES_INCREMENT 256
+
+extern int r_numbclipverts; // Number of verts allocated
+extern int r_numbclipedges; // Number of edges allocated
+
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
 typedef struct espan_s {
     int u, v, count;
