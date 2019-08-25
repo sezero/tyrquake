@@ -687,8 +687,7 @@ R_CullSubmodelSurfaces
 =============
 */
 static void
-R_CullSubmodelSurfaces(const brushmodel_t *submodel, const vec3_t vieworg,
-		       int clipflags)
+R_CullSubmodelSurfaces(const brushmodel_t *submodel, const vec3_t vieworg, int clipflags)
 {
     int i, j, side;
     msurface_t *surf;
@@ -699,6 +698,7 @@ R_CullSubmodelSurfaces(const brushmodel_t *submodel, const vec3_t vieworg,
     for (i = 0; i < submodel->nummodelsurfaces; i++, surf++) {
 	/* Clip the surface against the frustum */
 	surf->clipflags = clipflags;
+
 	for (j = 0; j < 4; j++) {
 	    if (!(surf->clipflags & (1 << j)))
 		continue;
@@ -862,8 +862,7 @@ R_ModelCheckBBox
 =============
 */
 static int
-R_ModelCheckBBox(const entity_t *e, model_t *model,
-		  const vec3_t mins, const vec3_t maxs)
+R_ModelCheckBBox(const entity_t *e, model_t *model, const vec3_t mins, const vec3_t maxs)
 {
     int i, side, clipflags;
     vec_t dist;
@@ -918,10 +917,10 @@ R_DrawBEntitiesOnList(void)
 
     for (i = 0; i < cl_numvisedicts; i++) {
 	entity = cl_visedicts[i];
-	if (entity->model->type != mod_brush)
+	model = entity->model;
+	if (model->type != mod_brush)
 	    continue;
 
-	model = entity->model;
 	brushmodel = BrushModel(model);
 
 	// see if the bounding box lets us trivially reject, also sets
@@ -929,24 +928,22 @@ R_DrawBEntitiesOnList(void)
 	VectorAdd(entity->origin, model->mins, mins);
 	VectorAdd(entity->origin, model->maxs, maxs);
 	clipflags = R_ModelCheckBBox(entity, model, mins, maxs);
-
 	if (clipflags == BMODEL_FULLY_CLIPPED)
-	    continue;
-
-	VectorCopy(entity->origin, r_entorigin);
-	VectorSubtract(r_origin, r_entorigin, modelorg);
+            continue;
 
 	// FIXME: stop transforming twice
+	VectorCopy(entity->origin, r_entorigin);
+	VectorSubtract(r_origin, r_entorigin, modelorg);
 	R_RotateBmodel(entity);
 
 	// calculate dynamic lighting for bmodel if it's not an
 	// instanced model
+        mnode_t *headnode = brushmodel->nodes + brushmodel->hulls[0].firstclipnode;
 	if (brushmodel->firstmodelsurface != 0) {
 	    for (j = 0; j < MAX_DLIGHTS; j++) {
 		if ((cl_dlights[j].die < cl.time) || (!cl_dlights[j].radius))
 		    continue;
-		R_MarkLights(&cl_dlights[j], 1 << j,
-			     brushmodel->nodes + brushmodel->hulls[0].firstclipnode);
+		R_MarkLights(&cl_dlights[j], 1 << j, headnode);
 	    }
 	}
 

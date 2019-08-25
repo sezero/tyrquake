@@ -24,6 +24,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "model.h"
 
+#ifdef NQ_HACK
+#include "host.h"
+#endif
+
 //
 // current entity info
 //
@@ -40,12 +44,13 @@ int r_currentbkey;
 
 typedef enum { touchessolid, drawnode, nodrawnode } solidstate_t;
 
-#define MAX_BMODEL_VERTS	500	// 6K
-#define MAX_BMODEL_EDGES	1000	// 12K
+#define MAX_BMODEL_VERTS 1024 // vert = 12b => 12k
+#define MAX_BMODEL_EDGES 2048 // edge = 28b/32b => ~65k
 
 static mvertex_t *pbverts;
 static bedge_t *pbedges;
 static int numbverts, numbedges;
+static qboolean bverts_overflow, bedges_overflow;
 
 static mvertex_t *pfrontenter, *pfrontexit;
 
@@ -210,43 +215,32 @@ R_RecursiveClipBPoly(const entity_t *e, bedge_t *pedges, mnode_t *pnode,
 	// set the status for the last point as the previous point
 	// FIXME: cache this stuff somehow?
 	plastvert = pedges->v[0];
-	lastdist = DotProduct(plastvert->position, tplane.normal) -
-	    tplane.dist;
-
-	if (lastdist > 0)
-	    lastside = 0;
-	else
-	    lastside = 1;
+	lastdist = DotProduct(plastvert->position, tplane.normal) - tplane.dist;
+	lastside = (lastdist <= 0);
 
 	pvert = pedges->v[1];
-
 	dist = DotProduct(pvert->position, tplane.normal) - tplane.dist;
-
-	if (dist > 0)
-	    side = 0;
-	else
-	    side = 1;
+        side = (dist <= 0);
 
 	if (side != lastside) {
 	    // clipped
-	    if (numbverts >= MAX_BMODEL_VERTS)
+	    if (numbverts >= MAX_BMODEL_VERTS) {
+                bverts_overflow = true;
 		return;
+            }
 
 	    // generate the clipped vertex
 	    frac = lastdist / (lastdist - dist);
 	    ptvert = &pbverts[numbverts++];
-	    ptvert->position[0] = plastvert->position[0] +
-		frac * (pvert->position[0] - plastvert->position[0]);
-	    ptvert->position[1] = plastvert->position[1] +
-		frac * (pvert->position[1] - plastvert->position[1]);
-	    ptvert->position[2] = plastvert->position[2] +
-		frac * (pvert->position[2] - plastvert->position[2]);
+	    ptvert->position[0] = plastvert->position[0] + frac * (pvert->position[0] - plastvert->position[0]);
+	    ptvert->position[1] = plastvert->position[1] + frac * (pvert->position[1] - plastvert->position[1]);
+	    ptvert->position[2] = plastvert->position[2] + frac * (pvert->position[2] - plastvert->position[2]);
 
 	    // split into two edges, one on each side, and remember entering
 	    // and exiting points
 	    // FIXME: share the clip edge by having a winding direction flag?
 	    if (numbedges > MAX_BMODEL_EDGES - 2) {
-		Con_Printf("Out of edges for bmodel\n");
+                bedges_overflow = true;
 		return;
 	    }
 
@@ -283,7 +277,7 @@ R_RecursiveClipBPoly(const entity_t *e, bedge_t *pedges, mnode_t *pnode,
 // plane to both sides (but in opposite directions)
     if (makeclippededge) {
 	if (numbedges > MAX_BMODEL_EDGES - 2) {
-	    Con_Printf("Out of edges for bmodel\n");
+            bedges_overflow = true;
 	    return;
 	}
 
@@ -358,6 +352,7 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *entity)
 	pbverts = bverts;
 	pbedges = bedges;
 	numbverts = numbedges = 0;
+        bverts_overflow = bedges_overflow = false;
 
 	pbedge = &bedges[numbedges];
 	numbedges += surf->numedges;
@@ -378,6 +373,15 @@ R_DrawSolidClippedSubmodelPolygons(const entity_t *entity)
 	pbedge[j - 1].pnext = NULL;	// mark end of edges
 
 	R_RecursiveClipBPoly(entity, pbedge, entity->topnode, surf);
+
+        if (developer.value && (bedges_overflow || bverts_overflow)) {
+            Con_DPrintf("Submodel %s:", entity->model->name);
+            if (bedges_overflow)
+                Con_DPrintf(" edges overflowed (max %d).", MAX_BMODEL_EDGES);
+            if (bverts_overflow)
+                Con_DPrintf(" verts overflowed (max %d).", MAX_BMODEL_VERTS);
+            Con_DPrintf("\n");
+        }
     }
 }
 
