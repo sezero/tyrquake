@@ -369,13 +369,13 @@ R_RenderFace(const entity_t *e, msurface_t *surf, int clipflags)
     clipplane_t *pclip;
 
 // skip out if no more surfs
-    if ((surface_p) >= surf_max) {
-	r_outofsurfaces++;
+    if (surface_p >= surf_max) {
+	r_surfaces_overflow = true;
 	return;
     }
 // ditto if not enough edges left, or switch to auxedges if possible
     if ((edge_p + surf->numedges + 4) >= edge_max) {
-	r_outofedges += surf->numedges;
+	r_edges_overflow = true;
 	return;
     }
 
@@ -510,12 +510,12 @@ R_RenderBmodelFace(const entity_t *e, bedge_t *pedges, msurface_t *psurf)
 
 // skip out if no more surfs
     if (surface_p >= surf_max) {
-	r_outofsurfaces++;
+	r_surfaces_overflow = true;
 	return;
     }
 // ditto if not enough edges left, or switch to auxedges if possible
     if ((edge_p + psurf->numedges + 4) >= edge_max) {
-	r_outofedges += psurf->numedges;
+	r_edges_overflow = true;
 	return;
     }
 

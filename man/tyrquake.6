@@ -467,7 +467,7 @@ obscured by fog).  Default 0.
 Set the transparency level of the sky foreground image for scrolling
 skies.  Set between 0 (fully transparent) and 1 (fully opaque).
 Default 1.
-.IP "\fBr_sky_quality\fP"
+.IP "\fBr_sky_quality\fP (tyr-glquake, tyr-glqwcl)"
 Sets the level of tesselation used to simulate the curved scrolling
 sky.  Lower numbers may improve performance, while higher numbers may
 improve quality.  Default 16.
@@ -541,15 +541,18 @@ to their defaults after reloading the engine. Default 1.
 .IP "\fBr_drawviewmodel\fP"
 .IP "\fBr_drawflat\fP"
 .IP "\fBr_ambient\fP"
-.IP "\fBr_numsurfs\fP"
-.IP "\fBr_numedges\fP"
 .IP "\fBr_timegraph\fP"
 .IP "\fBr_aliasstats\fP"
 .IP "\fBr_dspeeds\fP"
-.IP "\fBr_reportsurfout\fP"
-.IP "\fBr_maxsurfs\fP"
-.IP "\fBr_reportedgeout\fP"
-.IP "\fBr_maxedges\fP"
+.IP "\fBr_maxsurfs\fP, \fBr_maxedges\fP"
+This is mostly a legacy setting that was used to allow the software
+render to render more complex scenes.  Now the engine will
+automatically adjust the resources as needed if it encounters more
+complex scenes.  However, these settings remain available if you wish
+to preempt the auto-adjustment and allow for more complex scenes right
+away to avoid the frame or two of latency as the engine automatically
+adjusts.  In effect, these are now minimum settings as the engine will
+adjust upwards automatically as-needed.  Defaults 768/2304.
 .IP "\fBr_aliastransbase\fP"
 .IP "\fBr_aliastransadj\fP"
 .IP "\fBr_netgraph\fP"

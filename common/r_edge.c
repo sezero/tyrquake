@@ -24,19 +24,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "render.h"
 #include "sound.h"
 
-#if 0
-// FIXME
-/*
-  the complex cases add new polys on most lines, so dont optimize for keeping
-  them the same have multiple free span lists to try to get better coherence?
-  low depth complexity -- 1 to 3 or so this breaks spans at every edge, even
-  hidden ones (bad) have a sentinal at both ends ?
-*/
-#endif
+int r_numedges;
+int r_numsurfaces;
 
 edge_t *auxedges;
 edge_t *r_edges, *edge_p, *edge_max;
 
+surf_t *auxsurfaces;
 surf_t *surfaces, *surface_p, *surf_max, *bmodel_surfaces;
 
 // surfaces are generated in back to front order by the bsp, so if a surf
@@ -93,10 +87,9 @@ R_BeginEdgeFrame(void)
     int v;
 
     edge_p = r_edges;
-    edge_max = &r_edges[r_numallocatededges];
+    edge_max = &r_edges[r_numedges];
 
-    surface_p = &surfaces[2];	// background is surface 1,
-    //  surface 0 is a dummy
+    surface_p = &surfaces[2];	// background is surface 1, surface 0 is a dummy
     surfaces[1].spans = NULL;	// no background spans yet
     surfaces[1].flags = SURF_DRAWBACKGROUND;
 

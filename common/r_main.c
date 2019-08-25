@@ -31,27 +31,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "view.h"
 
+int r_maphunkmark;
+
 void *colormap;
 float r_time1;
-int r_numallocatededges;
 
 qboolean r_recursiveaffinetriangles = true;
 
 int r_pixbytes = 1;
 float r_aliasuvscale = 1.0;
-int r_outofsurfaces;
-int r_outofedges;
+qboolean r_surfaces_overflow;
+qboolean r_edges_overflow;
 
-static edge_t *saveedges;
-static surf_t *savesurfs;
+edge_t *saveedges;
+surf_t *savesurfs;
 
 qboolean r_dowarp, r_dowarpold, r_viewchanged;
 
 int c_surf;
-int r_maxsurfsseen, r_maxedgesseen;
-
-static int r_cnumsurfs;
-static qboolean r_surfsonstack;
 
 byte *r_warpbuffer;
 
@@ -112,8 +109,6 @@ cvar_t r_drawentities = { "r_drawentities", "1" };
 cvar_t r_drawviewmodel = { "r_drawviewmodel", "1" };
 cvar_t r_drawflat = { "r_drawflat", "0" };
 cvar_t r_ambient = { "r_ambient", "0" };
-cvar_t r_numsurfs = { "r_numsurfs", "0" };
-cvar_t r_numedges = { "r_numedges", "0" };
 
 cvar_t r_lockpvs = { "r_lockpvs", "0" };
 cvar_t r_lockfrustum = { "r_lockfrustum", "0" };
@@ -132,10 +127,8 @@ static cvar_t r_zgraph = { "r_zgraph", "0" };
 static cvar_t r_timegraph = { "r_timegraph", "0" };
 static cvar_t r_aliasstats = { "r_polymodelstats", "0" };
 static cvar_t r_dspeeds = { "r_dspeeds", "0" };
-static cvar_t r_reportsurfout = { "r_reportsurfout", "0" };
-static cvar_t r_maxsurfs = { "r_maxsurfs", stringify(MAXSTACKSURFACES) };
-static cvar_t r_reportedgeout = { "r_reportedgeout", "0" };
-static cvar_t r_maxedges = { "r_maxedges", stringify(MAXSTACKEDGES) };
+static cvar_t r_maxsurfs = { "r_maxsurfs", stringify(MINSURFACES) };
+static cvar_t r_maxedges = { "r_maxedges", stringify(MINEDGES) };
 static cvar_t r_aliastransbase = { "r_aliastransbase", "200" };
 static cvar_t r_aliastransadj = { "r_aliastransadj", "100" };
 
@@ -221,8 +214,6 @@ R_Init(void)
     Cvar_RegisterVariable(&r_drawviewmodel);
     Cvar_RegisterVariable(&r_drawflat);
     Cvar_RegisterVariable(&r_ambient);
-    Cvar_RegisterVariable(&r_numsurfs);
-    Cvar_RegisterVariable(&r_numedges);
 
     Cvar_RegisterVariable(&r_lerpmodels);
     Cvar_RegisterVariable(&r_lerpmove);
@@ -234,9 +225,7 @@ R_Init(void)
     Cvar_RegisterVariable(&r_timegraph);
     Cvar_RegisterVariable(&r_aliasstats);
     Cvar_RegisterVariable(&r_dspeeds);
-    Cvar_RegisterVariable(&r_reportsurfout);
     Cvar_RegisterVariable(&r_maxsurfs);
-    Cvar_RegisterVariable(&r_reportedgeout);
     Cvar_RegisterVariable(&r_maxedges);
     Cvar_RegisterVariable(&r_aliastransbase);
     Cvar_RegisterVariable(&r_aliastransadj);
@@ -291,33 +280,11 @@ R_NewMap(void)
     r_viewleaf = NULL;
     R_ClearParticles();
 
-    r_cnumsurfs = qclamp((int)r_maxsurfs.value, MINSURFACES, MAXSURFACES);
-    if (r_cnumsurfs > MAXSTACKSURFACES) {
-	surfaces = Hunk_AllocName(r_cnumsurfs * sizeof(surf_t), "surfaces");
-	surface_p = surfaces;
-	surf_max = &surfaces[r_cnumsurfs];
-	r_surfsonstack = false;
-	// surface 0 doesn't really exist; it's just a dummy because index 0
-	// is used to indicate no edge attached to surface
-	surfaces--;
-	R_SurfacePatch();
-    } else {
-	r_surfsonstack = true;
-    }
-
-    r_maxedgesseen = 0;
-    r_maxsurfsseen = 0;
-
-    r_numallocatededges = qclamp((int)r_maxedges.value, MINEDGES, MAXEDGES);
-    if (r_numallocatededges <= MAXSTACKEDGES) {
-	auxedges = NULL;
-    } else {
-	auxedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "edges");
-    }
-
-    /* surfs/edges for transparency */
-    savesurfs = Hunk_AllocName(r_cnumsurfs * sizeof(surf_t), "savesurf");
-    saveedges = Hunk_AllocName(r_numallocatededges * sizeof(edge_t), "saveedge");
+    /* Edge rendering resources */
+    r_numsurfaces = qmax((int)r_maxsurfs.value, MINSURFACES);
+    r_numedges = qmax((int)r_maxedges.value, MINEDGES);
+    auxsurfaces = NULL;
+    auxedges = NULL;
 
     /* brushmodel clipping */
     r_numbclipverts = MIN_STACK_BMODEL_VERTS;
@@ -327,6 +294,12 @@ R_NewMap(void)
     r_viewchanged = false;
 
     Alpha_NewMap();
+
+    r_maphunkmark = Hunk_LowMark();
+
+    /* extra space for saving surfs/edges for translucent surface rendering */
+    savesurfs = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "savesurf");
+    saveedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "saveedge");
 }
 
 
@@ -1041,6 +1014,7 @@ R_RenderView_(void)
     byte warpbuffer[WARP_WIDTH * WARP_HEIGHT];
     scanflags_t scanflags;
     int numsavesurfs, numsaveedges;
+    qboolean realloc;
 
     r_warpbuffer = warpbuffer;
 
@@ -1066,17 +1040,67 @@ R_RenderView_(void)
 	VID_LockBuffer();
     }
 
-    /* Allocate stack space for surfs and edges if limits are low enough */
+    // If we ran out of surfs/edges previously, bump the limits
+    realloc = false;
+    if (r_edges_overflow) {
+        if (r_numedges < MAX_EDGES_INCREMENT)
+            r_numedges *= 2;
+        else
+            r_numedges += MAX_EDGES_INCREMENT;
+
+        Con_DPrintf("edge limit bumped to %d\n", r_numedges);
+        r_edges_overflow = false;
+        realloc = true;
+    }
+    if (r_surfaces_overflow) {
+        if (r_numsurfaces < MAX_SURFACES_INCREMENT)
+            r_numsurfaces *= 2;
+        else
+            r_numsurfaces += MAX_SURFACES_INCREMENT;
+
+        Con_DPrintf("surface limit bumped to %d\n", r_numsurfaces);
+        r_surfaces_overflow = false;
+        realloc = true;
+    }
+
+    // Redo heap allocations it needed...
+    if (realloc) {
+        Hunk_FreeToLowMark(r_maphunkmark);
+
+        if (r_numsurfaces > MAXSTACKSURFACES) {
+            auxsurfaces = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "surfaces");
+            surface_p = surfaces;
+            surf_max = &surfaces[r_numsurfaces];
+            surfaces = auxsurfaces - 1;
+            R_SurfacePatch();
+        } else {
+            auxsurfaces = NULL;
+        }
+
+        if (r_numedges > MAXSTACKEDGES) {
+            auxedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "edges");
+        } else {
+            auxedges = NULL;
+        }
+
+        /* surfs/edges for transparency */
+        savesurfs = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "savesurf");
+        saveedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "saveedge");
+    }
+
+    /* If we can fit edges/surfs on the stack, allocate them now */
     if (auxedges) {
         r_edges = auxedges;
     } else {
-        edge_t *stackedges = alloca(CACHE_PAD_ARRAY(r_numallocatededges, edge_t) * sizeof(edge_t));
+        edge_t *stackedges = alloca(CACHE_PAD_ARRAY(r_numedges, edge_t) * sizeof(edge_t));
         r_edges = CACHE_ALIGN_PTR(stackedges);
     }
-    if (r_surfsonstack) {
-        surf_t *stacksurfs = alloca(CACHE_PAD_ARRAY(r_cnumsurfs, surf_t) * sizeof(surf_t));
+    if (auxsurfaces) {
+        surfaces = auxsurfaces - 1;
+    } else {
+        surf_t *stacksurfs = alloca(CACHE_PAD_ARRAY(r_numsurfaces, surf_t) * sizeof(surf_t));
         surfaces = CACHE_ALIGN_PTR(stacksurfs);
-        surf_max = &surfaces[r_cnumsurfs];
+        surf_max = &surfaces[r_numsurfaces];
 	// surface 0 doesn't really exist; it's just a dummy because index 0
 	// is used to indicate no edge attached to surface
         surfaces--;
@@ -1164,12 +1188,6 @@ R_RenderView_(void)
 
     if (r_dspeeds.value)
 	R_PrintDSpeeds();
-
-    if (r_reportsurfout.value && r_outofsurfaces)
-	Con_Printf("Short %d surfaces\n", r_outofsurfaces);
-
-    if (r_reportedgeout.value && r_outofedges)
-	Con_Printf("Short roughly %d edges\n", r_outofedges * 2 / 3);
 
     // back to high floating-point precision
     Sys_HighFPPrecision();

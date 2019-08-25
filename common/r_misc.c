@@ -421,7 +421,6 @@ R_SetupFrame
 void
 R_SetupFrame(void)
 {
-    int edgecount;
     vrect_t vrect;
     float w, h;
 
@@ -440,25 +439,6 @@ R_SetupFrame(void)
     r_ambient.value = 0;
     r_drawflat.value = 0;
 #endif
-
-    if (r_numsurfs.value) {
-	if ((surface_p - surfaces) > r_maxsurfsseen)
-	    r_maxsurfsseen = surface_p - surfaces;
-
-	Con_Printf("Used %d of %d surfs; %d max\n",
-		   (int)(surface_p - surfaces),
-		   (int)(surf_max - surfaces), r_maxsurfsseen);
-    }
-
-    if (r_numedges.value) {
-	edgecount = edge_p - r_edges;
-
-	if (edgecount > r_maxedgesseen)
-	    r_maxedgesseen = edgecount;
-
-	Con_Printf("Used %d of %d edges; %d max\n", edgecount,
-		   r_numallocatededges, r_maxedgesseen);
-    }
 
     r_refdef.ambientlight = r_ambient.value;
 
@@ -564,8 +544,6 @@ R_SetupFrame(void)
     r_polycount = 0;
     r_drawnpolycount = 0;
     r_amodels_drawn = 0;
-    r_outofsurfaces = 0;
-    r_outofedges = 0;
 
     D_SetupFrame();
 }

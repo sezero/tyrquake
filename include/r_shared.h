@@ -66,6 +66,11 @@ extern vec3_t vup, base_vup;
 extern vec3_t vpn, base_vpn;
 extern vec3_t vright, base_vright;
 
+// This marks the top of the hunk after map initialisation
+// Surfaces, etc. are allocated on top of this...
+extern int r_maphunkmark;
+
+
 /*
  * Min edges/surfaces are just a reasonable number to play the
  * original id/hipnotic/rouge maps.  Surfaces we want to reference
@@ -73,8 +78,8 @@ extern vec3_t vright, base_vright;
  * upper limit on those is 16 bits.  Edges is just 32 bit limited, but
  * no need for quite that many if we don't have the surfs...
  */
-#define MINSURFACES    800
-#define MINEDGES      2400
+#define MINSURFACES    768
+#define MINEDGES      2304
 #define MAXSURFACES 0xffff
 #define MAXEDGES (MAXSURFACES << 2)
 
@@ -87,14 +92,24 @@ extern vec3_t vright, base_vright;
  *
  * Automated formula would be something like 1:3 surf:edge ratio
  *
- * edge_t  = 32 bytes * 16000 =   512000
- * surf_t  = 64 bytes *  6500 =   416000
+ * edge_t  = 32 bytes * 15360 =   491520
+ * surf_t  = 64 bytes *  6400 =   409600
  * espan_t = 16 bytes *  3000 =    48000
- *                            =>  976000
+ *                            =>  949120
  */
-#define MAXSTACKEDGES    16000
-#define MAXSTACKSURFACES  6500
+#define MAXSTACKEDGES    15360
+#define MAXSTACKSURFACES  6400
 #define MAXSPANS          3000
+
+/*
+ * Bump the max by this amount if we overflow.  Shouldn't be too many
+ * frames before we converge on the right limit.
+ */
+#define MAX_SURFACES_INCREMENT   5120
+#define MAX_EDGES_INCREMENT     10240
+
+extern int r_numsurfaces;
+extern int r_numedges;
 
 /*
  * Edges and vertices generated when clipping bmodels against the
