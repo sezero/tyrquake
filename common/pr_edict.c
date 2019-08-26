@@ -50,8 +50,17 @@ globalvars_t *pr_global_struct;
 float *pr_globals;		// same as pr_global_struct
 int pr_edict_size;		// in bytes
 
+qboolean pr_alpha_supported;
+
 static ddef_t *pr_fielddefs;
 static ddef_t *pr_globaldefs;
+
+/* Suppress the "is not a field" warnings for these keys if they are missing from defs.qc */
+static const char *suppress_warning_keys[] = {
+    "sky",
+    "fog",
+    "alpha",
+};
 
 /*
  * These are the sizes of the types enumerated in etype_t (pr_comp.h)
@@ -190,6 +199,7 @@ ED_Free(edict_t *ed)
     VectorCopy(vec3_origin, ed->v.angles);
     ed->v.nextthink = -1;
     ed->v.solid = 0;
+    ed->alpha = ENTALPHA_DEFAULT;
 
     ed->freetime = sv.time;
 }
@@ -574,6 +584,10 @@ ED_Write(FILE *f, edict_t *ed)
 	fprintf(f, "\"%s\"\n", PR_UglyValueString(d->type, (eval_t *)v));
     }
 
+    // Save entity alpha manually when progs.dat doesn't support alpha
+    if (!pr_alpha_supported && ed->alpha != ENTALPHA_DEFAULT)
+        fprintf(f, "\"alpha\" \"%f\"\n", ENTALPHA_TOSAVE(ed->alpha));
+
     fprintf(f, "}\n");
 }
 
@@ -914,9 +928,18 @@ ED_ParseEdict(const char *data, edict_t *ent)
 	if (keyname[0] == '_')
 	    continue;
 
+        // hack to support .alpha when progs.dat doesn't support it
+        if (!strcmp(keyname, "alpha"))
+            ent->alpha = ENTALPHA_ENCODE(atof(com_token));
+
 	key = ED_FindField(keyname);
 	if (!key) {
-	    Con_Printf("'%s' is not a field\n", keyname);
+            for (n = 0; n < ARRAY_SIZE(suppress_warning_keys); n++) {
+                if (!strcmp(keyname, suppress_warning_keys[n]))
+                    break;
+            }
+            if (n == ARRAY_SIZE(suppress_warning_keys))
+                Con_Printf("'%s' is not a field\n", keyname);
 	    continue;
 	}
 
@@ -1113,8 +1136,7 @@ PR_LoadProgs(void)
     pr_global_struct = (globalvars_t *)((byte *)progs + progs->ofs_globals);
     pr_globals = (float *)pr_global_struct;
 
-    pr_edict_size =
-	progs->entityfields * 4 + sizeof(edict_t) - sizeof(entvars_t);
+    pr_edict_size = progs->entityfields * 4 + sizeof(edict_t) - sizeof(entvars_t);
 
 // byte swap the lumps
     for (i = 0; i < progs->numstatements; i++) {
@@ -1140,12 +1162,17 @@ PR_LoadProgs(void)
 	pr_globaldefs[i].s_name = LittleLong(pr_globaldefs[i].s_name);
     }
 
+    pr_alpha_supported = false;
     for (i = 0; i < progs->numfielddefs; i++) {
 	pr_fielddefs[i].type = LittleShort(pr_fielddefs[i].type);
 	if (pr_fielddefs[i].type & DEF_SAVEGLOBAL)
 	    SV_Error("%s: pr_fielddefs[i].type & DEF_SAVEGLOBAL", __func__);
 	pr_fielddefs[i].ofs = LittleShort(pr_fielddefs[i].ofs);
 	pr_fielddefs[i].s_name = LittleLong(pr_fielddefs[i].s_name);
+
+        /* Detect alpha support in progs.dat */
+        if (!strcmp(pr_strings + pr_fielddefs[i].s_name, "alpha"))
+            pr_alpha_supported = true;
     }
 
     for (i = 0; i < progs->numglobals; i++)
@@ -1162,6 +1189,12 @@ PR_LoadProgs(void)
     if ((f = ED_FindFunction("SpectatorDisconnect")) != NULL)
 	SpectatorDisconnect = (func_t)(f - pr_functions);
 #endif
+
+    // round off to next highest whole word address (esp for Alpha)
+    // this ensures that pointers in the engine data area are always
+    // properly aligned
+    pr_edict_size += sizeof(void *) - 1;
+    pr_edict_size &= ~(sizeof(void *) - 1);
 }
 
 

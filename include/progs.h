@@ -44,6 +44,7 @@ typedef struct edict_s {
     int leafnums[MAX_ENT_LEAFS];
 
     entity_state_t baseline;
+    unsigned char alpha;
 
     float freetime;		// sv.time when the object was freed
     entvars_t v;		// C exported fields from progs
@@ -61,6 +62,7 @@ extern globalvars_t *pr_global_struct;
 extern float *pr_globals;	// same as pr_global_struct
 
 extern int pr_edict_size;	// in bytes
+extern qboolean pr_alpha_supported;
 
 //============================================================================
 

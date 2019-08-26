@@ -189,6 +189,7 @@ typedef struct {
     int colormap;
     int skinnum;
     int effects;
+    byte alpha;
 } entity_state_t;
 
 

@@ -37,6 +37,16 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 //=========================================
 
+// FITZ alpha encoding
+#define ENTALPHA_DEFAULT   0 // Zero means default, either opaque or e.g. wateralpha setting
+#define ENTALPHA_ZERO      1 // Completely transparent
+#define ENTALPHA_ONE     255 // Completely opaque
+#define ENTALPHA_ENCODE(a) ((a) ? (byte)roundf(qclamp((float)(a) * 254 + 1, 1.0f, 255.0f)) : ENTALPHA_DEFAULT)
+#define ENTALPHA_DECODE(a) ((a) == ENTALPHA_DEFAULT ? 1.0f : ((float)(a) - 1.0f) / 254.0f)
+#define ENTALPHA_TOSAVE(a) ((a) == ENTALPHA_DEFAULT ? 0.0f : ((a) == ENTALPHA_ZERO ? -1.0f : ((float)(a) - 1.0f) / 254.0f))
+
+//=========================================
+
 // out of band message id bytes
 
 // M = master, S = server, C = client, A = any

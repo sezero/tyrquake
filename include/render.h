@@ -109,6 +109,8 @@ typedef struct entity_s {
 				//  that splits bmodel, or NULL if
 				//  not split
 
+    byte alpha;                 // translucency (0 = transparent, 255 = opaque)
+
     /* Alias model lerping */
     struct {
         uint32_t flags;

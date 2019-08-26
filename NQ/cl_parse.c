@@ -570,9 +570,11 @@ CL_ParseUpdate(unsigned int bits)
 	ent->msg_angles[0][2] = ent->baseline.angles[2];
 
     if (cl.protocol == PROTOCOL_VERSION_FITZ) {
-	if (bits & U_FITZ_ALPHA) {
-	    MSG_ReadByte(); // FIXME - TODO
-	}
+	if (bits & U_FITZ_ALPHA)
+	    ent->alpha = MSG_ReadByte();
+        else
+            ent->alpha = ent->baseline.alpha;
+
 	if (bits & U_FITZ_FRAME2)
 	    ent->frame = (ent->frame & 0xFF) | (MSG_ReadByte() << 8);
 	if (bits & U_FITZ_MODEL2)
@@ -583,6 +585,8 @@ CL_ParseUpdate(unsigned int bits)
 	} else {
             ent->lerp.flags &= ~LERP_FINISH;
         }
+    } else {
+        ent->alpha = ent->baseline.alpha;
     }
 
     model = cl.model_precache[modnum];
@@ -635,7 +639,9 @@ CL_ParseBaseline(entity_t *ent, unsigned int bits)
     }
 
     if (cl.protocol == PROTOCOL_VERSION_FITZ && (bits & B_FITZ_ALPHA)) {
-	MSG_ReadByte(); // FIXME - TODO
+	ent->baseline.alpha = MSG_ReadByte();
+    } else {
+        ent->baseline.alpha = ENTALPHA_DEFAULT;
     }
 }
 
@@ -770,7 +776,9 @@ CL_ParseClientdata(void)
     if (bits & SU_FITZ_WEAPONFRAME2)
 	cl.stats[STAT_WEAPONFRAME] |= MSG_ReadByte() << 8;
     if (bits & SU_FITZ_WEAPONALPHA)
-	MSG_ReadByte(); // FIXME - TODO
+	cl.viewent.alpha = MSG_ReadByte();
+    else
+        cl.viewent.alpha = ENTALPHA_DEFAULT;
 
     /* Check if weapon changed and reset lerp on viewmodel */
     if (cl.viewent.model != cl.model_precache[cl.stats[STAT_WEAPON]])
@@ -845,6 +853,7 @@ CL_ParseStatic(unsigned int bits)
     ent->colormap = vid.colormap;
     ent->skinnum = ent->baseline.skinnum;
     ent->effects = ent->baseline.effects;
+    ent->alpha = ent->baseline.alpha;
 
     VectorCopy(ent->baseline.origin, ent->origin);
     VectorCopy(ent->baseline.angles, ent->angles);

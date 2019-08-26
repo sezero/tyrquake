@@ -1769,6 +1769,12 @@ PF_makestatic(void)
 
     ent = G_EDICT(OFS_PARM0);
 
+    /* Don't send invisible static entities */
+    if (ent->alpha == ENTALPHA_ZERO) {
+        ED_Free(ent);
+        return;
+    }
+
 #ifdef NQ_HACK
     bits = 0;
     if (sv.protocol == PROTOCOL_VERSION_FITZ) {
@@ -1776,10 +1782,8 @@ PF_makestatic(void)
 	    bits |= B_FITZ_LARGEMODEL;
 	if ((int)ent->v.frame & 0xff00)
 	    bits |= B_FITZ_LARGEFRAME;
-#if 0
 	if (ent->alpha != ENTALPHA_DEFAULT)
 	    bits |= B_FITZ_ALPHA;
-#endif
     }
 
     if (bits) {
@@ -1804,8 +1808,8 @@ PF_makestatic(void)
 	MSG_WriteAngle(&sv.signon, ent->v.angles[i]);
     }
 
-#if 0
-    if (bits & B_ALPHA)
+#ifdef NQ_HACK
+    if (bits & B_FITZ_ALPHA)
 	MSG_WriteByte(&sv.signon, ent->alpha);
 #endif
 

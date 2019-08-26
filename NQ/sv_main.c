@@ -600,9 +600,19 @@ SV_WriteEntitiesToClient(edict_t *clent, sizebuf_t *msg)
 	if (ent->baseline.modelindex != ent->v.modelindex)
 	    bits |= U_MODEL;
 
-	/* FIXME - TODO: add alpha stuff here */
+        if (pr_alpha_supported) {
+            eval_t *val = GetEdictFieldValue(ent, "alpha");
+            if (val)
+                ent->alpha = ENTALPHA_ENCODE(val->_float);
+        }
+
+        // Don't send fully transparent entities, unless they have effects
+        if (ent->alpha == ENTALPHA_ZERO && !ent->v.effects)
+            continue;
 
 	if (sv.protocol == PROTOCOL_VERSION_FITZ) {
+            if (ent->baseline.alpha != ent->alpha)
+                bits |= U_FITZ_ALPHA;
 	    if ((bits & U_FRAME) && ((int)ent->v.frame & 0xff00))
 		bits |= U_FITZ_FRAME2;
 	    if ((bits & U_MODEL) && ((int)ent->v.modelindex & 0xff00))
@@ -659,10 +669,9 @@ SV_WriteEntitiesToClient(edict_t *clent, sizebuf_t *msg)
 	    MSG_WriteCoord(msg, ent->v.origin[2]);
 	if (bits & U_ANGLE3)
 	    MSG_WriteAngle(msg, ent->v.angles[2]);
-#if 0 /* FIXME */
+
 	if (bits & U_FITZ_ALPHA)
 	    MSG_WriteByte(msg, ent->alpha);
-#endif
 	if (bits & U_FITZ_FRAME2)
 	    MSG_WriteByte(msg, (int)ent->v.frame >> 8);
 	if (bits & U_FITZ_MODEL2)
@@ -1124,10 +1133,11 @@ SV_CreateBaseline(void)
 	if (entnum > 0 && entnum <= svs.maxclients) {
 	    svent->baseline.colormap = entnum;
 	    svent->baseline.modelindex = SV_ModelIndex("progs/player.mdl");
+            svent->baseline.alpha = ENTALPHA_DEFAULT;
 	} else {
 	    svent->baseline.colormap = 0;
-	    svent->baseline.modelindex =
-		SV_ModelIndex(PR_GetString(svent->v.model));
+	    svent->baseline.modelindex = SV_ModelIndex(PR_GetString(svent->v.model));
+            svent->baseline.alpha = svent->alpha;
 	}
 
 	bits = 0;
@@ -1136,11 +1146,11 @@ SV_CreateBaseline(void)
 		bits |= B_FITZ_LARGEMODEL;
 	    if (svent->baseline.frame & 0xff00)
 		bits |= B_FITZ_LARGEFRAME;
-#if 0 /* FIXME - TODO */
 	    if (svent->baseline.alpha != ENTALPHA_DEFAULT)
-		bits |= B_FITZ_ALPHA
-#endif
-	}
+		bits |= B_FITZ_ALPHA;
+        } else {
+            svent->baseline.alpha = ENTALPHA_DEFAULT;
+        }
 
 	//
 	// add to the message
@@ -1166,10 +1176,8 @@ SV_CreateBaseline(void)
 	    MSG_WriteAngle(&sv.signon, svent->baseline.angles[i]);
 	}
 
-#if 0 /* FIXME - TODO */
 	if (bits & B_FITZ_ALPHA)
 	    MSG_WriteByte(&sv.signon, svent->baseline.alpha);
-#endif
     }
 }
 

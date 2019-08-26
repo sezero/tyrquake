@@ -182,6 +182,14 @@ typedef enum {
 #define B_FITZ_LARGEFRAME (1<<1)
 #define B_FITZ_ALPHA      (1<<2)
 
+// FITZ alpha encoding
+#define ENTALPHA_DEFAULT   0 // Zero means default, either opaque or e.g. wateralpha setting
+#define ENTALPHA_ZERO      1 // Completely transparent
+#define ENTALPHA_ONE     255 // Completely opaque
+#define ENTALPHA_ENCODE(a) ((a) ? (byte)roundf(qclamp((float)(a) * 254 + 1, 1.0f, 255.0f)) : ENTALPHA_DEFAULT)
+#define ENTALPHA_DECODE(a) ((a) == ENTALPHA_DEFAULT ? 1.0f : ((float)(a) - 1.0f) / 254.0f)
+#define ENTALPHA_TOSAVE(a) ((a) == ENTALPHA_DEFAULT ? 0.0f : ((a) == ENTALPHA_ZERO ? -1.0f : ((float)(a) - 1.0f) / 254.0f))
+
 // defaults for clientinfo messages
 #define	DEFAULT_VIEWHEIGHT	22
 
