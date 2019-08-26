@@ -106,16 +106,9 @@ R_BeginEdgeFrame(void)
 	r_currentkey = 0;
     }
 
-#if 0
     v = r_refdef.vrect.y;
     memset(&newedges[v], 0, (r_refdef.vrectbottom - v) * sizeof(newedges[0]));
     memset(&removeedges[v], 0, (r_refdef.vrectbottom - v) * sizeof(removeedges[0]));
-#else
-// FIXME: set with memset
-    for (v = r_refdef.vrect.y; v < r_refdef.vrectbottom; v++) {
-	newedges[v] = removeedges[v] = NULL;
-    }
-#endif
 
     /* Setup scan flags for translucent surfaces */
     r_translucent_flags = SURF_DRAWFENCE | r_surfalpha_flags;
