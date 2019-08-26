@@ -38,7 +38,7 @@ extern const qpic8_t *draw_backtile;
 extern const byte *draw_chars;
 
 void Draw_Init(void);
-void Draw_Character(int x, int y, int num);
+void Draw_Character(int x, int y, byte num);
 void Draw_Pic(int x, int y, const qpic8_t *pic);
 void Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color);
 void Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation);

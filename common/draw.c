@@ -582,7 +582,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation
  * Draws one 8*8 graphics character with 0 being transparent.
  */
 void
-Draw_Character(int x, int y, int num)
+Draw_Character(int x, int y, byte num)
 {
     int row, col;
     qpic8_t pic = {
@@ -590,9 +590,6 @@ Draw_Character(int x, int y, int num)
         .height = 8,
         .stride = 128,
     };
-
-    if (num < 0 || num > 255)
-        return;
 
     /* Find the source character in the 16x16 grid */
     row = num >> 4;

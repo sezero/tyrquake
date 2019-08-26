@@ -470,7 +470,7 @@ smoothly scrolled off.
 ================
 */
 void
-Draw_Character(int x, int y, int num)
+Draw_Character(int x, int y, byte num)
 {
     int row, col;
     float frow, fcol, size;
@@ -478,7 +478,7 @@ Draw_Character(int x, int y, int num)
 
     rect = Draw_GetScaledRect(x, y, 8, 8);
 
-    if (num < 0 || num > 255 || num == 32)
+    if (num == 32)
 	return;
     if (rect.y <= -rect.h)
 	return;
