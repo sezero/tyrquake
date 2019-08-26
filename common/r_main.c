@@ -1014,7 +1014,7 @@ R_RenderView_(void)
     byte warpbuffer[WARP_WIDTH * WARP_HEIGHT];
     scanflags_t scanflags;
     int numsavesurfs, numsaveedges;
-    qboolean realloc;
+    qboolean realloc, nostack;
 
     r_warpbuffer = warpbuffer;
 
@@ -1040,6 +1040,15 @@ R_RenderView_(void)
 	VID_LockBuffer();
     }
 
+    /*
+     * We if we have to retry with more resources, we can't use the
+     * stack again on the second and subsequent passes. May be
+     * possible to go back to stack based next frame if we're still
+     * below MAX_STACK_*
+     */
+    nostack = false;
+
+ moar_surfedges:
     // If we ran out of surfs/edges previously, bump the limits
     realloc = false;
     if (r_edges_overflow) {
@@ -1067,7 +1076,7 @@ R_RenderView_(void)
     if (realloc) {
         Hunk_FreeToLowMark(r_maphunkmark);
 
-        if (r_numsurfaces > MAXSTACKSURFACES) {
+        if (r_numsurfaces > MAXSTACKSURFACES || nostack) {
             auxsurfaces = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "surfaces");
             surface_p = surfaces;
             surf_max = &surfaces[r_numsurfaces];
@@ -1077,7 +1086,7 @@ R_RenderView_(void)
             auxsurfaces = NULL;
         }
 
-        if (r_numedges > MAXSTACKEDGES) {
+        if (r_numedges > MAXSTACKEDGES || nostack) {
             auxedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "edges");
         } else {
             auxedges = NULL;
@@ -1108,6 +1117,11 @@ R_RenderView_(void)
     }
 
     R_EdgeDrawingPrepare();
+
+    if (r_edges_overflow || r_surfaces_overflow) {
+        nostack = true;
+        goto moar_surfedges;
+    }
 
     /* Save a copy of the sorted surfs/edges for special surface passes */
     numsavesurfs = surface_p - (surfaces + 1);
