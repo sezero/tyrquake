@@ -34,7 +34,7 @@ extern cvar_t _debug_models;
  * Set scale to scale the text size relative to world coordinates.
  */
 #define DEBUG_PANEL_MAX_LINES 20
-#define DEBUG_PANEL_MAX_LINE_LENGTH 80
+#define DEBUG_PANEL_MAX_LINE_LENGTH 100
 typedef struct {
     float scale;       // Text scale (1.0 is 8 world units per char)
     vec3_t origin;     // Origin in worldspace (center, bottom of the panel)

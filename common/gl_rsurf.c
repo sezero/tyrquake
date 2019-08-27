@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <math.h>
 
 #include "console.h"
+#include "developer.h"
 #include "gl_model.h"
 #include "glquake.h"
 #include "quakedef.h"
@@ -1716,6 +1717,9 @@ R_DrawDynamicBrushModel(entity_t *entity)
     model = entity->model;
     brushmodel = BrushModel(model);
     alpha = ENTALPHA_DECODE(entity->alpha);
+
+    if (_debug_models.value)
+        DEBUG_DrawModelInfo(entity, entity->origin);
 
     /*
      * Static (non-rotated/translated/translucent) models are drawn

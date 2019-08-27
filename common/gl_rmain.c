@@ -424,6 +424,9 @@ R_DrawSpriteModel(const entity_t *entity)
         glDepthMask(GL_TRUE);
     }
     glDisable(GL_ALPHA_TEST);
+
+    if (_debug_models.value)
+        DEBUG_DrawModelInfo(entity, entity->origin);
 }
 
 /*

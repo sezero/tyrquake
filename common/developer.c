@@ -272,7 +272,7 @@ void
 DEBUG_DrawModelInfo(const entity_t *entity, const vec3_t modelorigin)
 {
     vec3_t up = { 0, 0, 1 };
-    vec3_t origin;
+    vec3_t origin, centre;
     debug_panel_t panel;
 
     if (entity == &cl.viewent)
@@ -280,14 +280,21 @@ DEBUG_DrawModelInfo(const entity_t *entity, const vec3_t modelorigin)
     if (!entity->model)
         return;
 
-    /* Centre the panel above the entity */
-    VectorCopy(modelorigin, origin);
-    origin[2] += entity->model->maxs[2] + 2;
-    VectorMA(origin, -16, vpn, origin);
+    VectorAdd(entity->model->mins, entity->model->maxs, centre);
+    VectorScale(centre, 0.5, centre);
+
+    if (entity->model->type == mod_brush) {
+        VectorCopy(centre, origin);
+        VectorMA(origin, -40, vpn, origin);
+    } else {
+        /* Centre the panel above the entity */
+        VectorCopy(modelorigin, origin);
+        origin[2] += entity->model->maxs[2] + 2;
+        VectorMA(origin, -16, vpn, origin);
+    }
 
     DbgPanel_Init(&panel);
     DbgPanel_SetOrientation(&panel, origin, up, vright);
-    panel.scale = 0.5;
 
     /* DEBUGGING STUFF */
     int edictnum = -1;
@@ -302,8 +309,15 @@ DEBUG_DrawModelInfo(const entity_t *entity, const vec3_t modelorigin)
     }
 #endif
 
-    DbgPanel_Printf(&panel, "edict: %d (%s)\n", edictnum, type);
-    DbgPanel_Printf(&panel, "model: %s\n", entity->model->name);
+    DbgPanel_Printf(&panel, "edict: %d (%s), origin (%.0f, %.0f, %.0f)\n",
+                    edictnum, type, entity->origin[0], entity->origin[1], entity->origin[2]);
+    if (entity->model->type == mod_brush || entity->model->type == mod_alias) {
+        DbgPanel_Printf(&panel, "model: %s, bb centre (%.0f, %.0f, %.0f)\n",
+                        entity->model->name, centre[0], centre[1], centre[2]);
+    } else {
+        DbgPanel_Printf(&panel, "model: %s\n", entity->model->name);
+    }
+    DbgPanel_Printf(&panel, "alpha: %.3f\n", ENTALPHA_DECODE(entity->alpha));
     DbgPanel_Draw(&panel);
 }
 
