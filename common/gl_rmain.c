@@ -320,9 +320,10 @@ R_DrawSpriteModel(const entity_t *entity)
 {
     const msprite_t *sprite;
     const mspriteframe_t *frame;
-    const float *up, *right;
+    const float *s_up, *s_right;
     const gl_spritedata_t *spritedata;
     vec3_t point, v_forward, v_right, v_up;
+    float angle, sr, cr;
 
     sprite = entity->model->cache.data;
     frame = Mod_GetSpriteFrame(entity, sprite, cl.time + entity->syncbase);
@@ -332,15 +333,51 @@ R_DrawSpriteModel(const entity_t *entity)
      * Don't even bother culling, because it's just a single polygon
      * without a surface cache
      */
-    if (sprite->type == SPR_ORIENTED) {
-	/* bullet marks on walls */
-	AngleVectors(entity->angles, v_forward, v_right, v_up);
-	up = v_up;
-	right = v_right;
-    } else {
-	/* normal sprite */
-	up = vup;
-	right = vright;
+    switch (sprite->type) {
+        case SPR_VP_PARALLEL_UPRIGHT: //faces view plane, up is towards the heavens
+            v_up[0] = 0;
+            v_up[1] = 0;
+            v_up[2] = 1;
+            s_up = v_up;
+            s_right = vright;
+            break;
+        case SPR_FACING_UPRIGHT: //faces camera origin, up is towards the heavens
+            VectorSubtract(entity->origin, r_origin, v_forward);
+            v_forward[2] = 0;
+            VectorNormalize(v_forward);
+            v_right[0] = v_forward[1];
+            v_right[1] = -v_forward[0];
+            v_right[2] = 0;
+            v_up[0] = 0;
+            v_up[1] = 0;
+            v_up[2] = 1;
+            s_up = v_up;
+            s_right = v_right;
+            break;
+	case SPR_VP_PARALLEL: //faces view plane, up is towards the top of the screen
+            s_up = vup;
+            s_right = vright;
+            break;
+	case SPR_ORIENTED: //pitch yaw roll are independent of camera
+            AngleVectors (entity->angles, v_forward, v_right, v_up);
+            s_up = v_up;
+            s_right = v_right;
+            break;
+	case SPR_VP_PARALLEL_ORIENTED: //faces view plane, but obeys roll value
+            angle = entity->angles[ROLL] * (M_PI / 180.0f);
+            sr = sin(angle);
+            cr = cos(angle);
+            v_right[0] = vright[0] * cr + vup[0] * sr;
+            v_right[1] = vright[1] * cr + vup[1] * sr;
+            v_right[2] = vright[2] * cr + vup[2] * sr;
+            v_up[0] = vright[0] * -sr + vup[0] * cr;
+            v_up[1] = vright[1] * -sr + vup[1] * cr;
+            v_up[2] = vright[2] * -sr + vup[2] * cr;
+            s_up = v_up;
+            s_right = v_right;
+            break;
+        default:
+            Sys_Error("%s: Bad sprite type %d", __func__, sprite->type);
     }
 
     glColor3f(1, 1, 1);
@@ -352,23 +389,23 @@ R_DrawSpriteModel(const entity_t *entity)
     glBegin(GL_QUADS);
 
     glTexCoord2f(0, 1);
-    VectorMA(entity->origin, frame->down, up, point);
-    VectorMA(point, frame->left, right, point);
+    VectorMA(entity->origin, frame->down, s_up, point);
+    VectorMA(point, frame->left, s_right, point);
     glVertex3fv(point);
 
     glTexCoord2f(0, 0);
-    VectorMA(entity->origin, frame->up, up, point);
-    VectorMA(point, frame->left, right, point);
+    VectorMA(entity->origin, frame->up, s_up, point);
+    VectorMA(point, frame->left, s_right, point);
     glVertex3fv(point);
 
     glTexCoord2f(1, 0);
-    VectorMA(entity->origin, frame->up, up, point);
-    VectorMA(point, frame->right, right, point);
+    VectorMA(entity->origin, frame->up, s_up, point);
+    VectorMA(point, frame->right, s_right, point);
     glVertex3fv(point);
 
     glTexCoord2f(1, 1);
-    VectorMA(entity->origin, frame->down, up, point);
-    VectorMA(point, frame->right, right, point);
+    VectorMA(entity->origin, frame->down, s_up, point);
+    VectorMA(point, frame->right, s_right, point);
     glVertex3fv(point);
 
     glEnd();

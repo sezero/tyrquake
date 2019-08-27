@@ -269,88 +269,92 @@ R_DrawSprite(const entity_t *e)
     sprite_width = r_spritedesc.pspriteframe->width;
     sprite_height = r_spritedesc.pspriteframe->height;
 
-// TODO: make this caller-selectable
-    if (psprite->type == SPR_FACING_UPRIGHT) {
-	// generate the sprite's axes, with vup straight up in worldspace, and
-	// r_spritedesc.vright perpendicular to modelorg.
-	// This will not work if the view direction is very close to straight up or
-	// down, because the cross product will be between two nearly parallel
-	// vectors and starts to approach an undefined state, so we don't draw if
-	// the two vectors are less than 1 degree apart
-	tvec[0] = -modelorg[0];
-	tvec[1] = -modelorg[1];
-	tvec[2] = -modelorg[2];
-	VectorNormalize(tvec);
-	dot = tvec[2];		// same as DotProduct (tvec, r_spritedesc.vup) because
-	//  r_spritedesc.vup is 0, 0, 1
-	if ((dot > 0.999848) || (dot < -0.999848))	// cos(1 degree) = 0.999848
-	    return;
-	r_spritedesc.vup[0] = 0;
-	r_spritedesc.vup[1] = 0;
-	r_spritedesc.vup[2] = 1;
-	r_spritedesc.vright[0] = tvec[1];
-	// CrossProduct(r_spritedesc.vup, -modelorg,
-	r_spritedesc.vright[1] = -tvec[0];
-	//              r_spritedesc.vright)
-	r_spritedesc.vright[2] = 0;
-	VectorNormalize(r_spritedesc.vright);
-	r_spritedesc.vpn[0] = -r_spritedesc.vright[1];
-	r_spritedesc.vpn[1] = r_spritedesc.vright[0];
-	r_spritedesc.vpn[2] = 0;
-	// CrossProduct (r_spritedesc.vright, r_spritedesc.vup,
-	//  r_spritedesc.vpn)
-    } else if (psprite->type == SPR_VP_PARALLEL) {
-	// generate the sprite's axes, completely parallel to the viewplane. There
-	// are no problem situations, because the sprite is always in the same
-	// position relative to the viewer
-	for (i = 0; i < 3; i++) {
-	    r_spritedesc.vup[i] = vup[i];
-	    r_spritedesc.vright[i] = vright[i];
-	    r_spritedesc.vpn[i] = vpn[i];
-	}
-    } else if (psprite->type == SPR_VP_PARALLEL_UPRIGHT) {
-	// generate the sprite's axes, with vup straight up in worldspace, and
-	// r_spritedesc.vright parallel to the viewplane.
-	// This will not work if the view direction is very close to straight up or
-	// down, because the cross product will be between two nearly parallel
-	// vectors and starts to approach an undefined state, so we don't draw if
-	// the two vectors are less than 1 degree apart
-	dot = vpn[2];		// same as DotProduct (vpn, r_spritedesc.vup) because
-	//  r_spritedesc.vup is 0, 0, 1
-	if ((dot > 0.999848) || (dot < -0.999848))	// cos(1 degree) = 0.999848
-	    return;
-	r_spritedesc.vup[0] = 0;
-	r_spritedesc.vup[1] = 0;
-	r_spritedesc.vup[2] = 1;
-	r_spritedesc.vright[0] = vpn[1];
-	// CrossProduct (r_spritedesc.vup, vpn,
-	r_spritedesc.vright[1] = -vpn[0];	//  r_spritedesc.vright)
-	r_spritedesc.vright[2] = 0;
-	VectorNormalize(r_spritedesc.vright);
-	r_spritedesc.vpn[0] = -r_spritedesc.vright[1];
-	r_spritedesc.vpn[1] = r_spritedesc.vright[0];
-	r_spritedesc.vpn[2] = 0;
-	// CrossProduct (r_spritedesc.vright, r_spritedesc.vup,
-	//  r_spritedesc.vpn)
-    } else if (psprite->type == SPR_ORIENTED) {
-	// generate the sprite's axes, according to the sprite's world orientation
-	AngleVectors(e->angles, r_spritedesc.vpn, r_spritedesc.vright,
-		     r_spritedesc.vup);
-    } else if (psprite->type == SPR_VP_PARALLEL_ORIENTED) {
-	// generate the sprite's axes, parallel to the viewplane, but rotated in
-	// that plane around the center according to the sprite entity's roll
-	// angle. So vpn stays the same, but vright and vup rotate
-	angle = e->angles[ROLL] * (M_PI * 2 / 360);
-	sr = sin(angle);
-	cr = cos(angle);
+    // TODO: make this caller-selectable
+    switch (psprite->type) {
+        case SPR_FACING_UPRIGHT:
+            // generate the sprite's axes, with vup straight up in worldspace, and
+            // r_spritedesc.vright perpendicular to modelorg.
+            // This will not work if the view direction is very close to straight up or
+            // down, because the cross product will be between two nearly parallel
+            // vectors and starts to approach an undefined state, so we don't draw if
+            // the two vectors are less than 1 degree apart
+            tvec[0] = -modelorg[0];
+            tvec[1] = -modelorg[1];
+            tvec[2] = -modelorg[2];
+            VectorNormalize(tvec);
+            dot = tvec[2]; // same as DotProduct (tvec, r_spritedesc.vup) because r_spritedesc.vup is 0, 0, 1
+            if ((dot > 0.999848) || (dot < -0.999848))  // cos(1 degree) = 0.999848
+                return;
+            r_spritedesc.vup[0] = 0;
+            r_spritedesc.vup[1] = 0;
+            r_spritedesc.vup[2] = 1;
 
-	for (i = 0; i < 3; i++) {
-	    r_spritedesc.vpn[i] = vpn[i];
-	    r_spritedesc.vright[i] = vright[i] * cr + vup[i] * sr;
-	    r_spritedesc.vup[i] = vright[i] * -sr + vup[i] * cr;
-	}
-    } else {
-	Sys_Error("%s: Bad sprite type %d", __func__, psprite->type);
+            // CrossProduct(r_spritedesc.vup, -modelorg, r_spritedesc.vright)
+            r_spritedesc.vright[0] = tvec[1];
+            r_spritedesc.vright[1] = -tvec[0];
+            r_spritedesc.vright[2] = 0;
+            VectorNormalize(r_spritedesc.vright);
+
+            // CrossProduct (r_spritedesc.vright, r_spritedesc.vup, r_spritedesc.vpn)
+            r_spritedesc.vpn[0] = -r_spritedesc.vright[1];
+            r_spritedesc.vpn[1] = r_spritedesc.vright[0];
+            r_spritedesc.vpn[2] = 0;
+            break;
+        case SPR_VP_PARALLEL:
+            // generate the sprite's axes, completely parallel to the viewplane. There
+            // are no problem situations, because the sprite is always in the same
+            // position relative to the viewer
+            for (i = 0; i < 3; i++) {
+                r_spritedesc.vup[i] = vup[i];
+                r_spritedesc.vright[i] = vright[i];
+                r_spritedesc.vpn[i] = vpn[i];
+            }
+            break;
+        case SPR_VP_PARALLEL_UPRIGHT:
+            // generate the sprite's axes, with vup straight up in worldspace, and
+            // r_spritedesc.vright parallel to the viewplane.
+            // This will not work if the view direction is very close to straight up or
+            // down, because the cross product will be between two nearly parallel
+            // vectors and starts to approach an undefined state, so we don't draw if
+            // the two vectors are less than 1 degree apart
+            dot = vpn[2]; // same as DotProduct (vpn, r_spritedesc.vup) because r_spritedesc.vup is 0, 0, 1
+            if ((dot > 0.999848) || (dot < -0.999848)) // cos(1 degree) = 0.999848
+                return;
+            r_spritedesc.vup[0] = 0;
+            r_spritedesc.vup[1] = 0;
+            r_spritedesc.vup[2] = 1;
+
+            // CrossProduct (r_spritedesc.vup, vpn, r_spritedesc.vright)
+            r_spritedesc.vright[0] = vpn[1];
+            r_spritedesc.vright[1] = -vpn[0];
+            r_spritedesc.vright[2] = 0;
+            VectorNormalize(r_spritedesc.vright);
+
+            // CrossProduct (r_spritedesc.vright, r_spritedesc.vup, r_spritedesc.vpn)
+            r_spritedesc.vpn[0] = -r_spritedesc.vright[1];
+            r_spritedesc.vpn[1] = r_spritedesc.vright[0];
+            r_spritedesc.vpn[2] = 0;
+            break;
+        case SPR_ORIENTED:
+            // generate the sprite's axes, according to the sprite's world orientation
+            AngleVectors(e->angles, r_spritedesc.vpn, r_spritedesc.vright, r_spritedesc.vup);
+            break;
+        case SPR_VP_PARALLEL_ORIENTED:
+            // generate the sprite's axes, parallel to the viewplane, but rotated in
+            // that plane around the center according to the sprite entity's roll
+            // angle. So vpn stays the same, but vright and vup rotate
+            angle = e->angles[ROLL] * (M_PI * 2 / 360);
+            sr = sin(angle);
+            cr = cos(angle);
+
+            for (i = 0; i < 3; i++) {
+                r_spritedesc.vpn[i] = vpn[i];
+                r_spritedesc.vright[i] = vright[i] * cr + vup[i] * sr;
+                r_spritedesc.vup[i] = vright[i] * -sr + vup[i] * cr;
+            }
+            break;
+        default:
+            Sys_Error("%s: Bad sprite type %d", __func__, psprite->type);
     }
 
     R_RotateSprite(psprite->beamlength);
