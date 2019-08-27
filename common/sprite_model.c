@@ -42,6 +42,7 @@ static const void *
 Mod_LoadSpriteFrame(const void *buffer, mspriteframe_t **ppframe,
 		    const char *loadname, int framenum)
 {
+    char hunkname[HUNK_NAMELEN + 1];
     const dspriteframe_t *dframe;
     mspriteframe_t *frame;
     int width, height, numpixels, memsize, origin[2];
@@ -53,7 +54,8 @@ Mod_LoadSpriteFrame(const void *buffer, mspriteframe_t **ppframe,
     numpixels = width * height;
     memsize = sizeof(*frame) + R_SpriteDataSize(numpixels);
 
-    frame = Hunk_AllocName(memsize, loadname);
+    COM_FileBase(loadname, hunkname, sizeof(hunkname));
+    frame = Hunk_AllocName(memsize, hunkname);
     memset(frame, 0, memsize);
     *ppframe = frame;
 
@@ -83,6 +85,7 @@ static const void *
 Mod_LoadSpriteGroup(const void *buffer, mspritegroup_t **ppgroup,
 		    const char *loadname, int framenum)
 {
+    char hunkname[HUNK_NAMELEN + 1];
     const dspritegroup_t *dgroup;
     const dspriteinterval_t *dintervals;
     float *intervals;
@@ -94,13 +97,14 @@ Mod_LoadSpriteGroup(const void *buffer, mspritegroup_t **ppgroup,
 
     numframes = LittleLong(dgroup->numframes);
     memsize = sizeof(*group) + numframes * sizeof(group->frames[0]);
-    group = Hunk_AllocName(memsize, loadname);
+    COM_FileBase(loadname, hunkname, sizeof(hunkname));
+    group = Hunk_AllocName(memsize, hunkname);
 
     group->numframes = numframes;
     *ppgroup = group;
 
     dintervals = buffer;
-    intervals = Hunk_AllocName(numframes * sizeof(float), loadname);
+    intervals = Hunk_AllocName(numframes * sizeof(float), hunkname);
     group->intervals = intervals;
 
     for (i = 0; i < numframes; i++, intervals++, dintervals++) {
@@ -111,8 +115,7 @@ Mod_LoadSpriteGroup(const void *buffer, mspritegroup_t **ppgroup,
     buffer = dintervals;
 
     for (i = 0; i < numframes; i++)
-	buffer = Mod_LoadSpriteFrame(buffer, &group->frames[i],
-				     loadname, framenum * 100 + i);
+	buffer = Mod_LoadSpriteFrame(buffer, &group->frames[i], loadname, framenum * 100 + i);
 
     return buffer;
 }
@@ -170,10 +173,10 @@ Mod_LoadSpriteModel(model_t *model, const void *buffer)
 	buffer = (byte *)buffer + sizeof(dspriteframetype_t);
 	if (frametype == SPR_SINGLE) {
 	    mspriteframe_t **ppframe = &sprite->frames[i].frame.frame;
-	    buffer = Mod_LoadSpriteFrame(buffer, ppframe, hunkname, i);
+	    buffer = Mod_LoadSpriteFrame(buffer, ppframe, model->name, i);
 	} else {
 	    mspritegroup_t **ppgroup = &sprite->frames[i].frame.group;
-	    buffer = Mod_LoadSpriteGroup(buffer, ppgroup, hunkname, i);
+	    buffer = Mod_LoadSpriteGroup(buffer, ppgroup, model->name, i);
 	}
     }
 }
