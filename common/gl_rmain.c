@@ -943,9 +943,10 @@ R_DrawEntitiesOnList
 ====================
 */
 static void
-R_DrawEntitiesOnList(void)
+R_DrawEntitiesOnList()
 {
     entity_t *entity;
+    float alpha;
     int i, j;
 
     if (!r_drawentities.value)
@@ -967,15 +968,31 @@ R_DrawEntitiesOnList(void)
      */
     for (i = 0; i < cl_numvisedicts; i++) {
         entity = cl_visedicts[i];
+
+        /* Skip fully transparent entities. */
+        alpha = ENTALPHA_DECODE(entity->alpha);
+        if (!alpha)
+            continue;
+
         switch (entity->model->type) {
             case mod_brush:
                 R_DrawDynamicBrushModel(entity);
                 break;
             case mod_sprite:
+                /* Translucent entities are added to the depth chain for the final pass */
+                if (alpha < 1.0f) {
+                    DepthChain_AddEntity(&r_depthchain, entity, depthchain_sprite);
+                    continue;
+                }
                 entity->chain = spritechain;
                 spritechain = entity;
                 break;
             case mod_alias:
+                /* Translucent entities are added to the depth chain for the final pass */
+                if (alpha < 1.0f) {
+                    DepthChain_AddEntity(&r_depthchain, entity, depthchain_alias);
+                    continue;
+                }
                 skin = R_AliasSetupSkin(entity, Mod_Extradata(entity->model));
                 for (j = 0; j < numaliasskins; j++) {
                     chain = &aliasskinchains[j];
@@ -1336,6 +1353,8 @@ R_RenderScene(void)
     gl_verts_submitted = 0;
     gl_indices_submitted = 0;
     gl_full_buffers = 0;
+
+    DepthChain_Init(&r_depthchain); // Init the empty depth chain for translucent surfaces/models
 
     R_SetupFrame();
     R_SetFrustum();

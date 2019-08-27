@@ -110,6 +110,7 @@ typedef struct entity_s {
 				//  not split
 
     byte alpha;                 // translucency (0 = transparent, 255 = opaque)
+    depthchain_t depthchain;
 
     /* Alias model lerping */
     struct {
@@ -272,5 +273,7 @@ extern float map_wateralpha;
 extern float map_slimealpha;
 extern float map_lavaalpha;
 extern float map_telealpha;
+
+extern depthchain_t r_depthchain; // Depth sorted chain for alpha blending
 
 #endif /* RENDER_H */

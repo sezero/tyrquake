@@ -335,10 +335,11 @@ void GL_LoadNoTexture();
 //
 // gl_rsurf.c
 //
-void R_DrawDynamicBrushModel(const entity_t *entity);
+void R_DrawDynamicBrushModel(entity_t *entity);
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawTransparentSurfaces();
+void R_DrawInstancedTranslucentBmodel(entity_t *entity);
 void GL_BuildLightmaps();
 void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
 

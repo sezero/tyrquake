@@ -1555,10 +1555,11 @@ R_DrawTransparentSurfaces(void)
  * Allows us to add submodels to the world material chains if they are static.
  */
 static void
-R_AddBrushModelToMaterialChains(const brushmodel_t *brushmodel, const vec3_t modelorg, msurface_t **materialchains)
+R_AddBrushModelToMaterialChains(entity_t *entity, const vec3_t modelorg, msurface_t **materialchains, depthchain_type_t type)
 {
     int i;
     msurface_t *surf;
+    brushmodel_t *brushmodel = BrushModel(entity->model);
 
     /* Gather visible surfaces */
     surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
@@ -1569,8 +1570,31 @@ R_AddBrushModelToMaterialChains(const brushmodel_t *brushmodel, const vec3_t mod
             continue;
         if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
             continue;
-        surf->chain = materialchains[surf->material];
-        materialchains[surf->material] = surf;
+        if (surf->flags & r_surfalpha_flags) {
+            DepthChain_AddSurf(&r_depthchain, entity, surf, type);
+        } else {
+            surf->chain = materialchains[surf->material];
+            materialchains[surf->material] = surf;
+        }
+    }
+}
+
+static void
+R_AddBrushModelToDepthChain(depthchain_t *depthchain, entity_t *entity, vec3_t modelorg, depthchain_type_t type)
+{
+    int i;
+    msurface_t *surf;
+    brushmodel_t *brushmodel = BrushModel(entity->model);
+
+    surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+    for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+        mplane_t *plane = surf->plane;
+        float dot = DotProduct(modelorg, plane->normal) - plane->dist;
+        if ((surf->flags & SURF_PLANEBACK) && dot >= -BACKFACE_EPSILON)
+            continue;
+        if (!(surf->flags & SURF_PLANEBACK) && dot <= BACKFACE_EPSILON)
+            continue;
+        DepthChain_AddSurf(&r_depthchain, entity, surf, type);
     }
 }
 
@@ -1630,7 +1654,7 @@ R_SwapAltAnimationChains(const entity_t *entity, msurface_t **materialchains)
  * This is for all non-world brushmodels that have a transform
  */
 static void
-R_SetupDynamicBrushModelMaterialChains(const entity_t *entity, const vec3_t modelorg)
+R_SetupDynamicBrushModelMaterialChains(entity_t *entity, const vec3_t modelorg)
 {
     brushmodel_t *brushmodel = BrushModel(entity->model);
     glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
@@ -1638,7 +1662,7 @@ R_SetupDynamicBrushModelMaterialChains(const entity_t *entity, const vec3_t mode
 
     memset(materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
 
-    R_AddBrushModelToMaterialChains(brushmodel, modelorg, materialchains);
+    R_AddBrushModelToMaterialChains(entity, modelorg, materialchains, depthchain_bmodel_transformed);
     R_SwapAltAnimationChains(entity, materialchains);
     R_SwapAnimationChains(glbrushmodel, materialchains);
 
@@ -1649,13 +1673,13 @@ R_SetupDynamicBrushModelMaterialChains(const entity_t *entity, const vec3_t mode
 }
 
 static void
-R_AddStaticBrushModelToWorldMaterialChains(const entity_t *entity)
+R_AddStaticBrushModelToWorldMaterialChains(entity_t *entity)
 {
     brushmodel_t *brushmodel = BrushModel(entity->model);
     msurface_t **materialchains = GLBrushModel(brushmodel->parent)->materialchains;
 
     R_SwapAltAnimationChains(entity, materialchains);
-    R_AddBrushModelToMaterialChains(brushmodel, r_refdef.vieworg, materialchains);
+    R_AddBrushModelToMaterialChains(entity, r_refdef.vieworg, materialchains, depthchain_bmodel_static);
     R_SwapAltAnimationChains(entity, materialchains);
 }
 
@@ -1665,25 +1689,32 @@ R_DrawDynamicBrushModel
 =================
 */
 void
-R_DrawDynamicBrushModel(const entity_t *entity)
+R_DrawDynamicBrushModel(entity_t *entity)
 {
     int i;
     vec3_t mins, maxs, angles_bug, modelorg;
     model_t *model;
     brushmodel_t *brushmodel;
     qboolean rotated = false;
+    float alpha;
 
     model = entity->model;
     brushmodel = BrushModel(model);
+    alpha = ENTALPHA_DECODE(entity->alpha);
 
     /*
-     * Static (non-rotated/translated) models are drawn with the world,
-     * so we skip them here
+     * Static (non-rotated/translated/translucent) models are drawn
+     * with the world, so we skip them here.
      */
     if (R_EntityIsRotated(entity))
 	rotated = true;
-    else if (brushmodel->parent && !R_EntityIsTranslated(entity))
+    else if (brushmodel->parent && !R_EntityIsTranslated(entity)) {
+        if (alpha < 1.0f) {
+            VectorSubtract(r_refdef.vieworg, entity->origin, modelorg);
+            R_AddBrushModelToDepthChain(&r_depthchain, entity, modelorg, depthchain_bmodel_static);
+        }
         return;
+    }
 
     if (rotated) {
 	for (i = 0; i < 3; i++) {
@@ -1697,6 +1728,12 @@ R_DrawDynamicBrushModel(const entity_t *entity)
 
     if (R_CullBox(mins, maxs))
 	return;
+
+    if (!brushmodel->parent && alpha < 1.0f) {
+        /* No parent so it's an instanced bmodel */
+        DepthChain_AddEntity(&r_depthchain, entity, depthchain_bmodel_instanced);
+        return;
+    }
 
     currenttexture = -1;
 
@@ -1712,8 +1749,54 @@ R_DrawDynamicBrushModel(const entity_t *entity)
 	modelorg[2] = DotProduct(temp, up);
     }
 
+    if (alpha < 1.0f) {
+        if (brushmodel->parent)
+            R_AddBrushModelToDepthChain(&r_depthchain, entity, modelorg, depthchain_bmodel_transformed);
+        return;
+    }
+
     if (gl_zfix.value)
-	glEnable(GL_POLYGON_OFFSET_FILL);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+
+    glPushMatrix();
+
+    /* Stupid bug means pitch is reversed for entities */
+    VectorCopy(entity->angles, angles_bug);
+    angles_bug[PITCH] = -angles_bug[PITCH];
+    R_RotateForEntity(entity->origin, angles_bug);
+
+    /* Setup material chains and draw */
+    R_SetupDynamicBrushModelMaterialChains(entity, modelorg);
+    DrawMaterialChains(entity);
+
+    glPopMatrix();
+
+    if (gl_zfix.value)
+	glDisable(GL_POLYGON_OFFSET_FILL);
+}
+
+/*
+ * We need to handle instanced bmodels individually, since we can't
+ * put the surfaces directly into the depth chain.
+ */
+void
+R_DrawInstancedTranslucentBmodel(entity_t *entity)
+{
+    vec3_t modelorg, angles_bug;
+
+    VectorSubtract(r_refdef.vieworg, entity->origin, modelorg);
+    if (R_EntityIsRotated(entity)) {
+        vec3_t temp, forward, right, up;
+
+        VectorCopy(modelorg, temp);
+        AngleVectors(entity->angles, forward, right, up);
+        modelorg[0] = DotProduct(temp, forward);
+        modelorg[1] = -DotProduct(temp, right);
+        modelorg[2] = DotProduct(temp, up);
+    }
+
+    if (gl_zfix.value)
+        glEnable(GL_POLYGON_OFFSET_FILL);
 
     glPushMatrix();
 
@@ -1821,10 +1904,15 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	    if (mirror && surf->texinfo->texture == cl.worldmodel->textures[mirrortexturenum])
 		continue;
 
-            // Add to the material chain for drawing
-            surf->chain = materialchains[surf->material];
-            materialchains[surf->material] = surf;
-	}
+            if (surf->flags & r_surfalpha_flags) {
+                // Sort alpha surfaces into the depth chain for blending
+                DepthChain_AddSurf(&r_depthchain, &r_worldentity, surf, depthchain_bmodel_static);
+            } else {
+                // Add to the material chain for batch drawing
+                surf->chain = materialchains[surf->material];
+                materialchains[surf->material] = surf;
+            }
+        }
     }
 
     /* recurse down the back side */
@@ -1889,6 +1977,8 @@ R_DrawWorld(void)
                 continue;
             if (!BrushModel(entity->model)->parent)
                 continue;
+
+            /* Setup sky materialchains on transformed bmodels */
             if (R_EntityIsTranslated(entity) || R_EntityIsRotated(entity)) {
                 brushmodel_t *brushmodel = BrushModel(entity->model);
                 glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
@@ -1909,6 +1999,12 @@ R_DrawWorld(void)
                 }
                 continue;
             }
+
+            /* Skip alpha entities on this pass (but still draw sky, above) */
+            float alpha = ENTALPHA_DECODE(entity->alpha);
+            if (alpha < 1.0f)
+                continue;
+
             if (R_CullBox(entity->model->mins, entity->model->maxs))
                 continue;
             R_AddStaticBrushModelToWorldMaterialChains(entity);

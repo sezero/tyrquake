@@ -37,38 +37,15 @@ float map_slimealpha;
 float map_lavaalpha;
 float map_telealpha;
 
-#ifdef GLQUAKE
-// Stubs for GLQuake
-void Alpha_Init() { }
-static void Alpha_Updated() { }
-#else
-
-static int num_transtables;
 int r_surfalpha_flags;
+depthchain_t r_depthchain;
+
+#ifndef GLQUAKE
+static int num_transtables;
 const byte *transtable_water;
 const byte *transtable_slime;
 const byte *transtable_lava;
 const byte *transtable_tele;
-
-void
-Alpha_Init()
-{
-    int i;
-    float alphastep;
-    byte *tables;
-
-    num_transtables = 4; // TODO: Add cvar to configure
-    host_transtables = Hunk_AllocName((sizeof(byte *) + 65536) * num_transtables, "translucency");
-    tables = (byte *)&host_transtables[num_transtables];
-
-    alphastep = 1.0f / (num_transtables + 1);
-    for (i = 0; i < num_transtables; i++) {
-        host_transtables[i] = &tables[i * 65536];
-        QPal_CreateTranslucencyTable(host_transtables[i], host_basepal, alphastep * (i + 1));
-    }
-
-    r_surfalpha_flags = 0;
-}
 
 /*
  * Returns the closest matching translation table for the given alpha
@@ -84,6 +61,28 @@ Alpha_Transtable(float alpha)
 
     return host_transtables[tablenum];
 }
+#endif
+
+void
+Alpha_Init()
+{
+#ifndef GLQUAKE
+    int i;
+    float alphastep;
+    byte *tables;
+
+    num_transtables = 4; // TODO: Add cvar to configure
+    host_transtables = Hunk_AllocName((sizeof(byte *) + 65536) * num_transtables, "translucency");
+    tables = (byte *)&host_transtables[num_transtables];
+
+    alphastep = 1.0f / (num_transtables + 1);
+    for (i = 0; i < num_transtables; i++) {
+        host_transtables[i] = &tables[i * 65536];
+        QPal_CreateTranslucencyTable(host_transtables[i], host_basepal, alphastep * (i + 1));
+    }
+#endif
+    r_surfalpha_flags = 0;
+}
 
 static void
 Alpha_Updated()
@@ -98,13 +97,13 @@ Alpha_Updated()
     if (map_telealpha < 1.0f)
         r_surfalpha_flags |= SURF_DRAWTELE;
 
+#ifndef GLQUAKE
     transtable_water = Alpha_Transtable(map_wateralpha);
     transtable_slime = Alpha_Transtable(map_slimealpha);
-    transtable_lava = Alpha_Transtable(map_lavaalpha);
-    transtable_tele = Alpha_Transtable(map_telealpha);
+    transtable_lava  = Alpha_Transtable(map_lavaalpha);
+    transtable_tele  = Alpha_Transtable(map_telealpha);
+#endif
 }
-
-#endif // !GLQUAKE
 
 static void R_WaterAlpha_f(cvar_t *cvar) { map_wateralpha = qclamp(cvar->value, 0.0f, 1.0f); Alpha_Updated(); }
 static void R_SlimeAlpha_f(cvar_t *cvar) { map_slimealpha = qclamp(cvar->value, 0.0f, 1.0f); Alpha_Updated(); }
@@ -190,4 +189,71 @@ R_GetTranslationTable(int topcolor, int bottomcolor)
     }
 
     return translation_table;
+}
+
+//
+// Depth sorting helpers
+//
+static void
+DepthChain_Insert(depthchain_t *head, depthchain_t *entry)
+{
+    head = head->next;
+    while (entry->key < head->key)
+        head = head->next;
+
+    entry->next = head;
+    entry->prev = head->prev;
+    head->prev->next = entry;
+    head->prev = entry;
+}
+
+void
+DepthChain_Init(depthchain_t *head)
+{
+    head->key = INT_MIN;
+    head->type = depthchain_head;
+    head->entity = NULL;
+    head->next = head->prev = head;
+}
+
+#ifdef GLQUAKE
+void
+DepthChain_AddSurf(depthchain_t *head, entity_t *entity, msurface_t *surf, depthchain_type_t type)
+{
+    vec3_t vec;
+
+    VectorAdd(surf->mins, surf->maxs, vec);
+    VectorScale(vec, 0.5f, vec);                 // very rough surface centre point
+    VectorSubtract(vec, r_refdef.vieworg, vec);  // dist vector from view origin
+    surf->depthchain.key = DotProduct(vec, vec); // depth value squared
+    surf->depthchain.type = type;
+    surf->depthchain.entity = entity;
+    if (surf->flags & r_surfalpha_flags) {
+        float alpha = ENTALPHA_DECODE(entity->alpha);
+        if (surf->flags & SURF_DRAWWATER)
+            alpha *= map_wateralpha;
+        else if (surf->flags & SURF_DRAWSLIME)
+            alpha *= map_slimealpha;
+        else if (surf->flags & SURF_DRAWLAVA)
+            alpha *= map_lavaalpha;
+        else if (surf->flags & SURF_DRAWTELE)
+            alpha *= map_telealpha;
+        surf->depthchain.alpha = ENTALPHA_ENCODE(alpha);
+    } else {
+        surf->depthchain.alpha = entity->alpha;
+    }
+    DepthChain_Insert(head, &surf->depthchain);
+}
+#endif
+
+void
+DepthChain_AddEntity(depthchain_t *head, entity_t *entity, depthchain_type_t type)
+{
+    vec3_t vec;
+
+    VectorSubtract(entity->origin, r_refdef.vieworg, vec); // dist vector from view origin
+    entity->depthchain.key = DotProduct(vec, vec);         // depth value squared
+    entity->depthchain.type = type;
+    entity->depthchain.entity = entity;
+    DepthChain_Insert(head, &entity->depthchain);
 }

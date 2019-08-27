@@ -50,6 +50,24 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "bothdefs.h"
 #endif
 
+typedef enum {
+    depthchain_head,
+    depthchain_alias,
+    depthchain_sprite,
+    depthchain_bmodel_static,
+    depthchain_bmodel_transformed,
+    depthchain_bmodel_instanced,
+} depthchain_type_t;
+
+struct entity_s;
+typedef struct depthchain_s {
+    int key;                 // depth base key for sorting (depth value squared)
+    depthchain_type_t type;  // different entry types that require different rendering calls
+    byte alpha;              // alpha value for the surface
+    struct entity_s *entity; // pointer back to the entity for surface transform
+    struct depthchain_s *prev, *next; // TODO: this can probably be a singley linked list?
+} depthchain_t;
+
 /*
 
 d*_t structures are on-disk representations
@@ -159,9 +177,10 @@ typedef struct msurface_s {
     int lightmapblock;
     int material;
     int cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
-    qboolean cached_dlight;	// true if dynamic light in cache
-    glpoly_t *polys;	// multiple if warped
-    struct msurface_s *chain; // Material chain for drawing
+    qboolean cached_dlight;     // true if dynamic light in cache
+    glpoly_t *polys;            // multiple if warped
+    struct msurface_s *chain;   // Material chain for drawing
+    depthchain_t depthchain;    // Depth chain for translucent surface sorting
 #else
 // surface generation data
     struct surfcache_s *cachespots[MIPLEVELS];
@@ -179,6 +198,18 @@ typedef struct msurface_s {
     byte styles[MAXLIGHTMAPS];
     byte *samples;		// [numstyles*surfsize]
 } msurface_t;
+
+void DepthChain_AddEntity(depthchain_t *head, struct entity_s *entity, depthchain_type_t type);
+void DepthChain_Init(depthchain_t *head); // Init the empty depthchain
+
+#ifdef GLQUAKE
+static inline msurface_t *
+DepthChain_Surf(depthchain_t *entry)
+{
+    return container_of(entry, msurface_t, depthchain);
+}
+void DepthChain_AddSurf(depthchain_t *head, struct entity_s *entity, msurface_t *surf, depthchain_type_t type);
+#endif
 
 /*
  * foreach_surf_lightstyle()
@@ -420,6 +451,7 @@ typedef struct model_s {
     float xy_radius;   // Bounding radius in the xy plane (zero pitch/roll)
     float radius;      // Bounding radius under arbitrary rotation
 
+    depthchain_t depthchain;  // For depth sorting translucent sprite/alias models
 //
 // additional model data
 //
