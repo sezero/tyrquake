@@ -324,6 +324,7 @@ R_DrawSpriteModel(const entity_t *entity)
     const gl_spritedata_t *spritedata;
     vec3_t point, v_forward, v_right, v_up;
     float angle, sr, cr;
+    float alpha;
 
     sprite = entity->model->cache.data;
     frame = Mod_GetSpriteFrame(entity, sprite, cl.time + entity->syncbase);
@@ -380,7 +381,15 @@ R_DrawSpriteModel(const entity_t *entity)
             Sys_Error("%s: Bad sprite type %d", __func__, sprite->type);
     }
 
-    glColor3f(1, 1, 1);
+    alpha = ENTALPHA_DECODE(entity->alpha);
+    alpha = 1.0f;
+    if (alpha < 1.0f) {
+        glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    glColor4f(1, 1, 1, alpha);
 
     GL_DisableMultitexture();
     GL_Bind(spritedata->texture);
@@ -410,6 +419,10 @@ R_DrawSpriteModel(const entity_t *entity)
 
     glEnd();
 
+    if (alpha < 1.0f) {
+        glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+    }
     glDisable(GL_ALPHA_TEST);
 }
 
@@ -663,6 +676,7 @@ R_AliasDrawModel(entity_t *entity)
     aliashdr_t *aliashdr;
     alias_light_t light;
     lerpdata_t lerpdata;
+    float alpha;
 
     /* Calculate lerped position and cull if out of view */
     R_AliasSetupTransformLerp(entity, &lerpdata);
@@ -698,7 +712,9 @@ R_AliasDrawModel(entity_t *entity)
     /* Generate the vertex/color buffers */
     int numverts = aliashdr->numverts;
     vec_t *vertexbuf = alloca(numverts * sizeof(vec3_t));
-    vec_t *colorbuf = alloca(numverts * sizeof(vec3_t));
+    vec_t *colorbuf = alloca(numverts * 4 * sizeof(float));
+
+    alpha = ENTALPHA_DECODE(entity->alpha);
 
     if (lerpdata.blend == 1.0f) {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
@@ -714,6 +730,7 @@ R_AliasDrawModel(entity_t *entity)
             *dstcolor++ = lightscale * light.shade[0];
             *dstcolor++ = lightscale * light.shade[1];
             *dstcolor++ = lightscale * light.shade[2];
+            *dstcolor++ = alpha;
         }
     } else {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
@@ -732,6 +749,7 @@ R_AliasDrawModel(entity_t *entity)
             *dstcolor++ = lightscale * light.shade[0];
             *dstcolor++ = lightscale * light.shade[1];
             *dstcolor++ = lightscale * light.shade[2];
+            *dstcolor++ = alpha;
         }
     }
 
@@ -802,6 +820,12 @@ R_AliasDrawModel(entity_t *entity)
     if (gl_affinemodels.value)
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
+    if (alpha < 1.0f) {
+	glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     /* Draw */
@@ -818,7 +842,7 @@ R_AliasDrawModel(entity_t *entity)
         glColor3f(1.0f, 1.0f, 1.0f);
     } else {
         glEnableClientState(GL_COLOR_ARRAY);
-        glColorPointer(3, GL_FLOAT, 0, colorbuf);
+        glColorPointer(4, GL_FLOAT, 0, colorbuf);
     }
 
     if (gl_mtexable && fullbright && gl_fullbrights.value) {
@@ -839,14 +863,13 @@ R_AliasDrawModel(entity_t *entity)
     if (gl_mtexable && fullbright && gl_fullbrights.value) {
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         qglClientActiveTexture(GL_TEXTURE0);
-        glDisable(GL_BLEND);
         GL_DisableMultitexture();
     }
 
     glDisableClientState(GL_COLOR_ARRAY);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-    if (!gl_mtexable && fullbright && gl_fullbrights.value) {
+    if (!gl_mtexable && fullbright && gl_fullbrights.value && alpha == 1.0f) {
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -859,6 +882,12 @@ R_AliasDrawModel(entity_t *entity)
 
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
+    }
+
+    if (alpha < 1.0f) {
+	glColor4f(1, 1, 1, 1);
+        glDepthMask(GL_TRUE);
+	glDisable(GL_BLEND);
     }
 
     glShadeModel(GL_FLAT);
@@ -1340,6 +1369,77 @@ R_UpdateModelLighting()
 }
 
 /*
+ * Walk the depth chain and draw translucenct surfaces/entities from back to front.
+ * Intersecting translucent surfaces won't be properly clipped and ordered.
+ */
+void
+R_DrawTranslucency(void)
+{
+    depthchain_t *entry, *next;
+    msurface_t *materialchain, *tail, *surf;
+    int material;
+    byte alpha;
+    entity_t *entity;
+
+    entry = r_depthchain.next;
+    while (entry != &r_depthchain) {
+        next = entry->next;
+        switch (entry->type) {
+            case depthchain_alias:
+                R_AliasDrawModel(entry->entity);
+                break;
+            case depthchain_sprite:
+                R_DrawSpriteModel(entry->entity);
+                break;
+            case depthchain_bmodel_instanced:
+                R_DrawInstancedTranslucentBmodel(entry->entity);
+                break;
+            case depthchain_bmodel_static:
+                /* Build a chain of consecutive materials with the same alpha */
+                materialchain = tail = DepthChain_Surf(entry);
+                material = materialchain->material;
+                alpha = entry->alpha;
+                while (next->type == depthchain_bmodel_static) {
+                    surf = DepthChain_Surf(next);
+                    if (surf->material != material || next->alpha != alpha)
+                        break;
+                    tail->chain = surf;
+                    tail = surf;
+                    next = next->next;
+                }
+                tail->chain = NULL;
+
+                // DRAW
+                glLoadMatrixf(r_world_matrix);
+                R_DrawTranslucentChain(entry->entity, materialchain, ENTALPHA_DECODE(alpha));
+
+                break;
+            case depthchain_bmodel_transformed:
+                /* Build a chain of consecutive materials, from the same entity (transform) */
+                materialchain = tail = DepthChain_Surf(entry);
+                material = materialchain->material;
+                entity = entry->entity;
+                while (next->type == depthchain_bmodel_transformed) {
+                    surf = DepthChain_Surf(next);
+                    if (surf->material != material || next->entity != entity)
+                        break;
+                    tail->chain = surf;
+                    tail = surf;
+                    next = next->next;
+                }
+                tail->chain = NULL;
+
+                // DRAW
+
+                break;
+            default:
+                break;
+        }
+        entry = next;
+    }
+}
+
+/*
 ================
 R_RenderScene
 
@@ -1366,7 +1466,9 @@ R_RenderScene(void)
     R_DrawWorld();		// adds static entities to the list, handles sky surfaces for all brush models
     S_ExtraUpdate();		// don't let sound get messed up if going slow
     R_DrawEntitiesOnList();
-    R_DrawTransparentSurfaces();
+
+    R_DrawTranslucency();       // Draw all the translucent brush/alias/sprite models
+
     Fog_DisableGlobalFog();
 
     R_DrawViewModel();

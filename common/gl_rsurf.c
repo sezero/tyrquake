@@ -465,6 +465,7 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 
     if (alpha < 1.0f) {
 	glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glColor4f(1, 1, 1, qmax(alpha, 0.0f));
     }
@@ -482,6 +483,7 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
     if (alpha < 1.0f) {
 	glColor4f(1, 1, 1, 1);
 	glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
     }
 
     if (gl_mtexable) {
@@ -620,10 +622,19 @@ TriBuf_DrawFullbrightSolid(triangle_buffer_t *buffer, const texture_t *texture)
 }
 
 static void
-TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags)
+TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t *block, int flags, float alpha)
 {
-    if (flags & SURF_DRAWFENCE)
+    if (alpha < 1.0f) {
+        glDepthMask(GL_FALSE);
+        glEnable(GL_BLEND);
+        glColor4f(1, 1, 1, alpha);
+    }
+
+    if (flags & SURF_DRAWFENCE) {
         glEnable(GL_ALPHA_TEST);
+        if (alpha < 1.0f)
+            glAlphaFunc(GL_GREATER, 0.666 * alpha);
+    }
 
     if (gl_mtexable) {
 	GL_SelectTexture(GL_TEXTURE0_ARB);
@@ -670,6 +681,10 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
 	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
+        gl_draw_calls++;
+        gl_verts_submitted += buffer->numverts;
+        gl_indices_submitted += buffer->numindices;
+
         /*
          * By using the depth equal test, we automatically mask the
          * lightmap correctly on fence textures
@@ -681,11 +696,15 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         Fog_StartBlend();
         GL_Bind(block->texture);
         if (block->modified)
-        R_UploadLMBlockUpdate(block);
+            R_UploadLMBlockUpdate(block);
 
         glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
         glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+
+        gl_draw_calls++;
+        gl_verts_submitted += buffer->numverts;
+        gl_indices_submitted += buffer->numindices;
 
         Fog_StopBlend();
 
@@ -698,14 +717,14 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
             glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
             glColor3f(1, 1, 1);
+
+            gl_draw_calls++;
+            gl_verts_submitted += buffer->numverts;
+            gl_indices_submitted += buffer->numindices;
         }
 
         glDisable(GL_BLEND);
         glDepthFunc(GL_LEQUAL);
-
-	gl_draw_calls += 2;
-	gl_verts_submitted += buffer->numverts * 2;
-	gl_indices_submitted += buffer->numindices * 2;
     }
 
     if ((!gl_mtexable || gl_num_texture_units < 3) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
@@ -738,8 +757,17 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         }
     }
 
-    if (flags & SURF_DRAWFENCE)
+    if (flags & SURF_DRAWFENCE) {
+        if (alpha < 1.0f)
+            glAlphaFunc(GL_GREATER, 0.666);
         glDisable(GL_ALPHA_TEST);
+    }
+
+    if (alpha < 1.0f) {
+        glDepthMask(GL_TRUE);
+        glDisable(GL_BLEND);
+        glColor4f(1, 1, 1, 1);
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -1327,18 +1355,19 @@ DrawSkyChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
 }
 
 static void
-DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
+DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture, float alpha)
 {
     glpoly_t *poly = NULL;
 
     /* Init the correct alpha value */
-    float alpha = map_wateralpha;
-    if (surf->flags & SURF_DRAWSLIME)
-        alpha = map_slimealpha;
+    if (surf->flags & SURF_DRAWWATER)
+        alpha *= map_wateralpha;
+    else if (surf->flags & SURF_DRAWSLIME)
+        alpha *= map_slimealpha;
     else if (surf->flags & SURF_DRAWLAVA)
-        alpha = map_lavaalpha;
+        alpha *= map_lavaalpha;
     else if (surf->flags & SURF_DRAWTELE)
-        alpha = map_telealpha;
+        alpha *= map_telealpha;
 
     for ( ; surf; surf = surf->chain) {
 	for (poly = surf->polys ; poly; poly = poly->next) {
@@ -1382,7 +1411,7 @@ DrawFlatChain(triangle_buffer_t *buffer, msurface_t *surf)
 }
 
 static void
-DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbrushmodel, surface_material_t *material)
+DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbrushmodel, surface_material_t *material, float alpha)
 {
     texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
     lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
@@ -1401,7 +1430,7 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
         if (flags & SURF_DRAWTILED)
             TriBuf_DrawFullbrightSolid(buffer, texture);
         else
-            TriBuf_DrawSolid(buffer, texture, block, flags);
+            TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
 	if (surf && surf->polys)
@@ -1410,15 +1439,8 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
 }
 
 static void
-DrawMaterialChains(const entity_t *e)
+GL_BeginMaterialChains()
 {
-    int i;
-    msurface_t *surf, *materialchain;
-    brushmodel_t *brushmodel;
-    glbrushmodel_t *glbrushmodel;
-    surface_material_t *material;
-    triangle_buffer_t buffer = {0};
-
     glEnable(GL_VERTEX_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     if (gl_mtexable) {
@@ -1431,44 +1453,79 @@ DrawMaterialChains(const entity_t *e)
 
 	GL_EnableMultitexture();
     }
+}
+
+static void
+GL_EndMaterialChains()
+{
+    if (gl_mtexable) {
+	GL_DisableMultitexture();
+	qglClientActiveTexture(GL_TEXTURE1);
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	qglClientActiveTexture(GL_TEXTURE0);
+    }
+
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisable(GL_VERTEX_ARRAY);
+}
+
+static void
+DrawMaterialChain(triangle_buffer_t *buffer, glbrushmodel_t *glbrushmodel, msurface_t *materialchain, surface_material_t *material, float alpha)
+{
+    int flags = materialchain->flags;
+
+    // If drawflat enabled, all surfs go through the same path
+    if (r_drawflat.value) {
+        DrawFlatChain(buffer, materialchain);
+        return;
+    }
+
+#if DEBUG_SKY
+    // DEBUG: SKY LAST
+    if (flags & SURF_DRAWSKY)
+        return;
+#endif
+    if (flags & SURF_DRAWSKY) {
+        texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
+        DrawSkyChain(buffer, materialchain, texture);
+    } else if (flags & SURF_DRAWTURB) {
+        texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
+        DrawTurbChain(buffer, materialchain, texture, alpha);
+    } else {
+        DrawSolidChain(buffer, materialchain, glbrushmodel, material, alpha);
+    }
+}
+
+static void
+DrawMaterialChains(const entity_t *entity)
+{
+    int i;
+    float alpha;
+    msurface_t *materialchain;
+    brushmodel_t *brushmodel;
+    glbrushmodel_t *glbrushmodel;
+    surface_material_t *material;
+    triangle_buffer_t buffer = {0};
+
+    GL_BeginMaterialChains();
 
     // MATERIAL CHAIN
-    brushmodel = BrushModel(e->model);
+    brushmodel = BrushModel(entity->model);
     glbrushmodel = GLBrushModel(brushmodel);
     material = glbrushmodel->materials;
+    alpha = ENTALPHA_DECODE(entity->alpha);
     for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
 	materialchain = glbrushmodel->materialchains[i];
 	if (!materialchain)
 	    continue;
-        if (r_drawflat.value) {
-            DrawFlatChain(&buffer, materialchain);
-            continue;
-        }
-	int flags = materialchain->flags;
 
-        // Skip transparent surfaces for drawing last
-	if ((flags & SURF_DRAWWATER) && map_wateralpha < 1.0f) continue;
-	if ((flags & SURF_DRAWSLIME) && map_slimealpha < 1.0f) continue;
-	if ((flags & SURF_DRAWLAVA) && map_lavaalpha < 1.0f) continue;
-	if ((flags & SURF_DRAWTELE) && map_telealpha < 1.0f) continue;
+        // Skip transparent liquid surfaces for drawing last
+        int flags = materialchain->flags;
+        if (flags & r_surfalpha_flags)
+            return;
 
-#if DEBUG_SKY
-        // DEBUG: SKY LAST
-        if (flags & SURF_DRAWSKY)
-            continue;
-#endif
-
-	surf = materialchain;
-	texture_t *texture = brushmodel->textures[material->texturenum];
-	if (flags & SURF_DRAWSKY) {
-            DrawSkyChain(&buffer, surf, texture);
-	    continue;
-	}
-	if (flags & SURF_DRAWTURB) {
-	    DrawTurbChain(&buffer, surf, texture);
-	    continue;
-	}
-	DrawSolidChain(&buffer, surf, glbrushmodel, material);
+        DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
     }
 
 #if DEBUG_SKY
@@ -1488,66 +1545,24 @@ DrawMaterialChains(const entity_t *e)
     }
 #endif
 
-    if (gl_mtexable) {
-	GL_DisableMultitexture();
-	qglClientActiveTexture(GL_TEXTURE1);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	qglClientActiveTexture(GL_TEXTURE0);
-    }
-
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisable(GL_VERTEX_ARRAY);
+    GL_EndMaterialChains();
 }
 
-/*
- * TODO: probably rename / rework this (DrawTransparentSurfaces) some more as it's only the world surfaces right now...
- */
 void
-R_DrawTransparentSurfaces(void)
+R_DrawTranslucentChain(entity_t *entity, msurface_t *materialchain, float alpha)
 {
-    int i;
-    msurface_t *materialchain;
-    texture_t *texture;
-    triangle_buffer_t buffer = {0};
-
-    //
-    // go back to the world matrix
-    //
-    glLoadMatrixf(r_world_matrix);
-
-    GL_DisableMultitexture();
-    glEnable(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    if (gl_mtexable) {
-	qglClientActiveTexture(GL_TEXTURE0);
-    }
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDepthMask(GL_FALSE);
-
-    brushmodel_t *brushmodel = cl.worldmodel;
+    triangle_buffer_t buffer;
+    brushmodel_t *brushmodel = BrushModel(entity->model);
     glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
-    surface_material_t *material = glbrushmodel->materials;
-    for (i = 0; i < glbrushmodel->nummaterials; i++, material++) {
-	materialchain = glbrushmodel->materialchains[i];
-	if (!materialchain)
-	    continue;
-	int flags = materialchain->flags;
-	if (!(flags & SURF_DRAWTURB))
-	    continue;
-        if ((flags & SURF_DRAWWATER) && map_wateralpha >= 1.0f) continue;
-        if ((flags & SURF_DRAWSLIME) && map_slimealpha >= 1.0f) continue;
-        if ((flags & SURF_DRAWLAVA) && map_lavaalpha >= 1.0f) continue;
-        if ((flags & SURF_DRAWTELE) && map_telealpha >= 1.0f) continue;
+    surface_material_t *material = &glbrushmodel->materials[materialchain->material];
 
-	texture = brushmodel->textures[material->texturenum];
-	DrawTurbChain(&buffer, materialchain, texture);
-    }
+    GL_BeginMaterialChains();
 
-    glDepthMask(GL_TRUE);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisable(GL_VERTEX_ARRAY);
+    buffer.numverts = 0;
+    buffer.numindices = 0;
+    DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
+
+    GL_EndMaterialChains();
 }
 
 /*
