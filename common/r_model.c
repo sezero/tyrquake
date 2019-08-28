@@ -221,11 +221,30 @@ void
 DepthChain_AddSurf(depthchain_t *head, entity_t *entity, msurface_t *surf, depthchain_type_t type)
 {
     vec3_t vec;
+    int i, key, vkey;
+    const float *vertex;
+    brushmodel_t *brushmodel = BrushModel(entity->model);
 
-    VectorAdd(surf->mins, surf->maxs, vec);
-    VectorScale(vec, 0.5f, vec);                 // very rough surface centre point
-    VectorSubtract(vec, r_refdef.vieworg, vec);  // dist vector from view origin
-    surf->depthchain.key = DotProduct(vec, vec); // depth value squared
+    // This is probably terribly inefficient, but for proper depth
+    // sorting we really need to know the point at which the surf is
+    // deepest into the scene to use as the sort key.
+    key = INT_MIN;
+    for (i = 0; i < surf->numedges; i++) {
+	const int edgenum = brushmodel->surfedges[surf->firstedge + i];
+	if (edgenum >= 0) {
+	    const medge_t *const edge = &brushmodel->edges[edgenum];
+	    vertex = brushmodel->vertexes[edge->v[0]].position;
+	} else {
+	    const medge_t *const edge = &brushmodel->edges[-edgenum];
+	    vertex = brushmodel->vertexes[edge->v[1]].position;
+	}
+        VectorSubtract(vertex, r_refdef.vieworg, vec);
+        vkey = DotProduct(vec, vec); // depth value squared
+        if (vkey > key)
+            key = vkey;
+    }
+
+    surf->depthchain.key = key;
     surf->depthchain.type = type;
     surf->depthchain.entity = entity;
     if (surf->flags & r_surfalpha_flags) {
@@ -251,8 +270,11 @@ DepthChain_AddEntity(depthchain_t *head, entity_t *entity, depthchain_type_t typ
 {
     vec3_t vec;
 
-    VectorSubtract(entity->origin, r_refdef.vieworg, vec); // dist vector from view origin
-    entity->depthchain.key = DotProduct(vec, vec);         // depth value squared
+    VectorAdd(entity->model->mins, entity->model->maxs, vec);
+    VectorScale(vec, 0.5f, vec);
+    VectorAdd(entity->origin, vec, vec);            // centre of the bounding box
+    VectorSubtract(vec, r_refdef.vieworg, vec);     // dist vector from view origin
+    entity->depthchain.key = DotProduct(vec, vec);  // depth value squared
     entity->depthchain.type = type;
     entity->depthchain.entity = entity;
     DepthChain_Insert(head, &entity->depthchain);
