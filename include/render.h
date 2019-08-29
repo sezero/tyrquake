@@ -257,6 +257,10 @@ void R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj);
 //
 void Alpha_Init();
 void Alpha_NewMap();
+#ifndef GLQUAKE
+const byte *Alpha_Transtable(float alpha);
+#endif
+float R_GetSurfAlpha(int flags);
 
 extern int r_surfalpha_flags;
 extern const byte *transtable_water;

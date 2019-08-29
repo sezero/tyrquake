@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "r_local.h"
 #include "d_local.h"		// FIXME: shouldn't need to include this
+#include "protocol.h"
 
 #define MAXLEFTCLIPEDGES	100
 
@@ -477,6 +478,9 @@ R_RenderFace(const entity_t *e, msurface_t *surf, int clipflags)
     surface_p->key = r_currentkey++;
     surface_p->spans = NULL;
 
+    /* Flag alpha surfs */
+    surface_p->alphatable = Alpha_Transtable(R_GetSurfAlpha(surf->flags));
+
     pplane = surf->plane;
 // FIXME: cache this?
     TransformVector(pplane->normal, p_normal);
@@ -498,9 +502,10 @@ R_RenderBmodelFace
 ================
 */
 void
-R_RenderBmodelFace(const entity_t *e, bedge_t *pedges, msurface_t *psurf)
+R_RenderBmodelFace(const entity_t *entity, bedge_t *pedges, msurface_t *psurf)
 {
     int i;
+    float alpha;
     unsigned mask;
     mplane_t *pplane;
     float distinv;
@@ -577,9 +582,17 @@ R_RenderBmodelFace(const entity_t *e, bedge_t *pedges, msurface_t *psurf)
     surface_p->flags = psurf->flags;
     surface_p->insubmodel = true;
     surface_p->spanstate = 0;
-    surface_p->entity = e;
+    surface_p->entity = entity;
     surface_p->key = r_currentbkey;
     surface_p->spans = NULL;
+
+    /* Flag alpha surfs */
+    alpha = R_GetSurfAlpha(psurf->flags);
+    if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
+        alpha *= ENTALPHA_DECODE(entity->alpha);
+        surface_p->flags |= SURF_DRAWENTALPHA;
+    }
+    surface_p->alphatable = Alpha_Transtable(alpha);
 
     pplane = psurf->plane;
 // FIXME: cache this?

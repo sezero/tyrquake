@@ -71,6 +71,7 @@ extern fixed16_t sadjust, tadjust;
 extern fixed16_t bbextents, bbextentt;
 
 void D_DrawSpans8(espan_t *pspans);
+void D_DrawSpans8_Translucent(espan_t *pspans);
 void D_DrawSpans8_Fence(espan_t *pspans);
 void D_DrawSpans16(espan_t *pspans);
 extern void (*D_DrawSpans)(espan_t *pspan);
@@ -99,7 +100,7 @@ extern void D_PolysetAff8End(void);
 
 extern short *d_pzbuffer;
 extern unsigned int d_zrowbytes, d_zwidth;
-extern const byte *r_turb_transtable;
+extern const byte *r_transtable;
 extern void (*D_DrawTurbSpanFunc)(void);
 
 extern int *d_pscantable;

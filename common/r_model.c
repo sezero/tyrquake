@@ -51,10 +51,10 @@ const byte *transtable_tele;
  * Returns the closest matching translation table for the given alpha
  * value between zero and one.
  */
-static byte *
+const byte *
 Alpha_Transtable(float alpha)
 {
-    if (!alpha)
+    if (!alpha || alpha == 1.0f)
         return NULL;
 
     int tablenum = qclamp((int)floorf(alpha * num_transtables), 0, num_transtables - 1);
@@ -191,6 +191,25 @@ R_GetTranslationTable(int topcolor, int bottomcolor)
     return translation_table;
 }
 
+float
+R_GetSurfAlpha(int flags)
+{
+    float alpha;
+
+    if (!(flags & (SURF_DRAWWATER | SURF_DRAWSLIME | SURF_DRAWLAVA | SURF_DRAWTELE)))
+        alpha = 1.0f;
+    else if (flags & SURF_DRAWWATER)
+        alpha = map_wateralpha;
+    else if (flags & SURF_DRAWSLIME)
+        alpha = map_slimealpha;
+    else if (flags & SURF_DRAWLAVA)
+        alpha = map_lavaalpha;
+    else //if (flags & SURF_DRAWTELE)
+        alpha = map_telealpha;
+
+    return alpha;
+}
+
 //
 // Depth sorting helpers
 //
@@ -220,6 +239,7 @@ DepthChain_Init(depthchain_t *head)
 void
 DepthChain_AddSurf(depthchain_t *head, entity_t *entity, msurface_t *surf, depthchain_type_t type)
 {
+    float alpha;
     vec3_t vec;
     int i, key, vkey;
     const float *vertex;
@@ -248,15 +268,7 @@ DepthChain_AddSurf(depthchain_t *head, entity_t *entity, msurface_t *surf, depth
     surf->depthchain.type = type;
     surf->depthchain.entity = entity;
     if (surf->flags & r_surfalpha_flags) {
-        float alpha = ENTALPHA_DECODE(entity->alpha);
-        if (surf->flags & SURF_DRAWWATER)
-            alpha *= map_wateralpha;
-        else if (surf->flags & SURF_DRAWSLIME)
-            alpha *= map_slimealpha;
-        else if (surf->flags & SURF_DRAWLAVA)
-            alpha *= map_lavaalpha;
-        else if (surf->flags & SURF_DRAWTELE)
-            alpha *= map_telealpha;
+        alpha = ENTALPHA_DECODE(entity->alpha) * R_GetSurfAlpha(surf->flags);
         surf->depthchain.alpha = ENTALPHA_ENCODE(alpha);
     } else {
         surf->depthchain.alpha = entity->alpha;

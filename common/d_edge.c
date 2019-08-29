@@ -180,20 +180,9 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
     } else if (surf->flags & SURF_DRAWTURB) {
 
         // Set the translucency table to trigger alpha blending
-        if (surf->flags & r_surfalpha_flags) {
-            if (surf->flags & SURF_DRAWWATER)
-                r_turb_transtable = transtable_water;
-            else if (surf->flags & SURF_DRAWSLIME)
-                r_turb_transtable = transtable_slime;
-            else if (surf->flags & SURF_DRAWLAVA)
-                r_turb_transtable = transtable_lava;
-            else if (surf->flags & SURF_DRAWTELE)
-                r_turb_transtable = transtable_tele;
-            if (!r_turb_transtable)
-                return; // Completely transparent
-        } else {
-            r_turb_transtable = NULL;
-        }
+        if ((surf->flags & r_surfalpha_flags) && !surf->alphatable)
+            return; // Completely transparent
+        r_transtable = surf->alphatable;
 
         pface = surf->data;
         miplevel = 0;
@@ -203,12 +192,12 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
 
         /* Set the appropriate span drawing function */
         if (cachewidth == 64 && cacheheight == 64) {
-            if (r_turb_transtable)
+            if (r_transtable)
                 D_DrawTurbSpanFunc = D_DrawTurbulentTranslucent8Span;
             else
                 D_DrawTurbSpanFunc = D_DrawTurbulent8Span;
         } else {
-            if (r_turb_transtable)
+            if (r_transtable)
                 D_DrawTurbSpanFunc = D_DrawTurbulentTranslucent8Span_NonStd;
             else
                 D_DrawTurbSpanFunc = D_DrawTurbulent8Span_NonStd;
@@ -227,7 +216,7 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
         Turbulent8(surf->spans);
 
         // Only need to fill Z for opaque surfaces
-        if (!r_turb_transtable)
+        if (!r_transtable)
             D_DrawZSpans(surf->spans);
 
         if (surf->insubmodel) {
@@ -298,8 +287,14 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
         cachewidth = pcurrentcache->width;
 
         D_CalcGradients(pface);
-        D_DrawSpans(surf->spans);
-        D_DrawZSpans(surf->spans);
+
+        r_transtable = surf->alphatable;
+        if (r_transtable) {
+            D_DrawSpans8_Translucent(surf->spans);
+        } else {
+            D_DrawSpans(surf->spans);
+            D_DrawZSpans(surf->spans);
+        }
 
         if (surf->insubmodel) {
             //

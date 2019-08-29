@@ -111,7 +111,7 @@ R_BeginEdgeFrame(void)
     memset(&removeedges[v], 0, (r_refdef.vrectbottom - v) * sizeof(removeedges[0]));
 
     /* Setup scan flags for translucent surfaces */
-    r_translucent_flags = SURF_DRAWFENCE | r_surfalpha_flags;
+    r_translucent_flags = SURF_DRAWENTALPHA | SURF_DRAWFENCE | r_surfalpha_flags;
 }
 
 

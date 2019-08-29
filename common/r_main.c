@@ -1168,11 +1168,11 @@ R_RenderView_(void)
     R_DrawParticles();
 
     /* Now translucent liquids! */
-    if (scanflags.found & r_surfalpha_flags) {
+    if (scanflags.found & (r_surfalpha_flags | SURF_DRAWENTALPHA)) {
         memcpy(surfaces + 1, savesurfs, numsavesurfs * sizeof(*surfaces));
         memcpy(r_edges, saveedges, numsaveedges * sizeof(*r_edges));
         VectorCopy(r_origin, modelorg);
-        R_ScanEdges(r_surfalpha_flags, &scanflags);
+        R_ScanEdges(r_surfalpha_flags | SURF_DRAWENTALPHA, &scanflags);
     }
 
     if (r_dspeeds.value)
