@@ -443,7 +443,7 @@ to power-of-two sizes.  Default 1.
 .IP "\fBr_fullbright\fP"
 .IP "\fBr_drawentities\fP"
 .IP "\fBr_drawviewmodel\fP"
-.IP "\fBr_lerpmodels 0\fP|\fB1\fP (tyr-quake,tyr-glquake only)"
+.IP "\fBr_lerpmodels 0\fP|\fB1\fP"
 If 1, smooth out animation of alias models by interpolating between
 animation frames. If enabling this setting, it is recommended to enable
 r_lerpmove as well. Default 0.
@@ -739,14 +739,14 @@ mode while depressed.
 .IP "\fBsys_extrasleep\fP"
 .IP "\fB_debug_models\fP"
 (for debugging purposes only) If 1, draw some debugging information above each
-model (currently just alias models, and GLQuake only).  Default 0.
+model (GLQuake only for now).  Default 0.
 
 .SH FILES
 .SH ENVIRONMENT
 .SH BUGS
 .SH AUTHOR
 .SH COPYRIGHT
-Copyright (C) 2013 Kevin Shanahan
+Copyright (C) 2013-2019 Kevin Shanahan
 .br
 Copyright (C) 1997 id Software
 .PP
