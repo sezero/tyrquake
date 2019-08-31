@@ -20,7 +20,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // r_sprite.c
 
 #include "console.h"
+#include "d_local.h"
 #include "model.h"
+#include "protocol.h"
 #include "quakedef.h"
 #include "r_local.h"
 #include "sys.h"
@@ -255,22 +257,22 @@ R_DrawSprite
 ================
 */
 void
-R_DrawSprite(const entity_t *e)
+R_DrawSprite(const entity_t *entity)
 {
     int i;
-    msprite_t *psprite;
+    msprite_t *sprite;
     vec3_t tvec;
     float dot, angle, sr, cr;
 
-    psprite = e->model->cache.data;
+    sprite = entity->model->cache.data;
 
-    r_spritedesc.pspriteframe = Mod_GetSpriteFrame(e, psprite, cl.time + e->syncbase);
+    r_spritedesc.pspriteframe = Mod_GetSpriteFrame(entity, sprite, cl.time + entity->syncbase);
 
     sprite_width = r_spritedesc.pspriteframe->width;
     sprite_height = r_spritedesc.pspriteframe->height;
 
     // TODO: make this caller-selectable
-    switch (psprite->type) {
+    switch (sprite->type) {
         case SPR_FACING_UPRIGHT:
             // generate the sprite's axes, with vup straight up in worldspace, and
             // r_spritedesc.vright perpendicular to modelorg.
@@ -337,13 +339,13 @@ R_DrawSprite(const entity_t *e)
             break;
         case SPR_ORIENTED:
             // generate the sprite's axes, according to the sprite's world orientation
-            AngleVectors(e->angles, r_spritedesc.vpn, r_spritedesc.vright, r_spritedesc.vup);
+            AngleVectors(entity->angles, r_spritedesc.vpn, r_spritedesc.vright, r_spritedesc.vup);
             break;
         case SPR_VP_PARALLEL_ORIENTED:
             // generate the sprite's axes, parallel to the viewplane, but rotated in
             // that plane around the center according to the sprite entity's roll
             // angle. So vpn stays the same, but vright and vup rotate
-            angle = e->angles[ROLL] * (M_PI * 2 / 360);
+            angle = entity->angles[ROLL] * (M_PI * 2 / 360);
             sr = sin(angle);
             cr = cos(angle);
 
@@ -354,10 +356,17 @@ R_DrawSprite(const entity_t *e)
             }
             break;
         default:
-            Sys_Error("%s: Bad sprite type %d", __func__, psprite->type);
+            Sys_Error("%s: Bad sprite type %d", __func__, sprite->type);
     }
 
-    R_RotateSprite(psprite->beamlength);
+    R_RotateSprite(sprite->beamlength);
+
+    /* Setup alpha table if required */
+    if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
+        r_transtable = Alpha_Transtable(ENTALPHA_DECODE(entity->alpha));
+    } else {
+        r_transtable = NULL;
+    }
 
     R_SetupAndDrawSprite();
 }
