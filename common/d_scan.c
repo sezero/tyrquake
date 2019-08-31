@@ -160,7 +160,7 @@ D_DrawTurbulentTranslucent8Span()
             tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
             tturb = (tturb >> 16) & (TURB_TEX_SIZE - 1);
             pixel = *(r_turb_pbase + (tturb << TURB_TEX_SHIFT) + sturb);
-            *r_turb_pdest = r_transtable[((int)(*r_turb_pdest) << 8) + pixel];
+            *r_turb_pdest = r_transtable[(((int)*r_turb_pdest) << 8) + pixel];
         }
         r_turb_pdest++;
         r_turb_pz++;
@@ -183,7 +183,7 @@ D_DrawTurbulentTranslucent8Span_NonStd()
             tturb = r_turb_t + r_turb_turb[(r_turb_s >> 16) & (TURB_CYCLE - 1)];
             tturb = (tturb >> 16) % cacheheight;
             pixel = *(r_turb_pbase + (tturb * cachewidth) + sturb);
-            *r_turb_pdest = r_transtable[((int)(*r_turb_pdest) << 8) + pixel];
+            *r_turb_pdest = r_transtable[(((int)*r_turb_pdest) << 8) + pixel];
         }
         r_turb_pdest++;
         r_turb_pz++;
@@ -580,7 +580,7 @@ D_DrawSpans8_Translucent(espan_t *pspan)
 	    do {
                 if ((izi >> 16) >= *pz) {
                     int pixel = *(pbase + (s >> 16) + (t >> 16) * cachewidth);
-                    *pdest = r_transtable[(pixel << 8) + *pdest];
+                    *pdest = r_transtable[(((int)*pdest) << 8) + pixel];
                 }
                 izi += izistep;
                 pdest++;
