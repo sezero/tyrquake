@@ -73,6 +73,7 @@ extern fixed16_t bbextents, bbextentt;
 void D_DrawSpans8(espan_t *pspans);
 void D_DrawSpans8_Translucent(espan_t *pspans);
 void D_DrawSpans8_Fence(espan_t *pspans);
+void D_DrawSpans8_Fence_Translucent(espan_t *pspans);
 void D_DrawSpans16(espan_t *pspans);
 extern void (*D_DrawSpans)(espan_t *pspan);
 

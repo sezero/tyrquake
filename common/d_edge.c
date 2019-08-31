@@ -242,6 +242,7 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
             R_RotateBmodel(entity); // FIXME: don't mess with the frustum
         }
 
+        r_transtable = surf->alphatable;
         pface = surf->data;
         miplevel = D_MipLevelForScale(surf->nearzi * scale_for_mip * pface->texinfo->mipadjust);
 
@@ -252,7 +253,11 @@ D_DrawSurface(surf_t *surf, const entity_t *entity, vec3_t world_transformed_mod
         cachewidth = pcurrentcache->width;
 
         D_CalcGradients(pface);
-        D_DrawSpans8_Fence(surf->spans);
+        if (r_transtable) {
+            D_DrawSpans8_Fence_Translucent(surf->spans);
+        } else {
+            D_DrawSpans8_Fence(surf->spans);
+        }
 
         if (surf->insubmodel) {
             //
