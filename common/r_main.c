@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "cmd.h"
 #include "console.h"
+#include "protocol.h"
 #include "quakedef.h"
 #include "r_local.h"
 #include "r_shared.h"
@@ -779,6 +780,57 @@ R_DrawEntitiesOnList(void)
 	if (entity == &cl_entities[cl.viewentity])
 	    continue;		// don't draw the player
 #endif
+
+        // Draw translucent entities separately
+        if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE)
+            continue;
+
+	switch (entity->model->type) {
+	case mod_sprite:
+	    VectorCopy(entity->origin, r_entorigin);
+	    VectorSubtract(r_origin, r_entorigin, modelorg);
+	    R_DrawSprite(entity);
+	    break;
+
+        case mod_alias:
+            /*
+             * Allow drawing function to set up r_entorigin and
+             * modelorg internally, to properly account for lerping
+             */
+            R_AliasDrawModel(entity);
+	    break;
+
+	default:
+	    break;
+	}
+    }
+}
+
+/*
+=============
+R_DrawEntitiesOnList_Translucent
+=============
+*/
+static void
+R_DrawEntitiesOnList_Translucent(void)
+{
+    int i;
+    entity_t *entity;
+
+    if (!r_drawentities.value)
+	return;
+
+    for (i = 0; i < cl_numvisedicts; i++) {
+	entity = cl_visedicts[i];
+#ifdef NQ_HACK
+	if (entity == &cl_entities[cl.viewentity])
+	    continue;		// don't draw the player
+#endif
+
+        // Draw translucent entities only
+        if (entity->alpha == ENTALPHA_DEFAULT || entity->alpha == ENTALPHA_ONE)
+            continue;
+
 	switch (entity->model->type) {
 	case mod_sprite:
 	    VectorCopy(entity->origin, r_entorigin);
@@ -1167,13 +1219,16 @@ R_RenderView_(void)
 
     R_DrawParticles();
 
-    /* Now translucent liquids! */
+    /* Now translucent brush models */
     if (scanflags.found & (r_surfalpha_flags | SURF_DRAWENTALPHA)) {
         memcpy(surfaces + 1, savesurfs, numsavesurfs * sizeof(*surfaces));
         memcpy(r_edges, saveedges, numsaveedges * sizeof(*r_edges));
         VectorCopy(r_origin, modelorg);
         R_ScanEdges(r_surfalpha_flags | SURF_DRAWENTALPHA, &scanflags);
     }
+
+    /* Now translucent aliasmodels/sprites */
+    R_DrawEntitiesOnList_Translucent();
 
     if (r_dspeeds.value)
 	dp_time2 = Sys_DoubleTime();

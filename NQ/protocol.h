@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // protocol.h -- communications protocols
 
+#include "mathlib.h"
+#include "model.h"
 #include "qtypes.h"
 
 #define PROTOCOL_VERSION_NQ   15

@@ -108,6 +108,11 @@ void D_PolysetScanLeftEdge(int height);
 static void D_PolysetRecursiveTriangle(int *p1, int *p2, int *p3);
 #endif
 
+// Translucent draw functions
+static void D_PolysetDrawSpans8_Translucent(spanpackage_t *pspanpackage);
+static void D_PolysetRecursiveTriangle_Translucent(int *lp1, int *lp2, int *lp3);
+
+
 /*
 ================
 D_PolysetDraw
@@ -200,7 +205,11 @@ D_DrawSubdiv(void)
 	d_pcolormap = &((byte *)acolormap)[index0->v[4] & 0xFF00];
 
 	if (ptri[i].facesfront) {
-	    D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
+            if (r_transtable) {
+                D_PolysetRecursiveTriangle_Translucent(index0->v, index1->v, index2->v);
+            } else {
+                D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
+            }
 	} else {
 	    int s0, s1, s2;
 
@@ -215,8 +224,11 @@ D_DrawSubdiv(void)
 	    if (index2->flags & ALIAS_ONSEAM)
 		index2->v[2] += r_affinetridesc.seamfixupX16;
 
-	    D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
-
+            if (r_transtable) {
+                D_PolysetRecursiveTriangle_Translucent(index0->v, index1->v, index2->v);
+            } else {
+                D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
+            }
 	    index0->v[2] = s0;
 	    index1->v[2] = s1;
 	    index2->v[2] = s2;
@@ -407,7 +419,6 @@ D_PolysetScanLeftEdge
 void
 D_PolysetScanLeftEdge(int height)
 {
-
     do {
 	d_pedgespanpackage->pdest = d_pdest;
 	d_pedgespanpackage->pz = d_pz;
@@ -807,8 +818,13 @@ D_RasterizeAliasPolySmooth(void)
     d_aspancount = 0;
     d_countextrastep = ubasestep + 1;
     originalcount = a_spans[initialrightheight].count;
-    a_spans[initialrightheight].count = -999999;	// mark end of the spanpackages
-    D_PolysetDrawSpans8(a_spans);
+    a_spans[initialrightheight].count = -999999; // mark end of the spanpackages
+
+    if (r_transtable) {
+        D_PolysetDrawSpans8_Translucent(a_spans);
+    } else {
+        D_PolysetDrawSpans8(a_spans);
+    }
 
 // scan out the bottom part of the right edge, if it exists
     if (pedgetable->numrightedges == 2) {
@@ -829,9 +845,13 @@ D_RasterizeAliasPolySmooth(void)
 				  prightbottom[0], prightbottom[1]);
 
 	d_countextrastep = ubasestep + 1;
-	a_spans[initialrightheight + height].count = -999999;
-	// mark end of the spanpackages
-	D_PolysetDrawSpans8(pstart);
+	a_spans[initialrightheight + height].count = -999999; // mark end of the spanpackages
+
+        if (r_transtable) {
+            D_PolysetDrawSpans8_Translucent(pstart);
+        } else {
+            D_PolysetDrawSpans8(pstart);
+        }
     }
 }
 
@@ -890,3 +910,179 @@ D_PolysetSetEdgeTable(void)
 
     pedgetable = &edgetables[edgetableindex];
 }
+
+
+// ======================================================================
+// Translucency
+// ======================================================================
+
+/*
+================
+D_PolysetDrawSpans8_Translucent
+================
+*/
+static void
+D_PolysetDrawSpans8_Translucent(spanpackage_t *pspanpackage)
+{
+    int lcount;
+    byte *lpdest;
+    byte *lptex;
+    int lsfrac, ltfrac;
+    int llight;
+    int lzi;
+    short *lpz;
+
+    do {
+	lcount = d_aspancount - pspanpackage->count;
+
+	errorterm += erroradjustup;
+	if (errorterm >= 0) {
+	    d_aspancount += d_countextrastep;
+	    errorterm -= erroradjustdown;
+	} else {
+	    d_aspancount += ubasestep;
+	}
+
+	if (lcount) {
+	    lpdest = pspanpackage->pdest;
+	    lptex = pspanpackage->ptex;
+	    lpz = pspanpackage->pz;
+	    lsfrac = pspanpackage->sfrac;
+	    ltfrac = pspanpackage->tfrac;
+	    llight = pspanpackage->light;
+	    lzi = pspanpackage->zi;
+
+	    do {
+		if ((lzi >> 16) >= *lpz) {
+                    int pixel = ((byte *)acolormap)[*lptex + (llight & 0xFF00)];
+		    *lpdest = r_transtable[(((int)*lpdest) << 8) + pixel];
+		}
+		lpdest++;
+		lzi += r_zistepx;
+		lpz++;
+		llight += r_lstepx;
+		lptex += a_ststepxwhole;
+		lsfrac += a_sstepxfrac;
+		lptex += lsfrac >> 16;
+		lsfrac &= 0xFFFF;
+		ltfrac += a_tstepxfrac;
+		if (ltfrac & 0x10000) {
+		    lptex += r_affinetridesc.skinwidth;
+		    ltfrac &= 0xFFFF;
+		}
+	    } while (--lcount);
+	}
+
+	pspanpackage++;
+    } while (pspanpackage->count != -999999);
+}
+
+/*
+================
+D_PolysetDrawFinalVerts_Translucent
+================
+*/
+void
+D_PolysetDrawFinalVerts_Translucent(finalvert_t *fv, int numverts)
+{
+    int i, z;
+    short *zbuf;
+    byte *pdest;
+
+    for (i = 0; i < numverts; i++, fv++) {
+	// valid triangle coordinates for filling can include the bottom and
+	// right clip edges, due to the fill rule; these shouldn't be drawn
+	if ((fv->v[0] < r_refdef.vrectright) &&
+	    (fv->v[1] < r_refdef.vrectbottom)) {
+	    z = fv->v[5] >> 16;
+	    zbuf = zspantable[fv->v[1]] + fv->v[0];
+	    if (z >= *zbuf) {
+		int pixel = skintable[fv->v[3] >> 16][fv->v[2] >> 16];
+		pixel = ((byte *)acolormap)[pixel + (fv->v[4] & 0xFF00)];
+                pdest = &d_viewbuffer[d_scantable[fv->v[1]] + fv->v[0]];
+                *pdest = r_transtable[(((int)*pdest) << 8) + pixel];
+	    }
+	}
+    }
+}
+
+
+/*
+================
+D_PolysetRecursiveTriangle_Translucent
+================
+*/
+static void
+D_PolysetRecursiveTriangle_Translucent(int *lp1, int *lp2, int *lp3)
+{
+    int *temp;
+    int d;
+    int new[6];
+    int z;
+    short *zbuf;
+
+    d = lp2[0] - lp1[0];
+    if (d < -1 || d > 1)
+	goto split;
+    d = lp2[1] - lp1[1];
+    if (d < -1 || d > 1)
+	goto split;
+
+    d = lp3[0] - lp2[0];
+    if (d < -1 || d > 1)
+	goto split2;
+    d = lp3[1] - lp2[1];
+    if (d < -1 || d > 1)
+	goto split2;
+
+    d = lp1[0] - lp3[0];
+    if (d < -1 || d > 1)
+	goto split3;
+    d = lp1[1] - lp3[1];
+    if (d < -1 || d > 1) {
+      split3:
+	temp = lp1;
+	lp1 = lp3;
+	lp3 = lp2;
+	lp2 = temp;
+
+	goto split;
+    }
+
+    return;			// entire tri is filled
+
+  split2:
+    temp = lp1;
+    lp1 = lp2;
+    lp2 = lp3;
+    lp3 = temp;
+
+  split:
+// split this edge
+    new[0] = (lp1[0] + lp2[0]) >> 1;
+    new[1] = (lp1[1] + lp2[1]) >> 1;
+    new[2] = (lp1[2] + lp2[2]) >> 1;
+    new[3] = (lp1[3] + lp2[3]) >> 1;
+    new[5] = (lp1[5] + lp2[5]) >> 1;
+
+// draw the point if splitting a leading edge
+    if (lp2[1] > lp1[1])
+	goto nodraw;
+    if ((lp2[1] == lp1[1]) && (lp2[0] < lp1[0]))
+	goto nodraw;
+
+
+    z = new[5] >> 16;
+    zbuf = zspantable[new[1]] + new[0];
+    if (z >= *zbuf) {
+	int pixel = d_pcolormap[skintable[new[3] >> 16][new[2] >> 16]];
+        byte *pdest = &d_viewbuffer[d_scantable[new[1]] + new[0]];
+        *pdest = r_transtable[(((int)*pdest) << 8) + pixel];
+    }
+
+  nodraw:
+// recursively continue
+    D_PolysetRecursiveTriangle_Translucent(lp3, lp1, new);
+    D_PolysetRecursiveTriangle_Translucent(lp3, new, lp2);
+}
+

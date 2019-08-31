@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "cvar.h"
 #include "model.h"
+#include "protocol.h"
 #include "quakedef.h"
 #include "r_local.h"
 #include "sys.h"
@@ -602,9 +603,13 @@ R_AliasPrepareUnclippedPoints(aliashdr_t *pahdr, finalvert_t *pfinalverts)
 
     R_AliasTransformAndProjectFinalVerts(pfinalverts, pstverts);
 
-    if (r_affinetridesc.drawtype)
-	D_PolysetDrawFinalVerts(pfinalverts, r_anumverts);
-
+    if (r_affinetridesc.drawtype) {
+        if (r_transtable) {
+            D_PolysetDrawFinalVerts_Translucent(pfinalverts, r_anumverts);
+        } else {
+            D_PolysetDrawFinalVerts(pfinalverts, r_anumverts);
+        }
+    }
     r_affinetridesc.pfinalverts = pfinalverts;
     r_affinetridesc.ptriangles = (mtriangle_t *)((byte *)pahdr +
 						 SW_Aliashdr(pahdr)->triangles);
@@ -792,6 +797,9 @@ R_AliasDrawModel(entity_t *entity)
     if (!R_AliasCheckBBox(entity, aliashdr))
         return;
 
+    if (entity->alpha == ENTALPHA_ZERO)
+        return;
+
     r_amodels_drawn++;
 
 // cache align
@@ -805,8 +813,7 @@ R_AliasDrawModel(entity_t *entity)
     if (!entity->colormap)
 	Sys_Error("%s: !entity->colormap", __func__);
 
-    r_affinetridesc.drawtype = (entity->trivial_accept == 3) &&
-	r_recursiveaffinetriangles;
+    r_affinetridesc.drawtype = (entity->trivial_accept == 3) &&	r_recursiveaffinetriangles;
 
     if (r_affinetridesc.drawtype) {
 	D_PolysetUpdateTables();	// FIXME: precalc...
@@ -822,6 +829,12 @@ R_AliasDrawModel(entity_t *entity)
 	ziscale = ((float)0x8000) * ((float)0x10000);
     else
 	ziscale = ((float)0x8000) * ((float)0x10000) * 3.0;
+
+    if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
+        r_transtable = Alpha_Transtable(ENTALPHA_DECODE(entity->alpha));
+    } else {
+        r_transtable = NULL;
+    }
 
     if (entity->trivial_accept)
 	R_AliasPrepareUnclippedPoints(aliashdr, pfinalverts);
