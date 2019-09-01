@@ -106,11 +106,10 @@ void D_PolysetScanLeftEdge(int height);
 
 #ifndef USE_X86_ASM
 static void D_PolysetRecursiveTriangle(int *p1, int *p2, int *p3);
-#endif
-
-// Translucent draw functions
 static void D_PolysetDrawSpans8_Translucent(spanpackage_t *pspanpackage);
 static void D_PolysetRecursiveTriangle_Translucent(int *lp1, int *lp2, int *lp3);
+#endif
+
 
 
 /*
@@ -916,6 +915,8 @@ D_PolysetSetEdgeTable(void)
 // Translucency
 // ======================================================================
 
+#ifndef USE_X86_ASM
+
 /*
 ================
 D_PolysetDrawSpans8_Translucent
@@ -1006,7 +1007,6 @@ D_PolysetDrawFinalVerts_Translucent(finalvert_t *fv, int numverts)
     }
 }
 
-
 /*
 ================
 D_PolysetRecursiveTriangle_Translucent
@@ -1086,3 +1086,4 @@ D_PolysetRecursiveTriangle_Translucent(int *lp1, int *lp2, int *lp3)
     D_PolysetRecursiveTriangle_Translucent(lp3, new, lp2);
 }
 
+#endif

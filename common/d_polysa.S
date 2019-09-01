@@ -36,8 +36,13 @@ temp0:			.single		0
 temp1:			.single		0
 Ltemp:			.single		0
 
-aff8entryvec_table:	.long	LDraw8, LDraw7, LDraw6, LDraw5
-			.long	LDraw4, LDraw3, LDraw2, LDraw1
+aff8entryvec_table:
+	.long	LDraw8, LDraw7, LDraw6, LDraw5
+	.long	LDraw4, LDraw3, LDraw2, LDraw1
+
+aff8entryvec_table_translucent:
+	.long	LTDraw8, LTDraw7, LTDraw6, LTDraw5
+	.long	LTDraw4, LTDraw3, LTDraw2, LTDraw1
 
 lzistepx:		.long	0
 
@@ -721,10 +726,269 @@ LDone:
 	popl	%ebp				// restore caller stack frame pointer
 	ret	$12
 
+// ----------------------------------------------------------------------
+// TRANSLUCENT
+// ----------------------------------------------------------------------
+
+    .globl C(D_PolysetRecursiveTriangle_Translucent)
+C(D_PolysetRecursiveTriangle_Translucent):
+	pushl	%ebp			// preserve caller stack frame pointer
+	pushl	%esi			// preserve register variables
+	pushl	%edi
+	pushl	%ebx
+
+//	int	*temp;
+//	int	d;
+//	int	new[6];
+//	int	i;
+//	int	z;
+//	short	*zbuf;
+	movl	lp2(%esp),%esi
+	movl	lp1(%esp),%ebx
+	movl	lp3(%esp),%edi
+
+//	d = lp2[0] - lp1[0];
+//	if (d < -1 || d > 1)
+//		goto split;
+	movl	0(%esi),%eax
+
+	movl	0(%ebx),%edx
+	movl	4(%esi),%ebp
+
+	subl	%edx,%eax
+	movl	4(%ebx),%ecx
+
+	subl	%ecx,%ebp
+	incl	%eax
+
+	cmpl	$2,%eax
+	ja	LTSplit
+
+//	d = lp2[1] - lp1[1];
+//	if (d < -1 || d > 1)
+//		goto split;
+	movl	0(%edi),%eax
+	incl	%ebp
+
+	cmpl	$2,%ebp
+	ja	LTSplit
+
+//	d = lp3[0] - lp2[0];
+//	if (d < -1 || d > 1)
+//		goto split2;
+	movl	0(%esi),%edx
+	movl	4(%edi),%ebp
+
+	subl	%edx,%eax
+	movl	4(%esi),%ecx
+
+	subl	%ecx,%ebp
+	incl	%eax
+
+	cmpl	$2,%eax
+	ja	LTSplit2
+
+//	d = lp3[1] - lp2[1];
+//	if (d < -1 || d > 1)
+//		goto split2;
+	movl	0(%ebx),%eax
+	incl	%ebp
+
+	cmpl	$2,%ebp
+	ja	LTSplit2
+
+//	d = lp1[0] - lp3[0];
+//	if (d < -1 || d > 1)
+//		goto split3;
+	movl	0(%edi),%edx
+	movl	4(%ebx),%ebp
+
+	subl	%edx,%eax
+	movl	4(%edi),%ecx
+
+	subl	%ecx,%ebp
+	incl	%eax
+
+	incl	%ebp
+	movl	%ebx,%edx
+
+	cmpl	$2,%eax
+	ja	LTSplit3
+
+//	d = lp1[1] - lp3[1];
+//	if (d < -1 || d > 1)
+//	{
+//split3:
+//		temp = lp1;
+//		lp3 = lp2;
+//		lp1 = lp3;
+//		lp2 = temp;
+//		goto split;
+//	}
+//
+//	return;			// entire tri is filled
+//
+	cmpl	$2,%ebp
+	jna	LTDone
+
+LTSplit3:
+	movl	%edi,%ebx
+	movl	%esi,%edi
+	movl	%edx,%esi
+	jmp	LTSplit
+
+//split2:
+LTSplit2:
+
+//	temp = lp1;
+//	lp1 = lp2;
+//	lp2 = lp3;
+//	lp3 = temp;
+	movl	%ebx,%eax
+	movl	%esi,%ebx
+	movl	%edi,%esi
+	movl	%eax,%edi
+
+//split:
+LTSplit:
+
+	subl	$24,%esp		// allocate space for a new vertex
+
+//// split this edge
+//	new[0] = (lp1[0] + lp2[0]) >> 1;
+//	new[1] = (lp1[1] + lp2[1]) >> 1;
+//	new[2] = (lp1[2] + lp2[2]) >> 1;
+//	new[3] = (lp1[3] + lp2[3]) >> 1;
+//	new[5] = (lp1[5] + lp2[5]) >> 1;
+	movl	8(%ebx),%eax
+
+	movl	8(%esi),%edx
+	movl	12(%ebx),%ecx
+
+	addl	%edx,%eax
+	movl	12(%esi),%edx
+
+	sarl	$1,%eax
+	addl	%edx,%ecx
+
+	movl	%eax,8(%esp)
+	movl	20(%ebx),%eax
+
+	sarl	$1,%ecx
+	movl	20(%esi),%edx
+
+	movl	%ecx,12(%esp)
+	addl	%edx,%eax
+
+	movl	0(%ebx),%ecx
+	movl	0(%esi),%edx
+
+	sarl	$1,%eax
+	addl	%ecx,%edx
+
+	movl	%eax,20(%esp)
+	movl	4(%ebx),%eax
+
+	sarl	$1,%edx
+	movl	4(%esi),%ebp
+
+	movl	%edx,0(%esp)
+	addl	%eax,%ebp
+
+	sarl	$1,%ebp
+	movl	%ebp,4(%esp)
+
+//// draw the point if splitting a leading edge
+//	if (lp2[1] > lp1[1])
+//		goto nodraw;
+	cmpl	%eax,4(%esi)
+	jg	LTNoDraw
+
+//	if ((lp2[1] == lp1[1]) && (lp2[0] < lp1[0]))
+//		goto nodraw;
+	movl	0(%esi),%edx
+	jnz	LTDraw
+
+	cmpl	%ecx,%edx
+	jl	LTNoDraw
+
+LTDraw:
+
+// z = new[5] >> 16;
+	movl	20(%esp),%edx
+	movl	4(%esp),%ecx
+
+	sarl	$16,%edx
+	movl	0(%esp),%ebp
+
+//	zbuf = zspantable[new[1]] + new[0];
+	movl	C(zspantable)(,%ecx,4),%eax
+
+//	if (z >= *zbuf)
+//	{
+	cmpw	(%eax,%ebp,2),%dx
+	jnge	LTNoDraw
+
+//		int		pix;
+
+//		pix = d_pcolormap[skintable[new[3]>>16][new[2]>>16]];
+	movl	12(%esp),%eax
+
+	sarl	$16,%eax
+	movl	8(%esp),%edx
+
+	sarl	$16,%edx
+	subl	%ecx,%ecx
+
+	movl	C(skintable)(,%eax,4),%eax
+	movl	4(%esp),%ebp
+
+	movb	(%eax,%edx,),%cl
+	movl	C(d_pcolormap),%edx
+
+	movb	(%edx,%ecx,),%dl
+	movl	0(%esp),%ecx
+
+//		pdest = &d_viewbuffer[d_scantable[new[1]] + new[0]];
+	movl	C(d_scantable)(,%ebp,4),%eax
+	addl	%eax,%ecx
+	movl	C(d_viewbuffer),%eax
+    movb    (%eax,%ecx,1),%dh
+
+//      *pdest = r_transtable[(((int)*pdest) << 8) + pix]
+    movb    C(r_transtable)(%edx),%dl
+	movb	%dl,(%eax,%ecx,1)
+
+//	}
+//
+//nodraw:
+LTNoDraw:
+
+//// recursively continue
+//	D_PolysetRecursiveTriangle (lp3, lp1, new);
+	pushl	%esp
+	pushl	%ebx
+	pushl	%edi
+	call	C(D_PolysetRecursiveTriangle_Translucent)
+
+//	D_PolysetRecursiveTriangle (lp3, new, lp2);
+	movl	%esp,%ebx
+	pushl	%esi
+	pushl	%ebx
+	pushl	%edi
+	call	C(D_PolysetRecursiveTriangle_Translucent)
+	addl	$24,%esp
+
+LTDone:
+	popl	%ebx				// restore register variables
+	popl	%edi
+	popl	%esi
+	popl	%ebp				// restore caller stack frame pointer
+	ret	$12
 
 //----------------------------------------------------------------------
 // 8-bpp horizontal span drawing code for affine polygons, with smooth
-// shading and no transparency
+// shading and with or without translucency
 //----------------------------------------------------------------------
 
 #define pspans	4+8
@@ -1043,6 +1307,337 @@ LPatch9:
 
 	jmp	LNextSpanESISet
 
+
+.globl C(D_PolysetDrawSpans8_Translucent)
+C(D_PolysetDrawSpans8_Translucent):
+	pushl	%esi			// preserve register variables
+	pushl	%ebx
+
+	movl	pspans(%esp),%esi	// point to the first span descriptor
+	movl	C(r_zistepx),%ecx
+
+	pushl	%ebp			// preserve caller's stack frame
+	pushl	%edi
+
+	rorl	$16,%ecx		// put high 16 bits of 1/z step in low word
+	movl	spanpackage_t_count(%esi),%edx
+
+	movl	%ecx,lzistepx
+
+LTSpanLoop:
+
+//		lcount = d_aspancount - pspanpackage->count;
+//
+//		errorterm += erroradjustup;
+//		if (errorterm >= 0)
+//		{
+//			d_aspancount += d_countextrastep;
+//			errorterm -= erroradjustdown;
+//		}
+//		else
+//		{
+//			d_aspancount += ubasestep;
+//		}
+	movl	C(d_aspancount),%eax
+	subl	%edx,%eax
+
+	movl	C(erroradjustup),%edx
+	movl	C(errorterm),%ebx
+	addl	%edx,%ebx
+	js	LTNoTurnover
+
+	movl	C(erroradjustdown),%edx
+	movl	C(d_countextrastep),%edi
+	subl	%edx,%ebx
+	movl	C(d_aspancount),%ebp
+	movl	%ebx,C(errorterm)
+	addl	%edi,%ebp
+	movl	%ebp,C(d_aspancount)
+	jmp	LTRightEdgeStepped
+
+LTNoTurnover:
+	movl	C(d_aspancount),%edi
+	movl	C(ubasestep),%edx
+	movl	%ebx,C(errorterm)
+	addl	%edx,%edi
+	movl	%edi,C(d_aspancount)
+
+LTRightEdgeStepped:
+	cmpl	$1,%eax
+
+	jl	LTNextSpan
+	jz	LTExactlyOneLong
+
+//
+// set up advancetable
+//
+	movl	C(a_ststepxwhole),%ecx
+	movl	C(r_affinetridesc)+atd_skinwidth,%edx
+
+	movl	%ecx,advancetable+4	// advance base in t
+	addl	%edx,%ecx
+
+	movl	%ecx,advancetable	// advance extra in t
+	movl	C(a_tstepxfrac),%ecx
+
+	movw	C(r_lstepx),%cx
+	movl	%eax,%edx			// count
+
+	movl	%ecx,tstep
+	addl	$7,%edx
+
+	shrl	$3,%edx				// count of full and partial loops
+	movl	spanpackage_t_sfrac(%esi),%ebx
+
+	movw	%dx,%bx
+	movl	spanpackage_t_pz(%esi),%ecx
+
+	negl	%eax
+
+	movl	spanpackage_t_pdest(%esi),%edi
+	andl	$7,%eax		// 0->0, 1->7, 2->6, ... , 7->1
+
+	subl	%eax,%edi	// compensate for hardwired offsets
+	subl	%eax,%ecx
+
+	subl	%eax,%ecx
+	movl	spanpackage_t_tfrac(%esi),%edx
+
+	movw	spanpackage_t_light(%esi),%dx
+	movl	spanpackage_t_zi(%esi),%ebp
+
+	rorl	$16,%ebp	// put high 16 bits of 1/z in low word
+	pushl	%esi
+
+	movl	spanpackage_t_ptex(%esi),%esi
+	jmp	*aff8entryvec_table_translucent(,%eax,4)
+
+// %bx = count of full and partial loops
+// %ebx high word = sfrac
+// %ecx = pz
+// %dx = light
+// %edx high word = tfrac
+// %esi = ptex
+// %edi = pdest
+// %ebp = 1/z
+// tstep low word = C(r_lstepx)
+// tstep high word = C(a_tstepxfrac)
+// C(a_sstepxfrac) low word = 0
+// C(a_sstepxfrac) high word = C(a_sstepxfrac)
+
+LTDrawLoop:
+
+// FIXME: do we need to clamp light? We may need at least a buffer bit to
+// keep it from poking into tfrac and causing problems
+
+LTDraw8:
+	cmpw	(%ecx),%bp
+	jl	LTp1
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch8:
+    movb    (%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch8T:
+	movb	%al,(%edi)
+LTp1:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw7:
+	cmpw	2(%ecx),%bp
+	jl	LTp2
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch7:
+    movb    1(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch7T:
+	movb	%al,1(%edi)
+LTp2:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw6:
+	cmpw	4(%ecx),%bp
+	jl	LTp3
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch6:
+    movb    2(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch6T:
+	movb	%al,2(%edi)
+LTp3:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw5:
+	cmpw	6(%ecx),%bp
+	jl	LTp4
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch5:
+    movb    3(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch5T:
+	movb	%al,3(%edi)
+LTp4:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw4:
+	cmpw	8(%ecx),%bp
+	jl	LTp5
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch4:
+    movb    4(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch4T:
+	movb	%al,4(%edi)
+LTp5:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw3:
+	cmpw	10(%ecx),%bp
+	jl	LTp6
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch3:
+    movb    5(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch3T:
+	movb	%al,5(%edi)
+LTp6:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw2:
+	cmpw	12(%ecx),%bp
+	jl	LTp7
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch2:
+    movb    6(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch2T:
+	movb	%al,6(%edi)
+LTp7:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+LTDraw1:
+	cmpw	14(%ecx),%bp
+	jl	LTp8
+	xorl	%eax,%eax
+	movb	%dh,%ah
+	movb	(%esi),%al
+	movb	0x12345678(%eax),%ah
+LTPatch1:
+    movb    7(%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch1T:
+	movb	%al,7(%edi)
+LTp8:
+	addl	tstep,%edx
+	sbbl	%eax,%eax
+	addl	lzistepx,%ebp
+	adcl	$0,%ebp
+	addl	C(a_sstepxfrac),%ebx
+	adcl	advancetable+4(,%eax,4),%esi
+
+	addl	$8,%edi
+	addl	$16,%ecx
+
+	decw	%bx
+	jnz	LTDrawLoop
+
+	popl	%esi				// restore spans pointer
+LTNextSpan:
+	addl	$(spanpackage_t_size),%esi	// point to next span
+LTNextSpanESISet:
+	movl	spanpackage_t_count(%esi),%edx
+	cmpl	$-999999,%edx			// any more spans?
+	jnz	LTSpanLoop			// yes
+
+	popl	%edi
+	popl	%ebp				// restore the caller's stack frame
+	popl	%ebx				// restore register variables
+	popl	%esi
+	ret
+
+
+// draw a one-long span
+
+LTExactlyOneLong:
+
+	movl	spanpackage_t_pz(%esi),%ecx
+	movl	spanpackage_t_zi(%esi),%ebp
+
+	rorl	$16,%ebp	// put high 16 bits of 1/z in low word
+	movl	spanpackage_t_ptex(%esi),%ebx
+
+	cmpw	(%ecx),%bp
+	jl	LTNextSpan
+	xorl	%eax,%eax
+	movl	spanpackage_t_pdest(%esi),%edi
+	movb	spanpackage_t_light+1(%esi),%ah
+	addl	$(spanpackage_t_size),%esi	// point to next span
+	movb	(%ebx),%al
+	movb	0x12345678(%eax),%ah
+LTPatch9:
+    movb    (%edi),%al
+    movb    0x12345678(%eax),%al
+LTPatch9T:
+	movb	%al,(%edi)
+
+	jmp	LTNextSpanESISet
+
+
 .globl C(D_PolysetAff8End)
 C(D_PolysetAff8End):
 
@@ -1052,6 +1647,9 @@ C(D_PolysetAff8End):
 .globl C(D_Aff8Patch)
 C(D_Aff8Patch):
 	movl	pcolormap(%esp),%eax
+    movl    C(r_transtable),%ecx
+
+    // Regular drawing routine
 	movl	%eax,LPatch1-4
 	movl	%eax,LPatch2-4
 	movl	%eax,LPatch3-4
@@ -1062,8 +1660,27 @@ C(D_Aff8Patch):
 	movl	%eax,LPatch8-4
 	movl	%eax,LPatch9-4
 
-	ret
+    // Translucency routine
+   	movl	%eax,LTPatch1-4
+   	movl	%ecx,LTPatch1T-4
+	movl	%eax,LTPatch2-4
+	movl	%ecx,LTPatch2T-4
+	movl	%eax,LTPatch3-4
+	movl	%ecx,LTPatch3T-4
+	movl	%eax,LTPatch4-4
+	movl	%ecx,LTPatch4T-4
+	movl	%eax,LTPatch5-4
+	movl	%ecx,LTPatch5T-4
+	movl	%eax,LTPatch6-4
+	movl	%ecx,LTPatch6T-4
+	movl	%eax,LTPatch7-4
+	movl	%ecx,LTPatch7T-4
+	movl	%eax,LTPatch8-4
+	movl	%ecx,LTPatch8T-4
+	movl	%eax,LTPatch9-4
+	movl	%ecx,LTPatch9T-4
 
+	ret
 
 //----------------------------------------------------------------------
 // Subdivided affine triangle drawing code
@@ -1152,11 +1769,28 @@ Llooptop:
 
 //		if (ptri[i].facesfront)
 //		{
-//			D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
 	movl	mtri_facesfront-16(%ebx,%ebp,),%eax
 	testl	%eax,%eax
 	jz	Lfacesback
 
+//          if (r_transtable) {
+    movl    C(r_transtable),%eax
+    testl   %eax,%eax
+    jz  LrecursiveTri
+
+//			D_PolysetRecursiveTriangle_Translucent(index0->v, index1->v, index2->v);
+   	pushl	%edx
+	pushl	%esi
+	pushl	%ecx
+	call	C(D_PolysetRecursiveTriangle_Translucent)
+
+	subl	$16,%ebp
+	jnz	Llooptop
+	jmp	Ldone2
+
+//          } else {
+//			    D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
+LrecursiveTri:
 	pushl	%edx
 	pushl	%esi
 	pushl	%ecx
@@ -1205,12 +1839,28 @@ Lp12:
 	addl	%eax,fv_v+8(%edx)
 Lp13:
 
-//			D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
+//          if (r_transtable) {
+    movl    C(r_transtable),%eax
+    testl   %eax,%eax
+    jz  LrecursiveTri2
+
+//	            D_PolysetRecursiveTriangle_Translucent(index0->v, index1->v, index2->v);
+	pushl	%edx
+	pushl	%esi
+	pushl	%ecx
+	call	C(D_PolysetRecursiveTriangle_Translucent)
+    jmp LNextTri2
+
+//          } else {
+//              D_PolysetRecursiveTriangle(index0->v, index1->v, index2->v);
+LrecursiveTri2:
 	pushl	%edx
 	pushl	%esi
 	pushl	%ecx
 	call	C(D_PolysetRecursiveTriangle)
 
+//          }
+LNextTri2:
 //			index0->v[2] = s0;
 //			index1->v[2] = s1;
 //			index2->v[2] = s2;
@@ -1516,6 +2166,91 @@ LNextVert:
 	popl	%ebp
 	ret
 
+
+.globl C(D_PolysetDrawFinalVerts_Translucent)
+C(D_PolysetDrawFinalVerts_Translucent):
+	pushl	%ebp		// preserve caller stack frame pointer
+	pushl	%ebx
+
+//	int	i, z;
+//	short	*zbuf;
+
+	movl	numverts(%esp),%ecx
+	movl	fv(%esp),%ebx
+
+	pushl	%esi		// preserve register variables
+	pushl	%edi
+
+LTFVLoop:
+
+//	for (i=0 ; i<numverts ; i++, fv++)
+//	{
+//	// valid triangle coordinates for filling can include the bottom and
+//	// right clip edges, due to the fill rule; these shouldn't be drawn
+//		if ((fv->v[0] < r_refdef.vrectright) &&
+//			(fv->v[1] < r_refdef.vrectbottom))
+//		{
+	movl	fv_v+0(%ebx),%eax
+	movl	C(r_refdef)+rd_vrectright,%edx
+	cmpl	%edx,%eax
+	jge	LTNextVert
+	movl	fv_v+4(%ebx),%esi
+	movl	C(r_refdef)+rd_vrectbottom,%edx
+	cmpl	%edx,%esi
+	jge	LTNextVert
+
+//			zbuf = zspantable[fv->v[1]] + fv->v[0];
+	movl	C(zspantable)(,%esi,4),%edi
+
+//			z = fv->v[5]>>16;
+	movl	fv_v+20(%ebx),%edx
+	shrl	$16,%edx
+
+//			if (z >= *zbuf)
+//			{
+//				int		pix;
+	cmpw	(%edi,%eax,2),%dx
+	jl	LTNextVert
+
+//				pix = skintable[fv->v[3]>>16][fv->v[2]>>16];
+	movl	fv_v+12(%ebx),%edi
+	shrl	$16,%edi
+	movl	C(skintable)(,%edi,4),%edi
+	movl	fv_v+8(%ebx),%edx
+	shrl	$16,%edx
+	movb	(%edi,%edx),%dl
+
+//				pix = ((byte *)acolormap)[pix + (fv->v[4] & 0xFF00)];
+	movl	fv_v+16(%ebx),%edi
+	andl	$0xFF00,%edi
+	andl	$0x00FF,%edx
+	addl	%edx,%edi
+	movl	C(acolormap),%edx
+	movb	(%edx,%edi,1),%dl
+
+//				pdest = &d_viewbuffer[d_scantable[fv->v[1]] + fv->v[0]];
+	movl	C(d_scantable)(,%esi,4),%edi
+	movl	C(d_viewbuffer),%esi
+	addl	%eax,%edi
+    movb    (%esi,%edi),%dh
+
+//              *pdest = r_transtable[(((int)*pdest) << 8) + pix]
+    movb    C(r_transtable)(%edx),%dl
+	movb	%dl,(%esi,%edi)
+
+//			}
+//		}
+//	}
+LTNextVert:
+	addl	$(fv_size),%ebx
+	decl	%ecx
+	jnz	LFVLoop
+
+	popl	%edi
+	popl	%esi
+	popl	%ebx
+	popl	%ebp
+	ret
 
 //----------------------------------------------------------------------
 // Alias model non-subdivided polygon dispatching code

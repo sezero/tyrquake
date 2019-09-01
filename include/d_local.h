@@ -95,8 +95,9 @@ surfcache_t *D_CacheSurface(const entity_t *e, msurface_t *surface,
 			    int miplevel);
 
 #ifdef USE_X86_ASM
-extern void D_PolysetAff8Start(void);
-extern void D_PolysetAff8End(void);
+void D_PolysetAff8Start(void);
+void D_PolysetAff8End(void);
+void D_PolysetDrawSpans8_Translucent();
 #endif
 
 extern short *d_pzbuffer;

@@ -815,6 +815,12 @@ R_AliasDrawModel(entity_t *entity)
 
     r_affinetridesc.drawtype = (entity->trivial_accept == 3) &&	r_recursiveaffinetriangles;
 
+    if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
+        r_transtable = Alpha_Transtable(ENTALPHA_DECODE(entity->alpha));
+    } else {
+        r_transtable = NULL;
+    }
+
     if (r_affinetridesc.drawtype) {
 	D_PolysetUpdateTables();	// FIXME: precalc...
     } else {
@@ -829,12 +835,6 @@ R_AliasDrawModel(entity_t *entity)
 	ziscale = ((float)0x8000) * ((float)0x10000);
     else
 	ziscale = ((float)0x8000) * ((float)0x10000) * 3.0;
-
-    if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
-        r_transtable = Alpha_Transtable(ENTALPHA_DECODE(entity->alpha));
-    } else {
-        r_transtable = NULL;
-    }
 
     if (entity->trivial_accept)
 	R_AliasPrepareUnclippedPoints(aliashdr, pfinalverts);
