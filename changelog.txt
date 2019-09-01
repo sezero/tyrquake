@@ -2,6 +2,19 @@
   CHANGELOG
 \-----------/
 
+v0.64
+=====
+- Entity alpha support via FitzQuake protocol
+- FitzQuake protocol (666) is now the default for NQ
+- Coloured lighting, fog and skybox support in the OpenGL renderer
+- Alpha blending (water/slime/lava/tele + entities) (GL + SW)
+- Fence texture support (GL + SW)
+- Fixed non-64x64 turbulent surfaces in the software renderer
+- Improved sky in GL (from FitzQuake/Quakespasm)
+- Alias model lighting interpolation (from Darkplaces)
+- Automatic adjustment of r_maxsurfs / r_maxedges in the software renderer
+- Model interpolation now works in QW as well
+
 v0.63
 =====
 - OpenGL renderer improvements:
