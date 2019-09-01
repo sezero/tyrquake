@@ -133,10 +133,10 @@ VID_MenuDraw_(const vid_menustate_t *menu)
     rwidth = menu->mode.width / divisor;
     rheight = menu->mode.height / divisor;
 
-    M_DrawPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
+    M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
 
     pic = Draw_CachePic("gfx/p_option.lmp");
-    M_DrawPic((320 - pic->width) / 2, 4, pic);
+    M_DrawTransPic((320 - pic->width) / 2, 4, pic);
 
     text = "Video Options";
     M_PrintWhite((320 - 8 * strlen(text)) / 2, 32, text);

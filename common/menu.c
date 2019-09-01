@@ -141,7 +141,7 @@ M_PrintWhite(int cx, int cy, const char *str)
     }
 }
 
-static void
+void
 M_DrawTransPic(int x, int y, const qpic8_t *pic)
 {
     Draw_TransPic(x + ((scr_scaled_width - 320) >> 1), y, pic, TRANSPARENT_COLOR);
