@@ -260,6 +260,22 @@ R_Init(void)
     D_Init();
 }
 
+static void
+R_HunkAllocSurfaces()
+{
+    auxsurfaces = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "surfaces");
+    surface_p = surfaces;
+    surf_max = &surfaces[r_numsurfaces];
+    surfaces = auxsurfaces - 1;
+    R_SurfacePatch();
+}
+
+static void
+R_HunkAllocEdges()
+{
+    auxedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "edges");
+}
+
 /*
 ===============
 R_NewMap
@@ -284,8 +300,6 @@ R_NewMap(void)
     /* Edge rendering resources */
     r_numsurfaces = qmax((int)r_maxsurfs.value, MINSURFACES);
     r_numedges = qmax((int)r_maxedges.value, MINEDGES);
-    auxsurfaces = NULL;
-    auxedges = NULL;
 
     /* brushmodel clipping */
     r_numbclipverts = MIN_STACK_BMODEL_VERTS;
@@ -297,6 +311,14 @@ R_NewMap(void)
     Alpha_NewMap();
 
     r_maphunkmark = Hunk_LowMark();
+
+    auxsurfaces = NULL;
+    if (r_numsurfaces > MAXSTACKSURFACES)
+        R_HunkAllocSurfaces();
+
+    auxedges = NULL;
+    if (r_numedges > MAXSTACKEDGES)
+        R_HunkAllocEdges();
 
     /* extra space for saving surfs/edges for translucent surface rendering */
     savesurfs = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "savesurf");
@@ -1093,7 +1115,7 @@ R_RenderView_(void)
     }
 
     /*
-     * We if we have to retry with more resources, we can't use the
+     * If we have to retry with more resources, we can't use the
      * stack again on the second and subsequent passes. May be
      * possible to go back to stack based next frame if we're still
      * below MAX_STACK_*
@@ -1128,21 +1150,13 @@ R_RenderView_(void)
     if (realloc) {
         Hunk_FreeToLowMark(r_maphunkmark);
 
-        if (r_numsurfaces > MAXSTACKSURFACES || nostack) {
-            auxsurfaces = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "surfaces");
-            surface_p = surfaces;
-            surf_max = &surfaces[r_numsurfaces];
-            surfaces = auxsurfaces - 1;
-            R_SurfacePatch();
-        } else {
-            auxsurfaces = NULL;
-        }
+        auxsurfaces = NULL;
+        if (r_numsurfaces > MAXSTACKSURFACES || nostack)
+            R_HunkAllocSurfaces();
 
-        if (r_numedges > MAXSTACKEDGES || nostack) {
-            auxedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "edges");
-        } else {
-            auxedges = NULL;
-        }
+        auxedges = NULL;
+        if (r_numedges > MAXSTACKEDGES || nostack)
+            R_HunkAllocEdges();
 
         /* surfs/edges for transparency */
         savesurfs = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "savesurf");
