@@ -300,11 +300,13 @@ DEBUG_DrawModelInfo(const entity_t *entity, const vec3_t modelorigin)
     int edictnum = -1;
     const char *type = "unknown";
 #ifdef NQ_HACK
-    if (entity - cl_static_entities > (ptrdiff_t)0 && entity - cl_static_entities < (ptrdiff_t)cl.num_statics) {
-        edictnum = entity - cl_static_entities;
+    ptrdiff_t staticnum = entity - cl_static_entities;
+    ptrdiff_t dynamicnum = entity - cl_entities;
+    if (staticnum > 0 && staticnum < cl.num_statics) {
+        edictnum = staticnum;
         type = "static";
-    } else if (entity - cl_entities > (ptrdiff_t)0 && entity - cl_entities < (ptrdiff_t)cl.num_entities) {
-        edictnum = entity - cl_entities;
+    } else if (dynamicnum > 0 && dynamicnum < cl.num_entities) {
+        edictnum = dynamicnum;
         type = "dynamic";
     }
 #endif
