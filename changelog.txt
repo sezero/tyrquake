@@ -2,6 +2,11 @@
   CHANGELOG
 \-----------/
 
+v0.65
+=====
+- Fix crash in the software renderer
+- Fix transparent menupics on the video options menu
+
 v0.64
 =====
 - Entity alpha support via FitzQuake protocol
