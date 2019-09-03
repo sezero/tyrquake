@@ -122,6 +122,12 @@ M_DrawCharacter(int cx, int line, int num)
 }
 
 void
+M_DrawCursor(int cx, int line, int num)
+{
+    M_DrawCharacter(cx, line, num + ((int)(realtime * 4) & 1));
+}
+
+void
 M_Print(int cx, int cy, const char *str)
 {
     while (*str) {
@@ -556,9 +562,7 @@ M_Options_Draw(void)
     M_Print(16, height += 8, "             Use Mouse");
     M_DrawCheckbox(220, height, _windowed_mouse.value);
 
-    /* cursor */
-    M_DrawCharacter(200, 32 + m_options_cursor * 8,
-		    12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(200, 32 + m_options_cursor * 8, 12);
 }
 
 static void
@@ -755,9 +759,8 @@ M_Keys_Draw(void)
 	M_Print(12, 32, "Press a key or button for this action");
 	M_DrawCharacter(130, 48 + m_keys_cursor * 8, '=');
     } else {
-	const int cursor_char = 12 + ((int)(realtime * 4) & 1);
 	M_Print(18, 32, "Enter to change, backspace to clear");
-	M_DrawCharacter(130, 48 + m_keys_cursor * 8, cursor_char);
+	M_DrawCursor(130, 48 + m_keys_cursor * 8, 12);
     }
 }
 
@@ -1297,8 +1300,7 @@ M_Load_Draw(void)
     for (i = 0; i < MAX_SAVEGAMES; i++)
 	M_Print(16, 32 + 8 * i, m_filenames[i]);
 
-// line cursor
-    M_DrawCharacter(8, 32 + load_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(8, 32 + load_cursor * 8, 12);
 }
 
 static void
@@ -1313,8 +1315,7 @@ M_Save_Draw(void)
     for (i = 0; i < MAX_SAVEGAMES; i++)
 	M_Print(16, 32 + 8 * i, m_filenames[i]);
 
-// line cursor
-    M_DrawCharacter(8, 32 + load_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(8, 32 + load_cursor * 8, 12);
 }
 
 static void
@@ -1542,18 +1543,13 @@ M_Setup_Draw(void)
     p = Draw_CachePic("gfx/menuplyr.lmp");
     M_DrawTransPicTranslate(172, 72, p);
 
-    M_DrawCharacter(56, setup_cursor_table[setup_cursor],
-		    12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(56, setup_cursor_table[setup_cursor], 12);
 
     if (setup_cursor == 0)
-	M_DrawCharacter(168 + 8 * strlen(setup_hostname),
-			setup_cursor_table[setup_cursor],
-			10 + ((int)(realtime * 4) & 1));
+	M_DrawCursor(168 + 8 * strlen(setup_hostname), setup_cursor_table[setup_cursor], 10);
 
     if (setup_cursor == 1)
-	M_DrawCharacter(168 + 8 * strlen(setup_myname),
-			setup_cursor_table[setup_cursor],
-			10 + ((int)(realtime * 4) & 1));
+	M_DrawCursor(168 + 8 * strlen(setup_myname), setup_cursor_table[setup_cursor], 10);
 }
 
 static void
@@ -1790,18 +1786,13 @@ M_LanConfig_Draw(void)
 	M_Print(basex + 8, lanConfig_cursor_table[1], "OK");
     }
 
-    M_DrawCharacter(basex - 8, lanConfig_cursor_table[lanConfig_cursor],
-		    12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(basex - 8, lanConfig_cursor_table[lanConfig_cursor], 12);
 
     if (lanConfig_cursor == 0)
-	M_DrawCharacter(basex + 9 * 8 + 8 * strlen(lanConfig_portname),
-			lanConfig_cursor_table[0],
-			10 + ((int)(realtime * 4) & 1));
+	M_DrawCursor(basex + 9 * 8 + 8 * strlen(lanConfig_portname), lanConfig_cursor_table[0], 10);
 
     if (lanConfig_cursor == 2)
-	M_DrawCharacter(basex + 16 + 8 * strlen(lanConfig_joinname),
-			lanConfig_cursor_table[2],
-			10 + ((int)(realtime * 4) & 1));
+	M_DrawCursor(basex + 16 + 8 * strlen(lanConfig_joinname), lanConfig_cursor_table[2], 10);
 
     if (*m_return_reason)
 	M_PrintWhite(basex, 148, m_return_reason);
@@ -2195,9 +2186,7 @@ M_GameOptions_Draw(void)
 		levels[episodes[startepisode].firstLevel + startlevel].name);
     }
 
-// line cursor
-    M_DrawCharacter(144, gameoptions_cursor_table[gameoptions_cursor],
-		    12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(144, gameoptions_cursor_table[gameoptions_cursor], 12);
 
     if (m_serverInfoMessage) {
 	if ((realtime - m_serverInfoMessageTime) < 5.0) {
@@ -2497,7 +2486,7 @@ M_ServerList_Draw(void)
 	}
 	M_Print(16, 32 + 8 * n, string);
     }
-    M_DrawCharacter(0, 32 + slist_cursor * 8, 12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(0, 32 + slist_cursor * 8, 12);
 
     if (*m_return_reason)
 	M_PrintWhite(16, 148, m_return_reason);

@@ -32,10 +32,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "vid.h"
 
 #ifdef NQ_HACK
-#include "host.h" /* realtime */
+#include "host.h"
 #endif
 #ifdef QW_HACK
-#include "quakedef.h" /* realtime */
+#include "quakedef.h"
 #endif
 
 qvidmode_t modelist[MAX_MODE_LIST];
@@ -169,8 +169,7 @@ VID_MenuDraw_(const vid_menustate_t *menu)
     cursor++;
 
     /* cursor */
-    M_DrawCharacter(168, cursor_heights[menu->cursor],
-		    12 + ((int)(realtime * 4) & 1));
+    M_DrawCursor(168, cursor_heights[menu->cursor], 12);
 }
 
 void
