@@ -102,13 +102,11 @@ static const char *safeargvs[NUM_SAFE_ARGVS] = {
 
 cvar_t registered = { "registered", "0" };
 #ifdef NQ_HACK
-static cvar_t cmdline = { "cmdline", "0", false, true };
+static cvar_t cmdline = { "cmdline", "0", 0, true };
 #endif
 
 static qboolean com_modified;		// set true if using non-id files
 static int static_registered = 1;	// only for startup check, then set
-
-qboolean msg_suppress_1 = 0;
 
 static void COM_InitFilesystem(void);
 static void COM_Path_f(void);

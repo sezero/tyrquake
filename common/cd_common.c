@@ -50,7 +50,7 @@ static void CDAudio_SetVolume_f(struct cvar_s *var);
 cvar_t bgmvolume = {
     .name = "bgmvolume",
     .string = "1",
-    .archive = true,
+    .flags = CVAR_CONFIG,
     .callback = CDAudio_SetVolume_f
 };
 

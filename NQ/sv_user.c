@@ -151,7 +151,7 @@ SV_UserFriction(edict_t *player)
 SV_Accelerate
 ==============
 */
-cvar_t sv_maxspeed = { "sv_maxspeed", "320", false, true };
+cvar_t sv_maxspeed = { "sv_maxspeed", "320", .server = true };
 cvar_t sv_accelerate = { "sv_accelerate", "10" };
 
 static void

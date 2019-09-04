@@ -119,16 +119,16 @@ cvar_t gl_zfix = { "gl_zfix", "0" };
 #ifdef NQ_HACK
 cvar_t gl_doubleeyes = { "gl_doubleeyes", "1" };
 #endif
-cvar_t gl_fullbrights = { "gl_fullbrights", "1", true };
-cvar_t gl_farclip = { "gl_farclip", "16384", true };
+cvar_t gl_fullbrights = { "gl_fullbrights", "1", .flags = CVAR_CONFIG };
+cvar_t gl_farclip = { "gl_farclip", "16384", .flags = CVAR_CONFIG };
 
 cvar_t _gl_allowgammafallback = { "_gl_allowgammafallback", "1" };
 
 /*
  * model interpolation support
  */
-cvar_t r_lerpmodels = { "r_lerpmodels", "1", false };
-cvar_t r_lerpmove = { "r_lerpmove", "1", false };
+cvar_t r_lerpmodels = { "r_lerpmodels", "1" };
+cvar_t r_lerpmove = { "r_lerpmove", "1" };
 
 qboolean gl_mtexable = false;
 int gl_num_texture_units;

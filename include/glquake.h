@@ -111,6 +111,8 @@ extern int glx, gly, glwidth, glheight;
 /* There isn't really a limit on the width/height of the video buffer under OpenGL */
 #define MAXWIDTH 100000
 #define MAXHEIGHT 100000
+#define MINWIDTH 320
+#define MINHEIGHT 200
 
 /*
  * Water warping paramters - not actually used in GLQuake, but they

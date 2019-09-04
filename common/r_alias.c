@@ -63,8 +63,8 @@ typedef struct {
 /*
  * Model interpolation support
  */
-cvar_t r_lerpmodels = { "r_lerpmodels", "1", false };
-cvar_t r_lerpmove = { "r_lerpmove", "1", false };
+cvar_t r_lerpmodels = { "r_lerpmodels", "1" };
+cvar_t r_lerpmove = { "r_lerpmove", "1" };
 
 static aedge_t aedges[12] = {
     {0, 1}, {1, 2}, {2, 3}, {3, 0},

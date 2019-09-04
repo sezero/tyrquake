@@ -59,7 +59,7 @@ brushmodel_t *loaded_brushmodels;
 static model_t *loaded_sprites;
 
 #ifdef GLQUAKE
-cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", true };
+cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", CVAR_CONFIG };
 #endif
 
 static const alias_loader_t *alias_loader;

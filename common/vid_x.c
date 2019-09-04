@@ -58,7 +58,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 /* compatibility cludges for new menu code */
 qboolean VID_CheckAdequateMem(int width, int height) { return true; }
-int vid_modenum;
 
 typedef struct {
     int input;
@@ -67,8 +66,6 @@ typedef struct {
 
 viddef_t vid;			// global video state
 unsigned short d_8to16table[256];
-
-cvar_t vid_mode = { "vid_mode", "0", false };
 
 static qboolean doShm;
 static Colormap x_cmap;
@@ -103,6 +100,28 @@ static unsigned int r_mask, g_mask, b_mask;
 
 static XF86VidModeModeInfo saved_vidmode;
 static qboolean vidmode_active;
+
+void
+VID_GetDesktopRect(vrect_t *rect)
+{
+    rect->x = 0;
+    rect->y = 0;
+    rect->width = saved_vidmode.hdisplay;
+    rect->height = saved_vidmode.vdisplay;
+}
+
+static void
+VID_CenterWindow()
+{
+    vrect_t rect;
+    int x, y;
+
+    VID_GetDesktopRect(&rect);
+    x = qmax((rect.width - vid_currentmode->width) / 2, 0);
+    y = qmax((rect.height - vid_currentmode->height) / 2, 0);
+
+    XMoveWindow(x_disp, x_win, x, y);
+}
 
 static void
 shiftmask_init()
@@ -435,28 +454,40 @@ VID_InitModeList(void)
     qvidmode_t *mode;
     int i, numxmodes;
 
-    nummodes = 1;
-    mode = &modelist[1];
+    /* Init a default windowed mode */
+    mode = &vid_windowed_mode;
+    mode->width = 640;
+    mode->height = 480;
+    mode->bpp = x_visinfo->depth;
+    mode->refresh = 0;
 
     XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &numxmodes, &xmodes);
-    xmode = *xmodes;
-    for (i = 0; i < numxmodes; i++, xmode++) {
-	if (nummodes == MAX_MODE_LIST)
-	    break;
+
+    /* Count the valid modes, then allocate space to store them */
+    vid_nummodes = 0;
+    for (xmode = *xmodes, i = 0; i < numxmodes; i++, xmode++) {
+        if (xmode->hdisplay <= MAXWIDTH && xmode->vdisplay <= MAXHEIGHT)
+            vid_nummodes++;
+    }
+    vid_modelist = Hunk_AllocName(vid_nummodes * sizeof(qvidmode_t), "vidmodes");
+    vid_nummodes = 0;
+
+    /* Init the mode list */
+    mode = vid_modelist;
+    for (xmode = *xmodes, i = 0; i < numxmodes; i++, xmode++) {
 	if (xmode->hdisplay > MAXWIDTH || xmode->vdisplay > MAXHEIGHT)
 	    continue;
 
-	mode->modenum = nummodes;
 	mode->width = xmode->hdisplay;
 	mode->height = xmode->vdisplay;
 	mode->bpp = x_visinfo->depth;
 	mode->refresh = 1000 * xmode->dotclock / xmode->htotal / xmode->vtotal;
-	nummodes++;
+	vid_nummodes++;
 	mode++;
     }
-    free(xmodes);
+    XFree(xmodes);
 
-    VID_SortModeList(modelist, nummodes);
+    VID_SortModeList(vid_modelist, vid_nummodes);
 }
 
 /*
@@ -518,7 +549,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	x_cmap = 0;
     }
 
-    vid_modenum = mode - modelist;
+    vid_currentmode = mode;
 
     root = XRootWindow(x_disp, x_visinfo->screen);
 
@@ -570,7 +601,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     /* create the main window */
     x_win = XCreateWindow(x_disp, XRootWindow(x_disp, x_visinfo->screen),
-			  0, 0,	// x, y
+			  0, 0, // x, y
 			  mode->width, mode->height, 0,	// borderwidth
 			  mode->bpp,
 			  InputOutput, x_visinfo->visual, valuemask, &attributes);
@@ -600,6 +631,10 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	XMoveWindow(x_disp, x_win, 0, 0);
 	XRaiseWindow(x_disp, x_win);
 	XF86VidModeSetViewPort(x_disp, x_visinfo->screen, 0, 0);
+    } else if (vid_window_centered.value) {
+        VID_CenterWindow();
+    } else {
+        XMoveWindow(x_disp, x_win, (int)vid_window_x.value, (int)vid_window_y.value);
     }
 
     /* Wait for first expose event */
@@ -669,8 +704,10 @@ VID_Init(const byte *palette)
     int num_visuals;
     int template_mask;
     int MajorVersion, MinorVersion;
-    qvidmode_t *mode;
-    const qvidmode_t *setmode;
+    const qvidmode_t *mode;
+
+    VID_InitModeCvars();
+    VID_InitModeCommands();
 
     srandom(getpid());
 
@@ -744,22 +781,15 @@ VID_Init(const byte *palette)
 
     /* Save the current video mode so we can restore when moving to windowed modes */
     VID_save_vidmode();
-
-    /* Init a default windowed mode */
-    mode = modelist;
-    mode->modenum = 0;
-    mode->width = 640;
-    mode->height = 480;
-    mode->bpp = x_visinfo->depth;
-    mode->refresh = 0;
-    nummodes = 1;
-
     VID_InitModeList();
-    setmode = VID_GetCmdlineMode();
-    if (!setmode)
-	setmode = &modelist[0];
+    VID_LoadConfig();
+    mode = VID_GetCmdlineMode();
+    if (!mode)
+        mode = VID_GetModeFromCvars();
+    if (!mode)
+	mode = &vid_windowed_mode;
 
-    VID_SetMode(setmode, palette);
+    VID_SetMode(mode, palette);
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
@@ -843,6 +873,7 @@ HandleEvents(void)
                     config_notify_height = event.xconfigure.height;
                     config_notify = 1;
                 }
+                VID_UpdateWindowPositionCvars(event.xconfigure.x, event.xconfigure.y);
                 break;
 
             default:
@@ -951,10 +982,4 @@ VID_LockBuffer(void)
 void
 VID_UnlockBuffer(void)
 {
-}
-
-qboolean
-VID_IsFullScreen()
-{
-    return !!vid_modenum;
 }

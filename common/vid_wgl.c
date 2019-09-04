@@ -60,87 +60,106 @@ window_visible(void)
     return !Minimized;
 }
 
+#define Q_WS_FULLSCREEN (WS_POPUP)
+#define Q_WS_WINDOWED (WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX)
+
 HWND mainwindow;
 qboolean DDActive;
 viddef_t vid; /* global video state */
-int vid_modenum = VID_MODE_NONE;
+
+static byte vid_curpal[256 * 3];
 
 static HICON hIcon;
-static RECT WindowRect;
 static DEVMODE gdevmode;
 static qboolean vid_initialized = false;
-static int vid_default = VID_MODE_WINDOWED;
+static qboolean in_mode_set;
 static modestate_t modestate = MS_UNINIT;
 
 static HDC maindc;
 
 static HGLRC baseRC;
 static RECT GL_WindowRect;
-static qboolean vid_canalttab = false;
-static qboolean vid_wassuspended = false;
+static qboolean vid_canalttab;
+static qboolean vid_wassuspended;
 static int windowed_mouse;
 
-static qboolean fullsbardraw = false;
+static qboolean fullsbardraw;
+static qboolean hide_window;
 
 static float vid_gamma = 1.0;
 
-static cvar_t vid_mode = { "vid_mode", "0", false };
-static cvar_t _vid_default_mode = { "_vid_default_mode", "0", true };
-static cvar_t _vid_default_mode_win = { "_vid_default_mode_win", "0", true };
 static cvar_t vid_wait = { "vid_wait", "0" };
-static cvar_t vid_nopageflip = { "vid_nopageflip", "0", true };
-static cvar_t _vid_wait_override = { "_vid_wait_override", "0", true };
-static cvar_t vid_config_x = { "vid_config_x", "800", true };
-static cvar_t vid_config_y = { "vid_config_y", "600", true };
-static cvar_t vid_stretch_by_2 = { "vid_stretch_by_2", "1", true };
+static cvar_t vid_nopageflip = { "vid_nopageflip", "0", CVAR_VIDEO };
+static cvar_t _vid_wait_override = { "_vid_wait_override", "0", CVAR_VIDEO };
 
 float gldepthmin, gldepthmax;
 static qboolean reload_textures; // Flag to set/test on gl context destroy/create
 
 static void AppActivate(BOOL fActive, BOOL minimize);
-static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam,
-			       LPARAM lParam);
+static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 static void ClearAllStates(void);
 
 static BOOL bSetupPixelFormat(HDC hDC);
 
-static void
-VID_CenterWindow(HWND window)
+void
+VID_GetDesktopRect(vrect_t *rect)
 {
-    RECT workarea, rect;
+    RECT workarea;
     BOOL ret;
-    UINT flags;
-    int x, y, wa_width, wr_width, wa_height, wr_height;
 
     ret = SystemParametersInfo(SPI_GETWORKAREA, 0, &workarea, 0);
     if (!ret)
 	Sys_Error("%s: SPI_GETWORKAREA failed", __func__);
-    ret = GetWindowRect(window, &rect);
-    if (!ret)
-	Sys_Error("%s: GetWindowRect() failed", __func__);
 
-    wa_width = workarea.right - workarea.left;
-    wa_height = workarea.bottom - workarea.top;
-    wr_width = rect.right - rect.left;
-    wr_height = rect.bottom - rect.top;
+    rect->x = 0;
+    rect->y = 0;
+    rect->width = workarea.right - workarea.left;
+    rect->height = workarea.bottom - workarea.top;
+}
 
-    /* Center within the workarea. If too large, justify top left. */
-    x = qmax(workarea.left + (wa_width - wr_width) / 2, 0L);
-    y = qmax(workarea.top + (wa_height - wr_height) / 2, 0L);
+static void
+VID_SetWindowPos(HWND window, int x, int y)
+{
+    RECT windowRect;
+    UINT flags;
+    int width, height;
 
     flags = SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW | SWP_DRAWFRAME;
     SetWindowPos(window, NULL, x, y, 0, 0, flags);
 
+    /* Update position cvars */
+    VID_UpdateWindowPositionCvars(windowRect.left, windowRect.top);
+
     /* Update the input rect */
-    GetWindowRect(window, &WindowRect);
-    wr_width = WindowRect.right - WindowRect.left;
-    wr_height = WindowRect.bottom - WindowRect.top;
-    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, wr_width, wr_height);
+    GetWindowRect(window, &windowRect);
+    width = windowRect.right - windowRect.left;
+    height = windowRect.bottom - windowRect.top;
+    IN_UpdateWindowRect(windowRect.left, windowRect.top, width, height);
 }
 
 static void
-VID_DestroyWindow(void)
+VID_CenterWindow(HWND window)
+{
+    RECT windowRect;
+    vrect_t workarea;
+    int x, y, window_width, window_height;
+
+    VID_GetDesktopRect(&workarea);
+    GetWindowRect(window, &windowRect);
+
+    window_width = windowRect.right - windowRect.left;
+    window_height = windowRect.bottom - windowRect.top;
+
+    /* Center within the workarea. If too large, justify top left. */
+    x = qmax(workarea.x + (workarea.width - window_width) / 2, 0);
+    y = qmax(workarea.y + (workarea.height - window_height) / 2, 0);
+
+    VID_SetWindowPos(window, x, y);
+}
+
+static void
+VID_ShutdownGLContext()
 {
     HGLRC hrc;
     HDC hdc;
@@ -151,21 +170,148 @@ VID_DestroyWindow(void)
 
     if (hdc && mainwindow)
 	ReleaseDC(mainwindow, hdc);
-    if (modestate == MS_FULLSCREEN)
-	ChangeDisplaySettings(NULL, 0);
     if (maindc && mainwindow)
 	ReleaseDC(mainwindow, maindc);
     maindc = NULL;
 
-    if (mainwindow)
-	DestroyWindow(mainwindow);
-    mainwindow = NULL;
-
     if (hrc) {
         GL_Shutdown();
         wglDeleteContext(hrc);
-        reload_textures = true;
+        if (host_initialized)
+            reload_textures = true;
     }
+}
+
+static void
+VID_CreateGLContext(int width, int height, const byte *palette)
+{
+    HDC hdc;
+
+    /*
+     * Because we have set the background brush for the window to NULL
+     * (to avoid flickering when re-sizing the window on the desktop), we
+     * clear the window to black when created, otherwise it will be
+     * empty while Quake starts up.
+     */
+    hdc = GetDC(mainwindow);
+    PatBlt(hdc, 0, 0, width, height, BLACKNESS);
+    ReleaseDC(mainwindow, hdc);
+
+    maindc = GetDC(mainwindow);
+    bSetupPixelFormat(maindc);
+
+    baseRC = wglCreateContext(maindc);
+    if (!baseRC)
+	Sys_Error("Could not initialize GL (wglCreateContext failed).\n\n"
+		  "Make sure you in are 65535 color mode, "
+		  "and try running -window.");
+    if (!wglMakeCurrent(maindc, baseRC))
+	Sys_Error("wglMakeCurrent failed");
+
+    GL_Init();
+    if (reload_textures) {
+	GL_ReloadTextures();
+        reload_textures = false;
+    }
+}
+
+/*
+================
+ClearAllStates
+================
+*/
+static void
+ClearAllStates(void)
+{
+    knum_t keynum;
+
+    /* send an up event for each key, to ensure the server clears them all */
+    for (keynum = K_UNKNOWN; keynum < K_LAST; keynum++)
+	Key_Event(keynum, false);
+
+    Key_ClearStates();
+    IN_ClearStates();
+}
+
+static void
+VID_InitWindowClass(HINSTANCE hInstance)
+{
+    WNDCLASS wc;
+
+    /* Register the frame class */
+    wc.style = 0;
+    wc.lpfnWndProc = (WNDPROC)MainWndProc;
+    wc.cbClsExtra = 0;
+    wc.cbWndExtra = 0;
+    wc.hInstance = hInstance;
+    wc.hIcon = 0;
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    wc.hbrBackground = NULL;
+    wc.lpszMenuName = 0;
+    wc.lpszClassName = "TyrQuake";
+
+    if (!RegisterClass(&wc))
+	Sys_Error("Couldn't register window class");
+}
+
+/*
+=================
+VID_InitModeList
+=================
+*/
+static void
+VID_InitModeList(void)
+{
+    DEVMODE devmode;
+    DWORD testmodenum;
+    LONG result;
+    BOOL success;
+    qvidmode_t *mode;
+
+    /* Query the desktop mode */
+    memset(&devmode, 0, sizeof(devmode));
+    devmode.dmSize = sizeof(devmode);
+    success = EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &devmode);
+    if (!success)
+	Sys_Error("Unable to query desktop display settings");
+
+    /* Setup the default windowed mode */
+    mode = &vid_windowed_mode;
+    mode->width = 640;
+    mode->height = 480;
+    mode->bpp = devmode.dmBitsPerPel;
+    mode->refresh = devmode.dmDisplayFrequency;
+
+    vid_modelist = Hunk_AllocName(0, "vidmodes");
+    vid_nummodes = 0;
+
+    testmodenum = 0;
+    for (;;) {
+	memset(&devmode, 0, sizeof(devmode));
+	devmode.dmSize = sizeof(devmode);
+	success = EnumDisplaySettings(NULL, testmodenum++, &devmode);
+	if (!success)
+	    break;
+	if (devmode.dmPelsWidth > MAXWIDTH || devmode.dmPelsHeight > MAXHEIGHT)
+	    continue;
+	if (devmode.dmBitsPerPel < 15)
+	    continue;
+
+	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
+	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
+	if (result != DISP_CHANGE_SUCCESSFUL)
+	    continue;
+
+        Hunk_AllocExtend(vid_modelist, sizeof(qvidmode_t));
+        mode = &vid_modelist[vid_nummodes++];
+	mode->width = devmode.dmPelsWidth;
+	mode->height = devmode.dmPelsHeight;
+	mode->bpp = devmode.dmBitsPerPel;
+	mode->refresh = devmode.dmDisplayFrequency;
+    }
+
+    if (!vid_nummodes)
+	Con_SafePrintf("No fullscreen DIB modes found\n");
 }
 
 /*
@@ -198,56 +344,46 @@ VID_SetDisplayMode(const qvidmode_t *mode)
 	Sys_Error("Couldn't set fullscreen DIB mode");
 
     modestate = MS_FULLSCREEN;
-    //vid_fulldib_on_focus_mode = mode - modelist;
 }
 
 static qboolean
 VID_SetWindowedMode(const qvidmode_t *mode)
 {
-    HDC hdc;
-    DWORD WindowStyle, ExWindowStyle;
+    RECT windowRect;
 
-    VID_DestroyWindow();
+    VID_ShutdownGLContext();
     VID_SetDisplayMode(NULL);
 
-    WindowRect.top = WindowRect.left = 0;
-    WindowRect.right = mode->width;
-    WindowRect.bottom = mode->height;
+    windowRect.top = 0;
+    windowRect.left = 0;
+    windowRect.right = mode->width;
+    windowRect.bottom = mode->height;
 
-    WindowStyle =
-	WS_OVERLAPPED | WS_BORDER | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
-    ExWindowStyle = 0;
+    GL_WindowRect = windowRect;
+    AdjustWindowRectEx(&windowRect, Q_WS_WINDOWED, FALSE, 0);
 
-    GL_WindowRect = WindowRect;
-    AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
+    SetWindowLong(mainwindow, GWL_STYLE, Q_WS_WINDOWED | WS_VISIBLE);
+    SetWindowLong(mainwindow, GWL_EXSTYLE, 0);
 
-    // Create the DIB window
-    mainwindow = CreateWindowEx(ExWindowStyle,
-			       "TyrQuake",
-			       "TyrQuake",
-			       WindowStyle,
-			       WindowRect.left, WindowRect.top,
-			       WindowRect.right - WindowRect.left,
-			       WindowRect.bottom - WindowRect.top,
-			       NULL, NULL, global_hInstance, NULL);
+    if (!SetWindowPos(mainwindow, NULL, 0, 0,
+		      windowRect.right - windowRect.left,
+		      windowRect.bottom - windowRect.top,
+		      SWP_NOCOPYBITS | SWP_NOZORDER | SWP_HIDEWINDOW)) {
+	Sys_Error("Couldn't resize window");
+    }
 
-    if (!mainwindow)
-	Sys_Error("Couldn't create window");
+    if (hide_window)
+        return true;
 
-    /* Center and show the window */
-    VID_CenterWindow(mainwindow);
+    /* Position and show the window */
+    if (vid_window_centered.value) {
+        VID_CenterWindow(mainwindow);
+    } else if (vid_window_remember_position.value) {
+        VID_SetWindowPos(mainwindow, (int)vid_window_x.value, (int)vid_window_y.value);
+    }
+
     ShowWindow(mainwindow, SW_SHOWDEFAULT);
     UpdateWindow(mainwindow);
-
-    /*
-     * because we have set the background brush for the window to NULL
-     * (to avoid flickering when re-sizing the window on the desktop),
-     * we clear the window to black when created, otherwise it will be
-     * empty while Quake starts up.
-     */
-    hdc = GetDC(mainwindow);
-    PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
-    ReleaseDC(mainwindow, hdc);
 
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
@@ -255,27 +391,8 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
 
-    mainwindow = mainwindow;
-
-    SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
-    SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
-
-    maindc = GetDC(mainwindow);
-    bSetupPixelFormat(maindc);
-
-    baseRC = wglCreateContext(maindc);
-    if (!baseRC)
-	Sys_Error("Could not initialize GL (wglCreateContext failed).\n\n"
-		  "Make sure you in are 65535 color mode, "
-		  "and try running -window.");
-    if (!wglMakeCurrent(maindc, baseRC))
-	Sys_Error("wglMakeCurrent failed");
-
-    GL_Init();
-    if (reload_textures) {
-	GL_ReloadTextures();
-        reload_textures = false;
-    }
+    SendMessage(mainwindow, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
+    SendMessage(mainwindow, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 
     return true;
 }
@@ -283,53 +400,36 @@ VID_SetWindowedMode(const qvidmode_t *mode)
 static qboolean
 VID_SetFullDIBMode(const qvidmode_t *mode)
 {
-    HDC hdc;
-    DWORD WindowStyle, ExWindowStyle;
+    RECT windowRect;
 
-    VID_DestroyWindow();
+    VID_ShutdownGLContext();
     VID_SetDisplayMode(mode);
 
-    WindowRect.top = WindowRect.left = 0;
-    WindowRect.right = mode->width;
-    WindowRect.bottom = mode->height;
+    windowRect.top = 0;
+    windowRect.left = 0;
+    windowRect.right = mode->width;
+    windowRect.bottom = mode->height;
 
-    WindowStyle = WS_POPUP;
-    ExWindowStyle = 0;
+    GL_WindowRect = windowRect;
+    AdjustWindowRectEx(&windowRect, Q_WS_FULLSCREEN, FALSE, 0);
 
-    GL_WindowRect = WindowRect;
-    AdjustWindowRectEx(&WindowRect, WindowStyle, FALSE, 0);
+    SetWindowLong(mainwindow, GWL_STYLE, Q_WS_FULLSCREEN | WS_VISIBLE);
+    SetWindowLong(mainwindow, GWL_EXSTYLE, 0);
 
-    // Create the DIB window
-    mainwindow = CreateWindowEx(ExWindowStyle,
-			       "TyrQuake",
-			       "TyrQuake",
-			       WindowStyle,
-			       WindowRect.left, WindowRect.top,
-			       WindowRect.right - WindowRect.left,
-			       WindowRect.bottom - WindowRect.top,
-			       NULL, NULL, global_hInstance, NULL);
-
-    if (!mainwindow)
-	Sys_Error("Couldn't create DIB window");
-
-    SetWindowLong(mainwindow, GWL_STYLE, WindowStyle | WS_VISIBLE);
-    SetWindowLong(mainwindow, GWL_EXSTYLE, ExWindowStyle);
+    if (!SetWindowPos(mainwindow, NULL, 0, 0,
+		      windowRect.right - windowRect.left,
+		      windowRect.bottom - windowRect.top,
+		      SWP_NOCOPYBITS | SWP_NOZORDER)) {
+	Sys_Error("Couldn't resize window");
+    }
 
     /* Raise to top and show the DIB window */
-    //SetWindowPos(mainwindow, HWND_TOPMOST, 0, 0, 0, 0,
-    //SWP_NOSIZE | SWP_SHOWWINDOW | SWP_DRAWFRAME);
+    SetWindowPos(mainwindow, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW | SWP_DRAWFRAME);
     ShowWindow(mainwindow, SW_SHOWDEFAULT);
     UpdateWindow(mainwindow);
 
-    /*
-     * Because we have set the background brush for the window to NULL
-     * (to avoid flickering when re-sizing the window on the desktop), we
-     * clear the window to black when created, otherwise it will be
-     * empty while Quake starts up.
-     */
-    hdc = GetDC(mainwindow);
-    PatBlt(hdc, 0, 0, WindowRect.right, WindowRect.bottom, BLACKNESS);
-    ReleaseDC(mainwindow, hdc);
+    /* Update the input layer with the new window geometry */
+    IN_UpdateWindowRect(0, 0, mode->width, mode->height);
 
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
@@ -337,75 +437,77 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     vid.maxwarpwidth = WARP_WIDTH;
     vid.maxwarpheight = WARP_HEIGHT;
 
-    mainwindow = mainwindow;
-
-    SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
-    SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
-
-    maindc = GetDC(mainwindow);
-    bSetupPixelFormat(maindc);
-
-    baseRC = wglCreateContext(maindc);
-    if (!baseRC)
-	Sys_Error("Could not initialize GL (wglCreateContext failed).\n\n"
-		  "Make sure you in are 65535 color mode, "
-		  "and try running -window.");
-    if (!wglMakeCurrent(maindc, baseRC))
-	Sys_Error("wglMakeCurrent failed");
-
-    GL_Init();
-    if (reload_textures) {
-	GL_ReloadTextures();
-        reload_textures = false;
-    }
-
     return true;
 }
 
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
-    qboolean scr_disabled_for_loading_save;
-    int modenum;
-    qboolean stat;
+    RECT windowRect;
+    qboolean scr_disabled_for_loading_save, success;
     MSG msg;
-
-    modenum = mode - modelist;
-    if (modenum < 0 ||  modenum >= nummodes)
-	Sys_Error("Bad video mode");
 
     /* so Con_Printfs don't mess us up by forcing vid and snd updates */
     scr_disabled_for_loading_save = scr_disabled_for_loading;
     scr_disabled_for_loading = true;
+    in_mode_set = true;
 
     CDAudio_Pause();
+    S_ClearBuffer();
 
-    // Set either the fullscreen or windowed mode
-    stat = false;
-    if (mode != modelist) {
-	stat = VID_SetFullDIBMode(mode);
-	IN_UpdateWindowRect(0, 0, mode->width, mode->height);
+    if (!mainwindow) {
+        windowRect.top = 0;
+        windowRect.left = 0;
+        windowRect.right = mode->width;
+        windowRect.bottom = mode->height;
+
+        GL_WindowRect = windowRect;
+        AdjustWindowRectEx(&windowRect, Q_WS_WINDOWED, FALSE, 0);
+
+        /* Create the window if we haven't already */
+        mainwindow = CreateWindowEx(0,
+                                    "TyrQuake",
+                                    "TyrQuake",
+                                    Q_WS_WINDOWED,
+                                    windowRect.left, windowRect.top,
+                                    windowRect.right - windowRect.left,
+                                    windowRect.bottom - windowRect.top,
+                                    NULL, NULL, global_hInstance, NULL);
+    }
+    if (!mainwindow)
+	Sys_Error("Couldn't create window");
+
+    /* Set either the fullscreen or windowed mode */
+    success = false;
+    if (mode != &vid_windowed_mode) {
+	success = VID_SetFullDIBMode(mode);
 	IN_ActivateMouse();
 	IN_HideMouse();
     } else {
 	if (_windowed_mouse.value && key_dest == key_game) {
-	    stat = VID_SetWindowedMode(mode);
-	    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, mode->width, mode->height);
+	    success = VID_SetWindowedMode(mode);
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	} else {
 	    IN_DeactivateMouse();
 	    IN_ShowMouse();
-	    stat = VID_SetWindowedMode(mode);
-	    IN_UpdateWindowRect(WindowRect.left, WindowRect.top, mode->width, mode->height);
+	    success = VID_SetWindowedMode(mode);
 	}
     }
+
+    /* Create the GL Context */
+    VID_CreateGLContext(mode->width, mode->height, palette);
 
     CDAudio_Resume();
     scr_disabled_for_loading = scr_disabled_for_loading_save;
 
-    if (!stat)
-	Sys_Error("Couldn't set video mode");
+    if (!success)
+	return false;
+
+    vid_currentmode = mode;
+
+    if (hide_window)
+        return true;
 
     /*
      * now we try to make sure we get the focus on the mode switch, because
@@ -418,8 +520,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     SetForegroundWindow(mainwindow);
 
     VID_SetPalette(palette);
-    vid_modenum = modenum;
-    Cvar_SetValue("vid_mode", (float)vid_modenum);
 
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
 	TranslateMessage(&msg);
@@ -434,11 +534,11 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     SetForegroundWindow(mainwindow);
 
-// fix the leftover Alt from any Alt-Tab or the like that switched us away
+    /* Fix the leftover Alt from any Alt-Tab or the like that switched us away */
     ClearAllStates();
 
     VID_SetPalette(palette);
-
+    in_mode_set = false;
     vid.recalc_refdef = 1;
 
     SCR_CheckResize();
@@ -458,13 +558,7 @@ GL_BeginRendering(int *x, int *y, int *width, int *height)
     *x = *y = 0;
     *width = GL_WindowRect.right - GL_WindowRect.left;
     *height = GL_WindowRect.bottom - GL_WindowRect.top;
-
-//    if (!wglMakeCurrent( maindc, baseRC ))
-//              Sys_Error("wglMakeCurrent failed");
-
-//      glViewport(*x, *y, *width, *height);
 }
-
 
 void
 GL_EndRendering(void)
@@ -499,6 +593,7 @@ void
 VID_SetPalette(const byte *palette)
 {
     QPic32_InitPalettes(palette);
+    memcpy(vid_curpal, palette, sizeof(vid_curpal));
 }
 
 void (*VID_SetGammaRamp)(unsigned short ramp[3][256]);
@@ -618,108 +713,6 @@ bSetupPixelFormat(HDC hDC)
     return TRUE;
 }
 
-
-/*
-================
-ClearAllStates
-================
-*/
-static void
-ClearAllStates(void)
-{
-    knum_t keynum;
-
-    /* send an up event for each key, to ensure the server clears them all */
-    for (keynum = K_UNKNOWN; keynum < K_LAST; keynum++)
-	Key_Event(keynum, false);
-
-    Key_ClearStates();
-    IN_ClearStates();
-}
-
-static void
-VID_InitWindowClass(HINSTANCE hInstance)
-{
-    WNDCLASS wc;
-
-    /* Register the frame class */
-    wc.style = 0;
-    wc.lpfnWndProc = (WNDPROC)MainWndProc;
-    wc.cbClsExtra = 0;
-    wc.cbWndExtra = 0;
-    wc.hInstance = hInstance;
-    wc.hIcon = 0;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = NULL;
-    wc.lpszMenuName = 0;
-    wc.lpszClassName = "TyrQuake";
-
-    if (!RegisterClass(&wc))
-	Sys_Error("Couldn't register window class");
-}
-
-
-/*
-=================
-VID_InitFullDIB
-=================
-*/
-static void
-VID_InitModeList(void)
-{
-    DEVMODE devmode;
-    DWORD testmodenum;
-    LONG result;
-    BOOL success;
-    qvidmode_t *mode;
-
-    /* Query the desktop mode */
-    memset(&devmode, 0, sizeof(devmode));
-    devmode.dmSize = sizeof(devmode);
-    success = EnumDisplaySettings(NULL, ENUM_REGISTRY_SETTINGS, &devmode);
-    if (!success)
-	Sys_Error("Unable to query desktop display settings");
-
-    /* Setup the default windowed mode */
-    mode = modelist;
-    mode->width = 640;
-    mode->height = 480;
-    mode->bpp = devmode.dmBitsPerPel;
-    mode->refresh = devmode.dmDisplayFrequency;
-    mode++;
-    nummodes = 1;
-
-    testmodenum = 0;
-    for (;;) {
-	memset(&devmode, 0, sizeof(devmode));
-	devmode.dmSize = sizeof(devmode);
-	success = EnumDisplaySettings(NULL, testmodenum++, &devmode);
-	if (!success)
-	    break;
-	if (nummodes == MAX_MODE_LIST)
-	    break;
-	if (devmode.dmPelsWidth > MAXWIDTH || devmode.dmPelsHeight > MAXHEIGHT)
-	    continue;
-	if (devmode.dmBitsPerPel < 15)
-	    continue;
-
-	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
-	if (result != DISP_CHANGE_SUCCESSFUL)
-	    continue;
-
-	mode->width = devmode.dmPelsWidth;
-	mode->height = devmode.dmPelsHeight;
-	mode->bpp = devmode.dmBitsPerPel;
-	mode->refresh = devmode.dmDisplayFrequency;
-	mode->modenum = nummodes++;
-	mode++;
-    }
-
-    if (nummodes == 1)
-	Con_SafePrintf("No fullscreen DIB modes found\n");
-}
-
 static void
 Check_Gamma(const byte *palette, byte *newpalette)
 {
@@ -743,15 +736,9 @@ Check_Gamma(const byte *palette, byte *newpalette)
 static void
 VID_InitCvars()
 {
-    Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&vid_wait);
     Cvar_RegisterVariable(&vid_nopageflip);
     Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&_vid_default_mode);
-    Cvar_RegisterVariable(&_vid_default_mode_win);
-    Cvar_RegisterVariable(&vid_config_x);
-    Cvar_RegisterVariable(&vid_config_y);
-    Cvar_RegisterVariable(&vid_stretch_by_2);
     Cvar_RegisterVariable(&gl_npot);
 }
 
@@ -770,13 +757,9 @@ VID_Init(const byte *palette)
 
     VID_InitCvars();
     VID_InitModeCvars();
+    VID_InitModeCommands();
 
     memset(&devmode, 0, sizeof(devmode));
-
-    Cmd_AddCommand("vid_nummodes", VID_NumModes_f);
-    Cmd_AddCommand("vid_describecurrentmode", VID_DescribeCurrentMode_f);
-    Cmd_AddCommand("vid_describemode", VID_DescribeMode_f);
-    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
 
     hIcon = LoadIcon(global_hInstance, MAKEINTRESOURCE(IDI_ICON2));
 
@@ -784,9 +767,12 @@ VID_Init(const byte *palette)
 
     VID_InitWindowClass(global_hInstance);
     VID_InitModeList();
+    VID_LoadConfig();
     mode = VID_GetCmdlineMode();
     if (!mode)
-	mode = &modelist[vid_default];
+	mode = VID_GetModeFromCvars();
+    if (!mode)
+	mode = &vid_windowed_mode;
 
     vid_initialized = true;
 
@@ -798,13 +784,16 @@ VID_Init(const byte *palette)
     Check_Gamma(palette, gamma_palette);
     VID_SetPalette(gamma_palette);
 
+    hide_window = true;
+    VID_SetMode(mode, gamma_palette);
+    hide_window = false;
+
     VID_SetMode(mode, gamma_palette);
     Gamma_Init();
 
     qsnprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
     Sys_mkdir(gldir);
 
-    vid_realmode = vid_modenum;
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
     vid_canalttab = true;
@@ -879,10 +868,8 @@ AppActivate(BOOL fActive, BOOL minimize)
 	sound_active = true;
     }
 
-    if (fActive) {
+    if (ActiveApp) {
 	if (modestate == MS_FULLSCREEN) {
-	    IN_ActivateMouse();
-	    IN_HideMouse();
 	    if (vid_canalttab && vid_wassuspended) {
 		vid_wassuspended = false;
 		ChangeDisplaySettings(&gdevmode, CDS_FULLSCREEN);
@@ -893,11 +880,11 @@ AppActivate(BOOL fActive, BOOL minimize)
 		 * correctly update the offsets into the GL front buffer after
 		 * alt-tab to the desktop and back.
 		 */
-		MoveWindow(mainwindow, 0, 0, gdevmode.dmPelsWidth,
-			   gdevmode.dmPelsHeight, false);
+		MoveWindow(mainwindow, 0, 0, gdevmode.dmPelsWidth, gdevmode.dmPelsHeight, false);
 	    }
-	} else if ((modestate == MS_WINDOWED) && _windowed_mouse.value
-		   && key_dest == key_game) {
+	    IN_ActivateMouse();
+	    IN_HideMouse();
+	} else if ((modestate == MS_WINDOWED) && _windowed_mouse.value && key_dest == key_game) {
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	}
@@ -906,7 +893,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 	    VID_SetGammaRamp(ramps);
     }
 
-    if (!fActive) {
+    if (!ActiveApp) {
 	/* Restore desktop gamma */
 	if (VID_SetGammaRamp)
 	    VID_SetGammaRamp(saved_gamma_ramp);
@@ -935,9 +922,9 @@ MAIN WINDOW
 static LONG WINAPI
 MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+    RECT windowRect;
     LONG msg_handled = 1;
     int fActive, fMinimized, buttons, window_x, window_y, result;
-    const qvidmode_t *mode;
 
     if (uMsg == uiWheelMessage)
 	uMsg = WM_MOUSEWHEEL;
@@ -954,11 +941,17 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_MOVE:
 	window_x = (int)LOWORD(lParam);
 	window_y = (int)HIWORD(lParam);
-	mode = &modelist[vid_modenum];
-	IN_UpdateWindowRect(window_x, window_y, mode->width, mode->height);
+	IN_UpdateWindowRect(window_x, window_y, vid_currentmode->width, vid_currentmode->height);
+        if ((modestate == MS_WINDOWED) && !in_mode_set && !Minimized) {
+            GetWindowRect(mainwindow, &windowRect);
+            VID_UpdateWindowPositionCvars(windowRect.left, windowRect.top);
+        }
 	break;
 
     case WM_SIZE:
+        Minimized = false;
+        if (!(wParam & SIZE_RESTORED) && (wParam & SIZE_MINIMIZED))
+            Minimized = true;
 	break;
 
     case WM_SYSCHAR:
@@ -1032,6 +1025,12 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	    Sys_Quit();
 	break;
 
+    case WM_DISPLAYCHANGE:
+	if (!in_mode_set && (modestate == MS_WINDOWED)) {
+	    VID_SetMode(vid_currentmode, vid_curpal);
+	}
+	break;
+
     case WM_DESTROY:
 	if (mainwindow)
 	    DestroyWindow(mainwindow);
@@ -1049,12 +1048,6 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     }
 
     return msg_handled;
-}
-
-qboolean
-VID_IsFullScreen()
-{
-    return vid_modenum != 0;
 }
 
 void VID_LockBuffer(void) {}

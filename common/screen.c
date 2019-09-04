@@ -114,7 +114,6 @@ qboolean scr_skipupdate;
 static cvar_t scr_centertime = { "scr_centertime", "2" };
 static cvar_t scr_printspeed = { "scr_printspeed", "8" };
 
-
 /* Ratio of console background width to backbuffer width */
 float scr_conbackscale = 1.0f;
 
@@ -160,7 +159,7 @@ SCR_Hudscale_Cvar_f(cvar_t *cvar)
 static cvar_t scr_hudscale = {
     .name = "scr_hudscale",
     .string = "0",
-    .archive = true,
+    .flags = CVAR_CONFIG,
     .callback = SCR_Hudscale_Cvar_f
 };
 
@@ -187,7 +186,7 @@ SCR_Hudscale_f()
 }
 
 
-cvar_t scr_viewsize = { "viewsize", "100", true };
+cvar_t scr_viewsize = { "viewsize", "100", CVAR_CONFIG };
 cvar_t scr_fov = { "fov", "90" };	// 10 - 170
 static cvar_t scr_conspeed = { "scr_conspeed", "300" };
 static cvar_t scr_showram = { "showram", "1" };

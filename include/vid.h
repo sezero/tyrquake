@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define VID_H
 
 #include "qtypes.h"
+#include "cvar.h"
 #include "keys.h"
 
 #define VID_CBITS	6
@@ -63,50 +64,49 @@ extern unsigned d_8to24table[256];
 /*
  * ------------------------------------------------------------------------
  * VIDEO MODES
- * (very ugly, cleanup pending...)
  * ------------------------------------------------------------------------
  */
 
-typedef struct {
-    int modenum;
+typedef struct qvidmode_s {
     int width;
     int height;
     int bpp;
     int refresh;
-    byte driverdata[8];	/* Allow drivers to stuff some data */
+    byte driverdata[8]; /* Allow drivers to stuff some data */
 } qvidmode_t;
 
-/*
- * TODO ~ Have the vid driver allocate modelist dynamically
- */
-#define MAX_MODE_LIST 600
-extern qvidmode_t modelist[MAX_MODE_LIST];
-extern qvidmode_t badmode;
+/* The vid driver will allocate the modelist as needed */
+extern qvidmode_t vid_windowed_mode;
+extern qvidmode_t *vid_modelist;
+extern int vid_nummodes;
+extern const qvidmode_t *vid_currentmode;
 
-extern int nummodes;
-extern int vid_modenum;
+/* Config variables to save window position between runs */
+extern cvar_t vid_window_x;
+extern cvar_t vid_window_y;
+extern cvar_t vid_window_centered;
+extern cvar_t vid_window_remember_position;
 
 /* FIXME - vid mode testing */
 extern int vid_testingmode;
 extern int vid_realmode;
 extern double vid_testendtime;
 
-#define VID_MODE_NONE               (-1)
-#define VID_MODE_WINDOWED           0
-
-void VID_InitModeCvars(void);
+void VID_InitModeCvars();
+void VID_InitModeCommands();
 void VID_SortModeList(qvidmode_t *modelist, int nummodes);
-const qvidmode_t *VID_GetCmdlineMode(void);
+const qvidmode_t *VID_GetCmdlineMode();
+const qvidmode_t *VID_GetModeFromCvars();
+void VID_LoadConfig();
+
+/* Ask the vid driver for the desktop dimensions, to help with window positioning */
+void VID_GetDesktopRect(vrect_t *rect);
 
 void VID_MenuDraw(void);
 void VID_MenuInitState(const qvidmode_t *mode);
 void VID_MenuKey(knum_t keynum);
 qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette);
 qboolean VID_CheckAdequateMem(int width, int height);
-void VID_NumModes_f(void);
-void VID_DescribeModes_f(void);
-void VID_DescribeMode_f(void);
-void VID_DescribeCurrentMode_f(void);
 
 extern void (*vid_menudrawfn)(void);
 extern void (*vid_menukeyfn)(knum_t keynum);
@@ -144,5 +144,6 @@ void VID_LockBuffer(void);
 void VID_UnlockBuffer(void);
 
 qboolean VID_IsFullScreen(void);
+void VID_UpdateWindowPositionCvars(int x, int y);
 
 #endif /* VID_H */

@@ -99,6 +99,9 @@ void S_ClearBuffer(void);
 void S_Update(vec3_t origin, vec3_t v_forward, vec3_t v_right, vec3_t v_up);
 void S_ExtraUpdate(void);
 
+void S_BlockSound(void);
+void S_UnblockSound(void);
+
 sfx_t *S_PrecacheSound(const char *sample);
 void S_TouchSound(const char *sample);
 void S_BeginPrecaching(void);

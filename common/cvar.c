@@ -331,18 +331,18 @@ Cvar_Command(void)
 Cvar_WriteVariables
 
 Writes lines containing "set variable value" for all variables
-with the archive flag set to true.
+with the given flags set.
 ============
 */
 void
-Cvar_WriteVariables(FILE *f)
+Cvar_WriteVariables(FILE *f, uint32_t flags)
 {
     cvar_t *var;
     struct stree_node *n;
 
     STree_ForEach(&cvar_tree, n) {
 	var = cvar_entry(n);
-	if (var->archive)
+	if (var->flags & flags)
 	    fprintf(f, "%s \"%s\"\n", var->name, var->string);
     }
 }

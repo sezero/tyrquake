@@ -72,13 +72,6 @@ void IN_UpdateWindowRect(int x, int y, int width, int height);
 extern int in_window_center_x, in_window_center_y;
 extern RECT in_window_rect;
 
-//
-// sound.h (or remove)
-//
-
-void S_BlockSound(void);
-void S_UnblockSound(void);
-
 // cdaudio_driver.h
 LONG CDDrv_MessageHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 

@@ -40,7 +40,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "vid.h"
 #endif
 
-static cvar_t gl_constretch = { "gl_constretch", "0", true };
+static cvar_t gl_constretch = { "gl_constretch", "0", CVAR_CONFIG };
 
 static wad_t host_gfx; /* gfx.wad */
 const byte *draw_chars; /* 8*8 graphic characters */

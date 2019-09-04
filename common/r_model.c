@@ -110,10 +110,10 @@ static void R_SlimeAlpha_f(cvar_t *cvar) { map_slimealpha = qclamp(cvar->value, 
 static void R_LavaAlpha_f(cvar_t *cvar)  { map_lavaalpha  = qclamp(cvar->value, 0.0f, 1.0f); Alpha_Updated(); }
 static void R_TeleAlpha_f(cvar_t *cvar)  { map_telealpha  = qclamp(cvar->value, 0.0f, 1.0f); Alpha_Updated(); }
 
-cvar_t r_wateralpha = { "r_wateralpha", "1", true, .callback = R_WaterAlpha_f };
-cvar_t r_slimealpha = { "r_slimealpha", "1", true, .callback = R_SlimeAlpha_f };
-cvar_t r_lavaalpha  = { "r_lavaalpha",  "1", true, .callback = R_LavaAlpha_f  };
-cvar_t r_telealpha  = { "r_telealpha",  "1", true, .callback = R_TeleAlpha_f  };
+cvar_t r_wateralpha = { "r_wateralpha", "1", CVAR_CONFIG, .callback = R_WaterAlpha_f };
+cvar_t r_slimealpha = { "r_slimealpha", "1", CVAR_CONFIG, .callback = R_SlimeAlpha_f };
+cvar_t r_lavaalpha  = { "r_lavaalpha",  "1", CVAR_CONFIG, .callback = R_LavaAlpha_f  };
+cvar_t r_telealpha  = { "r_telealpha",  "1", CVAR_CONFIG, .callback = R_TeleAlpha_f  };
 
 void
 Alpha_NewMap()

@@ -65,29 +65,27 @@ extern cvar_t noskins;
 
 qboolean noclip_anglehack;	// remnant from old quake
 
-
-cvar_t rcon_password = { "rcon_password", "", false };
-
+cvar_t rcon_password = { "rcon_password", "" };
 cvar_t rcon_address = { "rcon_address", "" };
 
 cvar_t cl_timeout = { "cl_timeout", "60" };
 
 cvar_t cl_shownet = { "cl_shownet", "0" };	// can be 0, 1, or 2
 
-cvar_t cl_sbar = { "cl_sbar", "0", true };
-cvar_t cl_hudswap = { "cl_hudswap", "0", true };
-cvar_t cl_maxfps = { "cl_maxfps", "0", true };
+cvar_t cl_sbar = { "cl_sbar", "0", CVAR_CONFIG };
+cvar_t cl_hudswap = { "cl_hudswap", "0", CVAR_CONFIG };
+cvar_t cl_maxfps = { "cl_maxfps", "0", CVAR_CONFIG };
 
-cvar_t lookspring = { "lookspring", "0", true };
-cvar_t lookstrafe = { "lookstrafe", "0", true };
-cvar_t sensitivity = { "sensitivity", "3", true };
+cvar_t lookspring = { "lookspring", "0", CVAR_CONFIG };
+cvar_t lookstrafe = { "lookstrafe", "0", CVAR_CONFIG };
+cvar_t sensitivity = { "sensitivity", "3", CVAR_CONFIG };
 
-cvar_t m_pitch = { "m_pitch", "0.022", true };
+cvar_t m_pitch = { "m_pitch", "0.022", CVAR_CONFIG };
 cvar_t m_yaw = { "m_yaw", "0.022" };
 cvar_t m_forward = { "m_forward", "1" };
 cvar_t m_side = { "m_side", "0.8" };
 
-cvar_t m_freelook = { "m_freelook", "0", true };
+cvar_t m_freelook = { "m_freelook", "0", CVAR_CONFIG };
 
 cvar_t entlatency = { "entlatency", "20" };
 cvar_t cl_predict_players = { "cl_predict_players", "1" };
@@ -101,24 +99,17 @@ static qboolean allowremotecmd = true;
 //
 // info mirrors
 //
-cvar_t password = { "password", "", false, true };
-cvar_t spectator = { "spectator", "", false, true };
-cvar_t name = { "name", "unnamed", true, true };
-cvar_t team = { "team", "", true, true };
-cvar_t topcolor = { "topcolor", "0", true, true };
-cvar_t bottomcolor = { "bottomcolor", "0", true, true };
-cvar_t rate = { "rate", "2500", true, true };
-cvar_t noaim = { "noaim", "0", true, true };
-cvar_t msg = { "msg", "1", true, true };
+cvar_t password = { "password", "", .info = true };
+cvar_t spectator = { "spectator", "", .info = true };
+cvar_t name = { "name", "unnamed", CVAR_CONFIG, .info = true };
+cvar_t team = { "team", "", CVAR_CONFIG, .info = true };
+cvar_t topcolor = { "topcolor", "0", CVAR_CONFIG, .info = true };
+cvar_t bottomcolor = { "bottomcolor", "0", CVAR_CONFIG, .info = true };
+cvar_t rate = { "rate", "2500", CVAR_CONFIG, .info = true };
+cvar_t noaim = { "noaim", "0", CVAR_CONFIG, .info = true };
+cvar_t msg = { "msg", "1", CVAR_CONFIG, .info = true };
 
-cvar_t skin = {
-    .name = "skin",
-    .string = "",
-    .archive = true,
-    .info = true,
-    .completion = CL_Skin_Arg_f
-};
-
+cvar_t skin = { "skin", "", CVAR_CONFIG, .info = true, .completion = CL_Skin_Arg_f };
 
 client_static_t cls;
 client_state_t cl;
@@ -1246,19 +1237,25 @@ Writes key bindings and archived cvars to config.cfg
 void
 Host_WriteConfiguration(void)
 {
-    FILE *f;
+    FILE *configFile;
 
     if (host_initialized) {
-	f = fopen(va("%s/config.cfg", com_gamedir), "w");
-	if (!f) {
+	configFile = fopen(va("%s/config.cfg", com_gamedir), "w");
+        if (configFile) {
+            Key_WriteBindings(configFile);
+            Cvar_WriteVariables(configFile, CVAR_CONFIG | CVAR_VIDEO);
+            fclose(configFile);
+        } else {
 	    Con_Printf("Couldn't write config.cfg.\n");
-	    return;
-	}
+        }
 
-	Key_WriteBindings(f);
-	Cvar_WriteVariables(f);
-
-	fclose(f);
+        configFile = fopen(va("%s/video.cfg", com_gamedir), "w");
+        if (configFile) {
+            Cvar_WriteVariables(configFile, CVAR_VIDEO);
+            fclose(configFile);
+        } else {
+	    Con_Printf("Couldn't write video.cfg.\n");
+        }
     }
 }
 

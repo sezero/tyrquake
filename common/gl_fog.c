@@ -52,7 +52,7 @@ Sky_Skyfog_f(cvar_t *cvar)
     map_skyfog = cvar->value;
 }
 
-cvar_t r_skyfog = { "r_skyfog", "0.5", true, .callback = Sky_Skyfog_f };
+cvar_t r_skyfog = { "r_skyfog", "0.5", .flags = CVAR_CONFIG, .callback = Sky_Skyfog_f };
 
 /*
   =============

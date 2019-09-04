@@ -96,11 +96,11 @@ static cvar_t scratch1 = { "scratch1", "0" };
 static cvar_t scratch2 = { "scratch2", "0" };
 static cvar_t scratch3 = { "scratch3", "0" };
 static cvar_t scratch4 = { "scratch4", "0" };
-static cvar_t savedgamecfg = { "savedgamecfg", "0", true };
-static cvar_t saved1 = { "saved1", "0", true };
-static cvar_t saved2 = { "saved2", "0", true };
-static cvar_t saved3 = { "saved3", "0", true };
-static cvar_t saved4 = { "saved4", "0", true };
+static cvar_t savedgamecfg = { "savedgamecfg", "0", CVAR_CONFIG };
+static cvar_t saved1 = { "saved1", "0", CVAR_CONFIG };
+static cvar_t saved2 = { "saved2", "0", CVAR_CONFIG };
+static cvar_t saved3 = { "saved3", "0", CVAR_CONFIG };
+static cvar_t saved4 = { "saved4", "0", CVAR_CONFIG };
 #endif
 #if defined(QW_HACK) && defined(SERVERONLY)
 func_t SpectatorConnect;

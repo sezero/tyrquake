@@ -162,7 +162,7 @@ static const keyname_t keynames[] = {
     {NULL, 0}
 };
 
-static cvar_t in_cfg_unbindall = { "in_cfg_unbindall", "1", true };
+static cvar_t in_cfg_unbindall = { "in_cfg_unbindall", "1", CVAR_CONFIG };
 
 /*
 ==============================================================================

@@ -349,8 +349,7 @@ Con_Printf(const char *fmt, ...)
 #else
     if (con_forcedup) {
 #endif
-	// protect against infinite loop if something in SCR_UpdateScreen calls
-	// Con_Printd
+	// protect against infinite loop if something in SCR_UpdateScreen calls Con_Printf
 	if (!inupdate) {
 	    inupdate = true;
 	    SCR_UpdateScreen();

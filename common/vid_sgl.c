@@ -47,21 +47,7 @@ GL_GetProcAddress(const char *name)
     return SDL_GL_GetProcAddress(name);
 }
 
-int vid_modenum = VID_MODE_NONE;
-
-static cvar_t vid_mode = {
-    .name = "vid_mode",
-    .string = stringify(VID_MODE_WINDOWED),
-    .archive = false
-};
-
 viddef_t vid;
-
-qboolean
-VID_IsFullScreen(void)
-{
-    return vid_modenum != 0;
-}
 
 qboolean VID_CheckAdequateMem(int width, int height) { return true; }
 void VID_LockBuffer(void) {}
@@ -108,10 +94,28 @@ typedef struct {
 
 static SDL_PixelFormat *sdl_desktop_format = NULL;
 
+#ifdef _WIN32
+static HICON hIcon;
+#endif
+
+void
+VID_GetDesktopRect(vrect_t *rect)
+{
+    int display;
+    SDL_DisplayMode mode;
+
+    display = SDL_GetWindowDisplayIndex(sdl_window);
+    SDL_GetDesktopDisplayMode(display, &mode);
+
+    rect->x = 0;
+    rect->y = 0;
+    rect->width = mode.w;
+    rect->height = mode.h;
+}
+
 static void
 VID_InitCvars(void)
 {
-    Cvar_RegisterVariable(&vid_mode);
     Cvar_RegisterVariable(&gl_npot);
 }
 
@@ -124,6 +128,25 @@ VID_InitModeList(void)
     qvidmode_t *mode;
     qvidformat_t *format;
 
+    /* Query the desktop mode's pixel format */
+    err = SDL_GetDesktopDisplayMode(0, &sdlmode);
+    if (err)
+	Sys_Error("%s: Unable to query desktop display mode (%s)",
+		  __func__, SDL_GetError());
+    sdl_desktop_format = SDL_AllocFormat(sdlmode.format);
+    if (!sdl_desktop_format)
+	Sys_Error("%s: Unable to allocate desktop pixel format (%s)",
+		  __func__, SDL_GetError());
+
+    /* Setup the default windowed mode */
+    mode = &vid_windowed_mode;
+    mode->bpp = sdl_desktop_format->BitsPerPixel;
+    format = (qvidformat_t *)mode->driverdata;
+    format->format = sdl_desktop_format->format;
+    mode->refresh = sdlmode.refresh_rate;
+    mode->width = 640;
+    mode->height = 480;
+
     displays = SDL_GetNumVideoDisplays();
     if (displays < 1)
 	Sys_Error("%s: no displays found (%s)", __func__, SDL_GetError());
@@ -134,13 +157,15 @@ VID_InitModeList(void)
 	Con_SafePrintf("%s: error enumerating SDL display modes (%s)\n",
 		       __func__, SDL_GetError());
 
+    vid_modelist = Hunk_AllocName(sdlmodes * sizeof(qvidmode_t), "vidmodes");
+
     /*
      * Check availability of fullscreen modes
      * (default to display 0 for now)
      */
-    mode = &modelist[1];
-    nummodes = 1;
-    for (i = 0; i < sdlmodes && nummodes < MAX_MODE_LIST; i++) {
+    mode = vid_modelist;
+    vid_nummodes = 0;
+    for (i = 0; i < sdlmodes; i++) {
 	err = SDL_GetDisplayMode(0, i, &sdlmode);
 	if (err)
 	    Sys_Error("%s: couldn't get mode %d info (%s)",
@@ -150,23 +175,22 @@ VID_InitModeList(void)
 		   i, sdlmode.w, sdlmode.h, SDL_GetPixelFormatName(sdlmode.format));
 
 	if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED32)
-	    modelist[nummodes].bpp = 32;
+	    vid_modelist[vid_nummodes].bpp = 32;
 	else if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED16)
-	    modelist[nummodes].bpp = 16;
+	    vid_modelist[vid_nummodes].bpp = 16;
 	else
 	    continue;
 
-	mode->modenum = nummodes;
 	mode->width = sdlmode.w;
 	mode->height = sdlmode.h;
 	mode->refresh = sdlmode.refresh_rate;
 	format = (qvidformat_t *)mode->driverdata;
 	format->format = sdlmode.format;
-	nummodes++;
+	vid_nummodes++;
 	mode++;
     }
 
-    VID_SortModeList(modelist, nummodes);
+    VID_SortModeList(vid_modelist, vid_nummodes);
 }
 
 static SDL_GLContext gl_context = NULL;
@@ -179,6 +203,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     qboolean reload_textures = false;
     int depths[] = { 32, 24, 16 };
 
+    S_BlockSound();
+    S_ClearBuffer();
+
     if (gl_context) {
         GL_Shutdown();
 	SDL_GL_DeleteContext(gl_context);
@@ -188,7 +215,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	SDL_DestroyWindow(sdl_window);
 
     flags = SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
-    if (mode - modelist != 0)
+    if (mode != &vid_windowed_mode)
 	flags |= SDL_WINDOW_FULLSCREEN;
 
     /*
@@ -236,13 +263,14 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
-    vid_modenum = mode - modelist;
-    Cvar_SetValue("vid_mode", vid_modenum);
+    vid_currentmode = mode;
 
     vid.recalc_refdef = 1;
 
     SCR_CheckResize();
     Con_CheckResize();
+
+    S_UnblockSound();
 
     return true;
 }
@@ -251,50 +279,34 @@ void
 VID_Init(const byte *palette)
 {
     int err;
-    SDL_DisplayMode desktop_mode;
-    qvidmode_t *mode;
-    qvidformat_t *format;
-    const qvidmode_t *setmode;
+    const qvidmode_t *mode;
 
     VID_InitCvars();
     VID_InitModeCvars();
-
-    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
+    VID_InitModeCommands();
 
     Q_SDL_InitOnce();
     err = SDL_InitSubSystem(SDL_INIT_VIDEO);
     if (err < 0)
 	Sys_Error("VID: Couldn't load SDL: %s", SDL_GetError());
 
-    err = SDL_GetDesktopDisplayMode(0, &desktop_mode);
-    if (err)
-	Sys_Error("%s: Unable to query desktop display mode (%s)",
-		  __func__, SDL_GetError());
-    sdl_desktop_format = SDL_AllocFormat(desktop_mode.format);
-    if (!sdl_desktop_format)
-	Sys_Error("%s: Unable to allocate desktop pixel format (%s)",
-		  __func__, SDL_GetError());
-
-    /* Init the default windowed mode */
-    mode = modelist;
-    mode->modenum = 0;
-    mode->bpp = sdl_desktop_format->BitsPerPixel;
-    format = (qvidformat_t *)mode->driverdata;
-    format->format = sdl_desktop_format->format;
-    mode->refresh = desktop_mode.refresh_rate;
-    mode->width = 640;
-    mode->height = 480;
-    nummodes = 1;
-
-    /* TODO: read config files first to avoid multiple mode sets */
     VID_InitModeList();
-    setmode = VID_GetCmdlineMode();
-    if (!setmode)
-	setmode = &modelist[0];
+    VID_LoadConfig();
+    mode = VID_GetCmdlineMode();
+    if (!mode)
+        mode = VID_GetModeFromCvars();
+    if (!mode)
+	mode = &vid_windowed_mode;
 
-    VID_SetMode(setmode, palette);
+    VID_SetMode(mode, palette);
 
     VID_SetPalette(palette);
+
+#ifdef _WIN32
+    mainwindow = GetActiveWindow();
+    SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_BIG, (LPARAM)hIcon);
+    SendMessage(mainwindow, WM_SETICON, (WPARAM)ICON_SMALL, (LPARAM)hIcon);
+#endif
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;

@@ -825,7 +825,7 @@ M_Menu_Video_f(void)
     key_dest = key_menu;
     m_state = m_video;
     m_entersound = true;
-    VID_MenuInitState(&modelist[vid_modenum]);
+    VID_MenuInitState(vid_currentmode);
 }
 
 static void

@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "qtypes.h"
 
 qboolean gl_npotable;
-cvar_t gl_npot = { "gl_npot", "1", false };
+cvar_t gl_npot = { "gl_npot", "1" };
 
 static qboolean
 GL_ExtensionCheck(const char *extension)

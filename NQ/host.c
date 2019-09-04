@@ -85,12 +85,12 @@ cvar_t host_speeds = { "host_speeds", "0" };	// set for running times
 cvar_t sys_ticrate = { "sys_ticrate", "0.05" };
 cvar_t serverprofile = { "serverprofile", "0" };
 
-cvar_t fraglimit = { "fraglimit", "0", false, true };
-cvar_t timelimit = { "timelimit", "0", false, true };
-cvar_t teamplay = { "teamplay", "0", false, true };
+cvar_t fraglimit = { "fraglimit", "0", .server = true };
+cvar_t timelimit = { "timelimit", "0", .server = true };
+cvar_t teamplay = { "teamplay", "0", .server = true };
 
 cvar_t samelevel = { "samelevel", "0" };
-cvar_t noexit = { "noexit", "0", false, true };
+cvar_t noexit = { "noexit", "0", .server = true };
 
 cvar_t developer = { "developer", "0" };
 
@@ -270,21 +270,27 @@ Writes key bindings and archived cvars to config.cfg
 void
 Host_WriteConfiguration(void)
 {
-    FILE *f;
+    FILE *configFile;
 
 // dedicated servers initialize the host but don't parse and set the
 // config.cfg cvars
     if (host_initialized & !isDedicated) {
-	f = fopen(va("%s/config.cfg", com_gamedir), "w");
-	if (!f) {
+	configFile = fopen(va("%s/config.cfg", com_gamedir), "w");
+        if (configFile) {
+            Key_WriteBindings(configFile);
+            Cvar_WriteVariables(configFile, CVAR_CONFIG | CVAR_VIDEO);
+            fclose(configFile);
+        } else {
 	    Con_Printf("Couldn't write config.cfg.\n");
-	    return;
-	}
+        }
 
-	Key_WriteBindings(f);
-	Cvar_WriteVariables(f);
-
-	fclose(f);
+        configFile = fopen(va("%s/video.cfg", com_gamedir), "w");
+        if (configFile) {
+            Cvar_WriteVariables(configFile, CVAR_VIDEO);
+            fclose(configFile);
+        } else {
+	    Con_Printf("Couldn't write video.cfg.\n");
+        }
     }
 }
 
@@ -848,7 +854,7 @@ Host_Init(quakeparms_t *parms)
     }
     Mod_InitAliasCache();
 
-    Con_Printf("Initializing palettes...\n");
+    Con_Printf("Initializing alpha palettes...\n");
     Alpha_Init();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");

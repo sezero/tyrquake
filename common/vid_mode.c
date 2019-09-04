@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "draw.h"
 #include "keys.h"
 #include "menu.h"
+#include "screen.h"
 #include "sound.h"
 #include "sys.h"
 #include "vid.h"
@@ -38,8 +39,19 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #endif
 
-qvidmode_t modelist[MAX_MODE_LIST];
-int nummodes;
+#ifdef GLQUAKE
+#include "glquake.h"
+#else
+#include "r_local.h"
+#endif
+
+qvidmode_t *vid_modelist;
+qvidmode_t vid_windowed_mode;
+qvidmode_t vid_fullscreen_mode;
+
+const qvidmode_t *vid_currentmode = &vid_windowed_mode;
+
+int vid_nummodes;
 
 /* FIXME - vid mode testing */
 int vid_testingmode;
@@ -48,11 +60,26 @@ double vid_testendtime;
 
 static const char *VID_GetModeDescription(const qvidmode_t *mode);
 
-static cvar_t vid_fullscreen = { "vid_fullscreen", "0", true };
-static cvar_t vid_width = { "vid_width", "640", true };
-static cvar_t vid_height = { "vid_height", "480", true };
-static cvar_t vid_bpp = { "vid_bpp", "32", true };
-static cvar_t vid_refreshrate = { "vid_refreshrate", "60", true };
+static cvar_t vid_fullscreen = { "vid_fullscreen", "0", CVAR_VIDEO };
+static cvar_t vid_width = { "vid_width", "800", CVAR_VIDEO };
+static cvar_t vid_height = { "vid_height", "600", CVAR_VIDEO };
+static cvar_t vid_bpp = { "vid_bpp", "32", CVAR_VIDEO };
+static cvar_t vid_refreshrate = { "vid_refreshrate", "60", CVAR_VIDEO };
+
+cvar_t vid_window_x = { "vid_window_x", "0", CVAR_VIDEO };
+cvar_t vid_window_y = { "vid_window_y", "0", CVAR_VIDEO };
+cvar_t vid_window_centered = { "vid_window_centered", "1", CVAR_VIDEO };
+cvar_t vid_window_remember_position = { "vid_window_remember_position", "1", CVAR_VIDEO };
+
+static void
+VID_SetModeCvars(const qvidmode_t *mode)
+{
+    Cvar_SetValue("vid_fullscreen", (mode == &vid_windowed_mode) ? 0 : 1);
+    Cvar_SetValue("vid_width", mode->width);
+    Cvar_SetValue("vid_height", mode->height);
+    Cvar_SetValue("vid_bpp", mode->bpp);
+    Cvar_SetValue("vid_refreshrate", mode->refresh);
+}
 
 /* Compare function for qsort - highest res to lowest */
 static int
@@ -85,7 +112,7 @@ void
 VID_SortModeList(qvidmode_t *modelist, int nummodes)
 {
     /* First entry is for windowed mode */
-    qsort(modelist + 1, nummodes - 1, sizeof(qvidmode_t), qvidmodecmp);
+    qsort(modelist, nummodes, sizeof(qvidmode_t), qvidmodecmp);
 }
 
 typedef enum {
@@ -96,11 +123,14 @@ typedef enum {
     VID_MENU_CURSOR_TEST,
     VID_MENU_CURSOR_APPLY,
     VID_MENU_CURSOR_LINES,
+    VID_MENU_CURSOR_WIDTH,
+    VID_MENU_CURSOR_HEIGHT,
 } vid_menu_cursor_t;
 
 typedef struct {
     qvidmode_t mode;
     qboolean fullscreen;
+    qboolean configure_window;
     vid_menu_cursor_t cursor;
 } vid_menustate_t;
 
@@ -110,7 +140,8 @@ void
 VID_MenuInitState(const qvidmode_t *mode)
 {
     vid_menustate.mode = *mode;
-    vid_menustate.fullscreen = !!vid_modenum;
+    vid_menustate.fullscreen = (vid_currentmode != &vid_windowed_mode);
+    vid_menustate.configure_window = false;
     vid_menustate.cursor = VID_MENU_CURSOR_RESOLUTION;
 }
 
@@ -122,11 +153,11 @@ VID_MenuDraw
 void
 VID_MenuDraw_(const vid_menustate_t *menu)
 {
-    static const int cursor_heights[] = { 48, 56, 64, 72, 88, 96 };
+    static const int cursor_heights[] = { 48, 56, 64, 72, 88, 96, 0, 64, 80 };
     const qpic8_t *pic;
     const char *text;
     vid_menu_cursor_t cursor = VID_MENU_CURSOR_RESOLUTION;
-    int rwidth, rheight, divisor;
+    int rwidth, rheight, divisor, length;
 
     /* Calculate relative width/height for aspect ratio */
     divisor = Q_gcd(menu->mode.width, menu->mode.height);
@@ -145,31 +176,57 @@ VID_MenuDraw_(const vid_menustate_t *menu)
     M_Print(184, cursor_heights[cursor], va("%ix%i (%i:%i)", menu->mode.width, menu->mode.height, rwidth, rheight));
     cursor++;
 
-    M_Print(16, cursor_heights[cursor], "       Color depth");
-    M_Print(184, cursor_heights[cursor], va("%i", menu->mode.bpp));
-    cursor++;
+    if (menu->configure_window) {
+        cursor = VID_MENU_CURSOR_WIDTH;
+        // TODO: sub-menu for manual width/height adjustment?
+        M_Print(16, cursor_heights[cursor], "             Width");
+        M_DrawTextBox(184 - 8, cursor_heights[cursor] - 8, 6, 1);
+        if (menu->mode.width)
+            M_Print(184, cursor_heights[cursor], va("%i", menu->mode.width));
+        cursor++;
 
-    /* Refresh rate is not always available */
-    if (menu->mode.refresh && menu->fullscreen)
-	text = va("%i Hz", menu->mode.refresh);
-    else
-	text = "n/a";
-    M_Print(16, cursor_heights[cursor], "      Refresh rate");
-    M_Print(184, cursor_heights[cursor], text);
-    cursor++;
+        M_Print(16, cursor_heights[cursor], "            Height");
+        M_DrawTextBox(184 - 8, cursor_heights[cursor] - 8, 6, 1);
+        if (menu->mode.height)
+            M_Print(184, cursor_heights[cursor], va("%i", menu->mode.height));
+        cursor++;
+    } else {
+        M_Print(16, cursor_heights[cursor], "       Color depth");
+        M_Print(184, cursor_heights[cursor], va("%i", menu->mode.bpp));
+        cursor++;
 
-    M_Print(16, cursor_heights[cursor], "        Fullscreen");
-    M_DrawCheckbox(184, cursor_heights[cursor], menu->fullscreen);
-    cursor++;
+        /* Refresh rate is not always available */
+        if (menu->mode.refresh && menu->fullscreen)
+            text = va("%i Hz", menu->mode.refresh);
+        else
+            text = "n/a";
+        M_Print(16, cursor_heights[cursor], "      Refresh rate");
+        M_Print(184, cursor_heights[cursor], text);
+        cursor++;
 
-    M_Print(16, cursor_heights[cursor], "      Test changes");
-    cursor++;
+        M_Print(16, cursor_heights[cursor], "        Fullscreen");
+        M_DrawCheckbox(184, cursor_heights[cursor], menu->fullscreen);
+        cursor++;
 
-    M_Print (16, cursor_heights[cursor], "     Apply changes");
-    cursor++;
+        M_Print(184, cursor_heights[cursor], "Test changes");
+        cursor++;
 
-    /* cursor */
-    M_DrawCursor(168, cursor_heights[menu->cursor], 12);
+        M_Print (184, cursor_heights[cursor], "Apply changes");
+        cursor++;
+    }
+
+    /* cursors */
+    if (menu->cursor == VID_MENU_CURSOR_WIDTH) {
+        length = menu->mode.width ? strlen(va("%d", menu->mode.width)) : 0;
+        M_DrawCursor(184 + 8 * length, cursor_heights[menu->cursor], 10);
+        M_DrawCharacter(168, cursor_heights[menu->cursor], 13);
+    } else if (menu->cursor == VID_MENU_CURSOR_HEIGHT) {
+        length = menu->mode.height ? strlen(va("%d", menu->mode.height)) : 0;
+        M_DrawCursor(184 + 8 * length, cursor_heights[menu->cursor], 10);
+        M_DrawCharacter(168, cursor_heights[menu->cursor], 13);
+    } else {
+        M_DrawCursor(168, cursor_heights[menu->cursor], 12);
+    }
 }
 
 void
@@ -184,8 +241,8 @@ VID_FindNextResolution(int width, int height)
     const qvidmode_t *mode;
 
     /* Find where the given resolution fits into the modelist */
-    mode = &modelist[1];
-    while (mode - modelist < nummodes) {
+    mode = vid_modelist;
+    while (mode - vid_modelist < vid_nummodes) {
 	if (mode->width > width)
 	    break;
 	if (mode->width == width && mode->height > height)
@@ -194,8 +251,8 @@ VID_FindNextResolution(int width, int height)
     }
 
     /* If we didn't find anything bigger, return the first mode */
-    if (mode - modelist == nummodes)
-	return &modelist[1];
+    if (mode - vid_modelist == vid_nummodes)
+	return vid_modelist;
 
     return mode;
 }
@@ -206,8 +263,8 @@ VID_FindPrevResolution(int width, int height)
     const qvidmode_t *mode;
 
     /* Find where the given resolution fits into the modelist */
-    mode = &modelist[1];
-    while (mode - modelist < nummodes) {
+    mode = vid_modelist;
+    while (mode - vid_modelist < vid_nummodes) {
 	if (mode->width == width && mode->height == height)
 	    break;
 	if (mode->width > width)
@@ -218,13 +275,13 @@ VID_FindPrevResolution(int width, int height)
     }
 
     /* The preceding resolution is the one we want */
-    if (mode == &modelist[1])
-	mode = &modelist[nummodes - 1];
+    if (mode == vid_modelist)
+	mode = &vid_modelist[vid_nummodes - 1];
     else
 	mode--;
 
     /* Now, run backwards to find the first mode for this resolution */
-    while (mode > &modelist[1]) {
+    while (mode > vid_modelist) {
 	const qvidmode_t *check = mode - 1;
 	if (check->width != mode->width || check->height != mode->height)
 	    break;
@@ -245,7 +302,7 @@ VID_BestModeMatch(const qvidmode_t *mode, const qvidmode_t *test)
 {
     const qvidmode_t *match;
 
-    for (match = test; test - modelist < nummodes; test++) {
+    for (match = test; test - vid_modelist < vid_nummodes; test++) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 
@@ -266,15 +323,17 @@ VID_BestModeMatch(const qvidmode_t *mode, const qvidmode_t *test)
 }
 
 static const qvidmode_t *
-VID_FindMode(int width, int height, int bpp)
+VID_FindMode(int width, int height, int bpp, int refresh)
 {
     const qvidmode_t *mode;
 
-    for (mode = &modelist[1]; mode - modelist < nummodes; mode++) {
+    for (mode = vid_modelist; mode - vid_modelist < vid_nummodes; mode++) {
 	if (mode->width != width || mode->height != height)
 	    continue;
 	if (bpp && mode->bpp != bpp)
 	    continue;
+        if (refresh && mode->refresh != refresh)
+            continue;
 	return mode;
     }
 
@@ -287,9 +346,9 @@ VID_FindNextBpp(const qvidmode_t *mode)
     const qvidmode_t *first, *test, *match, *next;
 
     /* If we're passed an invalid mode, just return the default mode */
-    test = VID_FindMode(mode->width, mode->height, 0);
+    test = VID_FindMode(mode->width, mode->height, 0, 0);
     if (!test)
-	return &modelist[1];
+	return vid_modelist;
 
     /*
      * Scan the mode list until we find the entries with matching bpp.
@@ -299,7 +358,7 @@ VID_FindNextBpp(const qvidmode_t *mode)
     first = test;
     match = NULL;
     next = NULL;
-    while (test - modelist < nummodes) {
+    while (test - vid_modelist < vid_nummodes) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 	if (match && match->bpp != test->bpp) {
@@ -315,7 +374,7 @@ VID_FindNextBpp(const qvidmode_t *mode)
 
     /* Match the refresh rate as best we can for this resolution/bpp */
     test = next;
-    while (test - modelist < nummodes) {
+    while (test - vid_modelist < vid_nummodes) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 	if (test->bpp != next->bpp)
@@ -334,9 +393,9 @@ VID_FindPrevBpp(const qvidmode_t *mode)
     const qvidmode_t *prev, *test;
 
     /* If we're passed an invalid mode, just return the default mode */
-    test = VID_FindMode(mode->width, mode->height, 0);
+    test = VID_FindMode(mode->width, mode->height, 0, 0);
     if (!test)
-	return &modelist[1];
+	return vid_modelist;
 
     /*
      * Scan the mode list until we find the entries with matching bpp.
@@ -344,7 +403,7 @@ VID_FindPrevBpp(const qvidmode_t *mode)
      * If we didn't find a previous, loop back the last one.
      */
     prev = NULL;
-    while (test - modelist < nummodes) {
+    while (test - vid_modelist < vid_nummodes) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 	if (test->bpp == mode->bpp)
@@ -353,7 +412,7 @@ VID_FindPrevBpp(const qvidmode_t *mode)
     }
     if (!prev) {
 	/* place prev on the last mode for this resolution */
-	while (test - modelist < nummodes) {
+	while (test - vid_modelist < vid_nummodes) {
 	    if (test->width != mode->width || test->height != mode->height)
 		break;
 	    prev = test++;
@@ -365,7 +424,7 @@ VID_FindPrevBpp(const qvidmode_t *mode)
 
     /* Find the best matching refresh at the new bpp */
     test = prev;
-    while (test > &modelist[0]) {
+    while (test > vid_modelist) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 	if (test->bpp != prev->bpp)
@@ -384,7 +443,7 @@ VID_FindNextRefresh(const qvidmode_t *mode)
     const qvidmode_t *test, *first, *next, *match;
 
     first = NULL;
-    for (test = &modelist[1]; test - modelist < nummodes; test++) {
+    for (test = vid_modelist; test - vid_modelist < vid_nummodes; test++) {
 	if (test->width != mode->width || test->height != mode->height)
 	    continue;
 	if (test->bpp != mode->bpp)
@@ -398,7 +457,7 @@ VID_FindNextRefresh(const qvidmode_t *mode)
 
     next = NULL;
     match = NULL;
-    while (test - modelist < nummodes) {
+    while (test - vid_modelist < vid_nummodes) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 	if (test->bpp != mode->bpp)
@@ -415,14 +474,13 @@ VID_FindNextRefresh(const qvidmode_t *mode)
     return next ? next : first;
 }
 
-
 static const qvidmode_t *
 VID_FindPrevRefresh(const qvidmode_t *mode)
 {
     const qvidmode_t *test, *first, *prev;
 
     first = NULL;
-    for (test = &modelist[1]; test - modelist < nummodes; test++) {
+    for (test = vid_modelist; test - vid_modelist < vid_nummodes; test++) {
 	if (test->width != mode->width || test->height != mode->height)
 	    continue;
 	if (test->bpp != mode->bpp)
@@ -434,7 +492,7 @@ VID_FindPrevRefresh(const qvidmode_t *mode)
 	return mode;
 
     prev = NULL;
-    while (test - modelist < nummodes) {
+    while (test - vid_modelist < vid_nummodes) {
 	if (test->width != mode->width || test->height != mode->height)
 	    break;
 	if (test->bpp != mode->bpp)
@@ -447,6 +505,21 @@ VID_FindPrevRefresh(const qvidmode_t *mode)
     return prev ? prev : mode;
 }
 
+static void
+VID_Menu_ExitConfigureWindow(vid_menustate_t *menu)
+{
+    menu->configure_window = false;
+    menu->cursor = VID_MENU_CURSOR_APPLY;
+
+#ifndef GLQUAKE
+    /* The software render needs width to be a multiple of 8 */
+    menu->mode.width &= ~7;
+#endif
+
+    menu->mode.width = qclamp(menu->mode.width, MINWIDTH, MAXWIDTH);
+    menu->mode.height = qclamp(menu->mode.height, MINHEIGHT, MAXHEIGHT);
+}
+
 /*
 ================
 VID_MenuKey
@@ -456,28 +529,44 @@ void
 VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 {
     const qvidmode_t *mode;
+    char string[6];
+    int length;
 
     switch (keynum) {
     case K_ESCAPE:
 	S_LocalSound("misc/menu1.wav");
-	M_Menu_Options_f();
+        if (menu->configure_window) {
+            VID_Menu_ExitConfigureWindow(menu);
+        } else {
+            M_Menu_Options_f();
+        }
 	break;
     case K_UPARROW:
 	S_LocalSound("misc/menu1.wav");
 	if (menu->cursor == VID_MENU_CURSOR_RESOLUTION)
 	    menu->cursor = VID_MENU_CURSOR_LINES - 1;
-	else
+	else if (menu->cursor == VID_MENU_CURSOR_WIDTH)
+            menu->cursor = VID_MENU_CURSOR_HEIGHT;
+        else if (menu->cursor == VID_MENU_CURSOR_HEIGHT)
+            menu->cursor = VID_MENU_CURSOR_WIDTH;
+        else
 	    menu->cursor--;
 	break;
     case K_DOWNARROW:
 	S_LocalSound("misc/menu1.wav");
 	if (menu->cursor == VID_MENU_CURSOR_LINES - 1)
 	    menu->cursor = VID_MENU_CURSOR_RESOLUTION;
+	else if (menu->cursor == VID_MENU_CURSOR_WIDTH)
+            menu->cursor = VID_MENU_CURSOR_HEIGHT;
+        else if (menu->cursor == VID_MENU_CURSOR_HEIGHT)
+            menu->cursor = VID_MENU_CURSOR_WIDTH;
 	else
 	    menu->cursor++;
 	break;
     case K_LEFTARROW:
 	S_LocalSound("misc/menu3.wav");
+        if (!vid_nummodes)
+            break;
 	switch (menu->cursor) {
 	case VID_MENU_CURSOR_RESOLUTION:
 	    mode = VID_FindPrevResolution(menu->mode.width, menu->mode.height);
@@ -498,20 +587,24 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	    }
 	    break;
 	case VID_MENU_CURSOR_FULLSCREEN:
+            if (!menu->fullscreen && !vid_nummodes)
+                break; // There may be no fullscreen modes available!
 	    menu->fullscreen = !menu->fullscreen;
             if (menu->fullscreen) {
 		mode = VID_FindNextRefresh(&menu->mode);
 		menu->mode.refresh = mode->refresh;
             }
 	    break;
-	default:
+        default:
 	    break;
 	}
 	break;
     case K_RIGHTARROW:
 	S_LocalSound("misc/menu3.wav");
+        if (!vid_nummodes)
+            break;
 	switch (menu->cursor) {
-	case VID_MENU_CURSOR_RESOLUTION:
+        case VID_MENU_CURSOR_RESOLUTION:
 	    mode = VID_FindNextResolution(menu->mode.width, menu->mode.height);
 	    menu->mode.width = mode->width;
 	    menu->mode.height = mode->height;
@@ -542,26 +635,31 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	break;
     case K_ENTER:
 	S_LocalSound("misc/menu1.wav");
+        if (menu->configure_window) {
+            VID_Menu_ExitConfigureWindow(menu);
+            break;
+        }
 	switch (menu->cursor) {
+        case VID_MENU_CURSOR_RESOLUTION:
+            /* If we're in windowed mode, enter the width/height submenu */
+            if (!menu->fullscreen) {
+                menu->configure_window = true;
+                menu->cursor = VID_MENU_CURSOR_HEIGHT;
+            }
+            break;
 	case VID_MENU_CURSOR_APPLY:
 	    /* If it's a windowed mode, update the modelist entry */
 	    if (!menu->fullscreen) {
-		modelist[0] = menu->mode;
-		VID_SetMode(&modelist[0], host_basepal);
+		vid_windowed_mode = menu->mode;
+                VID_SetModeCvars(&vid_windowed_mode);
+                Cbuf_AddText("vid_restart\n");
 		break;
 	    }
 	    /* If fullscreen, give the existing mode from modelist array */
-	    for (mode = &modelist[1]; mode - modelist < nummodes; mode++) {
-		if (mode->width != menu->mode.width)
-		    continue;
-		if (mode->height != menu->mode.height)
-		    continue;
-		if (mode->bpp != menu->mode.bpp)
-		    continue;
-		if (mode->refresh != menu->mode.refresh)
-		    continue;
-		VID_SetMode(mode, host_basepal);
-		break;
+            mode = VID_FindMode(menu->mode.width, menu->mode.height, menu->mode.bpp, menu->mode.refresh);
+            if (mode) {
+                VID_SetModeCvars(mode);
+                Cbuf_AddText("vid_restart\n");
 	    }
 	    break;
 	case VID_MENU_CURSOR_FULLSCREEN:
@@ -574,7 +672,40 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	default:
 	    break;
 	}
+        break;
+    case K_BACKSPACE:
+        if (menu->cursor == VID_MENU_CURSOR_WIDTH) {
+            if (menu->mode.width) {
+                qsnprintf(string, sizeof(string), "%d", menu->mode.width);
+                string[strlen(string) - 1] = 0;
+                menu->mode.width = atoi(string);
+            }
+        } else if (menu->cursor == VID_MENU_CURSOR_HEIGHT) {
+            if (menu->mode.height) {
+                qsnprintf(string, sizeof(string), "%d", menu->mode.height);
+                string[strlen(string) - 1] = 0;
+                menu->mode.height = atoi(string);
+            }
+        }
+        break;
     default:
+        if (keynum < K_0 || keynum > K_9)
+            break;
+        if (menu->cursor == VID_MENU_CURSOR_WIDTH) {
+            length = qsnprintf(string, sizeof(string), "%d", menu->mode.width);
+            if (length < sizeof(string) - 1) {
+                string[length] = keynum;
+                string[length + 1] = 0;
+                menu->mode.width = atoi(string);
+            }
+        } else if (menu->cursor == VID_MENU_CURSOR_HEIGHT) {
+            length = qsnprintf(string, sizeof(string), "%d", menu->mode.height);
+            if (length < sizeof(string) - 1) {
+                string[length] = keynum;
+                string[length + 1] = 0;
+                menu->mode.height = atoi(string);
+            }
+        }
 	break;
     }
 }
@@ -597,7 +728,7 @@ VID_GetModeDescription(const qvidmode_t *mode)
 {
     static char pinfo[40];
 
-    if (mode != modelist)
+    if (mode != &vid_windowed_mode)
 	qsnprintf(pinfo, sizeof(pinfo), "%4d x %4d x %2d @ %3dHz",
 		  mode->width, mode->height, mode->bpp, mode->refresh);
     else
@@ -609,82 +740,164 @@ VID_GetModeDescription(const qvidmode_t *mode)
 
 /*
 =================
-VID_DescribeModes_f
-=================
-*/
-void
-VID_DescribeModes_f(void)
-{
-    int i;
-    const char *pinfo;
-    qboolean na;
-    const qvidmode_t *mode;
-
-    na = false;
-
-    for (i = 0; i < nummodes; i++) {
-	mode = &modelist[i];
-	pinfo = VID_GetModeDescription(mode);
-	if (VID_CheckAdequateMem(mode->width, mode->height)) {
-	    Con_Printf("%2d: %s\n", i, pinfo);
-	} else {
-	    Con_Printf("**: %s\n", pinfo);
-	    na = true;
-	}
-    }
-
-    if (na) {
-	Con_Printf("\n[**: not enough system RAM for mode]\n");
-    }
-}
-
-/*
-=================
 VID_DescribeCurrentMode_f
 =================
 */
-void
+static void
 VID_DescribeCurrentMode_f(void)
 {
-    Con_Printf("%s\n", VID_GetModeDescription(&modelist[vid_modenum]));
+    Con_Printf("%s\n", VID_GetModeDescription(vid_currentmode));
 }
-
 
 /*
 =================
-VID_NumModes_f
+VID_DescribeModes_f
 =================
 */
-void
-VID_NumModes_f(void)
+static void
+VID_DescribeModes_f(void)
 {
-    if (nummodes == 1)
-	Con_Printf("%d video mode is available\n", nummodes);
-    else
-	Con_Printf("%d video modes are available\n", nummodes);
+    const qvidmode_t *mode;
+    const char *description;
+    qboolean unavailable;
+    int i;
+
+    if (!vid_nummodes) {
+        Con_Printf("No fullscreen modes are available.\n");
+        return;
+    }
+
+    unavailable = false;
+
+    for (i = 0; i < vid_nummodes; i++) {
+        mode = &vid_modelist[i];
+        description = VID_GetModeDescription(mode);
+        if (VID_CheckAdequateMem(mode->width, mode->height)) {
+            Con_Printf("%3d: %s\n", i, description);
+        } else {
+            Con_Printf(" **: %s\n", description);
+            unavailable = true;
+        }
+    }
+
+    if (unavailable) {
+        Con_Printf("\n[**: not enough system RAM for mode]\n");
+    }
 }
 
-
 /*
-=================
-VID_DescribeMode_f
-=================
-*/
-void
-VID_DescribeMode_f(void)
+ * Backwards compatibility with the old 'vid_mode' method of video settings
+ */
+static void
+VID_Mode_f()
 {
     int modenum;
+    const qvidmode_t *mode;
 
-    if (Cmd_Argc() == 2) {
-	modenum = Q_atoi(Cmd_Argv(1));
-	if (modenum >= 0 && modenum < nummodes) {
-	    Con_Printf("%s\n", VID_GetModeDescription(&modelist[modenum]));
-	    return;
-	}
-	Con_Printf("Invalid video mode (%d)\n", modenum);
+    if (Cmd_Argc() < 2) {
+        if (vid_currentmode == &vid_windowed_mode) {
+            Con_Printf("\"vid_mode\" is \"windowed\"\n");
+        } else {
+            Con_Printf("\"vid_mode\" is \"%d\"\n", (int)(vid_currentmode - vid_modelist));
+        }
+        return;
     }
-    Con_Printf("vid_describemode <modenum>\n"
-	       "  Print a descrition of the specified mode number.\n");
+
+    mode = vid_currentmode;
+    if (!strcmp(Cmd_Argv(1), "windowed")) {
+        mode = &vid_windowed_mode;
+    } else {
+        modenum = Q_atoi(Cmd_Argv(1));
+        if (modenum > 0 && modenum < vid_nummodes)
+            mode = &vid_modelist[modenum];
+    }
+
+    if (mode != vid_currentmode) {
+        VID_SetModeCvars(mode);
+        Cbuf_AddText("vid_restart\n");
+    }
+}
+
+const qvidmode_t *
+VID_GetModeFromCvars()
+{
+    const qvidmode_t *mode;
+    int width, height, bpp, refresh;
+
+    width = vid_width.value;
+    height = vid_height.value;
+    bpp = vid_bpp.value;
+    refresh = vid_refreshrate.value;
+
+    /* Basic sanity checks */
+    if (width < MINWIDTH || width > MAXWIDTH || height < MINHEIGHT || height > MAXHEIGHT)
+        return NULL;
+
+    if (vid_fullscreen.value) {
+        /* Find the mode in the valid fullscreen modes list */
+        mode = VID_FindMode(width, height, bpp, refresh);
+    } else {
+        /* Set the parameters for the windowed mode */
+        vid_windowed_mode.width = width;
+        vid_windowed_mode.height = height;
+        vid_windowed_mode.bpp = bpp;
+        mode = &vid_windowed_mode;
+    }
+
+    return mode;
+}
+
+/*
+ * Check if the mode looks valid, then ask the vid driver to set the mode
+ */
+static void
+VID_Restart_f()
+{
+    qvidmode_t previous_windowed_mode;
+    const qvidmode_t *previous_mode, *new_mode;
+    qboolean success;
+
+    if (vid_currentmode == &vid_windowed_mode) {
+        previous_windowed_mode = vid_windowed_mode;
+        previous_mode = &previous_windowed_mode;
+    } else {
+        previous_mode = vid_currentmode;
+    }
+
+    new_mode = VID_GetModeFromCvars();
+    if (!new_mode)
+        return;
+
+    scr_block_drawing = true;
+    success = VID_SetMode(new_mode, host_basepal);
+    if (success) {
+        scr_block_drawing = false;
+        vid_currentmode = new_mode;
+        return;
+    }
+
+    /* Attempt to restore the previous video mode instead */
+    if (previous_mode == &previous_windowed_mode) {
+        vid_windowed_mode = previous_windowed_mode;
+    }
+
+    VID_SetMode(vid_currentmode, host_basepal);
+    scr_block_drawing = false;
+}
+
+void
+VID_UpdateWindowPositionCvars(int x, int y)
+{
+    vrect_t desktop;
+
+    VID_GetDesktopRect(&desktop);
+    x = qclamp(x, 0, desktop.width - (MINWIDTH / 2));
+    y = qclamp(y, 0, desktop.height - (MINHEIGHT / 2));
+
+    if ((int)vid_window_x.value != x)
+        Cvar_SetValue("vid_window_x", x);
+    if ((int)vid_window_y.value != y)
+        Cvar_SetValue("vid_window_y", y);
 }
 
 void
@@ -695,6 +908,27 @@ VID_InitModeCvars(void)
     Cvar_RegisterVariable(&vid_height);
     Cvar_RegisterVariable(&vid_bpp);
     Cvar_RegisterVariable(&vid_refreshrate);
+    Cvar_RegisterVariable(&vid_window_x);
+    Cvar_RegisterVariable(&vid_window_y);
+    Cvar_RegisterVariable(&vid_window_centered);
+    Cvar_RegisterVariable(&vid_window_remember_position);
+}
+
+void
+VID_LoadConfig()
+{
+    // Load video config and init
+    Cbuf_InsertText("exec video.cfg\n");
+    Cbuf_Execute();
+}
+
+void
+VID_InitModeCommands()
+{
+    Cmd_AddCommand("vid_mode", VID_Mode_f);
+    Cmd_AddCommand("vid_describecurrentmode", VID_DescribeCurrentMode_f);
+    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
+    Cmd_AddCommand("vid_restart", VID_Restart_f);
 }
 
 /*
@@ -729,19 +963,19 @@ VID_GetCmdlineMode(void)
 
     /* FIXME - default to desktop resolution? */
     if (!width && !height) {
-	width = modelist[0].width;
-	height = modelist[0].height;
+	width = vid_windowed_mode.width;
+	height = vid_windowed_mode.height;
     } else if (!width) {
 	width = height * 4 / 3;
     } else if (!height) {
 	height = width * 3 / 4;
     }
     if (!bpp)
-	bpp = modelist[0].bpp;
+	bpp = vid_windowed_mode.bpp;
 
-    /* If windowed mode was requested, set up and return mode 0 */
+    /* If windowed mode was requested, set up and return */
     if (!fullscreen) {
-	mode = modelist;
+	mode = &vid_windowed_mode;
 	mode->width = width;
 	mode->height = height;
 	mode->bpp = bpp;
@@ -750,19 +984,18 @@ VID_GetCmdlineMode(void)
     }
 
     /* Search for a matching mode */
-    for (mode = &modelist[1]; mode - modelist < nummodes; mode++) {
+    for (mode = vid_modelist; mode - vid_modelist < vid_nummodes; mode++) {
 	if (mode->width != width || mode->height != height)
 	    continue;
 	if (mode->bpp != bpp)
 	    continue;
 	break;
     }
-    if (mode - modelist == nummodes)
-	Sys_Error("Requested video mode (%dx%dx%d) not available.",
-		  width, height, bpp);
+    if (mode - vid_modelist == vid_nummodes)
+	Sys_Error("Requested video mode (%dx%dx%d) not available.", width, height, bpp);
 
     /* Return the highest refresh rate at this width/height/bpp */
-    for (next = mode + 1; next - modelist < nummodes; mode = next++) {
+    for (next = mode + 1; next - vid_modelist < vid_nummodes; mode = next++) {
 	if (next->width != width || next->height != height)
 	    break;
 	if (next->bpp != bpp)
@@ -770,4 +1003,10 @@ VID_GetCmdlineMode(void)
     }
 
     return mode;
+}
+
+qboolean
+VID_IsFullScreen(void)
+{
+    return vid_currentmode != &vid_windowed_mode;
 }

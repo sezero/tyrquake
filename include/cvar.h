@@ -21,7 +21,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #ifndef CVAR_H
 #define CVAR_H
 
-#include <stdio.h>		/* FILE */
+#include <stdio.h>
+#include <stdint.h>
 
 #include "shell.h"
 #include "qtypes.h"
@@ -35,28 +36,27 @@ changed or displayed at the console or prog code as well as accessed directly
 in C code.
 
 it is sufficient to initialize a cvar_t with just the first two fields, or you
-can add a ,true flag for variables that you want saved to the configuration
+can add a flag for variables that you want saved to the configuration
 file when the game is quit:
 
-cvar_t	r_draworder = {"r_draworder","1"};
-cvar_t	scr_screensize = {"screensize","1",true};
+cvar_t r_draworder = { "r_draworder", "1" };
+cvar_t scr_screensize = { "screensize", "1", CVAR_CONFIG };
 
 Cvars must be registered before use, or they will have a 0 value instead of
 the float interpretation of the string.  Generally, all cvar_t declarations
 should be registered in the apropriate init function before any console
 commands are executed:
-	Cvar_RegisterVariable (&host_framerate);
+	Cvar_RegisterVariable(&host_framerate);
 
 C code usually just references a cvar in place:
-	if ( r_draworder.value )
+	if (r_draworder.value)
 
 It could optionally ask for the value to be looked up for a string name:
-	if (Cvar_VariableValue ("r_draworder"))
+	if (Cvar_VariableValue("r_draworder"))
 
-Interpreted prog code can access cvars with the cvar(name) or cvar_set (name,
-value) internal functions:
+Interpreted prog code can access cvars with the cvar(name) or cvar_set (name, value) internal functions:
 	teamplay = cvar("teamplay");
-	cvar_set ("registered", "1");
+	cvar_set("registered", "1");
 
 The user can access cvars from the console in two ways:
 	r_draworder		prints the current value
@@ -84,7 +84,7 @@ typedef struct stree_root *(*cvar_arg_f)(const char *);
 typedef struct cvar_s {
     const char *name;
     const char *string;
-    qboolean archive;	// set to true to cause it to be saved to vars.rc
+    uint32_t flags;
 
     // FIXME - obviously...
 #ifdef NQ_HACK
@@ -96,13 +96,15 @@ typedef struct cvar_s {
 
     float value;
     cvar_callback callback;
-    unsigned flags;
     struct stree_node stree; /* string tree for cvar names */
     cvar_arg_f completion;
 } cvar_t;
 
-#define CVAR_DEVELOPER (1U << 0) /* can't set during normal play */
-#define CVAR_OBSOLETE  (1U << 1) /* cvar has no effect; basically removed */
+#define CVAR_CONFIG    (1U << 0) /* Archive in config.cfg */
+#define CVAR_VIDEO     (1U << 1) /* Archive in video.cfg */
+
+#define CVAR_DEVELOPER (1U << 8) /* can't set during normal play */
+#define CVAR_OBSOLETE  (1U << 9) /* cvar has no effect; basically removed */
 
 /*
  * register a cvar that already has the name, string, and optionally the
@@ -131,9 +133,9 @@ qboolean Cvar_Command(void);
 
 /*
  * Writes lines containing "set variable value" for all variables with the
- * archive flag set to true.
+ * given flags set.
  */
-void Cvar_WriteVariables(FILE *f);
+void Cvar_WriteVariables(FILE *f, uint32_t flags);
 
 /* */
 cvar_t *Cvar_FindVar(const char *var_name);
@@ -141,7 +143,7 @@ cvar_t *Cvar_FindVar(const char *var_name);
 char *Cvar_ArgComplete(const char *name, const char *buf);
 struct stree_root *Cvar_ArgCompletions(const char *name, const char *buf);
 
-# ifdef NQ_HACK
+#ifdef NQ_HACK
 cvar_t *Cvar_NextServerVar(const char *var_name);
 #endif
 

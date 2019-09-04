@@ -66,17 +66,16 @@ cvar_t pausable = { "pausable", "1" };
 //
 // game rules mirrored in svs.info
 //
-cvar_t fraglimit = { "fraglimit", "0", false, true };
-cvar_t timelimit = { "timelimit", "0", false, true };
-cvar_t teamplay = { "teamplay", "0", false, true };
-cvar_t samelevel = { "samelevel", "0", false, true };
-cvar_t maxclients = { "maxclients", "8", false, true };
-cvar_t maxspectators = { "maxspectators", "8", false, true };
-cvar_t deathmatch = { "deathmatch", "1", false, true };	// 0, 1, or 2
-cvar_t spawn = { "spawn", "0", false, true };
-cvar_t watervis = { "watervis", "0", false, true };
-
-cvar_t hostname = { "hostname", "unnamed", false, true };
+cvar_t fraglimit = { "fraglimit", "0", .info = true };
+cvar_t timelimit = { "timelimit", "0", .info = true };
+cvar_t teamplay = { "teamplay", "0", .info = true };
+cvar_t samelevel = { "samelevel", "0", .info = true };
+cvar_t maxclients = { "maxclients", "8", .info = true };
+cvar_t maxspectators = { "maxspectators", "8", .info = true };
+cvar_t deathmatch = { "deathmatch", "1", .info = true };	// 0, 1, or 2
+cvar_t spawn = { "spawn", "0", .info = true };
+cvar_t watervis = { "watervis", "0", .info = true };
+cvar_t hostname = { "hostname", "unnamed", .info = true };
 
 FILE *sv_logfile;
 FILE *sv_fraglogfile;

@@ -601,7 +601,7 @@ static cvar_t m_filter = { "m_filter", "0" };
 cvar_t _windowed_mouse = {
     .name = "_windowed_mouse",
     .string = "0",
-    .archive = true,
+    .flags = CVAR_CONFIG,
     .callback = windowed_mouse_f,
 };
 

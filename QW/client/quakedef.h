@@ -90,13 +90,6 @@ void Host_Frame(float time);
 void Host_Quit_f(void);
 void Host_ShutdownServer(qboolean crash);
 
-extern qboolean msg_suppress_1;	// suppresses resolution and cache size console
-
-				// output and fullscreen DIB focus gain/loss
-
-//
-// Hacks - FIXME - well, "hacks" says it all really...
-//
 extern cvar_t r_lockfrustum;	// FIXME - with rendering stuff please...
 extern cvar_t r_lockpvs;	// FIXME - with rendering stuff please...
 extern cvar_t r_drawflat;	// FIXME - with rendering stuff please...

@@ -224,7 +224,6 @@ void SNDDMA_Submit(void)
     SDL_UnlockAudio();
 }
 
-#ifdef _WIN32
 void
 S_BlockSound(void)
 {
@@ -240,7 +239,6 @@ S_UnblockSound(void)
     if (!snd_blocked)
 	SDL_PauseAudio(0);
 }
-#endif
 
 /*
  * shm->buffer is not the real DMA buffer, so no locking needed here

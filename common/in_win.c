@@ -50,7 +50,7 @@ static HRESULT (WINAPI *pDirectInputCreate)(HINSTANCE hinst, DWORD dwVersion,
 					    LPUNKNOWN punkOuter);
 
 // mouse variables
-cvar_t _windowed_mouse = { "_windowed_mouse", "1", true };
+cvar_t _windowed_mouse = { "_windowed_mouse", "1", CVAR_CONFIG };
 static cvar_t m_filter = { "m_filter", "0" };
 
 static int mouse_buttons;
@@ -96,7 +96,7 @@ static PDWORD pdwRawValue[JOY_MAX_AXES];
 // each time.  this avoids any problems with getting back to a default usage
 // or when changing from one controller to another.  this way at least something
 // works.
-static cvar_t in_joystick = { "joystick", "0", true };
+static cvar_t in_joystick = { "joystick", "0", CVAR_CONFIG };
 static cvar_t joy_name = { "joyname", "joystick" };
 static cvar_t joy_advanced = { "joyadvanced", "0" };
 static cvar_t joy_advaxisx = { "joyadvaxisx", "0" };
@@ -268,9 +268,7 @@ IN_ActivateMouse(void)
 	    }
 	} else {
 	    if (mouseparmsvalid)
-		restore_spi =
-		    SystemParametersInfo(SPI_SETMOUSE, 0, newmouseparms, 0);
-
+		restore_spi = SystemParametersInfo(SPI_SETMOUSE, 0, newmouseparms, 0);
 	    SetCursorPos(window_center_x, window_center_y);
 	    SetCapture(mainwindow);
 	    ClipCursor(&window_rect);
@@ -331,7 +329,6 @@ IN_InitDInput(void)
 
     if (!hInstDI) {
 	hInstDI = LoadLibrary("dinput.dll");
-
 	if (hInstDI == NULL) {
 	    Con_SafePrintf("Couldn't load dinput.dll\n");
 	    return false;
@@ -339,49 +336,44 @@ IN_InitDInput(void)
     }
 
     if (!pDirectInputCreate) {
-	pDirectInputCreate =
-	    (void *)GetProcAddress(hInstDI, "DirectInputCreateA");
-
+	pDirectInputCreate = (void *)GetProcAddress(hInstDI, "DirectInputCreateA");
 	if (!pDirectInputCreate) {
 	    Con_SafePrintf("Couldn't get DI proc addr\n");
 	    return false;
 	}
     }
-// register with DirectInput and get an IDirectInput to play with.
-    hr = pDirectInputCreate(global_hInstance, DIRECTINPUT_VERSION, &g_pdi,
-			    NULL);
 
+    // register with DirectInput and get an IDirectInput to play with.
+    hr = pDirectInputCreate(global_hInstance, DIRECTINPUT_VERSION, &g_pdi, NULL);
     if (FAILED(hr)) {
+	Con_SafePrintf("Unable to create a DI handle\n");
 	return false;
     }
-// obtain an interface to the system mouse device.
-    hr = IDirectInput_CreateDevice(g_pdi, &GUID_SysMouse, &g_pMouse, NULL);
 
+    // obtain an interface to the system mouse device.
+    hr = IDirectInput_CreateDevice(g_pdi, &GUID_SysMouse, &g_pMouse, NULL);
     if (FAILED(hr)) {
 	Con_SafePrintf("Couldn't open DI mouse device\n");
 	return false;
     }
-// set the data format to "mouse format".
-    hr = IDirectInputDevice_SetDataFormat(g_pMouse, &df);
 
+    // set the data format to "mouse format".
+    hr = IDirectInputDevice_SetDataFormat(g_pMouse, &df);
     if (FAILED(hr)) {
 	Con_SafePrintf("Couldn't set DI mouse format\n");
 	return false;
     }
-// set the cooperativity level.
-    hr = IDirectInputDevice_SetCooperativeLevel(g_pMouse, mainwindow,
-						DISCL_EXCLUSIVE |
-						DISCL_FOREGROUND);
 
+    // set the cooperativity level.
+    hr = IDirectInputDevice_SetCooperativeLevel(g_pMouse, mainwindow, DISCL_EXCLUSIVE |	DISCL_FOREGROUND);
     if (FAILED(hr)) {
 	Con_SafePrintf("Couldn't set DI coop level\n");
 	return false;
     }
-// set the buffer size to DINPUT_BUFFERSIZE elements.
-// the buffer size is a DWORD property associated with the device
-    hr = IDirectInputDevice_SetProperty(g_pMouse, DIPROP_BUFFERSIZE,
-					&dipdw.diph);
 
+    // set the buffer size to DINPUT_BUFFERSIZE elements.
+    // the buffer size is a DWORD property associated with the device
+    hr = IDirectInputDevice_SetProperty(g_pMouse, DIPROP_BUFFERSIZE, &dipdw.diph);
     if (FAILED(hr)) {
 	Con_SafePrintf("Couldn't set DI buffersize\n");
 	return false;
@@ -406,7 +398,6 @@ IN_StartupMouse(void)
 
     if (!COM_CheckParm("-nodinput")) {
 	dinput = IN_InitDInput();
-
 	if (dinput) {
 	    Con_SafePrintf("DirectInput initialized\n");
 	} else {
@@ -415,9 +406,7 @@ IN_StartupMouse(void)
     }
 
     if (!dinput) {
-	mouseparmsvalid =
-	    SystemParametersInfo(SPI_GETMOUSE, 0, originalmouseparms, 0);
-
+	mouseparmsvalid = SystemParametersInfo(SPI_GETMOUSE, 0, originalmouseparms, 0);
 	if (mouseparmsvalid) {
 	    if (COM_CheckParm("-noforcemspd"))
 		newmouseparms[2] = originalmouseparms[2];

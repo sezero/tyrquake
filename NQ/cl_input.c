@@ -404,7 +404,7 @@ cvar_t cl_pitchspeed = { "cl_pitchspeed", "150" };
 
 cvar_t cl_anglespeedkey = { "cl_anglespeedkey", "1.5" };
 
-cvar_t cl_run = { "cl_run", "0", true };
+cvar_t cl_run = { "cl_run", "0", CVAR_CONFIG };
 
 
 /*

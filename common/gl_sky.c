@@ -51,9 +51,9 @@ Sky_Skyalpha_f(cvar_t *cvar)
         R_InitSky(skytexture);
 }
 
-cvar_t r_sky_quality = { "r_sky_quality", "16", true };
-cvar_t r_fastsky = { "r_fastsky", "0", true };
-cvar_t r_skyalpha = { "r_skyalpha", "1", true, .callback = Sky_Skyalpha_f };
+cvar_t r_sky_quality = { "r_sky_quality", "16", CVAR_CONFIG };
+cvar_t r_fastsky = { "r_fastsky", "0", CVAR_CONFIG };
+cvar_t r_skyalpha = { "r_skyalpha", "1", CVAR_CONFIG, .callback = Sky_Skyalpha_f };
 
 qboolean
 Sky_LoadSkyboxTextures(const char *skyboxname)

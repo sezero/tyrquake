@@ -76,7 +76,7 @@ static sfx_t *ambient_sfx[NUM_AMBIENTS];
 
 static int sound_started = 0;
 
-cvar_t volume = { "volume", "0.7", true };
+cvar_t volume = { "volume", "0.7", CVAR_CONFIG };
 cvar_t loadas8bit = { "loadas8bit", "0" };
 
 static cvar_t nosound = { "nosound", "0" };
@@ -86,7 +86,7 @@ static cvar_t ambient_level = { "ambient_level", "0.3" };
 static cvar_t ambient_fade = { "ambient_fade", "100" };
 static cvar_t snd_noextraupdate = { "snd_noextraupdate", "0" };
 static cvar_t snd_show = { "snd_show", "0" };
-static cvar_t _snd_mixahead = { "_snd_mixahead", "0.1", true };
+static cvar_t _snd_mixahead = { "_snd_mixahead", "0.1", CVAR_CONFIG };
 
 /*
  * User-setable variables
