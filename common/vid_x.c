@@ -41,6 +41,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // FIXME - refactoring X11 support...
 #include "x11_core.h"
 #include "in_x11.h"
+#include "vid_x11.h"
 
 #include "common.h"
 #include "console.h"
@@ -606,7 +607,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 			  mode->bpp,
 			  InputOutput, x_visinfo->visual, valuemask, &attributes);
     XFreeColormap(x_disp, attributes.colormap);
-    XStoreName(x_disp, x_win, "TyrQuake");
+
+    VID_X11_SetWindowName("TyrQuake");
+    VID_X11_SetIcon();
 
     if (x_visinfo->depth == 8) {
 	/* create and upload the palette */
@@ -781,6 +784,7 @@ VID_Init(const byte *palette)
 
     /* Save the current video mode so we can restore when moving to windowed modes */
     VID_save_vidmode();
+
     VID_InitModeList();
     VID_LoadConfig();
     mode = VID_GetCmdlineMode();

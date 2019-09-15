@@ -49,6 +49,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // FIXME - complete the refactoring of core X stuff into here
 #include "x11_core.h"
 #include "in_x11.h"
+#include "vid_x11.h"
 
 /*
  * glXGetProcAddress - This function is defined in GLX version 1.4, but this
@@ -477,7 +478,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
                           mode->bpp,
                           InputOutput, x_visinfo->visual, valuemask, &attributes);
     XFreeColormap(x_disp, attributes.colormap);
-    XStoreName(x_disp, x_win, "TyrQuake");
+
+    VID_X11_SetWindowName("TyrQuake");
+    VID_X11_SetIcon();
 
     XMapWindow(x_disp, x_win);
     if (VID_IsFullScreen()) {

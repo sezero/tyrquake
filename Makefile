@@ -834,7 +834,7 @@ COMMON_CPPFLAGS += -DNDEBUG
 endif
 
 # Includes
-COMMON_CPPFLAGS += -iquote $(TOPDIR)/include
+COMMON_CPPFLAGS += -iquote $(TOPDIR)/include -iquote $(BUILD_DIR)/include
 COMMON_CPPFLAGS += $(if $(LOCALBASE),-idirafter $(LOCALBASE)/include,)
 COMMON_LFLAGS   += $(if $(LOCALBASE),$(call libdir-check,$(LOCALBASE)/lib,),)
 NQCL_CPPFLAGS   += -iquote $(TOPDIR)/NQ
@@ -929,7 +929,7 @@ endif
 
 ifeq ($(VID_TARGET),x11)
 CL_CPPFLAGS += -DX11
-CL_OBJS += x11_core.o
+CL_OBJS += x11_core.o vid_x11_common.o
 SW_OBJS += vid_x.o
 GL_OBJS += vid_glx.o
 CL_LIBS += X11 Xext Xxf86vm
@@ -1140,6 +1140,25 @@ WINDOWS_ICON_SOURCE_FILES = \
 
 $(BUILD_DIR)/icons/tyrquake.ico: $(WINDOWS_ICON_SOURCE_FILES)
 	$(do_ico)
+
+# ----------------------------------------------------------------------------
+# X11 Icon (raw RGBA data in header file)
+# ----------------------------------------------------------------------------
+
+quiet_cmd_iconheader = '  GENERATE $@'
+      cmd_iconheader = convert $< -resize $(1)x$(2) -define h:format=rgba -depth 8 -size $(1)x$(2) $@
+
+define do_iconheader
+	$(do_mkdir)
+	@echo $(call $(quiet)cmd_iconheader)
+	@$(call cmd_iconheader,$(1),$(2))
+endef
+
+$(BUILD_DIR)/include/tyrquake_icon_%.h: icons/tyrquake-1024x1024.png; $(call do_iconheader,$*,$*)
+
+X11_ICON_HEADER = $(BUILD_DIR)/include/tyrquake_icon_128.h
+
+common/vid_x11_common.c:   $(X11_ICON_HEADER)
 
 # ----------------------------------------------------------------------------
 # OSX Packaging Tools (WIP)
