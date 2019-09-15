@@ -579,9 +579,9 @@ VID_Init(const byte *palette)
     VID_LoadConfig();
     mode = VID_GetCmdlineMode();
     if (!mode)
-	mode = &vid_windowed_mode;
-    if (!mode)
         mode = VID_GetModeFromCvars();
+    if (!mode)
+	mode = &vid_windowed_mode;
     VID_SetMode(mode, palette);
 
     VID_SetPalette(palette);
