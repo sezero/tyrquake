@@ -35,9 +35,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 static qboolean mouse_available = false;	// Mouse available for use
 static qboolean keyboard_grab_active = false;
-qboolean mouse_grab_active = false;
+static qboolean mouse_grab_active = false;
 
-int mouse_x, mouse_y;
+static int mouse_x, mouse_y;
 static int old_mouse_x, old_mouse_y;
 static int have_focus = false;
 
@@ -58,7 +58,6 @@ windowed_mouse_f(struct cvar_s *var)
 }
 
 
-cvar_t in_mouse = { "in_mouse", "1" };
 cvar_t _windowed_mouse = { "_windowed_mouse", "0", CVAR_CONFIG, .callback = windowed_mouse_f };
 static cvar_t m_filter = { "m_filter", "0" };
 
@@ -382,7 +381,6 @@ IN_X11_HandleInputEvent(XEvent *event)
 static void
 IN_InitCvars(void)
 {
-    Cvar_RegisterVariable(&in_mouse);
     Cvar_RegisterVariable(&m_filter);
     Cvar_RegisterVariable(&_windowed_mouse);
 }

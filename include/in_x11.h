@@ -30,11 +30,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define X_MOUSE_MASK (ButtonPressMask | ButtonReleaseMask | PointerMotionMask)
 #define X_MOUSE_BUTTON_MASK (Button1Mask | Button2Mask | Button3Mask | Button4Mask | Button5Mask)
 
-extern qboolean mouse_grab_active;
-
-extern int mouse_x, mouse_y;
-
-extern cvar_t in_mouse;
 extern cvar_t _windowed_mouse;
 
 void IN_Init();
