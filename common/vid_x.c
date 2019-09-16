@@ -863,16 +863,14 @@ HandleEvents(void)
             case MotionNotify:
             case ButtonPress:
             case ButtonRelease:
+            case FocusIn:
+            case FocusOut:
                 IN_X11_HandleInputEvent(&event);
                 break;
 
             case ConfigureNotify:
-                /*
-                 * FIXME - I think something is still broken here. Why do I keep
-                 * receiving these events?
-                 */
-                if (event.xconfigure.width != config_notify_width ||
-                    event.xconfigure.height != config_notify_height) {
+                // TODO: set window size hints with size constraints (min/max, multiple of eight width, etc.)
+                if (event.xconfigure.width != config_notify_width || event.xconfigure.height != config_notify_height) {
                     config_notify_width = event.xconfigure.width;
                     config_notify_height = event.xconfigure.height;
                     config_notify = 1;
@@ -897,8 +895,8 @@ VID_Update(vrect_t *rects)
     if (config_notify) {
 	fprintf(stderr, "config notify\n");
 	config_notify = 0;
-	vid.width = config_notify_width & ~7;
-	vid.height = config_notify_height;
+	vid.width = qclamp(config_notify_width & ~7, MINWIDTH, MAXWIDTH);
+	vid.height = qclamp(config_notify_height, MINHEIGHT, MAXHEIGHT);
 	if (doShm)
 	    ResetSharedFrameBuffers();
 	else
@@ -910,8 +908,8 @@ VID_Update(vrect_t *rects)
 	vid.conheight = vid.height;
 	vid.conrowbytes = vid.rowbytes;
 	vid.recalc_refdef = 1;	// force a surface cache flush
+        SCR_CheckResize();
 	Con_CheckResize();
-	Con_Clear_f();
 	return;
     }
     // force full update if not 8bit

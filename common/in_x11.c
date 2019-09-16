@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "client.h"
 #include "common.h"
 #include "console.h"
+#include "input.h"
 #include "in_x11.h"
 #include "keys.h"
 #include "quakedef.h"
@@ -38,18 +39,17 @@ qboolean mouse_grab_active = false;
 
 int mouse_x, mouse_y;
 static int old_mouse_x, old_mouse_y;
+static int have_focus = false;
 
 static void
 windowed_mouse_f(struct cvar_s *var)
 {
     if (var->value) {
-	Con_DPrintf("Callback: _windowed_mouse ON\n");
 	if (!VID_IsFullScreen()) {
 	    IN_GrabMouse();
 	    IN_GrabKeyboard();
 	}
     } else {
-	Con_DPrintf("Callback: _windowed_mouse OFF\n");
 	if (!VID_IsFullScreen()) {
 	    IN_UngrabMouse();
 	    IN_UngrabKeyboard();
@@ -84,49 +84,28 @@ CreateNullCursor(void)
     return cursor;
 }
 
-void
+static void
 IN_CenterMouse(void)
 {
-    // FIXME - work with the current mask...
-    // FIXME - check active mouse, etc.
-    XSelectInput(x_disp, x_win, (X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK)
-		 & ~PointerMotionMask);
-    XWarpPointer(x_disp, None, x_win, 0, 0, 0, 0,
-		 vid.width / 2, vid.height / 2);
+    assert(have_focus);
+
+    XSelectInput(x_disp, x_win, (X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK) & ~PointerMotionMask);
+    XWarpPointer(x_disp, None, x_win, 0, 0, 0, 0, vid.width / 2, vid.height / 2);
     XSelectInput(x_disp, x_win, X_CORE_MASK | X_KEY_MASK | X_MOUSE_MASK);
 }
 
 void
 IN_GrabMouse(void)
 {
-    int result;
-
     /* Should never be called if no mouse or grab already active */
     assert(mouse_available);
     assert(!mouse_grab_active);
 
-    result = XGrabPointer(x_disp, x_win, True, 0, GrabModeAsync, GrabModeAsync, x_win, None, CurrentTime);
-    switch (result) {
-        case GrabSuccess:
-            XDefineCursor(x_disp, x_win, CreateNullCursor());
-            IN_CenterMouse();
-            mouse_x = old_mouse_x = 0;
-            mouse_y = old_mouse_y = 0;
-            mouse_grab_active = true;
-            break;
-        case GrabNotViewable:
-            Con_DPrintf("%s: GrabNotViewable\n", __func__);
-            break;
-        case AlreadyGrabbed:
-            Con_DPrintf("%s: AlreadyGrabbed\n", __func__);
-            break;
-        case GrabFrozen:
-            Con_DPrintf("%s: GrabFrozen\n", __func__);
-            break;
-        case GrabInvalidTime:
-            Con_DPrintf("%s: GrabInvalidTime\n", __func__);
-            break;
-    }
+    XDefineCursor(x_disp, x_win, CreateNullCursor());
+    IN_CenterMouse();
+    mouse_x = old_mouse_x = 0;
+    mouse_y = old_mouse_y = 0;
+    mouse_grab_active = true;
 }
 
 void
@@ -134,7 +113,6 @@ IN_UngrabMouse(void)
 {
     if (mouse_grab_active) {
         XSelectInput(x_disp, x_win, X_CORE_MASK | X_KEY_MASK);
-	XUngrabPointer(x_disp, CurrentTime);
 	XUndefineCursor(x_disp, x_win);
 	mouse_grab_active = false;
     }
@@ -144,16 +122,6 @@ void
 IN_GrabKeyboard(void)
 {
     if (!keyboard_grab_active) {
-	int err;
-
-	err = XGrabKeyboard(x_disp, x_win, False,
-			    GrabModeAsync, GrabModeAsync, CurrentTime);
-	if (err) {
-	    Con_DPrintf("%s: Couldn't grab keyboard!\n", __func__);
-	    keyboard_grab_active = true;
-	    return;
-	}
-
 	keyboard_grab_active = true;
     }
 }
@@ -162,7 +130,6 @@ void
 IN_UngrabKeyboard(void)
 {
     if (keyboard_grab_active) {
-	XUngrabKeyboard(x_disp, CurrentTime);
 	keyboard_grab_active = false;
     }
 }
@@ -347,6 +314,7 @@ IN_X11_HandleInputEvent(XEvent *event)
 {
     XEvent dummy;
     qboolean down;
+    int x, y;
 
     switch (event->type) {
 	case KeyRelease:
@@ -363,12 +331,14 @@ IN_X11_HandleInputEvent(XEvent *event)
 
 	case MotionNotify:
 	    if (mouse_grab_active) {
-                mouse_x = event->xmotion.x - (int)(vid.width / 2);
-                mouse_y = event->xmotion.y - (int)(vid.height / 2);
-
-                if (mouse_x || mouse_y)
+                x = event->xmotion.x - (int)(vid.width / 2);
+                y = event->xmotion.y - (int)(vid.height / 2);
+                if (x || y) {
+                    mouse_x += x;
+                    mouse_y += y;
                     IN_CenterMouse();
-	    }
+                }
+            }
 	    break;
 
 	case ButtonPress:
@@ -395,7 +365,18 @@ IN_X11_HandleInputEvent(XEvent *event)
 	    else if (event->xbutton.button == 10)
 		Key_Event(K_MOUSE8, down);
 	    break;
+        case FocusIn:
+            have_focus = true;
+            Key_ClearAllStates();
+            IN_Commands();
+            break;
+        case FocusOut:
+            have_focus = false;
+            IN_UngrabMouse();
+            IN_UngrabKeyboard();
+            break;
     }
+
 }
 
 static void
@@ -484,6 +465,25 @@ IN_Move(usercmd_t *cmd)
     IN_MouseMove(cmd);
 }
 
+static unsigned int
+IN_X11_MouseButtonState()
+{
+    Window dummy_window;
+    int dummy_coord;
+    unsigned int modifier_state;
+    Bool result;
+
+    result = XQueryPointer(x_disp, x_win,
+                           &dummy_window, &dummy_window,
+                           &dummy_coord, &dummy_coord,
+                           &dummy_coord, &dummy_coord,
+                           &modifier_state);
+    if (!result)
+        return 0;
+
+    return modifier_state & X_MOUSE_BUTTON_MASK;
+}
+
 void
 IN_Commands(void)
 {
@@ -495,11 +495,17 @@ IN_Commands(void)
             IN_UngrabMouse();
             IN_UngrabKeyboard();
         }
-    } else {
+    } else if (have_focus) {
         if ((key_dest == key_game && _windowed_mouse.value) || VID_IsFullScreen()) {
-            IN_GrabKeyboard();
-            IN_GrabMouse();
-            IN_CenterMouse();
+            /*
+             * We only complete the grab once all mouse buttons are in
+             * a released state.  This fixes issues with grabbing the
+             * pointer while trying to move/resize the window frame.
+             */
+            if (!IN_X11_MouseButtonState()) {
+                IN_GrabKeyboard();
+                IN_GrabMouse();
+            }
         }
     }
 }

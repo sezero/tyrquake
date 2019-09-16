@@ -140,6 +140,8 @@ HandleEvents(void)
             case MotionNotify:
             case ButtonPress:
             case ButtonRelease:
+            case FocusIn:
+            case FocusOut:
                 IN_X11_HandleInputEvent(&event);
                 break;
 
@@ -524,6 +526,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     /* Ensure the new window has the focus */
     XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
+    HandleEvents();
     IN_Commands(); // update grabs (FIXME - this is a wierd function call to do that!)
 
     return true;

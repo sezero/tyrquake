@@ -26,6 +26,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 extern Display *x_disp;
 extern Window x_win;
 
-#define X_CORE_MASK (VisibilityChangeMask | StructureNotifyMask | ExposureMask)
+#define X_CORE_MASK (VisibilityChangeMask | StructureNotifyMask | ExposureMask | FocusChangeMask)
 
 #endif /* X11_CORE_H */
