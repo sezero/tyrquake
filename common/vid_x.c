@@ -604,7 +604,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     x_win = XCreateWindow(x_disp, XRootWindow(x_disp, x_visinfo->screen),
 			  0, 0, // x, y
 			  mode->width, mode->height, 0,	// borderwidth
-			  mode->bpp,
+			  x_visinfo->depth,
 			  InputOutput, x_visinfo->visual, valuemask, &attributes);
     XFreeColormap(x_disp, attributes.colormap);
 
