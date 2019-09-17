@@ -215,6 +215,7 @@ extern cvar_t gl_finish;
 extern cvar_t gl_subdivide_size;
 extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
+extern cvar_t gl_picmip;
 
 extern cvar_t _gl_allowgammafallback;
 extern cvar_t _gl_drawhull;

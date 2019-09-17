@@ -37,7 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 cvar_t gl_max_size = { "gl_max_size", "1024" };
 
 static cvar_t gl_nobind = { "gl_nobind", "0" };
-static cvar_t gl_picmip = { "gl_picmip", "0" };
+cvar_t gl_picmip = { "gl_picmip", "0" };
 
 typedef struct {
     GLuint texnum;
@@ -241,8 +241,8 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     while (picmip) {
 	if (width == 1 && height == 1)
 	    break;
-	width = qmin(1, width >> 1);
-	height = qmin(1, height >> 1);
+	width = qmax(1, width >> 1);
+	height = qmax(1, height >> 1);
 	QPic32_MipMap(scaled, texture_properties[type].alpha_op);
 	picmip--;
     }
