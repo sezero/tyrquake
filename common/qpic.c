@@ -37,6 +37,7 @@ const texture_properties_t texture_properties[] = {
     { &qpal_fullbright,       QPIC_ALPHA_OP_NONE,          true,  true,  false, true  }, // WORLD_FULLBRIGHT
     { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, true  }, // FENCE
     { &qpal_alpha_fullbright, QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, true  }, // FENCE_FULLBRIGHT
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, true,  false, true  }, // TURB
     { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // SKY_BACKGROUND
     { &qpal_alpha_zero,       QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // SKY_FOREGROUND
     { &qpal_alpha_zero,       QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // SKYBOX

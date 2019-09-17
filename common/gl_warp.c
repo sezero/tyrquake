@@ -26,147 +26,131 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "model.h"
 #include "qpic.h"
 #include "quakedef.h"
+#include "sbar.h"
 #include "sys.h"
 
 #ifdef NQ_HACK
 #include "host.h"
 #endif
 
-static void
-BoundPoly(int numverts, float *verts, vec3_t mins, vec3_t maxs)
-{
-    int i, j;
-    float *v;
+#define TURBSCALE (256.0 / (2 * M_PI))
+static float turbsin[256] = {
+#include "gl_warp_sin.h"
+};
 
-    mins[0] = mins[1] = mins[2] = FLT_MAX;
-    maxs[0] = maxs[1] = maxs[2] = -FLT_MAX;
-    v = verts;
-    for (i = 0; i < numverts; i++)
-	for (j = 0; j < 3; j++, v++) {
-	    if (*v < mins[j])
-		mins[j] = *v;
-	    if (*v > maxs[j])
-		maxs[j] = *v;
-	}
+cvar_t r_waterquality = { "r_waterquality", "8", CVAR_CONFIG };
+
+static inline void
+AddWarpVert(vec4_t vert, float x, float y)
+{
+    float turb_s = turbsin[(int)((y * 2.0f) + (realtime * TURBSCALE)) & 255];
+    float turb_t = turbsin[(int)((x * 2.0f) + (realtime * TURBSCALE)) & 255];
+
+    vert[0] = x;
+    vert[1] = y;
+    vert[2] = (x + turb_s) * (1.0f / 64.0f);
+    vert[3] = (y + turb_t) * (1.0f / 64.0f);
 }
 
-static void
-SubdividePolygon(msurface_t *surf, int numverts, vec_t *verts,
-		 const char *hunkname)
-{
-    int i, j, k, memsize;
-    vec3_t mins, maxs;
-    float m;
-    float *v;
-    vec3_t front[64], back[64];
-    int front_count, back_count;
-    float dist[64];
-    float frac;
-    glpoly_t *poly;
-    float s, t;
-
-    if (numverts > 60)
-	Sys_Error("numverts = %i", numverts);
-
-    BoundPoly(numverts, verts, mins, maxs);
-
-    for (i = 0; i < 3; i++) {
-	m = (mins[i] + maxs[i]) * 0.5;
-	m = floorf(m / gl_subdivide_size.value + 0.5);
-	m *= gl_subdivide_size.value;
-	if (maxs[i] - m < 8)
-	    continue;
-	if (m - mins[i] < 8)
-	    continue;
-
-	// cut it
-	v = verts + i;
-	for (j = 0; j < numverts; j++, v += 3)
-	    dist[j] = *v - m;
-
-	// wrap cases
-	dist[j] = dist[0];
-	v -= i;
-	VectorCopy(verts, v);
-
-	front_count = back_count = 0;
-	v = verts;
-	for (j = 0; j < numverts; j++, v += 3) {
-	    if (dist[j] >= 0) {
-		VectorCopy(v, front[front_count]);
-		front_count++;
-	    }
-	    if (dist[j] <= 0) {
-		VectorCopy(v, back[back_count]);
-		back_count++;
-	    }
-	    if (dist[j] == 0 || dist[j + 1] == 0)
-		continue;
-	    if ((dist[j] > 0) != (dist[j + 1] > 0)) {
-		// clip point
-		frac = dist[j] / (dist[j] - dist[j + 1]);
-		for (k = 0; k < 3; k++)
-		    front[front_count][k] = back[back_count][k] =
-			v[k] + frac * (v[3 + k] - v[k]);
-		front_count++;
-		back_count++;
-	    }
-	}
-
-	SubdividePolygon(surf, front_count, front[0], hunkname);
-	SubdividePolygon(surf, back_count, back[0], hunkname);
-	return;
-    }
-
-    memsize = sizeof(*poly) + numverts * sizeof(poly->verts[0]);
-    poly = Hunk_AllocName(memsize, hunkname);
-    poly->next = surf->polys;
-    surf->polys = poly;
-    poly->numverts = numverts;
-    for (i = 0; i < numverts; i++, verts += 3) {
-	VectorCopy(verts, poly->verts[i]);
-	s = DotProduct(verts, surf->texinfo->vecs[0]);
-	t = DotProduct(verts, surf->texinfo->vecs[1]);
-	poly->verts[i][3] = s;
-	poly->verts[i][4] = t;
-    }
-}
-
-/*
-================
-GL_SubdivideSurface
-
-Breaks a polygon up along axial 64 unit
-boundaries so that turbulent and sky warps
-can be done reasonably.
-================
-*/
 void
-GL_SubdivideSurface(brushmodel_t *brushmodel, msurface_t *surf)
+R_UpdateWarpTextures()
 {
-    const model_t *model = &brushmodel->model;
-    char hunkname[HUNK_NAMELEN + 1];
-    vec3_t verts[64]; /* FIXME!!! */
-    int i, edge, numverts;
-    vec_t *vert;
+    texture_t *texture;
+    int i, s, t, subdivisions, numindices, numverts, gl_warpimagesize;
+    float x, y, step, *vertices, *vertex;
+    uint16_t *indices, *index;
 
-    COM_FileBase(model->name, hunkname, sizeof(hunkname));
+    if (cl.paused || r_drawflat.value || r_lightmap.value)
+        return;
 
-    //
-    // convert edges back to a normal polygon
-    //
-    numverts = 0;
-    for (i = 0; i < surf->numedges; i++) {
-	edge = brushmodel->surfedges[surf->firstedge + i];
-	if (edge > 0)
-	    vert = brushmodel->vertexes[brushmodel->edges[edge].v[0]].position;
-	else
-	    vert = brushmodel->vertexes[brushmodel->edges[-edge].v[1]].position;
-	VectorCopy(vert, verts[numverts]);
-	numverts++;
+    subdivisions = qclamp(floorf(r_waterquality.value), 3.0f, 64.0f);
+    step = (float)WARP_IMAGE_SIZE / (float)subdivisions;
+
+    /* Draw the whole thing at once with drawelements */
+    vertices = alloca((subdivisions + 1) * (subdivisions + 1) * sizeof(float) * 4);
+    indices = alloca(subdivisions * subdivisions * 6 * sizeof(uint16_t));
+
+    /* Add the first row of vertices */
+    vertex = vertices;
+    index = indices;
+    x = 0.0f;
+    for (s = 0; s <= subdivisions; s++, x += step) {
+        AddWarpVert(vertex, x, 0.0f);
+        vertex += 4;
     }
-    SubdividePolygon(surf, numverts, verts[0], hunkname);
+
+    /* Add the remaining rows */
+    y = step;
+    for (t = 1; t <= subdivisions; t++, y += step) {
+
+        /* Add the first vertex separately, no complete quads yet */
+        AddWarpVert(vertex, 0.0f, y);
+        vertex += 4;
+
+        x = step;
+        for (s = 1; s <= subdivisions; s++, x += step) {
+            AddWarpVert(vertex, x, y);
+            vertex += 4;
+            numverts = (vertex - vertices) >> 2;
+
+            /* Add size indices for the two triangles in this quad */
+            *index++ = numverts - subdivisions - 3;
+            *index++ = numverts - 2;
+            *index++ = numverts - subdivisions - 2;
+            *index++ = numverts - subdivisions - 2;
+            *index++ = numverts - 2;
+            *index++ = numverts - 1;
+        }
+    }
+
+    numverts = (vertex - vertices) >> 2;
+    numindices = index - indices;
+    gl_warpimagesize = 0;
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(0, WARP_IMAGE_SIZE, 0, WARP_IMAGE_SIZE, -99999, 99999);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    GL_DisableMultitexture();
+    glEnable(GL_VERTEX_ARRAY);
+    glEnableClientState(GL_VERTEX_ARRAY);
+    glVertexPointer(2, GL_FLOAT, 4 * sizeof(float), vertices);
+    qglClientActiveTexture(GL_TEXTURE0);
+    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+    glTexCoordPointer(2, GL_FLOAT, 4 * sizeof(float), vertices + 2);
+
+    for (i = 0; i < cl.worldmodel->numtextures; i++) {
+        texture = cl.worldmodel->textures[i];
+        if (!texture)
+            continue;
+        if (texture->name[0] != '*')
+            continue;
+
+        /* Set the viewport appropriately for the warp target texture size */
+        if (gl_warpimagesize != texture->gl_warpimagesize) {
+            gl_warpimagesize = texture->gl_warpimagesize;
+            glViewport(glx, gly + glheight - gl_warpimagesize, gl_warpimagesize, gl_warpimagesize);
+        }
+
+        //Sys_Printf("gl_warpimagesize: %d\n", gl_warpimagesize);
+
+        // Render warp
+        GL_Bind(texture->gl_texturenum);
+        glDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, indices);
+        GL_Bind(texture->gl_warpimage);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, glx, gly + glheight - gl_warpimagesize, gl_warpimagesize, gl_warpimagesize);
+
+        // TODO: try load function pointer / check extensions (GL_GENERATE_MIPMAP_SGIS)
+        //glGenerateMipmap(GL_TEXTURE_2D);
+    }
+
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+    glDisableClientState(GL_VERTEX_ARRAY);
+    glDisable(GL_VERTEX_ARRAY);
 }
+
 
 //=========================================================
 

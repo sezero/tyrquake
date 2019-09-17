@@ -249,6 +249,7 @@ R_Init(void)
     Cvar_RegisterVariable(&r_dynamic);
     Cvar_RegisterVariable(&r_novis);
     Cvar_RegisterVariable(&r_waterwarp);
+    Cvar_RegisterVariable(&r_waterquality);
 
     Cvar_RegisterVariable(&gl_finish);
     Cvar_RegisterVariable(&gl_texsort);

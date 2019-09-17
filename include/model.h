@@ -110,6 +110,10 @@ typedef struct texture_s {
     union {
         GLuint gl_texturenum_alpha;	 // for sky texture
         GLuint gl_texturenum_fullbright; // mask texture for fullbrights
+        struct {
+            GLuint gl_warpimage;
+            int gl_warpimagesize;
+        };
     };
 #endif
     // Texture frames animate a 5 frames-per-second
@@ -154,7 +158,6 @@ typedef struct {
 #ifdef GLQUAKE
 #define	VERTEXSIZE	7
 typedef struct glpoly_s {
-    struct glpoly_s *next;
     int numverts;
     float verts[0][VERTEXSIZE];	// variable sized (xyz s1t1 s2t2)
 } glpoly_t;
@@ -179,7 +182,7 @@ typedef struct msurface_s {
     int material;
     int cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
     qboolean cached_dlight;     // true if dynamic light in cache
-    glpoly_t *polys;            // multiple if warped
+    glpoly_t *poly;
     struct msurface_s *chain;   // Material chain for drawing
     depthchain_t depthchain;    // Depth chain for translucent surface sorting
 #else

@@ -1459,9 +1459,13 @@ R_RenderScene(void)
 
     DepthChain_Init(&r_depthchain); // Init the empty depth chain for translucent surfaces/models
 
+    // TODO: Only update visible warped surfs
+    R_UpdateWarpTextures();
+
     R_SetupFrame();
     R_SetFrustum();
     R_SetupGL();
+
     R_MarkLeaves();		// done here so we know if we're in water
     R_UpdateModelLighting();    // Update dynamic lightmaps on bmodels
 

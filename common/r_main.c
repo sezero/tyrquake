@@ -180,10 +180,8 @@ R_InitTurb(void)
     int i;
 
     for (i = 0; i < TURB_TABLE_SIZE; ++i) {
-	sintable[i] = TURB_SURF_AMP
-	    + sin(i * 3.14159 * 2 / TURB_CYCLE) * TURB_SURF_AMP;
-	intsintable[i] = TURB_SCREEN_AMP
-	    + sin(i * 3.14159 * 2 / TURB_CYCLE) * TURB_SCREEN_AMP;
+	sintable[i]    = TURB_SURF_AMP   + sin(i * 3.14159 * 2 / TURB_CYCLE) * TURB_SURF_AMP;
+	intsintable[i] = TURB_SCREEN_AMP + sin(i * 3.14159 * 2 / TURB_CYCLE) * TURB_SCREEN_AMP;
     }
 }
 

@@ -679,6 +679,63 @@ Mod_ForName(const char *name, qboolean crash)
  * ===========================================================================
  */
 
+#ifdef GLQUAKE
+static void
+GL_LoadBrushModelTexture(texture_t *texture)
+{
+    qpic8_t pic;
+    enum texture_type type;
+
+    pic.width = pic.stride = texture->width;
+    pic.height = texture->height;
+    pic.pixels = (byte *)(texture + 1);
+
+    if (texture->name[0] == '{')
+        type = TEXTURE_TYPE_FENCE;
+    else if (texture->name[0] == '*')
+        type = TEXTURE_TYPE_TURB;
+    else
+        type = TEXTURE_TYPE_WORLD;
+
+    texture->gl_texturenum = GL_LoadTexture8(texture->name, &pic, type);
+
+    /* Fullbright mask if required (not on liquids) */
+    if (type == TEXTURE_TYPE_TURB) {
+        static byte pixels[WARP_RENDER_TEXTURE_SIZE * WARP_RENDER_TEXTURE_SIZE];
+        pic.width = pic.height = WARP_RENDER_TEXTURE_SIZE;
+        pic.pixels = pixels;
+        texture->gl_warpimage = GL_LoadTexture8(va("%s:warp", texture->name), &pic, type);
+        texture->gl_warpimagesize = pic.width;
+
+        Sys_Printf("gl_warpimagesize: %d\n", texture->gl_warpimagesize);
+
+    } else if (QPic_HasFullbrights(&pic, type)) {
+        type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
+        pic.width = texture->width;   // Possibly modified by picmip in previous upload
+        pic.height = texture->height; // Possibly modified by picmip in previous upload
+        texture->gl_texturenum_fullbright = GL_LoadTexture8(va("%s:fullbright", texture->name), &pic, type);
+    } else {
+        texture->gl_texturenum_fullbright = 0;
+    }
+}
+
+static void
+GL_LoadBrushModelTextures(const brushmodel_t *brushmodel)
+{
+    texture_t *texture;
+    int i;
+
+    for (i = 0; i < brushmodel->numtextures; i++) {
+        texture = brushmodel->textures[i];
+        if (!strncmp(texture->name, "sky", 3)) {
+	    R_InitSky(texture);
+        } else {
+            GL_LoadBrushModelTexture(texture);
+        }
+    }
+}
+#endif
+
 /*
 =================
 Mod_LoadTextures
@@ -753,18 +810,7 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
 	    R_InitSky(tx);
 #ifdef GLQUAKE
         } else {
-            enum texture_type type = (tx->name[0] == '{') ? TEXTURE_TYPE_FENCE : TEXTURE_TYPE_WORLD;
-	    byte *pixels = (byte *)(tx + 1);
-	    qpic8_t pic = { tx->width, tx->height, tx->width, pixels };
-            tx->gl_texturenum = GL_LoadTexture8(tx->name, &pic, type);
-
-	    /* Fullbright mask if required (not on liquids) */
-	    if (QPic_HasFullbrights(&pic, type) && tx->name[0] != '*') {
-                type = (tx->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
-                tx->gl_texturenum_fullbright = GL_LoadTexture8(va("%s:fullbright", tx->name), &pic, type);
-            } else {
-                tx->gl_texturenum_fullbright = 0;
-            }
+            GL_LoadBrushModelTexture(tx);
 #endif
 	}
 #endif
@@ -1204,9 +1250,6 @@ Mod_ProcessSurface(brushmodel_t *brushmodel, msurface_t *surf)
 	    surf->extents[i] = 16384;
 	    surf->texturemins[i] = -8192;
 	}
-#ifdef GLQUAKE
-	GL_SubdivideSurface(brushmodel, surf);
-#endif
     } else if (texturename[0] == '{') {
         surf->flags |= SURF_DRAWFENCE;
     }
@@ -2069,39 +2112,6 @@ Mod_LoadBrushModel(brushmodel_t *brushmodel, void *buffer, size_t size)
     // Allow the loader to do additional post-processing
     brush_loader->PostProcess(brushmodel);
 }
-
-#ifdef GLQUAKE
-static void
-GL_LoadBrushModelTextures(const brushmodel_t *brushmodel)
-{
-    qpic8_t pic;
-    texture_t *texture;
-    enum texture_type type;
-    int i;
-
-    for (i = 0; i < brushmodel->numtextures; i++) {
-        texture = brushmodel->textures[i];
-        if (!strncmp(texture->name, "sky", 3)) {
-	    R_InitSky(texture);
-            continue;
-        }
-
-        type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE : TEXTURE_TYPE_WORLD;
-        pic.width = pic.stride = texture->width;
-        pic.height = texture->height;
-        pic.pixels = (byte *)(texture + 1);
-	texture->gl_texturenum = GL_LoadTexture8(texture->name, &pic, type);
-
-	/* Fullbright mask if required (not on liquids) */
-	if (QPic_HasFullbrights(&pic, type) && texture->name[0] != '*') {
-            type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
-            texture->gl_texturenum_fullbright = GL_LoadTexture8(va("%s:fullbright", texture->name), &pic, type);
-        } else {
-            texture->gl_texturenum_fullbright = 0;
-        }
-    }
-}
-#endif
 
 /*
  * =========================================================================

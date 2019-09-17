@@ -120,6 +120,8 @@ extern int glx, gly, glwidth, glheight;
  */
 #define WARP_WIDTH 320
 #define WARP_HEIGHT 200
+#define WARP_IMAGE_SIZE 128
+#define WARP_RENDER_TEXTURE_SIZE 512
 
 void R_TimeRefresh_f(void);
 void R_ReadPointFile_f(void);
@@ -277,7 +279,9 @@ void GL_EnableMultitexture(void);
 //
 // gl_warp.c
 //
+extern cvar_t r_waterquality;
 void GL_SubdivideSurface(brushmodel_t *brushmodel, msurface_t *surf);
+void R_UpdateWarpTextures();
 
 //
 // gl_draw.c

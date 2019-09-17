@@ -423,32 +423,6 @@ TriBuf_AddFlatPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
     TriBuf_AddPoly(buffer, poly);
 }
 
-#define TURBSCALE (256.0 / (2 * M_PI))
-static float turbsin[256] = {
-#include "gl_warp_sin.h"
-};
-
-static void
-TriBuf_AddTurbPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
-{
-    int i;
-
-    assert(TriBuf_CheckSpacePoly(buffer, poly));
-
-    const float *src = &poly->verts[0][0];
-    float *dst = &buffer->verts[buffer->numverts][0];
-    for (i = 0; i < poly->numverts; i++) {
-	VectorCopy(src, dst);
-	float turb_s = turbsin[(int)((src[4] * 0.125f + realtime) * TURBSCALE) & 255];
-	float turb_t = turbsin[(int)((src[3] * 0.125f + realtime) * TURBSCALE) & 255];
-	dst[3] = (src[3] + turb_s) * (1.0f / 64);
-	dst[4] = (src[4] + turb_t) * (1.0f / 64);
-	src += VERTEXSIZE;
-	dst += VERTEXSIZE;
-    }
-    TriBuf_AddPolyIndices(buffer, poly);
-}
-
 /*
  * Water/Slime/Lava/Tele are fullbright (no lightmap)
  * May be blended, depending on r_wateralpha setting
@@ -471,7 +445,7 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
         glColor4f(1, 1, 1, qmax(alpha, 0.0f));
     }
 
-    GL_Bind(texture->gl_texturenum);
+    GL_Bind(texture->gl_warpimage);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
@@ -907,13 +881,13 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, msurface_t *surf, fl
     glbrushmodel_t *glbrushmodel;
 
     for ( ; surf; surf = surf->chain) {
-        if (!surf->polys)
+        if (!surf->poly)
             continue;
         if (mins)
-            Sky_AddPolyToSkyboxBounds(surf->polys, mins, maxs);
-        if (!TriBuf_CheckSpacePoly(buffer, surf->polys))
+            Sky_AddPolyToSkyboxBounds(surf->poly, mins, maxs);
+        if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
             TriBuf_SimpleFlush(buffer);
-        TriBuf_AddPoly(buffer, surf->polys);
+        TriBuf_AddPoly(buffer, surf->poly);
     }
 
     /* If there are (dynamic) submodels with sky surfaces, draw them now */
@@ -941,14 +915,14 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, msurface_t *surf, fl
 
             SetupEntityTransform(entity, &xfrm);
             for ( ; surf; surf = surf->chain) {
-                if (!surf->polys)
+                if (!surf->poly)
                     continue;
                 float dot = DotProduct(xfrm.origin, surf->plane->normal) - surf->plane->dist;
                 if ((surf->flags & SURF_PLANEBACK) && dot > BACKFACE_EPSILON)
                     continue;
                 if (!(surf->flags & SURF_PLANEBACK) && dot < -BACKFACE_EPSILON)
                     continue;
-                TransformPoly(entity, &xfrm, surf->polys, poly, polymins, polymaxs);
+                TransformPoly(entity, &xfrm, surf->poly, poly, polymins, polymaxs);
                 if (R_CullBox(polymins, polymaxs))
                     continue;
                 if (mins)
@@ -1358,8 +1332,6 @@ DrawSkyChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
 static void
 DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture, float alpha)
 {
-    glpoly_t *poly = NULL;
-
     /* Init the correct alpha value */
     if (surf->flags & SURF_DRAWWATER)
         alpha *= map_wateralpha;
@@ -1371,19 +1343,19 @@ DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture, f
         alpha *= map_telealpha;
 
     for ( ; surf; surf = surf->chain) {
-	for (poly = surf->polys ; poly; poly = poly->next) {
-	    if (!TriBuf_CheckSpacePoly(buffer, poly))
-		goto drawBuffer;
-	addPoly:
-	    TriBuf_AddTurbPoly(buffer, poly);
-	}
+        if (!surf->poly)
+            continue;
+        if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
+            goto drawBuffer;
+    addPoly:
+        TriBuf_AddPoly(buffer, surf->poly);
     }
  drawBuffer:
     if (buffer->numindices) {
 	TriBuf_DrawTurb(buffer, texture, alpha);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
-	if (poly)
+	if (surf && surf->poly)
 	    goto addPoly;
     }
 }
@@ -1391,22 +1363,20 @@ DrawTurbChain(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture, f
 static void
 DrawFlatChain(triangle_buffer_t *buffer, msurface_t *surf)
 {
-    glpoly_t *poly = NULL;
-
     for ( ; surf; surf = surf->chain) {
-	for (poly = surf->polys ; poly; poly = poly->next) {
-	    if (!TriBuf_CheckSpacePoly(buffer, poly))
-		goto drawBuffer;
-	addPoly:
-	    TriBuf_AddFlatPoly(buffer, poly);
-	}
+        if (!surf->poly)
+            continue;
+        if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
+            goto drawBuffer;
+    addPoly:
+        TriBuf_AddFlatPoly(buffer, surf->poly);
     }
  drawBuffer:
     if (buffer->numindices) {
 	TriBuf_DrawFlat(buffer);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
-	if (poly)
+	if (surf && surf->poly)
 	    goto addPoly;
     }
 }
@@ -1418,13 +1388,13 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
     lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
     int flags = surf->flags;
     for ( ; surf; surf = surf->chain) {
-	if (!surf->polys)
+	if (!surf->poly)
 	    continue;
-	if (!TriBuf_CheckSpacePoly(buffer, surf->polys))
+	if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
 	    goto drawBuffer;
     addPoly:
 	R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
-	TriBuf_AddPoly(buffer, surf->polys);
+	TriBuf_AddPoly(buffer, surf->poly);
     }
  drawBuffer:
     if (buffer->numindices) {
@@ -1434,7 +1404,7 @@ DrawSolidChain(triangle_buffer_t *buffer, msurface_t *surf, glbrushmodel_t *glbr
             TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
 	buffer->numverts = 0;
 	buffer->numindices = 0;
-	if (surf && surf->polys)
+	if (surf && surf->poly)
 	    goto addPoly;
     }
 }
@@ -1870,7 +1840,7 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	numsurfaces = pleaf->nummarksurfaces;
 	if (numsurfaces) {
 	    do {
-		(*mark)->visframe = r_framecount;
+		(*mark)->visframe = r_visframecount;
 		mark++;
 	    } while (--numsurfaces);
 	}
@@ -1908,7 +1878,7 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
         msurface_t **materialchains = GLBrushModel(cl.worldmodel)->materialchains;
 	surf = cl.worldmodel->surfaces + node->firstsurface;
 	for (; numsurfaces; numsurfaces--, surf++) {
-	    if (surf->visframe != r_framecount)
+	    if (surf->visframe != r_visframecount)
 		continue;
 
 	    // backface cull
@@ -2060,8 +2030,7 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
     /* reconstruct the polygon */
     memsize = sizeof(*poly) + surf->numedges * sizeof(poly->verts[0]);
     poly = Hunk_AllocExtend(hunkbase, memsize);
-    poly->next = surf->polys;
-    surf->polys = poly;
+    surf->poly = poly;
     poly->numverts = surf->numedges;
 
     for (i = 0; i < surf->numedges; i++) {
@@ -2079,10 +2048,14 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
 
 	/* Texture coordinates */
 	s = DotProduct(vertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
-	s /= texinfo->texture->width;
-
 	t = DotProduct(vertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
-	t /= texinfo->texture->height;
+        if (surf->flags & SURF_DRAWTURB) {
+            s /= 128.0f;
+            t /= 128.0f;
+        } else {
+            s /= texinfo->texture->width;
+            t /= texinfo->texture->height;
+        }
 
 	poly->verts[i][3] = s;
 	poly->verts[i][4] = t;
@@ -2173,9 +2146,6 @@ GL_BuildLightmaps()
 	resources = GLBrushModel(brushmodel)->resources;
 	surf = brushmodel->surfaces;
 	for (j = 0; j < brushmodel->numsurfaces; j++, surf++) {
-	    if (surf->flags & (SURF_DRAWTURB))
-		continue;
-
             if (!(surf->flags & SURF_DRAWTILED)) {
                 byte *base = resources->blocks[surf->lightmapblock].data;
                 base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * gl_lightmap_bytes;
@@ -2195,12 +2165,12 @@ GL_BuildLightmaps()
             continue;
         surf = brushmodel->surfaces + brushmodel->firstmodelsurface;
         for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
-            if (!(surf->flags & SURF_DRAWSKY) || !surf->polys)
+            if (!(surf->flags & SURF_DRAWSKY) || !surf->poly)
                 continue;
             GLBrushModel(brushmodel)->drawsky = true;
             glbrushmodel_resource_t *resources = GLBrushModel(brushmodel)->resources;
-            if (surf->polys->numverts > resources->max_submodel_skypoly_verts)
-                resources->max_submodel_skypoly_verts = surf->polys->numverts;
+            if (surf->poly->numverts > resources->max_submodel_skypoly_verts)
+                resources->max_submodel_skypoly_verts = surf->poly->numverts;
         }
     }
 }
