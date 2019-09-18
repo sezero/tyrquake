@@ -140,10 +140,14 @@ R_UpdateWarpTextures()
         GL_Bind(texture->gl_texturenum);
         glDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, indices);
         GL_Bind(texture->gl_warpimage);
+
+        // Enable legacy generate mipmap parameter if available
+        qglTexParameterGenerateMipmap(GL_TRUE);
+
         glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, glx, gly + glheight - gl_warpimagesize, gl_warpimagesize, gl_warpimagesize);
 
-        // TODO: try load function pointer / check extensions (GL_GENERATE_MIPMAP_SGIS)
-        //glGenerateMipmap(GL_TEXTURE_2D);
+        // Regenerate mipmaps if extension is available
+        qglGenerateMipmap(GL_TEXTURE_2D);
     }
 
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);

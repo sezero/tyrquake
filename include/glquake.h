@@ -262,17 +262,23 @@ void GL_Bind(int texnum);
 typedef void (APIENTRY *lpMultiTexFUNC) (GLenum, GLfloat, GLfloat);
 typedef void (APIENTRY *lpActiveTextureFUNC) (GLenum);
 typedef void (APIENTRY *lpClientStateFUNC) (GLenum);
+typedef void (APIENTRY *lpGenerateMipmapFUNC) (GLenum);
+typedef void (APIENTRY *lpBooleanFUNC) (GLboolean);
 
 extern lpMultiTexFUNC qglMultiTexCoord2fARB;
 extern lpActiveTextureFUNC qglActiveTextureARB;
 extern lpClientStateFUNC qglClientActiveTexture;
+extern lpGenerateMipmapFUNC qglGenerateMipmap;
+extern lpBooleanFUNC qglTexParameterGenerateMipmap;
 
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;
 
+void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
 void GL_ExtensionCheck_NPoT(void);
 void GL_ExtensionCheck_MultiTexture(void);
+void GL_ExtensionCheck_GenerateMipmaps();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

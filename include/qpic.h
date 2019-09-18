@@ -96,7 +96,7 @@ typedef struct {
 } texture_properties_t;
 
 /* Indexed by enum texture_type */
-extern const texture_properties_t texture_properties[NUM_TEXTURE_TYPES];
+extern texture_properties_t texture_properties[NUM_TEXTURE_TYPES];
 
 /* Palettes for converting the base 8 bit texures to 32 bit RGBA */
 extern qpalette32_t qpal_standard;

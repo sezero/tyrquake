@@ -153,6 +153,9 @@ GL_Init(void)
     gl_version = (char *)glGetString(GL_VERSION);
     Con_Printf("GL_VERSION: %s\n", gl_version);
 
+    GL_ParseVersionString(gl_version);
+
+    GL_ExtensionCheck_GenerateMipmaps();
     GL_ExtensionCheck_MultiTexture();
     GL_ExtensionCheck_NPoT();
 

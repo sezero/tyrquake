@@ -29,7 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "zone.h"
 
 /* Indexed by enum texture_type */
-const texture_properties_t texture_properties[] = {
+texture_properties_t texture_properties[] = {
     // Palette                Alpha Operation              mipmap picmip plyrmp repeat
     { &qpal_alpha_zero,       QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // CHARSET
     { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, true  }, // HUD
