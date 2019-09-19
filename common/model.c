@@ -2206,6 +2206,8 @@ Mod_ReloadTextures()
 
     /* Brush models */
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        if (brushmodel->parent)
+            continue;
         GL_LoadBrushModelTextures(brushmodel);
         GL_ReloadLightmapTextures(GLBrushModel(brushmodel)->resources);
     }
