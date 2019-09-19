@@ -134,8 +134,6 @@ R_UpdateWarpTextures()
             glViewport(glx, gly + glheight - gl_warpimagesize, gl_warpimagesize, gl_warpimagesize);
         }
 
-        //Sys_Printf("gl_warpimagesize: %d\n", gl_warpimagesize);
-
         // Render warp
         GL_Bind(texture->gl_texturenum);
         glDrawElements(GL_TRIANGLES, numindices, GL_UNSIGNED_SHORT, indices);

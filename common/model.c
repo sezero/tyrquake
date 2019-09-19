@@ -706,9 +706,6 @@ GL_LoadBrushModelTexture(texture_t *texture)
         pic.pixels = pixels;
         texture->gl_warpimage = GL_LoadTexture8(va("%s:warp", texture->name), &pic, type);
         texture->gl_warpimagesize = pic.width;
-
-        Sys_Printf("gl_warpimagesize: %d\n", texture->gl_warpimagesize);
-
     } else if (QPic_HasFullbrights(&pic, type)) {
         type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
         pic.width = texture->width;   // Possibly modified by picmip in previous upload
