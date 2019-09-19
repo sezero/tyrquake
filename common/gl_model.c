@@ -586,7 +586,7 @@ GL_BuildMaterials()
     }
 
     /*
-     * Finally, we allocate the materialchains for every brushmodel (including
+     * Next we allocate the materialchains for every brushmodel (including
      * submodels).  Submodels share the material list with their parent.  All
      * share the common resources struct.
      */
@@ -609,6 +609,42 @@ GL_BuildMaterials()
         /* It's a bit verbose to print for all submodels, usually */
         if (!brushmodel->parent)
             Debug_PrintMaterials(glbrushmodel);
+    }
+
+    /*
+     * Pre-cache which turb textures each (non-world) brushmodel
+     * contains so we know when we need to update the warp render target.
+     */
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        if (brushmodel == cl.worldmodel)
+            continue;
+
+        /* Count and flag the turb textures referenced */
+        int turbcount = 0;
+        surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+        for (surfnum = 0; surfnum < brushmodel->nummodelsurfaces; surfnum++, surf++) {
+            if (surf->flags & SURF_DRAWTURB) {
+                if (!surf->texinfo->texture->mark) {
+                    turbcount++;
+                    surf->texinfo->texture->mark = 1;
+                }
+            }
+        }
+        if (!turbcount)
+            continue;
+
+        /* Allocate the turb texture pointers and fill them out */
+        glbrushmodel = GLBrushModel(brushmodel);
+        glbrushmodel->numturbtextures = 0;
+        glbrushmodel->turbtextures = Hunk_AllocName(turbcount * sizeof(texture_t *), "turbtex");
+        for (texturenum = 0; texturenum < brushmodel->numtextures && turbcount; texturenum++) {
+            texture = brushmodel->textures[texturenum];
+            if (texture->mark) {
+                glbrushmodel->turbtextures[glbrushmodel->numturbtextures++] = texture;
+                texture->mark = 0;
+                turbcount--;
+            }
+        }
     }
 }
 

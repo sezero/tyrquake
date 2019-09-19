@@ -123,7 +123,7 @@ R_UpdateWarpTextures()
 
     for (i = 0; i < cl.worldmodel->numtextures; i++) {
         texture = cl.worldmodel->textures[i];
-        if (!texture)
+        if (!texture || !texture->mark)
             continue;
         if (texture->name[0] != '*')
             continue;
@@ -146,6 +146,8 @@ R_UpdateWarpTextures()
 
         // Regenerate mipmaps if extension is available
         qglGenerateMipmap(GL_TEXTURE_2D);
+
+        texture->mark = 0;
     }
 
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);

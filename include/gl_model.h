@@ -107,6 +107,10 @@ typedef struct {
     // material later.
     msurface_t **materialchains;
 
+    // Note which turb textures each submodel contains (if any)
+    int numturbtextures;
+    texture_t **turbtextures;
+
     // Embedded brushmodel struct (must be last member)
     brushmodel_t brushmodel;
 } glbrushmodel_t;

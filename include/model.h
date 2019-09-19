@@ -106,6 +106,7 @@ typedef struct texture_s {
     unsigned texturenum;
     unsigned width, height;
 #ifdef GLQUAKE
+    int mark;
     GLuint gl_texturenum;
     union {
         GLuint gl_texturenum_alpha;	 // for sky texture

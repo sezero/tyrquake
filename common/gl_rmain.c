@@ -1455,6 +1455,8 @@ r_refdef must be set before the first call
 static void
 R_RenderScene(void)
 {
+    int i, j;
+
     gl_draw_calls = 0;
     gl_verts_submitted = 0;
     gl_indices_submitted = 0;
@@ -1462,11 +1464,25 @@ R_RenderScene(void)
 
     DepthChain_Init(&r_depthchain); // Init the empty depth chain for translucent surfaces/models
 
+    R_SetupFrame();
+    R_SetFrustum();
+
+    R_PrepareWorldMaterialChains(); // Also marks visible world warp surfaces for updating
+
+    // TODO: try combine this with other visedicts passes?
+    // TODO: is it worth frustum culling here?
+    for (i = 0; i < cl_numvisedicts; i++) {
+        entity_t *entity = cl_visedicts[i];
+        if (entity->model->type != mod_brush)
+            continue;
+        glbrushmodel_t *glbrushmodel = GLBrushModel(BrushModel(entity->model));
+        for (j = 0; j < glbrushmodel->numturbtextures; j++)
+            glbrushmodel->turbtextures[j]->mark = 1;
+    }
+
     // TODO: Only update visible warped surfs
     R_UpdateWarpTextures();
 
-    R_SetupFrame();
-    R_SetFrustum();
     R_SetupGL();
 
     R_MarkLeaves();		// done here so we know if we're in water

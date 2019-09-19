@@ -349,6 +349,7 @@ void GL_LoadNoTexture();
 // gl_rsurf.c
 //
 void R_DrawDynamicBrushModel(entity_t *entity);
+void R_PrepareWorldMaterialChains();
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawTranslucentChain(entity_t *entity, msurface_t *materialchain, float alpha);

@@ -1893,6 +1893,10 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	    if (mirror && surf->texinfo->texture == cl.worldmodel->textures[mirrortexturenum])
 		continue;
 
+            /* Flag turb textures that need to be updated */
+            if (surf->flags & SURF_DRAWTURB)
+                surf->texinfo->texture->mark = 1;
+
             if (surf->flags & r_surfalpha_flags) {
                 // Sort alpha surfaces into the depth chain for blending
                 DepthChain_AddSurf(&r_depthchain, &r_worldentity, surf, depthchain_bmodel_static);
@@ -1906,6 +1910,19 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 
     /* recurse down the back side */
     R_RecursiveWorldNode(modelorg, node->children[side ? 0 : 1]);
+}
+
+/*
+ * Pre-mark all the world surfaces that need to be drawn
+ */
+void
+R_PrepareWorldMaterialChains()
+{
+    glbrushmodel_t *glbrushmodel;
+
+    glbrushmodel = GLBrushModel(cl.worldmodel);
+    memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
+    R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
 }
 
 /*
@@ -1948,10 +1965,6 @@ R_DrawWorld(void)
 	return;
     }
 
-    /* Build material chains */
-    memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(msurface_t *));
-    R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
-
     /*
      * Add static submodels to the material chains.
      * Setup sky chains on dynamic models.
@@ -1985,6 +1998,10 @@ R_DrawWorld(void)
                         continue;
                     surf->chain = materialchains[skymaterial];
                     materialchains[skymaterial] = surf;
+
+                    /* Flag turb textures that need to be updated */
+                    if (surf->flags & SURF_DRAWTURB)
+                        surf->texinfo->texture->mark = 1;
                 }
                 continue;
             }
