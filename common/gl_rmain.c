@@ -1446,6 +1446,35 @@ R_DrawTranslucency(void)
 }
 
 /*
+=============
+R_Clear
+=============
+*/
+static void
+R_Clear(void)
+{
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+    if (r_mirroralpha.value != 1.0) {
+	gldepthmin = 0;
+	gldepthmax = 0.5;
+	glDepthFunc(GL_LEQUAL);
+    } else {
+	gldepthmin = 0;
+	gldepthmax = 1;
+	glDepthFunc(GL_LEQUAL);
+    }
+    glDepthRange(gldepthmin, gldepthmax);
+
+    if (gl_zfix.value) {
+	if (gldepthmax > gldepthmin)
+	    glPolygonOffset(1, 1);
+	else
+	    glPolygonOffset(-1, -1);
+    }
+}
+
+/*
 ================
 R_RenderScene
 
@@ -1483,6 +1512,7 @@ R_RenderScene(void)
     // TODO: Only update visible warped surfs
     R_UpdateWarpTextures();
 
+    R_Clear();
     R_SetupGL();
 
     R_MarkLeaves();		// done here so we know if we're in water
@@ -1508,35 +1538,6 @@ R_RenderScene(void)
     }
 }
 
-
-/*
-=============
-R_Clear
-=============
-*/
-static void
-R_Clear(void)
-{
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
-    if (r_mirroralpha.value != 1.0) {
-	gldepthmin = 0;
-	gldepthmax = 0.5;
-	glDepthFunc(GL_LEQUAL);
-    } else {
-	gldepthmin = 0;
-	gldepthmax = 1;
-	glDepthFunc(GL_LEQUAL);
-    }
-    glDepthRange(gldepthmin, gldepthmax);
-
-    if (gl_zfix.value) {
-	if (gldepthmax > gldepthmin)
-	    glPolygonOffset(1, 1);
-	else
-	    glPolygonOffset(-1, -1);
-    }
-}
 
 #ifdef NQ_HACK /* Mirrors disabled for now in QW */
 /*
@@ -1645,8 +1646,6 @@ R_RenderView(void)
     }
 
     mirror = false;
-
-    R_Clear();
 
     // render normal view
     R_RenderScene();
