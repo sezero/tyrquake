@@ -1156,9 +1156,10 @@ endef
 
 $(BUILD_DIR)/include/tyrquake_icon_%.h: icons/tyrquake-1024x1024.png; $(call do_iconheader,$*,$*)
 
-X11_ICON_HEADER = $(BUILD_DIR)/include/tyrquake_icon_128.h
+RGBA_ICON_HEADER = $(BUILD_DIR)/include/tyrquake_icon_128.h
 
-common/vid_x11_common.c:   $(X11_ICON_HEADER)
+common/vid_x11_common.c:	$(RGBA_ICON_HEADER)
+common/sdl_common.c:		$(RGBA_ICON_HEADER)
 
 # ----------------------------------------------------------------------------
 # OSX Packaging Tools (WIP)

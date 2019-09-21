@@ -21,10 +21,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL.h"
 
 extern SDL_Window *sdl_window;
+extern SDL_PixelFormat *sdl_desktop_format;
+
+typedef struct {
+    typeof(SDL_PIXELFORMAT_UNKNOWN) format;
+} qvidformat_t;
 
 /*
  * Independent subsystems can call this to ensure the main SDL_Init()
  * has been called at least once before they init their subsystem
  * via SDL_InitSubSystem(SDL_INIT_FOO)
  */
-void Q_SDL_InitOnce(void);
+void Q_SDL_InitOnce();
+
+void VID_SDL_SetIcon();
+void VID_SDL_InitModeList();
