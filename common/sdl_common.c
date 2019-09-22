@@ -43,8 +43,14 @@ VID_SDL_SetIcon()
 {
     SDL_Surface *surface;
 
-    surface = SDL_CreateRGBSurfaceWithFormatFrom((void *)tyrquake_icon_128,
-                                                 128, 128, 32, 128 * 4, SDL_PIXELFORMAT_ABGR8888);
+    surface = SDL_CreateRGBSurfaceFrom((void *)tyrquake_icon_128,
+				       128, 128, 32, 128 * 4,
+#ifdef __BIG_ENDIAN__
+				       0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff
+#else
+				       0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000
+#endif
+				       );
     if (!surface)
         return;
 
