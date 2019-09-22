@@ -702,7 +702,7 @@ GL_LoadBrushModelTexture(texture_t *texture)
     /* Fullbright mask if required (not on liquids) */
     if (type == TEXTURE_TYPE_TURB) {
         static byte pixels[WARP_RENDER_TEXTURE_SIZE * WARP_RENDER_TEXTURE_SIZE];
-        pic.width = pic.height = WARP_RENDER_TEXTURE_SIZE;
+        pic.width = pic.height = qmin(texture->width * 4, WARP_RENDER_TEXTURE_SIZE);
         pic.pixels = pixels;
         texture->gl_warpimage = GL_LoadTexture8(va("%s:warp", texture->name), &pic, type);
         texture->gl_warpimagesize = pic.width;
