@@ -43,14 +43,19 @@ VID_SDL_SetIcon()
 {
     SDL_Surface *surface;
 
-    surface = SDL_CreateRGBSurfaceFrom((void *)tyrquake_icon_128,
-				       128, 128, 32, 128 * 4,
 #ifdef __BIG_ENDIAN__
-				       0xff000000, 0x00ff0000, 0x0000ff00, 0x000000ff
+    const uint32_t rmask = 0xff000000;
+    const uint32_t gmask = 0x00ff0000;
+    const uint32_t bmask = 0x0000ff00;
+    const uint32_t amask = 0x000000ff;
 #else
-				       0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000
+    const uint32_t rmask = 0x000000ff;
+    const uint32_t gmask = 0x0000ff00;
+    const uint32_t bmask = 0x00ff0000;
+    const uint32_t amask = 0xff000000;
 #endif
-				       );
+
+    surface = SDL_CreateRGBSurfaceFrom((void *)tyrquake_icon_128, 128, 128, 32, 128 * 4, rmask, gmask, bmask, amask);
     if (!surface)
         return;
 
