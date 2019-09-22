@@ -61,19 +61,6 @@ void VID_Update(vrect_t *rects) {}
 void D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height) {}
 void D_EndDirectRect(int x, int y, int width, int height) {}
 
-/*
- * FIXME!!
- *
- * Move stuff around or create abstractions so these hacks aren't needed
- */
-
-#ifndef _WIN32
-void Sys_SendKeyEvents(void)
-{
-    IN_ProcessEvents();
-}
-#endif
-
 #ifdef _WIN32
 #include <windows.h>
 
@@ -189,6 +176,30 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 }
 
 void
+VID_ProcessEvents()
+{
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event)) {
+	switch (event.type) {
+            case SDL_KEYDOWN:
+            case SDL_KEYUP:
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP:
+            case SDL_MOUSEWHEEL:
+            case SDL_MOUSEMOTION:
+                IN_SDL_HandleEvent(&event);
+                break;
+            case SDL_QUIT:
+                Sys_Quit();
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void
 VID_Init(const byte *palette)
 {
     int err;
@@ -254,3 +265,10 @@ VID_ShiftPalette(const byte *palette)
     /* Done via gl_polyblend instead */
     //VID_SetPalette(palette);
 }
+
+#ifndef _WIN32
+void Sys_SendKeyEvents(void)
+{
+    VID_ProcessEvents();
+}
+#endif

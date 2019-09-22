@@ -321,6 +321,30 @@ VID_SetPalette(const byte *palette)
 }
 
 void
+VID_ProcessEvents()
+{
+    SDL_Event event;
+
+    while (SDL_PollEvent(&event)) {
+	switch (event.type) {
+            case SDL_KEYDOWN:
+            case SDL_KEYUP:
+            case SDL_MOUSEBUTTONDOWN:
+            case SDL_MOUSEBUTTONUP:
+            case SDL_MOUSEWHEEL:
+            case SDL_MOUSEMOTION:
+                IN_SDL_HandleEvent(&event);
+                break;
+            case SDL_QUIT:
+                Sys_Quit();
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+void
 VID_Init(const byte *palette)
 {
     int err;
@@ -511,6 +535,6 @@ VID_UnlockBuffer(void)
 void
 Sys_SendKeyEvents(void)
 {
-    IN_ProcessEvents();
+    VID_ProcessEvents();
 }
 #endif

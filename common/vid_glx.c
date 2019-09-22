@@ -123,8 +123,8 @@ D_EndDirectRect(int x, int y, int width, int height)
 // direct drawing of the "accessing disk" icon isn't supported under GLX
 }
 
-static void
-HandleEvents(void)
+void
+VID_ProcessEvents(void)
 {
     XEvent event;
 
@@ -526,7 +526,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     /* Ensure the new window has the focus */
     XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
-    HandleEvents();
+    VID_ProcessEvents();
     IN_Commands(); // update grabs (FIXME - this is a wierd function call to do that!)
 
     return true;
@@ -629,7 +629,7 @@ VID_Shutdown(void)
 void
 Sys_SendKeyEvents(void)
 {
-    HandleEvents();
+    VID_ProcessEvents();
 }
 
 void

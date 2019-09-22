@@ -36,3 +36,4 @@ void Q_SDL_InitOnce();
 
 void VID_SDL_SetIcon();
 void VID_SDL_InitModeList();
+void IN_SDL_HandleEvent(SDL_Event *event);

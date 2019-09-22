@@ -108,6 +108,8 @@ void VID_MenuKey(knum_t keynum);
 qboolean VID_SetMode(const qvidmode_t *mode, const byte *palette);
 qboolean VID_CheckAdequateMem(int width, int height);
 
+void VID_ProcessEvents();
+
 extern void (*vid_menudrawfn)(void);
 extern void (*vid_menukeyfn)(knum_t keynum);
 

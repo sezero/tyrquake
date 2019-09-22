@@ -846,8 +846,8 @@ static int config_notify = 0;
 static int config_notify_width;
 static int config_notify_height;
 
-static void
-HandleEvents(void)
+void
+VID_ProcessEvents(void)
 {
     XEvent event;
 
@@ -933,7 +933,7 @@ VID_Update(vrect_t *rects)
 		Sys_Error("VID_Update: XShmPutImage failed");
 	    oktodraw = false;
 	    while (!oktodraw)
-		HandleEvents();
+		VID_ProcessEvents();
 	    rects = rects->pnext;
 	}
 	current_framebuffer = !current_framebuffer;
@@ -955,13 +955,12 @@ VID_Update(vrect_t *rects)
 	}
 	XSync(x_disp, False);
     }
-
 }
 
 void
 Sys_SendKeyEvents(void)
 {
-    HandleEvents();
+    VID_ProcessEvents();
 }
 
 void

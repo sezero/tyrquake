@@ -600,12 +600,8 @@ Sys_SendKeyEvents(void)
 	DispatchMessage(&msg);
     }
 
-    /*
-     * FIXME - hack to fix hang in SDL on "are you sure you want to
-     * start a new game?" screen. Other platforms (X) have defined
-     * Sys_SendKeyEvents in their vid_* files instead.
-     */
-    IN_ProcessEvents();
+    /* Allow the vid driver to process it's message queue */
+    VID_ProcessEvents();
 }
 
 /*
