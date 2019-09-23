@@ -182,6 +182,14 @@ VID_ProcessEvents()
 
     while (SDL_PollEvent(&event)) {
 	switch (event.type) {
+            case SDL_WINDOWEVENT:
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_FOCUS_GAINED:
+                    case SDL_WINDOWEVENT_FOCUS_LOST:
+                        IN_SDL_HandleEvent(&event);
+                        break;
+                }
+                break;
             case SDL_KEYDOWN:
             case SDL_KEYUP:
             case SDL_MOUSEBUTTONDOWN:

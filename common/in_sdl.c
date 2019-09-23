@@ -39,31 +39,35 @@ cvar_t in_snd_block = { "in_snd_block", "0" };
 static qboolean mouse_available;
 static int mouse_x, mouse_y;
 
-#if 0 /* FIXME! */
-static int have_focus = 1;
+static int have_focus = 0;
 
 static void
-event_focusout(void)
+IN_CenterMouse()
 {
-    if (have_focus) {
-	have_focus = 0;
-	if (in_snd_block.value) {
-	    //S_BlockSound();
-	    CDAudio_Pause();
-	}
-    }
+    SDL_WarpMouseInWindow(sdl_window, vid.width / 2, vid.height / 2);
 }
 
 static void
-event_focusin(void)
+IN_GrabMouse()
 {
-    have_focus = 1;
-    if (in_snd_block.value) {
-	//S_UnblockSound();
-	CDAudio_Resume();
-    }
+    IN_CenterMouse();
+    SDL_SetRelativeMouseMode(SDL_TRUE);
 }
-#endif
+
+static void
+IN_UngrabMouse()
+{
+    SDL_SetRelativeMouseMode(SDL_FALSE);
+}
+
+static void
+windowed_mouse_f(struct cvar_s *var)
+{
+    if (var->value)
+        IN_GrabMouse();
+    else
+        IN_UngrabMouse();
+}
 
 void
 IN_SDL_HandleEvent(SDL_Event *event)
@@ -72,16 +76,19 @@ IN_SDL_HandleEvent(SDL_Event *event)
     int keystate, button, keynum;
 
     switch (event->type) {
-#if 0 // ACTIVEEVENT disappeared??
-	case SDL_ACTIVEEVENT:
-	    if (event->active.state == SDL_APPINPUTFOCUS) {
-		if (event->active.gain)
-		    event_focusin();
-		else
-		    event_focusout();
-	    }
-	    break;
-#endif
+        case SDL_WINDOWEVENT:
+            switch (event->window.event) {
+                case SDL_WINDOWEVENT_FOCUS_GAINED:
+                    have_focus = true;
+                    Key_ClearAllStates();
+                    IN_Commands();
+                    break;
+                case SDL_WINDOWEVENT_FOCUS_LOST:
+                    have_focus = false;
+                    IN_UngrabMouse();
+                    break;
+            }
+            break;
 	case SDL_KEYDOWN:
 	case SDL_KEYUP:
 	    keycode = event->key.keysym.sym;
@@ -574,23 +581,6 @@ IN_SDL_HandleEvent(SDL_Event *event)
     }
 }
 
-static void
-IN_GrabMouse(qboolean grab)
-{
-    int err;
-
-    err = SDL_SetRelativeMouseMode(grab ? SDL_TRUE : SDL_FALSE);
-    if (err) {
-	Con_Printf("Mouse %s failed: %s\n", grab ? "grab" : "ungrab", SDL_GetError());
-    }
-}
-
-static void
-windowed_mouse_f(struct cvar_s *var)
-{
-    IN_GrabMouse((qboolean)var->value);
-}
-
 static cvar_t m_filter = { "m_filter", "0" };
 cvar_t _windowed_mouse = {
     .name = "_windowed_mouse",
@@ -661,7 +651,7 @@ IN_Init(void)
 void
 IN_Shutdown(void)
 {
-    IN_GrabMouse(false);
+    IN_UngrabMouse();
     mouse_available = 0;
 }
 
@@ -680,10 +670,10 @@ void IN_Commands(void)
 	SDL_bool mouse_grabbed = SDL_GetRelativeMouseMode();
 	if (mouse_grabbed) {
 	    if (key_dest != key_game && !VID_IsFullScreen())
-		IN_GrabMouse(false);
-	} else {
+		IN_UngrabMouse();
+	} else if (have_focus) {
 	    if ((key_dest == key_game && _windowed_mouse.value) || VID_IsFullScreen())
-		IN_GrabMouse(true);
+		IN_GrabMouse();
 	}
     }
 }
