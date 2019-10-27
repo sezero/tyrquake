@@ -576,7 +576,7 @@ TriBuf_DrawFullbrightSolid(triangle_buffer_t *buffer, const texture_t *texture)
         qglClientActiveTexture(GL_TEXTURE1);
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_DisableMultitexture();
-        qglClientActiveTexture(GL_TEXTURE1);
+        qglClientActiveTexture(GL_TEXTURE0);
     }
 
     GL_Bind(texture->gl_texturenum);
