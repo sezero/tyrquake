@@ -1050,6 +1050,9 @@ MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     return msg_handled;
 }
 
+/* All Win32 events are handled via callback MainWndProc */
+void VID_ProcessEvents() {}
+
 void VID_LockBuffer(void) {}
 void VID_UnlockBuffer(void) {}
 void D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height) {}
