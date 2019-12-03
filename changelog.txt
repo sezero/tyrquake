@@ -2,6 +2,16 @@
   CHANGELOG
 \-----------/
 
+v0.66
+=====
+- Reworked video mode setting, now uses vid_width, vid_height, etc. cvars
+- Added menu for manually specifying windowed mode resolution
+- Improved window focus handling with respect to mouse/keyboard grabs
+- Improved window icon handling in SDL/X11 environments
+- Implement improved quality water warp effect from FQ and others.
+- Fixed silly bug which was making OpenGL mode changes stupidly slow
+- Fixed crash that could happen when a BSP has missing textures
+
 v0.65
 =====
 - Fix crash in the software renderer

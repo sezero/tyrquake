@@ -2,8 +2,8 @@
  Tyr-Quake
 -----------
 
-Date:		2019-09-02
-Version: 	0.65
+Date:		2019-12-03
+Version: 	0.66
 Author:		Kevin Shanahan (aka. Tyrann)
 Webpage:	http://disenchant.net
 email:		kevin@shanahan.id.au
@@ -20,11 +20,14 @@ Building:
 ---------
 All you should need to do to get a regular build for your system is type
 'make'. This should build all five executable targets and place them in a
-./bin subdirectory. Windows builds can be done using MinGW64 and Msys2 on a
-Windows host, or by cross compiling with a suitable MinGW cross compiler. As
-long as your cross compiler is in your path somewhere, "make TARGET_OS=WIN32"
-(or WIN64) should be all you need.  Parallel builds work well too, e.g. "make
--j8"
+./bin subdirectory.
+
+Windows builds can be done using MinGW64 and Msys2 on a Windows host, or by
+cross compiling with a suitable MinGW cross compiler.  The build also relies
+on groff to process the documentation and imagemagick to generate the
+icons. As long as your cross compiler is in your path somewhere, "make
+TARGET_OS=WIN32" (or WIN64) should be all you need.  Parallel builds work well
+too, e.g. "make -j8"
 
 If you're in a hurry and only want to build one target, you can type 'make
 bin/<target>' - where <target> is the name of the executable you want to
