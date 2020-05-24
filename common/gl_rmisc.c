@@ -461,7 +461,7 @@ R_TranslatePlayerSkin(int playernum)
     if (!playertexture->texture.base)
         playertexture->texture.base = GL_AllocTexture8(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     if (!playertexture->texture.fullbright)
-        playertexture->texture.base = GL_AllocTexture8(va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
+        playertexture->texture.fullbright = GL_AllocTexture8(va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
 
     GL_Bind(playertexture->texture.base);
     translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);
