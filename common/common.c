@@ -2269,8 +2269,7 @@ Info_RemovePrefixedKeys(char *infostring, char prefix)
 }
 
 void
-Info_SetValueForStarKey(char *infostring, const char *key, const char *value,
-			int maxsize)
+Info_SetValueForStarKey(char *infostring, const char *key, const char *value, int maxsize)
 {
     char buffer[MAX_INFO_STRING * 2];
     char *oldvalue, *info;
@@ -2345,8 +2344,7 @@ Info_SetValueForStarKey(char *infostring, const char *key, const char *value,
 }
 
 void
-Info_SetValueForKey(char *infostring, const char *key, const char *value,
-		    int maxsize)
+Info_SetValueForKey(char *infostring, const char *key, const char *value, int maxsize)
 {
     if (key[0] == '*') {
 	Con_Printf("Can't set * keys\n");

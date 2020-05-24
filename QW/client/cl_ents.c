@@ -457,8 +457,7 @@ CL_LinkPacketEntities(void)
 	entity->model = model = cl.model_precache[s1->modelindex];
 
 	// set colormap
-	if (s1->colormap && (s1->colormap < MAX_CLIENTS)
-	    && !strcmp(entity->model->name, "progs/player.mdl")) {
+	if (s1->colormap && (s1->colormap <= MAX_CLIENTS) && !strcmp(entity->model->name, "progs/player.mdl")) {
 	    entity->colormap = cl.players[s1->colormap - 1].translations;
 	    entity->scoreboard = &cl.players[s1->colormap - 1];
 	} else {

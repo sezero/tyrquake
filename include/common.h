@@ -159,16 +159,13 @@ void MSG_WriteShort(sizebuf_t *sb, int c);
 void MSG_WriteLong(sizebuf_t *sb, int c);
 void MSG_WriteFloat(sizebuf_t *sb, float f);
 void MSG_WriteString(sizebuf_t *sb, const char *s);
-void MSG_WriteStringf(sizebuf_t *sb, const char *fmt, ...)
-    __attribute__((format(printf,2,3)));
-void MSG_WriteStringvf(sizebuf_t *sb, const char *fmt, va_list ap)
-    __attribute__((format(printf,2,0)));
+void MSG_WriteStringf(sizebuf_t *sb, const char *fmt, ...) __attribute__((format(printf,2,3)));
+void MSG_WriteStringvf(sizebuf_t *sb, const char *fmt, va_list ap) __attribute__((format(printf,2,0)));
 void MSG_WriteCoord(sizebuf_t *sb, float f);
 void MSG_WriteAngle(sizebuf_t *sb, float f);
 void MSG_WriteAngle16(sizebuf_t *sb, float f);
 #ifdef QW_HACK
-void MSG_WriteDeltaUsercmd(sizebuf_t *sb, const struct usercmd_s *from,
-			   const struct usercmd_s *cmd);
+void MSG_WriteDeltaUsercmd(sizebuf_t *sb, const struct usercmd_s *from, const struct usercmd_s *cmd);
 #endif
 #ifdef NQ_HACK
 void MSG_WriteControlHeader(sizebuf_t *sb);
@@ -260,17 +257,13 @@ char *Entity_ValueForKey(const char *string, const char *key, char *buffer, int 
 char *Info_ValueForKey(const char *infostring, const char *key);
 void Info_RemoveKey(char *infostring, const char *key);
 void Info_RemovePrefixedKeys(char *infostring, char prefix);
-void Info_SetValueForKey(char *infostring, const char *key, const char *value,
-			 int maxsize);
-void Info_SetValueForStarKey(char *infostring, const char *key,
-			     const char *value, int maxsize);
+void Info_SetValueForKey(char *infostring, const char *key, const char *value, int maxsize);
+void Info_SetValueForStarKey(char *infostring, const char *key, const char *value, int maxsize);
 void Info_Print(const char *infostring);
 
 unsigned Com_BlockChecksum(const void *buffer, int length);
-void Com_BlockFullChecksum(const void *buffer, int len,
-			   unsigned char outbuf[16]);
-byte COM_BlockSequenceCheckByte(const byte *base, int length, int sequence,
-				unsigned mapchecksum);
+void Com_BlockFullChecksum(const void *buffer, int len, unsigned char outbuf[16]);
+byte COM_BlockSequenceCheckByte(const byte *base, int length, int sequence, unsigned mapchecksum);
 byte COM_BlockSequenceCRCByte(const byte *base, int length, int sequence);
 
 extern char gamedirfile[];
