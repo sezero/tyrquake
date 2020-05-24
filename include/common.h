@@ -50,8 +50,8 @@ char *qstrncpy(char *dest, const char *src, size_t size);
 //============================================================================
 
 #ifdef QW_HACK
-#define	MAX_INFO_STRING 196
-#define	MAX_SERVERINFO_STRING 512
+#define	MAX_INFO_STRING 256
+#define	MAX_SERVERINFO_STRING 1024
 #define	MAX_LOCALINFO_STRING 32768
 #endif
 
