@@ -1283,7 +1283,7 @@ does a varargs printf into a temp buffer, so I don't need to have
 varargs versions of all text functions.
 ============
 */
-char *
+const char *
 va(const char *format, ...)
 {
     va_list argptr;

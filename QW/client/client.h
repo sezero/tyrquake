@@ -439,7 +439,7 @@ struct stree_root *CL_Demo_Arg_f(const char *arg);
 extern int packet_latency[NET_TIMINGS];
 int CL_CalcNet(void);
 void CL_ParseServerMessage(void);
-qboolean CL_CheckOrDownloadFile(char *filename);
+qboolean CL_CheckOrDownloadFile(const char *filename);
 qboolean CL_IsUploading(void);
 void CL_NextUpload(void);
 void CL_StartUpload(byte *data, int size);

@@ -230,7 +230,7 @@ void COM_FileBase(const char *in, char *out, size_t buflen);
 int COM_DefaultExtension(const char *path, const char *extension, char *out, size_t buflen);
 
 // does a varargs printf into a temp buffer
-char *va(const char *format, ...) __attribute__((format(printf,1,2)));
+const char *va(const char *format, ...) __attribute__((format(printf,1,2)));
 
 //============================================================================
 
