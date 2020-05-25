@@ -409,6 +409,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     XSetWindowAttributes attributes = {0};
     Window root;
 
+    S_BlockSound();
+    S_ClearBuffer();
+
     /* Free the existing structures */
     if (ctx) {
         GL_Shutdown();
@@ -528,6 +531,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
     VID_ProcessEvents();
     IN_Commands(); // update grabs (FIXME - this is a wierd function call to do that!)
+
+    S_UnblockSound();
 
     return true;
 }

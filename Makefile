@@ -132,7 +132,7 @@ SND_TARGET ?= sndio
 endif
 ifeq ($(TARGET_UNIX),linux)
 CD_TARGET ?= linux
-SND_TARGET ?= oss
+SND_TARGET ?= pulseaudio
 endif
 endif
 
@@ -1012,6 +1012,10 @@ ifeq ($(SND_TARGET),sdl)
 CL_OBJS += snd_sdl.o sdl_common.o
 CL_CPPFLAGS += $(SDL_CFLAGS)
 CL_LFLAGS += $(SDL_LFLAGS)
+endif
+ifeq ($(SND_TARGET),pulseaudio)
+CL_OBJS += snd_pulseaudio.o
+CL_LIBS += pulse
 endif
 
 # ----------------------------------------------------------------------------
