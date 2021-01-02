@@ -154,7 +154,8 @@ CL_Disconnect(void)
     scr_centertime_off = 0;
     for (i = 0; i < NUM_CSHIFTS; i++)
         cl.cshifts[i].percent = 0;
-    VID_SetPalette(host_basepal);
+    if (cls.state != ca_dedicated)
+        VID_SetPalette(host_basepal);
 
 // if running a local server, shut it down
     if (cls.demoplayback)

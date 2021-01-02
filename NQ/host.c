@@ -854,8 +854,10 @@ Host_Init(quakeparms_t *parms)
     }
     Mod_InitAliasCache();
 
-    Con_Printf("Initializing alpha palettes...\n");
-    Alpha_Init();
+    if (cls.state != ca_dedicated) {
+        Con_Printf("Initializing alpha palettes...\n");
+        Alpha_Init();
+    }
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();
