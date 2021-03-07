@@ -345,6 +345,7 @@ ResetFrameBuffer(void)
 
     vid_surfcache = (byte *)d_pzbuffer
 	+ vid.width * vid.height * sizeof(*d_pzbuffer);
+    r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
 
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
@@ -672,9 +673,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     current_framebuffer = 0;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
     vid.numpages = 2;
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));

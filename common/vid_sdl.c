@@ -185,6 +185,7 @@ VID_AllocBuffers(int width, int height)
     VID_highhunkmark = Hunk_HighMark();
     d_pzbuffer = Hunk_HighAllocName(tbuffersize, "video");
     vid_surfcache = (byte *)d_pzbuffer + width * height * sizeof(*d_pzbuffer);
+    r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
 
     return true;
 }
@@ -243,9 +244,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
 
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));

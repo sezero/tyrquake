@@ -240,7 +240,7 @@ extern float r_time1;
 extern float dp_time1, dp_time2, db_time1, db_time2, rw_time1, rw_time2;
 extern float se_time1, se_time2, de_time1, de_time2, dv_time1, dv_time2;
 extern cshift_t cshift_water;
-extern qboolean r_dowarpold, r_viewchanged;
+extern qboolean r_viewchanged;
 
 extern mleaf_t *r_viewleaf, *r_oldviewleaf;
 

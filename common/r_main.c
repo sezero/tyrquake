@@ -47,7 +47,7 @@ qboolean r_edges_overflow;
 edge_t *saveedges;
 surf_t *savesurfs;
 
-qboolean r_dowarp, r_dowarpold, r_viewchanged;
+qboolean r_dowarp, r_viewchanged;
 
 int c_surf;
 
@@ -303,7 +303,6 @@ R_NewMap(void)
     r_numbclipverts = MIN_STACK_BMODEL_VERTS;
     r_numbclipedges = MIN_STACK_BMODEL_EDGES;
 
-    r_dowarpold = false;
     r_viewchanged = false;
 
     Alpha_NewMap();
@@ -1083,12 +1082,9 @@ __attribute__((noinline))
 static void
 R_RenderView_(void)
 {
-    byte warpbuffer[WARP_WIDTH * WARP_HEIGHT];
     scanflags_t scanflags;
     int numsavesurfs, numsaveedges;
     qboolean realloc, nostack;
-
-    r_warpbuffer = warpbuffer;
 
     if (r_timegraph.value || r_speeds.value || r_dspeeds.value)
 	r_time1 = Sys_DoubleTime();

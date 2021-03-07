@@ -321,6 +321,7 @@ VID_AllocBuffers(int width, int height)
     VID_highhunkmark = Hunk_HighMark();
     d_pzbuffer = Hunk_HighAllocName(tbuffersize, "video");
     vid_surfcache = (byte *)d_pzbuffer + width * height * sizeof(*d_pzbuffer);
+    r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
 
     return true;
 }
@@ -502,11 +503,9 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid_fulldib_on_focus_mode = NULL;
 
     vid.numpages = 1;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
 
     SendMessage(mainwindow, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
@@ -548,8 +547,6 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     IN_UpdateWindowRect(0, 0, mode->width, mode->height);
 
     vid.numpages = 1;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
@@ -761,8 +758,6 @@ VID_Init(const byte *palette)
     if (!mode)
 	mode = &vid_windowed_mode;
 
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
     vid_testingmode = 0;

@@ -388,8 +388,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
 
     SendMessage(mainwindow, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
@@ -434,8 +432,6 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.maxwarpwidth = WARP_WIDTH;
-    vid.maxwarpheight = WARP_HEIGHT;
 
     return true;
 }
