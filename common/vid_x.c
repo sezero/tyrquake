@@ -343,9 +343,8 @@ ResetFrameBuffer(void)
     if (d_pzbuffer == NULL)
 	Sys_Error("Not enough memory for video mode");
 
-    vid_surfcache = (byte *)d_pzbuffer
-	+ vid.width * vid.height * sizeof(*d_pzbuffer);
-    r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
+    vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
+    r_warpbuffer = Hunk_HighAllocName(vid.width * vid.height, "warpbuf");
 
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
