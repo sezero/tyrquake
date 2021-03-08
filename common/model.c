@@ -71,6 +71,7 @@ static void PVSCache_f(void);
 // Mipmap code for 8-bit fence textures
 // TODO: maybe rework texture_t to better integrate with qpic8_t?
 
+#ifndef SERVERONLY
 static byte
 qpal_24to8(const byte palette[768], const int rgb[3], int alpha)
 {
@@ -235,6 +236,7 @@ QPal_CreateTranslucencyTable(byte transtable[65536], const byte palette[768], fl
         }
     }
 }
+#endif // SERVERONLY
 
 // ======================================================================
 
