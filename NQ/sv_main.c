@@ -1207,6 +1207,37 @@ SV_SendReconnect(void)
 	Cmd_ExecuteString("reconnect\n", src_command);
 }
 
+/*
+================
+SV_SendReconnect
+
+Tell all the clients that the server is changing levels
+================
+*/
+static void
+SV_SendDisconnect(const char *reason)
+{
+    byte data[1024];
+    sizebuf_t msg;
+
+    msg.data = data;
+    msg.cursize = 0;
+    msg.maxsize = sizeof(data);
+
+    MSG_WriteChar(&msg, svc_stufftext);
+    if (reason) {
+        MSG_WriteString(&msg, va("echo \"%s\"\ndisconnect\n", reason));
+    } else {
+        MSG_WriteString(&msg, "disconnect\n");
+    }
+    NET_SendToAll(&msg, 5);
+
+    if (cls.state != ca_dedicated) {
+        Cbuf_AddText(va("echo \"%s\"\n", reason));
+	Cmd_ExecuteString("disconnect\n", src_command);
+    }
+}
+
 
 /*
 ================
@@ -1324,9 +1355,9 @@ SV_SpawnServer(char *server)
     qsnprintf(sv.modelname, sizeof(sv.modelname), "maps/%s.bsp", server);
     model = Mod_ForName(sv.modelname, false);
     if (!model) {
-	Con_Printf("Couldn't spawn server %s\n", sv.modelname);
 	sv.worldmodel = NULL;
 	sv.active = false;
+        SV_SendDisconnect(va("Server couldn't spawn level %s\n", sv.modelname));
 	return;
     }
 

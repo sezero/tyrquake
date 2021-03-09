@@ -180,6 +180,9 @@ CL_Disconnect(void)
     cls.timedemo = false;
     cls.signon = 0;
     cl.intermission = 0; /* FIXME - for SCR_UpdateScreen */
+
+    /* In case we failed to load the requested level */
+    SCR_EndLoadingPlaque();
 }
 
 void
@@ -770,12 +773,10 @@ CL_ReadFromServer(void)
     if (cl_shownet.value)
 	Con_Printf("\n");
 
+    /* bring the links up to date */
     CL_RelinkEntities();
     CL_UpdateTEnts();
 
-//
-// bring the links up to date
-//
     return 0;
 }
 

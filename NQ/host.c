@@ -445,7 +445,7 @@ Host_ShutdownServer(qboolean crash)
 	count = 0;
 	client = svs.clients;
 	for (i = 0; i < svs.maxclients; i++, client++) {
-	    if (!client->active || !client->message.cursize)
+	    if (!client->active || !client->message.cursize || !client->netconnection)
 		continue;
 	    if (NET_CanSendMessage(client->netconnection)) {
 		NET_SendMessage(client->netconnection, &client->message);
