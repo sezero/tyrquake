@@ -68,7 +68,6 @@ static cvar_t sys_nostdout = { "sys_nostdout", "0" };
 #define NOT_FOCUS_SLEEP	20	// sleep time when not focus
 
 qboolean ActiveApp;
-qboolean WinNT;
 static HANDLE tevent;
 
 #ifdef NQ_HACK
@@ -640,11 +639,6 @@ Sys_Init(void)
 	(vinfo.dwPlatformId == VER_PLATFORM_WIN32s)) {
 	Sys_Error("TyrQuake requires at least Win95 or NT 4.0");
     }
-
-    if (vinfo.dwPlatformId == VER_PLATFORM_WIN32_NT)
-	WinNT = true;
-    else
-	WinNT = false;
 }
 
 static void
