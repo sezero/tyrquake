@@ -59,20 +59,16 @@ D_WarpScreen(void)
     wratio = w / (float)scr_vrect.width;
     hratio = h / (float)scr_vrect.height;
 
-    // FIXME - use Zmalloc or similar?
-    // FIXME - rowptr and column are constant for same vidmode?
-    // FIXME - do they cycle?
-    rowptr = malloc((scr_vrect.height + TURB_SCREEN_AMP * 2) * sizeof(byte *));
+    int mark = Hunk_LowMark();
+    rowptr = Hunk_AllocName((scr_vrect.height + TURB_SCREEN_AMP * 2) * sizeof(byte *), "warpbuf");
     for (v = 0; v < scr_vrect.height + TURB_SCREEN_AMP * 2; v++) {
 	rowptr[v] = d_viewbuffer + (r_refdef.vrect.y * screenwidth) +
-	    (screenwidth * (int)((float)v * hratio * h /
-				 (h + TURB_SCREEN_AMP * 2)));
+	    (screenwidth * (int)((float)v * hratio * h / (h + TURB_SCREEN_AMP * 2)));
     }
 
-    column = malloc((scr_vrect.width + TURB_SCREEN_AMP * 2) * sizeof(int));
+    column = Hunk_AllocName((scr_vrect.width + TURB_SCREEN_AMP * 2) * sizeof(int), "warpbuf");
     for (u = 0; u < scr_vrect.width + TURB_SCREEN_AMP * 2; u++) {
-	column[u] = r_refdef.vrect.x +
-	    (int)((float)u * wratio * w / (w + TURB_SCREEN_AMP * 2));
+	column[u] = r_refdef.vrect.x + (int)((float)u * wratio * w / (w + TURB_SCREEN_AMP * 2));
     }
 
     turb = intsintable + ((int)(cl.time * TURB_SPEED) & (TURB_CYCLE - 1));
@@ -89,8 +85,7 @@ D_WarpScreen(void)
 	}
     }
 
-    free(rowptr);
-    free(column);
+    Hunk_FreeToLowMark(mark);
 }
 
 
