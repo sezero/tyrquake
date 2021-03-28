@@ -235,34 +235,38 @@ CompleteCommand(void)
 	key_linepos += strlen(cmd);
 	key_lines[edit_line][key_linepos] = 0;
 	Z_Free(cmd);
-    } else {
-	/* Try argument completion? */
-	cmd = strchr(s, ' ');
-	if (cmd) {
-	    len = cmd - s;
-	    newcmd = Z_StrnDup(s, len);
-
-	    completion = NULL;
-	    if (Cmd_Exists(newcmd)) {
-		s += len;
-		while (*s == ' ')
-		    s++;
-		completion = Cmd_ArgComplete(newcmd, s);
-	    } else if (Cvar_FindVar(newcmd)) {
-		s += len;
-		while (*s == ' ')
-		    s++;
-		completion = Cvar_ArgComplete(newcmd, s);
-	    }
-	    if (completion) {
-		key_linepos = s - key_lines[edit_line];
-		strcpy(s, completion);
-		key_linepos += strlen(completion);
-		Z_Free(completion);
-	    }
-	    Z_Free(newcmd);
-	}
+        return;
     }
+
+    /* Try argument completion? */
+    cmd = strchr(s, ' ');
+    if (!cmd)
+        return;
+
+    len = cmd - s;
+    newcmd = Z_StrnDup(s, len);
+    if (!newcmd)
+        return;
+
+    completion = NULL;
+    if (Cmd_Exists(newcmd)) {
+        s += len;
+        while (*s == ' ')
+            s++;
+        completion = Cmd_ArgComplete(newcmd, s);
+    } else if (Cvar_FindVar(newcmd)) {
+        s += len;
+        while (*s == ' ')
+            s++;
+        completion = Cvar_ArgComplete(newcmd, s);
+    }
+    if (completion) {
+        key_linepos = s - key_lines[edit_line];
+        strcpy(s, completion);
+        key_linepos += strlen(completion);
+        Z_Free(completion);
+    }
+    Z_Free(newcmd);
 }
 
 static void
@@ -273,47 +277,54 @@ ShowCompletions(void)
     unsigned int len;
 
     s = GetCommandPos(key_lines[edit_line] + 1);
-
     root = Cmd_CommandCompletions(s);
-    if (root && root->entries) {
-	Con_Printf("%s\n", key_lines[edit_line]);
-	//Con_Printf("%u possible completions:\n", root->entries);
-	Con_ShowTree(root);
+    if (root) {
+        if (root->entries) {
+            Con_Printf("%s\n", key_lines[edit_line]);
+            Con_ShowTree(root);
+            Z_Free(root);
+            return;
+        }
 	Z_Free(root);
-    } else {
-	char *cmd = strchr(s, ' ');
-	if (cmd) {
-	    len = cmd - s;
-	    cmd = Z_StrnDup(s, len);
-
-	    if (Cmd_Exists(cmd)) {
-		struct stree_root *root;
-
-		s += len;
-		while (*s == ' ')
-		    s++;
-		root = Cmd_ArgCompletions(cmd, s);
-		if (root && root->entries) {
-		    Con_Printf("%s\n", key_lines[edit_line]);
-		    Con_ShowTree(root);
-		    Z_Free(root);
-		}
-	    } else if (Cvar_FindVar(cmd)) {
-		struct stree_root *root;
-
-		s += len;
-		while (*s == ' ')
-		    s++;
-		root = Cvar_ArgCompletions(cmd, s);
-		if (root && root->entries) {
-		    Con_Printf("%s\n", key_lines[edit_line]);
-		    Con_ShowTree(root);
-		    Z_Free(root);
-		}
-	    }
-	    Z_Free(cmd);
-	}
     }
+
+    char *cmd = strchr(s, ' ');
+    if (!cmd)
+        return;
+
+    len = cmd - s;
+    cmd = Z_StrnDup(s, len);
+    if (!cmd)
+        return;
+
+    if (Cmd_Exists(cmd)) {
+        s += len;
+        while (*s == ' ')
+            s++;
+
+        struct stree_root *root = Cmd_ArgCompletions(cmd, s);
+        if (root) {
+            if (root->entries) {
+                Con_Printf("%s\n", key_lines[edit_line]);
+                Con_ShowTree(root);
+            }
+            Z_Free(root);
+        }
+    } else if (Cvar_FindVar(cmd)) {
+        s += len;
+        while (*s == ' ')
+            s++;
+
+        struct stree_root *root = Cvar_ArgCompletions(cmd, s);
+        if (root) {
+            if (root->entries) {
+                Con_Printf("%s\n", key_lines[edit_line]);
+                Con_ShowTree(root);
+            }
+            Z_Free(root);
+        }
+    }
+    Z_Free(cmd);
 }
 
 static void
