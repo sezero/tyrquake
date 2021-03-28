@@ -1509,7 +1509,7 @@ DrawMaterialChains(const entity_t *entity)
 	int flags = materialchain->flags;
         if (!(flags & SURF_DRAWSKY))
             continue;
-	surf = materialchain;
+	msurface_t *surf = materialchain;
 	texture_t *texture = brushmodel->textures[material->texturenum];
         DrawSkyChain(&buffer, surf, texture);
         break;
