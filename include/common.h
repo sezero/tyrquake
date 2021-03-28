@@ -65,10 +65,7 @@ typedef struct sizebuf_s {
     int cursize;
 } sizebuf_t;
 
-#ifdef NQ_HACK
-void SZ_Alloc(sizebuf_t *buf, int startsize);
-void SZ_Free(sizebuf_t *buf);
-#endif
+void SZ_HunkAlloc(sizebuf_t *buf, int maxsize);
 void SZ_Clear(sizebuf_t *buf);
 void SZ_Write(sizebuf_t *buf, const void *data, int length);
 void SZ_Print(sizebuf_t *buf, const char *data); // strcats onto the sizebuf

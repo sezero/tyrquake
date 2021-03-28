@@ -30,6 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "host.h"
 #endif
+
 #ifdef QW_HACK
 #ifdef SERVERONLY
 #include "qwsvdef.h"
@@ -804,26 +805,14 @@ MSG_ReadControlHeader(void)
 
 //===========================================================================
 
-#ifdef NQ_HACK
 void
-SZ_Alloc(sizebuf_t *buf, int startsize)
+SZ_HunkAlloc(sizebuf_t *buf, int maxsize)
 {
-    if (startsize < 256)
-	startsize = 256;
-    buf->data = Hunk_AllocName(startsize, "sizebuf");
-    buf->maxsize = startsize;
+    maxsize = qmax(maxsize, 16);
+    buf->data = Hunk_AllocName(maxsize, "sizebuf");
+    buf->maxsize = maxsize;
     buf->cursize = 0;
 }
-
-void
-SZ_Free(sizebuf_t *buf)
-{
-//      Z_Free (buf->data);
-//      buf->data = NULL;
-//      buf->maxsize = 0;
-    buf->cursize = 0;
-}
-#endif
 
 void
 SZ_Clear(sizebuf_t *buf)

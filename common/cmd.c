@@ -81,9 +81,6 @@ Cmd_Wait_f(void)
 */
 
 static sizebuf_t cmd_text;
-#ifdef QW_HACK
-static byte cmd_text_buf[8192];
-#endif
 
 /*
 ============
@@ -93,14 +90,7 @@ Cbuf_Init
 void
 Cbuf_Init(void)
 {
-#ifdef NQ_HACK
-    SZ_Alloc(&cmd_text, 8192);
-#endif
-#ifdef QW_HACK
-    cmd_text.data = cmd_text_buf;
-    cmd_text.maxsize = sizeof(cmd_text_buf);
-    cmd_text.cursize = 0;
-#endif
+    SZ_HunkAlloc(&cmd_text, 8192);
 }
 
 

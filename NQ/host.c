@@ -813,9 +813,9 @@ Host_Init(quakeparms_t *parms)
     Memory_Init(parms->membase, parms->memsize);
     Cbuf_Init();
     Cmd_Init();
+    COM_Init();
     V_Init();
     Chase_Init();
-    COM_Init();
     Host_InitLocal();
     Key_Init();
     Con_Init();

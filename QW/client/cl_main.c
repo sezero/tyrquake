@@ -1422,9 +1422,9 @@ Host_Init(quakeparms_t *parms)
     Memory_Init(parms->membase, parms->memsize);
     Cbuf_Init();
     Cmd_Init();
-    V_Init();
-
     COM_Init();
+
+    V_Init();
 
     NET_Init(PORT_CLIENT);
     Netchan_Init();

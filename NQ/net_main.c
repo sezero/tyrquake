@@ -732,7 +732,7 @@ NET_Init(void)
     }
 
     /* allocate space for network message buffer */
-    SZ_Alloc(&net_message, NET_MAXMESSAGE);
+    SZ_HunkAlloc(&net_message, NET_MAXMESSAGE);
 
     Cvar_RegisterVariable(&net_messagetimeout);
     Cvar_RegisterVariable(&hostname);

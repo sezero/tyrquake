@@ -1638,7 +1638,6 @@ SV_Init(quakeparms_t *parms)
     Memory_Init(parms->membase, parms->memsize);
     Cbuf_Init();
     Cmd_Init();
-
     COM_Init();
 
     PR_Init();
