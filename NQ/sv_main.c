@@ -109,27 +109,20 @@ SV_Protocol_f(void)
     }
 }
 
-static struct stree_root *
-SV_Protocol_Arg_f(const char *arg)
+static void
+SV_Protocol_Arg_f(struct stree_root *root, const char *arg)
 {
     int i, arg_len;
     char digits[10];
-    struct stree_root *root;
 
-    root = Z_Malloc(sizeof(struct stree_root));
-    if (root) {
-	*root = STREE_ROOT;
-	STree_AllocInit();
-	arg_len = arg ? strlen(arg) : 0;
-	for (i = 0; i < ARRAY_SIZE(sv_protocols); i++) {
-	    if (!arg || !strncasecmp(sv_protocols[i].name, arg, arg_len))
-		STree_InsertAlloc(root, sv_protocols[i].name, false);
-	    qsnprintf(digits, sizeof(digits), "%d", sv_protocols[i].version);
-	    if (arg_len && !strncmp(digits, arg, arg_len))
-		STree_InsertAlloc(root, digits, true);
-	}
+    arg_len = arg ? strlen(arg) : 0;
+    for (i = 0; i < ARRAY_SIZE(sv_protocols); i++) {
+        if (!arg || !strncasecmp(sv_protocols[i].name, arg, arg_len))
+            STree_InsertAlloc(root, sv_protocols[i].name, false);
+        qsnprintf(digits, sizeof(digits), "%d", sv_protocols[i].version);
+        if (arg_len && !strncmp(digits, arg, arg_len))
+            STree_InsertAlloc(root, digits, true);
     }
-    return root;
 }
 
 /*

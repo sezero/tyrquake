@@ -77,11 +77,12 @@ typedef void (*xcommand_t)(void);
 
 /*
  * Command argument completion function.
- * Pass in the argument string
- * Returns a string tree of possible completions
- * Requires STree_AllocInit() prior to calling
+ *
+ * An initialised stree_root will be passed in, along with the partial
+ * argument string to be completed.  The function should then add
+ * possible completions to the stree.
  */
-typedef struct stree_root *(*cmd_arg_f)(const char *);
+typedef void (*cmd_arg_f)(struct stree_root *root, const char *);
 
 #ifdef NQ_HACK
 /*

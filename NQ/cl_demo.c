@@ -344,19 +344,10 @@ CL_PlayDemo_f(void)
     cls.demonum = -1;
 }
 
-struct stree_root *
-CL_Demo_Arg_f(const char *arg)
+void
+CL_Demo_Arg_f(struct stree_root *root, const char *arg)
 {
-    struct stree_root *root;
-
-    root = Z_Malloc(sizeof(struct stree_root));
-    if (root) {
-	*root = STREE_ROOT;
-	STree_AllocInit();
-	COM_ScanDir(root, "", arg, ".dem", true);
-    }
-
-    return root;
+    COM_ScanDir(root, "", arg, ".dem", true);
 }
 
 /*

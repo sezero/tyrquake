@@ -739,13 +739,12 @@ Con_ShowTree_Populate(struct rb_node *n)
 void
 Con_ShowTree(struct stree_root *root)
 {
-    /* FIXME - cheating with malloc */
-    showtree_list = malloc(root->entries * sizeof(char *));
+    showtree_list = Z_Malloc(root->entries * sizeof(char *));
     if (showtree_list) {
 	showtree_idx = 0;
 	Con_ShowTree_Populate(root->root.rb_node);
 	Con_ShowList(showtree_list, root->entries, root->maxlen);
-	free(showtree_list);
+	Z_Free(showtree_list);
     }
 }
 

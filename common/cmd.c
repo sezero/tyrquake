@@ -764,17 +764,23 @@ Cmd_ExecuteString(const char *text)
 
 /*
  * Return a string tree with all possible argument completions of the given
- * buffer for the given command.
+ * buffer for the given command.  The root needs to be Z_Free()'d after use.
  */
 struct stree_root *
-Cmd_ArgCompletions(const char *name, const char *buf)
+Cmd_ArgCompletions(const char *name, const char *buffer)
 {
     cmd_function_t *cmd;
     struct stree_root *root = NULL;
 
     cmd = Cmd_FindCommand(name);
-    if (cmd && cmd->completion)
-	root = cmd->completion(buf);
+    if (cmd && cmd->completion) {
+        root = Z_Malloc(sizeof(*root));
+        if (root) {
+            *root = STREE_ROOT;
+            STree_AllocInit();
+            cmd->completion(root, buffer);
+        }
+    }
 
     return root;
 }
@@ -828,13 +834,13 @@ Cmd_CommandCompletions(const char *buf)
     struct stree_root *root;
 
     root = Z_Malloc(sizeof(struct stree_root));
-    *root = STREE_ROOT;
-
-    STree_AllocInit();
-
-    STree_Completions(root, &cmd_tree, buf);
-    STree_Completions(root, &cmdalias_tree, buf);
-    STree_Completions(root, &cvar_tree, buf);
+    if (root) {
+        *root = STREE_ROOT;
+        STree_AllocInit();
+        STree_Completions(root, &cmd_tree, buf);
+        STree_Completions(root, &cmdalias_tree, buf);
+        STree_Completions(root, &cvar_tree, buf);
+    }
 
     return root;
 }
@@ -843,11 +849,13 @@ const char *
 Cmd_CommandComplete(const char *buf)
 {
     struct stree_root *root;
-    char *ret;
+    char *ret = NULL;
 
     root = Cmd_CommandCompletions(buf);
-    ret = STree_MaxMatch(root, buf);
-    Z_Free(root);
+    if (root) {
+        ret = STree_MaxMatch(root, buf);
+        Z_Free(root);
+    }
 
     return ret;
 }

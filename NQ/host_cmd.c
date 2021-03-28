@@ -125,19 +125,10 @@ Host_Map_f(void)
     }
 }
 
-static struct stree_root *
-Host_Map_Arg_f(const char *arg)
+static void
+Host_Map_Arg_f(struct stree_root *root, const char *arg)
 {
-    struct stree_root *root;
-
-    root = Z_Malloc(sizeof(struct stree_root));
-    if (root) {
-	*root = STREE_ROOT;
-
-	STree_AllocInit();
-	COM_ScanDir(root, "maps", arg, ".bsp", true);
-    }
-    return root;
+    COM_ScanDir(root, "maps", arg, ".bsp", true);
 }
 
 /*

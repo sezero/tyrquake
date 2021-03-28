@@ -53,7 +53,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 /* Argument completion function for the skin cvar */
-static struct stree_root * CL_Skin_Arg_f(const char *arg);
+static void CL_Skin_Arg_f(struct stree_root *root, const char *arg);
 
 // FIXME - header hacks
 extern cvar_t cl_hightrack;
@@ -1011,19 +1011,10 @@ CL_Windows_f(void)
 }
 #endif
 
-static struct stree_root *
-CL_Skin_Arg_f(const char *arg)
+static void
+CL_Skin_Arg_f(struct stree_root *root, const char *arg)
 {
-    struct stree_root *root;
-
-    root = Z_Malloc(sizeof(struct stree_root));
-    if (root) {
-	*root = STREE_ROOT;
-	STree_AllocInit();
-	COM_ScanDir(root, "skins", arg, ".pcx", true);
-    }
-
-    return root;
+    COM_ScanDir(root, "skins", arg, ".pcx", true);
 }
 
 

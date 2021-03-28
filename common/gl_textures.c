@@ -139,23 +139,16 @@ GL_TextureMode_f(void)
     }
 }
 
-static struct stree_root *
-GL_TextureMode_Arg_f(const char *arg)
+static void
+GL_TextureMode_Arg_f(struct stree_root *root, const char *arg)
 {
     int i, arg_len;
-    struct stree_root *root;
 
-    root = Z_Malloc(sizeof(struct stree_root));
-    if (root) {
-	*root = STREE_ROOT;
-	STree_AllocInit();
-	arg_len = arg ? strlen(arg) : 0;
-	for (i = 0; i < ARRAY_SIZE(gl_texturemodes); i++) {
-	    if (!arg || !strncasecmp(gl_texturemodes[i].name, arg, arg_len))
-		STree_InsertAlloc(root, gl_texturemodes[i].name, false);
-	}
+    arg_len = arg ? strlen(arg) : 0;
+    for (i = 0; i < ARRAY_SIZE(gl_texturemodes); i++) {
+        if (!arg || !strncasecmp(gl_texturemodes[i].name, arg, arg_len))
+            STree_InsertAlloc(root, gl_texturemodes[i].name, false);
     }
-    return root;
 }
 
 /*

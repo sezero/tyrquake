@@ -74,8 +74,14 @@ Cvar_ArgCompletions(const char *name, const char *buf)
     struct stree_root *root = NULL;
 
     cvar = Cvar_FindVar(name);
-    if (cvar && cvar->completion)
-	root = cvar->completion(buf);
+    if (cvar && cvar->completion) {
+        root = Z_Malloc(sizeof(*root));
+        if (root) {
+            *root = STREE_ROOT;
+            STree_AllocInit();
+            cvar->completion(root, buf);
+        }
+    }
 
     return root;
 }

@@ -137,20 +137,11 @@ Sky_SkyCommand_f()
     }
 }
 
-static struct stree_root *
-Sky_SkyCommand_Arg_f(const char *arg)
+static void
+Sky_SkyCommand_Arg_f(struct stree_root *root, const char *arg)
 {
-    struct stree_root *root;
-
-    root = Z_Malloc(sizeof(struct stree_root));
-    if (root) {
-	*root = STREE_ROOT;
-	STree_AllocInit();
-	COM_ScanDir(root, "gfx/env", arg, "rt.tga", true);
-	COM_ScanDir(root, "gfx/env", arg, "rt.pcx", true);
-    }
-
-    return root;
+    COM_ScanDir(root, "gfx/env", arg, "rt.tga", true);
+    COM_ScanDir(root, "gfx/env", arg, "rt.pcx", true);
 }
 
 void
