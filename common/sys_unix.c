@@ -316,7 +316,7 @@ Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
  */
 
 int
-main(int argc, const char *argv[])
+main(int argc, char **argv)
 {
     double time, oldtime, newtime;
     quakeparms_t parms;
@@ -331,7 +331,7 @@ main(int argc, const char *argv[])
 
     memset(&parms, 0, sizeof(parms));
 
-    COM_InitArgv(argc, argv);
+    COM_InitArgv(argc, (const char **)argv);
     parms.argc = com_argc;
     parms.argv = com_argv;
     parms.basedir = stringify(QBASEDIR);

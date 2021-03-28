@@ -101,9 +101,7 @@ static const char *safeargvs[NUM_SAFE_ARGVS] = {
 };
 
 cvar_t registered = { "registered", "0" };
-#ifdef NQ_HACK
 static cvar_t cmdline = { "cmdline", "0", 0, true };
-#endif
 
 static qboolean com_modified;		// set true if using non-id files
 static int static_registered = 1;	// only for startup check, then set
@@ -121,10 +119,8 @@ static void *SZ_GetSpace(sizebuf_t *buf, int length);
 #define ID1_PAK0_CRC_V091   28804 /* id1/pak0.pak - v0.91/0.92, not supported */
 #define QW_PAK0_CRC         52883
 
-#ifdef NQ_HACK
 #define CMDLINE_LENGTH	256
 static char com_cmdline[CMDLINE_LENGTH];
-#endif
 
 qboolean standard_quake = true, rogue, hipnotic;
 
@@ -1169,9 +1165,7 @@ COM_CheckRegistered(void)
 	if (pop[i] != (unsigned short)BigShort(check[i]))
 	    Sys_Error("Corrupted data file.");
 
-#ifdef NQ_HACK
     Cvar_Set("cmdline", com_cmdline);
-#endif
     Cvar_Set("registered", "1");
     static_registered = 1;
     Con_Printf("Playing registered version.\n");
@@ -1186,43 +1180,33 @@ COM_InitArgv
 void
 COM_InitArgv(int argc, const char **argv)
 {
-    qboolean safe;
-    int i;
-#ifdef NQ_HACK
-    int j, n;
-
-// reconstitute the command line for the cmdline externally visible cvar
-    n = 0;
-    for (j = 0; (j < MAX_NUM_ARGVS) && (j < argc); j++) {
-	i = 0;
-	while ((n < (CMDLINE_LENGTH - 1)) && argv[j][i]) {
-	    com_cmdline[n++] = argv[j][i++];
-	}
-
-	if (n < (CMDLINE_LENGTH - 1))
-	    com_cmdline[n++] = ' ';
-	else
-	    break;
+    // Copy out the command line for the cmdline cvar
+    int length = 0;
+    for (int i = 0; i < MAX_NUM_ARGVS && i < argc; i++) {
+        const char *source = argv[i];
+        while (length < CMDLINE_LENGTH - 1 && *source) {
+            com_cmdline[length++] = *source++;
+        }
+        if (length >= CMDLINE_LENGTH - 1 || i >= argc - 1)
+            break;
+        com_cmdline[length++] = ' ';
     }
-    com_cmdline[n] = 0;
-#endif
+    com_cmdline[length] = 0;
 
-    safe = false;
+    // Copy out the argv pointers
+    for (com_argc = 0; com_argc < MAX_NUM_ARGVS && com_argc < argc; com_argc++)
+        largv[com_argc] = argv[com_argc];
 
-    for (com_argc = 0; (com_argc < MAX_NUM_ARGVS) && (com_argc < argc);
-	 com_argc++) {
-	largv[com_argc] = argv[com_argc];
-	if (!strcmp("-safe", argv[com_argc]))
-	    safe = true;
-    }
+    largv[com_argc] = argvdummy;
+    com_argv = largv;
 
-    if (safe) {
-	// force all the safe-mode switches. Note that we reserved extra space in
-	// case we need to add these, so we don't need an overflow check
-	for (i = 0; i < NUM_SAFE_ARGVS; i++) {
-	    largv[com_argc] = safeargvs[i];
-	    com_argc++;
-	}
+    if (COM_CheckParm("-safe")) {
+	/*
+         * Force all the safe-mode switches. Note that we reserved extra space in
+         * case we need to add these, so we don't need an overflow check
+         */
+	for (int i = 0; i < NUM_SAFE_ARGVS; i++)
+	    largv[com_argc++] = safeargvs[i];
     }
 
     largv[com_argc] = argvdummy;
@@ -1265,9 +1249,8 @@ void
 COM_Init(void)
 {
     Cvar_RegisterVariable(&registered);
-#ifdef NQ_HACK
     Cvar_RegisterVariable(&cmdline);
-#endif
+
     Cmd_AddCommand("path", COM_Path_f);
 
     COM_InitFilesystem();

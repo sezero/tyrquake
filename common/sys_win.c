@@ -505,14 +505,14 @@ Sys_Init(void)
  * ==================
  */
 int
-main(int argc, const char **argv)
+main(int argc, char **argv)
 {
     quakeparms_t parms;
     double newtime, time, oldtime;
     struct timeval timeout;
     fd_set fdset;
 
-    COM_InitArgv(argc, argv);
+    COM_InitArgv(argc, (const char **)argv);
 
     parms.argc = com_argc;
     parms.argv = com_argv;
@@ -654,10 +654,7 @@ WinMain
 */
 HINSTANCE global_hInstance;
 int global_nCmdShow;
-const char *argv[MAX_NUM_ARGVS];
-static const char *empty_string = "";
 HWND hwnd_dialog;
-
 
 int WINAPI
 WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
@@ -677,36 +674,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     if (!GetCurrentDirectory(sizeof(cwd), cwd))
 	Sys_Error("Couldn't determine current directory");
-
     if (cwd[strlen(cwd) - 1] == '/')
-	cwd[strlen(cwd) - 1] = 0;
+       cwd[strlen(cwd) - 1] = 0;
 
-    parms.basedir = cwd;
-    parms.argc = 1;
-    argv[0] = empty_string;
-
-    while (*lpCmdLine && (parms.argc < MAX_NUM_ARGVS)) {
-	while (*lpCmdLine && ((*lpCmdLine <= 32) || (*lpCmdLine > 126)))
-	    lpCmdLine++;
-
-	if (*lpCmdLine) {
-	    argv[parms.argc] = lpCmdLine;
-	    parms.argc++;
-
-	    while (*lpCmdLine && ((*lpCmdLine > 32) && (*lpCmdLine <= 126)))
-		lpCmdLine++;
-
-	    if (*lpCmdLine) {
-		*lpCmdLine = 0;
-		lpCmdLine++;
-	    }
-
-	}
-    }
-
-    parms.argv = argv;
-
-    COM_InitArgv(parms.argc, parms.argv);
+    COM_InitArgv(__argc, (const char **)__argv);
 
     parms.argc = com_argc;
     parms.argv = com_argv;
