@@ -31,10 +31,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define MINFRAGMENT	64
 
 typedef struct memblock_s {
+    int id;		/* should be ZONEID */
     int size;		/* including the header and possibly tiny fragments */
     int tag;		/* a tag of 0 is a free block */
-    int id;		/* should be ZONEID */
-    int pad;		/* pad to 64 bit boundary */
+    int pad;		/* pad to 8 byte boundary */
     struct memblock_s *next, *prev;
 } memblock_t;
 
@@ -81,8 +81,7 @@ Z_ClearZone(memzone_t *zone, int size)
     /*
      * set the entire zone to one free block
      */
-    zone->blocklist.next = zone->blocklist.prev = block =
-	(memblock_t *)((byte *)zone + sizeof(memzone_t));
+    zone->blocklist.next = zone->blocklist.prev = block = (memblock_t *)((byte *)zone + sizeof(memzone_t));
     zone->blocklist.tag = 1;	/* in use block */
     zone->blocklist.id = 0;
     zone->blocklist.size = 0;
@@ -160,12 +159,12 @@ Z_CheckHeap(void)
     for (block = mainzone->blocklist.next;; block = block->next) {
 	if (block->next == &mainzone->blocklist)
 	    break;	/* all blocks have been hit */
+        if (block->id != ZONEID)
+            Sys_Error("%s: block ID trashed - previous block overflowed?", __func__);
 	if ((byte *)block + block->size != (byte *)block->next)
-	    Sys_Error("%s: block size does not touch the next block",
-		      __func__);
+	    Sys_Error("%s: block size does not touch the next block", __func__);
 	if (block->next->prev != block)
-	    Sys_Error("%s: next block doesn't have proper back link",
-		      __func__);
+	    Sys_Error("%s: next block doesn't have proper back link", __func__);
 	if (!block->tag && !block->next->tag)
 	    Sys_Error("%s: two consecutive free blocks", __func__);
     }
@@ -176,7 +175,7 @@ Z_CheckHeap(void)
 static void *
 Z_TagMalloc(int size, int tag)
 {
-    int extra, *marker;
+    int extra;
     memblock_t *start, *rover, *new, *base;
 
     if (!tag)
@@ -187,7 +186,6 @@ Z_TagMalloc(int size, int tag)
      * sufficient size
      */
     size += sizeof(memblock_t);	/* account for size of block header */
-    size += sizeof(int);	/* space for memory trash tester */
     size = (size + 7) & ~7;	/* align to 8-byte boundary */
 
     /* If we ended on an allocated block, skip forward to the first free block */
@@ -230,12 +228,7 @@ Z_TagMalloc(int size, int tag)
     if (base == mainzone->rover) {
 	mainzone->rover = base->next;
     }
-
     base->id = ZONEID;
-
-    /* marker for memory trash testing */
-    marker = (int *)((byte *)base + base->size - sizeof(int));
-    *marker = ZONEID;
 
     return base + 1;
 }
@@ -283,7 +276,6 @@ Z_Realloc(const void *ptr, int size)
 
     orig_size = block->size;
     orig_size -= sizeof(memblock_t);
-    orig_size -= sizeof(int); /* ZONEID marker */
 
     Z_Free(ptr);
     ret = Z_TagMalloc(size, 1);
