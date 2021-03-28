@@ -262,9 +262,10 @@ static void
 R_HunkAllocSurfaces()
 {
     auxsurfaces = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "surfaces");
-    surface_p = surfaces;
+    surfaces = auxsurfaces;
     surf_max = &surfaces[r_numsurfaces];
-    surfaces = auxsurfaces - 1;
+    surfaces--;
+
     R_SurfacePatch();
 }
 
