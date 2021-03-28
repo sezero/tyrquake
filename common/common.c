@@ -1736,6 +1736,7 @@ COM_LoadPackFile(const char *packfile)
 
     fseek(packhandle, header.dirofs, SEEK_SET);
     fread(dfiles, 1, header.dirlen, packhandle);
+    fclose(packhandle);
 
     /* crc the directory to check for modifications */
     crc = CRC_Block((byte *)dfiles, header.dirlen);
