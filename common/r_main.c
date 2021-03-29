@@ -250,12 +250,35 @@ R_Init(void)
     R_InitParticles();
     R_InitTranslationTable();
 
-// TODO: collect 386-specific code in one place
+    D_Init();
+}
+
+static void
+R_PatchSurfaceBlockCode()
+{
+#ifdef USE_X86_ASM
+    if (r_pixbytes == 1) {
+	colormap = vid.colormap;
+	Sys_MakeCodeWriteable(R_Surf8Start, R_Surf8End);
+	R_Surf8Patch();
+        Sys_MakeCodeUnwriteable(R_Surf8Start, R_Surf8End);
+    } else {
+	colormap = vid.colormap16;
+	Sys_MakeCodeWriteable(R_Surf16Start, R_Surf16End);
+	R_Surf16Patch();
+	Sys_MakeCodeUnwriteable(R_Surf16Start, R_Surf16End);
+    }
+#endif
+}
+
+static void
+R_PatchEdgeSortingCode()
+{
 #ifdef USE_X86_ASM
     Sys_MakeCodeWriteable(R_EdgeCodeStart, R_EdgeCodeEnd);
+    R_SurfacePatch();
+    Sys_MakeCodeUnwriteable(R_EdgeCodeStart, R_EdgeCodeEnd);
 #endif
-
-    D_Init();
 }
 
 static void
@@ -266,7 +289,7 @@ R_HunkAllocSurfaces()
     surf_max = &surfaces[r_numsurfaces];
     surfaces--;
 
-    R_SurfacePatch();
+    R_PatchEdgeSortingCode();
 }
 
 static void
@@ -496,19 +519,7 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
     r_aliastransition = r_aliastransbase.value * res_scale;
     r_resfudge = r_aliastransadj.value * res_scale;
 
-// TODO: collect 386-specific code in one place
-#ifdef USE_X86_ASM
-    if (r_pixbytes == 1) {
-	Sys_MakeCodeWriteable(R_Surf8Start, R_Surf8End);
-	colormap = vid.colormap;
-	R_Surf8Patch();
-    } else {
-	Sys_MakeCodeWriteable(R_Surf16Start, R_Surf16End);
-	colormap = vid.colormap16;
-	R_Surf16Patch();
-    }
-#endif
-
+    R_PatchSurfaceBlockCode();
     D_ViewChanged();
 }
 
@@ -1174,7 +1185,7 @@ R_RenderView_(void)
 	// surface 0 doesn't really exist; it's just a dummy because index 0
 	// is used to indicate no edge attached to surface
         surfaces--;
-        R_SurfacePatch();
+        R_PatchEdgeSortingCode();
     }
 
     R_EdgeDrawingPrepare();

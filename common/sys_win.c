@@ -841,6 +841,19 @@ Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
     success = VirtualProtect(start_addr, length, PAGE_EXECUTE_READWRITE, &dummy);
     if (!success)
 	Sys_Error("Protection change failed");
+}
+
+void
+Sys_MakeCodeUnwriteable(void *start_addr, void *end_addr)
+{
+    DWORD dummy;
+    BOOL success;
+    size_t length;
+
+    length = (byte *)end_addr - (byte *)start_addr;
+    success = VirtualProtect(start_addr, length, PAGE_EXECUTE_READ, &dummy);
+    if (!success)
+	Sys_Error("Protection change failed");
 
     /* After changing the code, strictly speaking we must flush the instruction cache */
     FlushInstructionCache(GetCurrentProcess(), start_addr, length);

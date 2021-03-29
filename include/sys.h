@@ -45,6 +45,7 @@ void Sys_mkdir(const char *path);
 // memory protection
 //  changes protection from start_addr, up to but not including end_addr
 void Sys_MakeCodeWriteable(void *start_addr, void *end_addr);
+void Sys_MakeCodeUnwriteable(void *start_addr, void *end_addr);
 
 //
 // system IO

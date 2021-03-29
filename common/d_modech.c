@@ -33,24 +33,6 @@ short *zspantable[MAXHEIGHT];
 
 /*
 ================
-D_Patch
-================
-*/
-void
-D_Patch(void)
-{
-#ifdef USE_X86_ASM
-    static qboolean protectset8 = false;
-    if (!protectset8) {
-	Sys_MakeCodeWriteable(D_PolysetAff8Start, D_PolysetAff8End);
-	protectset8 = true;
-    }
-#endif /* USE_X86_ASM */
-}
-
-
-/*
-================
 D_ViewChanged
 ================
 */
@@ -92,6 +74,4 @@ D_ViewChanged(void)
 	    zspantable[i] = d_pzbuffer + i * d_zwidth;
 	}
     }
-
-    D_Patch();
 }

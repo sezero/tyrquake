@@ -865,8 +865,6 @@ COMMON_OBJS += modela.o
 SW_OBJS   += d_draw.o d_draw16.o d_parta.o d_polysa.o d_scana.o d_spr8.o \
 	     d_varsa.o r_aclipa.o r_aliasa.o r_drawa.o r_edgea.o r_varsa.o \
 	     surf8.o surf16.o
-else
-SW_OBJS += nonintel.o
 endif
 
 # ----------------------------------------------------------------------------

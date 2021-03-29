@@ -776,6 +776,30 @@ R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata)
     }
 }
 
+static void
+D_PatchAffineTriangleCode(byte *colormap)
+{
+#ifdef USE_X86_ASM
+    static byte *current_colormap = NULL;
+
+    if (colormap != current_colormap) {
+        /*
+         * The original implementation from id made the code writable
+         * once and kept the code writable for the entire program
+         * execution.  I'm making sure to switch write protection back
+         * on right away.  This gets called relatively often, so not
+         * sure if there is a significant performance impact on older
+         * machines.  Not noticable on my test machines, but I don't
+         * have anything very old.
+         */
+        Sys_MakeCodeWriteable(D_PolysetAff8Start, D_PolysetAff8End);
+	D_Aff8Patch(colormap);
+	Sys_MakeCodeUnwriteable(D_PolysetAff8Start, D_PolysetAff8End);
+        current_colormap = colormap;
+    }
+#endif /* USE_X86_ASM */
+}
+
 
 /*
 ================
@@ -824,9 +848,7 @@ R_AliasDrawModel(entity_t *entity)
     if (r_affinetridesc.drawtype) {
 	D_PolysetUpdateTables();	// FIXME: precalc...
     } else {
-#ifdef USE_X86_ASM
-	D_Aff8Patch(entity->colormap);
-#endif
+        D_PatchAffineTriangleCode(entity->colormap);
     }
 
     acolormap = entity->colormap;
