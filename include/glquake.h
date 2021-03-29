@@ -269,7 +269,7 @@ extern lpMultiTexFUNC qglMultiTexCoord2fARB;
 extern lpActiveTextureFUNC qglActiveTextureARB;
 extern lpClientStateFUNC qglClientActiveTexture;
 extern lpGenerateMipmapFUNC qglGenerateMipmap;
-extern lpBooleanFUNC qglTexParameterGenerateMipmap;
+extern void (*qglTexParameterGenerateMipmap)(GLboolean auto_mipmap);
 
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;

@@ -130,9 +130,9 @@ GL_ParseVersionString(const char *version)
  * the special case of procedural textures (water/warp).
  */
 lpGenerateMipmapFUNC qglGenerateMipmap;
-lpBooleanFUNC qglTexParameterGenerateMipmap;
+void (*qglTexParameterGenerateMipmap)(GLboolean auto_mipmap);
 
-static void qglGenerateMipmap_null(GLenum target) { };
+static void APIENTRY qglGenerateMipmap_null(GLenum target) { };
 static void qglTexParameterGenerateMipmap_null(GLboolean auto_mipmap) { };
 
 static void
