@@ -53,7 +53,7 @@ A sky texture is 256*128, with the right side being a masked overlay
 ==============
 */
 void
-R_InitSky(texture_t *mt)
+R_InitSky(const model_t *model, texture_t *mt)
 {
     int i, j;
     byte *src;

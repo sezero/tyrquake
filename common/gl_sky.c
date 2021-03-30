@@ -48,7 +48,7 @@ Sky_Skyalpha_f(cvar_t *cvar)
         if (cl.worldmodel->textures[i] && !strncmp(cl.worldmodel->textures[i]->name, "sky", 3))
             skytexture = cl.worldmodel->textures[i];
     if (skytexture)
-        R_InitSky(skytexture);
+        R_InitSky(&cl.worldmodel->model, skytexture);
 }
 
 cvar_t r_sky_quality = { "r_sky_quality", "16", CVAR_CONFIG };
@@ -76,7 +76,7 @@ Sky_LoadSkyboxTextures(const char *skyboxname)
         texture = &skytextures[i];
         if (skypic) {
             texturename = va("@skybox:%s%s", skyboxname, suffix[i]);
-            texture->gl_texturenum = GL_AllocTexture32(texturename, skypic, TEXTURE_TYPE_SKYBOX);
+            texture->gl_texturenum = GL_AllocTexture32(&cl.worldmodel->model, texturename, skypic, TEXTURE_TYPE_SKYBOX);
             texture->width = skypic->width;
             texture->height = skypic->height;
             GL_Bind(texture->gl_texturenum);
@@ -409,7 +409,7 @@ A sky texture is 256*128, with the right side being a masked overlay
 ==============
 */
 void
-R_InitSky(texture_t *mt)
+R_InitSky(const model_t *model, texture_t *mt)
 {
     byte *src = (byte *)mt + mt->offsets[0];
     qpic8_t pic;
@@ -421,12 +421,12 @@ R_InitSky(texture_t *mt)
 
     /* Create the solid layer */
     pic.pixels = src + 128;
-    mt->gl_texturenum = GL_LoadTexture8(va("@%s:background", mt->name), &pic, TEXTURE_TYPE_SKY_BACKGROUND);
+    mt->gl_texturenum = GL_LoadTexture8(model, va("@%s:background", mt->name), &pic, TEXTURE_TYPE_SKY_BACKGROUND);
 
     /* Create the alpha layer */
     pic.pixels = src;
     byte alpha = qclamp(r_skyalpha.value, 0.0f, 1.0f) * 255.0f;
-    mt->gl_texturenum_alpha = GL_LoadTexture8_Alpha(va("@%s:foreground", mt->name), &pic, TEXTURE_TYPE_SKY_FOREGROUND, alpha);
+    mt->gl_texturenum_alpha = GL_LoadTexture8_Alpha(model, va("@%s:foreground", mt->name), &pic, TEXTURE_TYPE_SKY_FOREGROUND, alpha);
 
     /*
      * Calculate FitzQuake/QuakeSpasm equivalent r_fastsky color as the average

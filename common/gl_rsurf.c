@@ -2100,7 +2100,7 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
  * Return the number of uploads that were required/done
  */
 static void
-GL_UploadLightmaps(const glbrushmodel_resource_t *resources)
+GL_UploadLightmaps(const model_t *model, const glbrushmodel_resource_t *resources)
 {
     int i;
     lm_block_t *block;
@@ -2119,7 +2119,7 @@ GL_UploadLightmaps(const glbrushmodel_resource_t *resources)
             pic.width = pic.stride = BLOCK_WIDTH;
             pic.height = BLOCK_HEIGHT;
             pic.pixels = block->data;
-            block->texture = GL_AllocTexture8(va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
+            block->texture = GL_AllocTexture8(model, va("@lightmap_%03d", i), &pic, TEXTURE_TYPE_LIGHTMAP);
         }
 
 	GL_Bind(block->texture);
@@ -2172,7 +2172,7 @@ GL_BuildLightmaps()
 	}
 
 	/* upload all lightmaps that were filled */
-	GL_UploadLightmaps(resources);
+	GL_UploadLightmaps(model, resources);
     }
 
     /* TODO - rename or separate out the things that are not building lightmaps */
@@ -2193,12 +2193,12 @@ GL_BuildLightmaps()
 }
 
 void
-GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources)
+GL_ReloadLightmapTextures(const model_t *model, const glbrushmodel_resource_t *resources)
 {
     int i;
 
     for (i = 0; i < resources->numblocks; i++)
         resources->blocks[i].texture = 0;
 
-    GL_UploadLightmaps(resources);
+    GL_UploadLightmaps(model, resources);
 }

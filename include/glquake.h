@@ -85,11 +85,11 @@ void GL_Upload8(qpic8_t *pic, enum texture_type type);
 void GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha);
 void GL_Upload32(qpic32_t *pic, enum texture_type type);
 void GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translation);
-int GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type);
-int GL_LoadTexture8_Alpha(const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
-int GL_LoadTexture8_GLPic(const char *name, glpic_t *glpic);
-int GL_AllocTexture8(const char *name, const qpic8_t *pic, enum texture_type type);
-int GL_AllocTexture32(const char *name, const qpic32_t *pic, enum texture_type type);
+int GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type);
+int GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
+int GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic);
+int GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type);
+int GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type);
 void GL_SelectTexture(GLenum);
 
 extern int glx, gly, glwidth, glheight;
@@ -354,7 +354,7 @@ void R_DrawWorldHull(void); /* Quick hack for now... */
 void R_DrawTranslucentChain(entity_t *entity, msurface_t *materialchain, float alpha);
 void R_DrawInstancedTranslucentBmodel(entity_t *entity);
 void GL_BuildLightmaps();
-void GL_ReloadLightmapTextures(const glbrushmodel_resource_t *resources);
+void GL_ReloadLightmapTextures(const model_t *model, const glbrushmodel_resource_t *resources);
 
 //
 // gl_sky.c

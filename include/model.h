@@ -306,7 +306,8 @@ int R_SpriteDataSize(int numpixels);
  * Renderer provides this function to translate and store the raw sprite data
  * from the model file as needed.
  */
-void R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
+struct model_s;
+void R_SpriteDataStore(const struct model_s *model, mspriteframe_t *frame, const char *modelname,
 		       int framenum, byte *pixels);
 
 typedef struct {

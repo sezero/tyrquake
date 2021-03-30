@@ -39,7 +39,7 @@ Mod_LoadSpriteFrame
 =================
 */
 static const void *
-Mod_LoadSpriteFrame(const void *buffer, mspriteframe_t **ppframe,
+Mod_LoadSpriteFrame(const model_t *model, const void *buffer, mspriteframe_t **ppframe,
 		    const char *loadname, int framenum)
 {
     char hunkname[HUNK_NAMELEN + 1];
@@ -70,7 +70,7 @@ Mod_LoadSpriteFrame(const void *buffer, mspriteframe_t **ppframe,
     frame->right = width + origin[0];
 
     /* Let the renderer process the pixel data as needed */
-    R_SpriteDataStore(frame, loadname, framenum, (byte *)(dframe + 1));
+    R_SpriteDataStore(model, frame, loadname, framenum, (byte *)(dframe + 1));
 
     return (byte *)buffer + sizeof(*dframe) + numpixels;
 }
@@ -82,7 +82,7 @@ Mod_LoadSpriteGroup
 =================
 */
 static const void *
-Mod_LoadSpriteGroup(const void *buffer, mspritegroup_t **ppgroup,
+Mod_LoadSpriteGroup(const model_t *model, const void *buffer, mspritegroup_t **ppgroup,
 		    const char *loadname, int framenum)
 {
     char hunkname[HUNK_NAMELEN + 1];
@@ -115,7 +115,7 @@ Mod_LoadSpriteGroup(const void *buffer, mspritegroup_t **ppgroup,
     buffer = dintervals;
 
     for (i = 0; i < numframes; i++)
-	buffer = Mod_LoadSpriteFrame(buffer, &group->frames[i], loadname, framenum * 100 + i);
+	buffer = Mod_LoadSpriteFrame(model, buffer, &group->frames[i], loadname, framenum * 100 + i);
 
     return buffer;
 }
@@ -173,10 +173,10 @@ Mod_LoadSpriteModel(model_t *model, const void *buffer)
 	buffer = (byte *)buffer + sizeof(dspriteframetype_t);
 	if (frametype == SPR_SINGLE) {
 	    mspriteframe_t **ppframe = &sprite->frames[i].frame.frame;
-	    buffer = Mod_LoadSpriteFrame(buffer, ppframe, model->name, i);
+	    buffer = Mod_LoadSpriteFrame(model, buffer, ppframe, model->name, i);
 	} else {
 	    mspritegroup_t **ppgroup = &sprite->frames[i].frame.group;
-	    buffer = Mod_LoadSpriteGroup(buffer, ppgroup, model->name, i);
+	    buffer = Mod_LoadSpriteGroup(model, buffer, ppgroup, model->name, i);
 	}
     }
 }

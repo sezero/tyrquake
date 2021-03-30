@@ -100,7 +100,7 @@ Scrap_InitGLTextures()
 	scrap->pic.width = scrap->pic.stride = SCRAP_WIDTH;
 	scrap->pic.height = SCRAP_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-        scrap->glnum = GL_LoadTexture8(va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
+        scrap->glnum = GL_LoadTexture8(NULL, va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
     }
 }
 
@@ -214,7 +214,7 @@ Draw_ReloadPicTextures()
 
     for (i = 0; i < num_draw_glpics; i++) {
         drawpic = &draw_glpics[i];
-        drawpic->glpic->texnum = GL_LoadTexture8_GLPic(drawpic->name, drawpic->glpic);
+        drawpic->glpic->texnum = GL_LoadTexture8_GLPic(NULL, drawpic->name, drawpic->glpic);
     }
 }
 
@@ -265,7 +265,7 @@ Draw_PicFromWad(const char *name)
     qstrncpy(drawpic->name, name, sizeof(drawpic->name));
     drawpic->glpic = glpic;
 
-    glpic->texnum = GL_LoadTexture8_GLPic(name, glpic);
+    glpic->texnum = GL_LoadTexture8_GLPic(NULL, name, glpic);
 
     return pic;
 }
@@ -307,7 +307,7 @@ Draw_CachePic(const char *path)
     pic->height = dpic->height;
     pic->pixels = dpic->data;
 
-    cachepic->glpic.texnum = GL_LoadTexture8_GLPic(path, &cachepic->glpic);
+    cachepic->glpic.texnum = GL_LoadTexture8_GLPic(NULL, path, &cachepic->glpic);
 
     Hunk_FreeToLowMark(mark);
 
@@ -423,12 +423,12 @@ Draw_InitGLTextures()
 {
     /* Upload the charset and crosshair textures */
     qpic8_t charset_pic = { 128, 128, 128, draw_chars };
-    charset_texture = GL_LoadTexture8("charset", &charset_pic, TEXTURE_TYPE_CHARSET);
+    charset_texture = GL_LoadTexture8(NULL, "charset", &charset_pic, TEXTURE_TYPE_CHARSET);
     qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
-    crosshair_texture = GL_LoadTexture8("crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
+    crosshair_texture = GL_LoadTexture8(NULL, "crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
 
     /* Upload the console background texture */
-    conback->texnum = GL_LoadTexture8_GLPic("conback", conback);
+    conback->texnum = GL_LoadTexture8_GLPic(NULL, "conback", conback);
 
     /* create textures for scraps */
     Scrap_InitGLTextures();
@@ -723,7 +723,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation
     translated.pixels = buffer;
 
     if (!translate_texture) {
-        translate_texture = GL_AllocTexture8("@menuplyr_translate", pic, TEXTURE_TYPE_HUD);
+        translate_texture = GL_AllocTexture8(NULL, "@menuplyr_translate", pic, TEXTURE_TYPE_HUD);
     }
     GL_Bind(translate_texture);
     GL_Upload8(&translated, TEXTURE_TYPE_HUD);

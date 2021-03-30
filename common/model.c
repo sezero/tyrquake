@@ -683,7 +683,7 @@ Mod_ForName(const char *name, qboolean crash)
 
 #ifdef GLQUAKE
 static void
-GL_LoadBrushModelTexture(texture_t *texture)
+GL_LoadBrushModelTexture(const model_t *model, texture_t *texture)
 {
     qpic8_t pic;
     enum texture_type type;
@@ -699,20 +699,20 @@ GL_LoadBrushModelTexture(texture_t *texture)
     else
         type = TEXTURE_TYPE_WORLD;
 
-    texture->gl_texturenum = GL_LoadTexture8(texture->name, &pic, type);
+    texture->gl_texturenum = GL_LoadTexture8(model, texture->name, &pic, type);
 
     /* Fullbright mask if required (not on liquids) */
     if (type == TEXTURE_TYPE_TURB) {
         static byte pixels[WARP_RENDER_TEXTURE_SIZE * WARP_RENDER_TEXTURE_SIZE];
         pic.width = pic.height = qmin(texture->width * 4, WARP_RENDER_TEXTURE_SIZE);
         pic.pixels = pixels;
-        texture->gl_warpimage = GL_LoadTexture8(va("%s:warp", texture->name), &pic, type);
+        texture->gl_warpimage = GL_LoadTexture8(model, va("%s:warp", texture->name), &pic, type);
         texture->gl_warpimagesize = pic.width;
     } else if (QPic_HasFullbrights(&pic, type)) {
         type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;
         pic.width = texture->width;   // Possibly modified by picmip in previous upload
         pic.height = texture->height; // Possibly modified by picmip in previous upload
-        texture->gl_texturenum_fullbright = GL_LoadTexture8(va("%s:fullbright", texture->name), &pic, type);
+        texture->gl_texturenum_fullbright = GL_LoadTexture8(model, va("%s:fullbright", texture->name), &pic, type);
     } else {
         texture->gl_texturenum_fullbright = 0;
     }
@@ -727,9 +727,9 @@ GL_LoadBrushModelTextures(const brushmodel_t *brushmodel)
     for (i = 0; i < brushmodel->numtextures; i++) {
         texture = brushmodel->textures[i];
         if (!strncmp(texture->name, "sky", 3)) {
-	    R_InitSky(texture);
+	    R_InitSky(&brushmodel->model, texture);
         } else {
-            GL_LoadBrushModelTexture(texture);
+            GL_LoadBrushModelTexture(&brushmodel->model, texture);
         }
     }
 }
@@ -806,10 +806,10 @@ Mod_LoadTextures(brushmodel_t *brushmodel, dheader_t *header)
             Remip_FenceTexture(tx, host_basepal);
         }
 	if (!strncmp(mt->name, "sky", 3)) {
-	    R_InitSky(tx);
+	    R_InitSky(&brushmodel->model, tx);
 #ifdef GLQUAKE
         } else {
-            GL_LoadBrushModelTexture(tx);
+            GL_LoadBrushModelTexture(&brushmodel->model, tx);
 #endif
 	}
 #endif
@@ -2211,7 +2211,7 @@ Mod_ReloadTextures()
         if (brushmodel->parent)
             continue;
         GL_LoadBrushModelTextures(brushmodel);
-        GL_ReloadLightmapTextures(GLBrushModel(brushmodel)->resources);
+        GL_ReloadLightmapTextures(&brushmodel->model, GLBrushModel(brushmodel)->resources);
     }
 }
 #endif

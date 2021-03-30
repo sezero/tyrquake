@@ -76,7 +76,7 @@ GL_LoadNoTexture()
         .pixels = (byte *)(r_notexture_mip + 1),
     };
 
-    r_notexture_mip->gl_texturenum = GL_LoadTexture8(r_notexture_mip->name, &pic, TEXTURE_TYPE_NOTEXTURE);
+    r_notexture_mip->gl_texturenum = GL_LoadTexture8(NULL, r_notexture_mip->name, &pic, TEXTURE_TYPE_NOTEXTURE);
 }
 
 static const byte dottexture[8][8] = {
@@ -113,7 +113,7 @@ R_InitParticleTexture(void)
         .height = 8,
         .pixels = &dottexture[0][0],
     };
-    particletexture = GL_AllocTexture8("@particle", &particle, TEXTURE_TYPE_PARTICLE);
+    particletexture = GL_AllocTexture8(NULL, "@particle", &particle, TEXTURE_TYPE_PARTICLE);
     GL_Bind(particletexture);
 
     glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 8, 8, 0, GL_RGBA,
@@ -397,7 +397,6 @@ R_TranslatePlayerSkin(int playernum)
      */
     int mark = Hunk_LowMark();
     byte *pixels;
-
 #ifdef NQ_HACK
     entity_t *entity = &cl_entities[1 + playernum];
     model_t *model = entity->model;
@@ -438,11 +437,11 @@ R_TranslatePlayerSkin(int playernum)
     instride = original ? 320 : inwidth;
 
     /* Allocate memory to copy the pixels, then re-cache the skin pixels - UGH */
+    model_t *model = cl.model_precache[cl_playerindex];
     pixels = Hunk_AllocName(instride * inheight, "skin");
     if (original) {
 	original = Skin_Cache(player->skin);
     } else {
-	model_t *model = cl.model_precache[cl_playerindex];
 	const aliashdr_t *aliashdr = Mod_Extradata(model);
 	original = (const byte *)aliashdr + aliashdr->skindata;
     }
@@ -459,9 +458,9 @@ R_TranslatePlayerSkin(int playernum)
     playertexture_t *playertexture = &playertextures[playernum];
     playertexture->fullbright = QPic_HasFullbrights(&playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     if (!playertexture->texture.base)
-        playertexture->texture.base = GL_AllocTexture8(va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
+        playertexture->texture.base = GL_AllocTexture8(model, va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
     if (!playertexture->texture.fullbright)
-        playertexture->texture.fullbright = GL_AllocTexture8(va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
+        playertexture->texture.fullbright = GL_AllocTexture8(model, va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
 
     GL_Bind(playertexture->texture.base);
     translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);

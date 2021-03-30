@@ -40,7 +40,7 @@ R_SpriteDataSize(int pixels)
 }
 
 void
-R_SpriteDataStore(mspriteframe_t *frame, const char *modelname,
+R_SpriteDataStore(const model_t *model, mspriteframe_t *frame, const char *modelname,
 		  int framenum, byte *pixels)
 {
     int i, size;

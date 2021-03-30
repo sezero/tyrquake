@@ -40,6 +40,7 @@ static cvar_t gl_nobind = { "gl_nobind", "0" };
 cvar_t gl_picmip = { "gl_picmip", "0" };
 
 typedef struct {
+    const model_t *owner;
     GLuint texnum;
     int width, height;
     enum texture_type type;
@@ -368,19 +369,22 @@ one.
 ================
 */
 static int
-GL_AllocTexture(const char *name, unsigned short crc, int width, int height, enum texture_type type)
+GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int width, int height, enum texture_type type)
 {
     int i;
     gltexture_t *glt;
 
     /* Check if the texture is already present, if so then return it. */
     for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
+        if (owner != glt->owner)
+            continue;
         if (!strcmp(name, glt->name)) {
             if (crc != glt->crc)
-                goto GL_LoadTexture_setup;
+                goto GL_AllocTexture_setup;
             if (width != glt->width || height != glt->height)
-                goto GL_LoadTexture_setup;
-            return glt->texnum;
+                goto GL_AllocTexture_setup;
+
+            goto GL_AllocTexture_out;
         }
     }
 
@@ -391,33 +395,36 @@ GL_AllocTexture(const char *name, unsigned short crc, int width, int height, enu
     qstrncpy(glt->name, name, sizeof(glt->name));
     glGenTextures(1, &glt->texnum);
 
-  GL_LoadTexture_setup:
+ GL_AllocTexture_setup:
     glt->crc = crc;
     glt->width = width;
     glt->height = height;
     glt->type = type;
 
+ GL_AllocTexture_out:
+    glt->owner = owner;
+
     return glt->texnum;
 }
 
 int
-GL_AllocTexture8(const char *name, const qpic8_t *pic, enum texture_type type)
+GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type)
 {
     unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
-    return GL_AllocTexture(name, crc, pic->width, pic->height, type);
+    return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
 }
 
 int
-GL_AllocTexture32(const char *name, const qpic32_t *pic, enum texture_type type)
+GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type)
 {
     unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
-    return GL_AllocTexture(name, crc, pic->width, pic->height, type);
+    return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
 }
 
 int
-GL_LoadTexture8_Alpha(const char *name, qpic8_t *pic, enum texture_type type, byte alpha)
+GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha)
 {
-    int texnum = GL_AllocTexture8(name, pic, type);
+    int texnum = GL_AllocTexture8(owner, name, pic, type);
 
     if (!isDedicated) {
 	GL_Bind(texnum);
@@ -428,15 +435,15 @@ GL_LoadTexture8_Alpha(const char *name, qpic8_t *pic, enum texture_type type, by
 }
 
 int
-GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type)
+GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type)
 {
-    return GL_LoadTexture8_Alpha(name, pic, type, 255);
+    return GL_LoadTexture8_Alpha(owner, name, pic, type, 255);
 }
 
 int
-GL_LoadTexture8_GLPic(const char *name, glpic_t *glpic)
+GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic)
 {
-    int texnum = GL_AllocTexture8(name, &glpic->pic, TEXTURE_TYPE_HUD);
+    int texnum = GL_AllocTexture8(owner, name, &glpic->pic, TEXTURE_TYPE_HUD);
 
     if (!isDedicated) {
 	GL_Bind(texnum);

@@ -257,7 +257,7 @@ int R_SpriteDataSize(int numpixels)
 }
 
 static void
-GL_LoadSpriteTexture(const char *name, const mspriteframe_t *frame)
+GL_LoadSpriteTexture(const model_t *model, const char *name, const mspriteframe_t *frame)
 {
     gl_spritedata_t *spritedata;
     qpic8_t pic;
@@ -268,7 +268,7 @@ GL_LoadSpriteTexture(const char *name, const mspriteframe_t *frame)
     pic.height = frame->height;
     pic.pixels = spritedata->pixels;
 
-    spritedata->texture = GL_LoadTexture8(name, &pic, TEXTURE_TYPE_SPRITE);
+    spritedata->texture = GL_LoadTexture8(model, name, &pic, TEXTURE_TYPE_SPRITE);
 }
 
 void
@@ -289,7 +289,7 @@ GL_LoadSpriteTextures(const model_t *model)
         /* Single frame */
         if (framedesc->type == SPR_SINGLE) {
             frame = framedesc->frame.frame;
-            GL_LoadSpriteTexture(va("%s_%i", hunkname, i), frame);
+            GL_LoadSpriteTexture(model, va("%s_%i", hunkname, i), frame);
             continue;
         }
 
@@ -297,19 +297,19 @@ GL_LoadSpriteTextures(const model_t *model)
         group = framedesc->frame.group;
         for (j = 0; j < group->numframes; j++) {
             frame = group->frames[j];
-            GL_LoadSpriteTexture(va("%s_%i", hunkname, i * 100 + j), frame);
+            GL_LoadSpriteTexture(model, va("%s_%i", hunkname, i * 100 + j), frame);
         }
     }
 }
 
 void
-R_SpriteDataStore(mspriteframe_t *frame, const char *modelname, int framenum, byte *pixels)
+R_SpriteDataStore(const model_t *model, mspriteframe_t *frame, const char *modelname, int framenum, byte *pixels)
 {
     gl_spritedata_t *spritedata;
 
     spritedata = (gl_spritedata_t *)frame->rdata;
     memcpy(spritedata->pixels, pixels, frame->width * frame->height);
-    GL_LoadSpriteTexture(va("%s_%i", modelname, framenum), frame);
+    GL_LoadSpriteTexture(model, va("%s_%i", modelname, framenum), frame);
 }
 
 /*
@@ -490,13 +490,13 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
     for (i = 0; i < aliashdr->numskins; i++) {
         pic.width = aliashdr->skinwidth;
         pic.height = aliashdr->skinheight;
-        textures[i].base = GL_LoadTexture8(va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
+        textures[i].base = GL_LoadTexture8(model, va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
         GL_Aliashdr(aliashdr)->texturewidth = pic.width << qmax(0, (int)gl_picmip.value);
         GL_Aliashdr(aliashdr)->textureheight = pic.height << qmax(0, (int)gl_picmip.value);
         if (QPic_HasFullbrights(&pic, TEXTURE_TYPE_ALIAS_SKIN)) {
             pic.width = aliashdr->skinwidth;
             pic.height  = aliashdr->skinheight;
-            textures[i].fullbright = GL_LoadTexture8(va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
+            textures[i].fullbright = GL_LoadTexture8(model, va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
         } else {
             textures[i].fullbright = 0;
         }
