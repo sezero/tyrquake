@@ -51,7 +51,8 @@ typedef struct {
 static gltexture_t gltextures[MAX_GLTEXTURES];
 static int numgltextures;
 
-void GL_FreeTextures()
+void
+GL_FreeTextures()
 {
     int i;
 
@@ -149,25 +150,6 @@ GL_TextureMode_Arg_f(struct stree_root *root, const char *arg)
         if (!arg || !strncasecmp(gl_texturemodes[i].name, arg, arg_len))
             STree_InsertAlloc(root, gl_texturemodes[i].name, false);
     }
-}
-
-/*
-================
-GL_FindTexture
-================
-*/
-int
-GL_FindTexture(const char *name)
-{
-    int i;
-    gltexture_t *glt;
-
-    for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-	if (!strcmp(name, glt->name))
-	    return gltextures[i].texnum;
-    }
-
-    return -1;
 }
 
 /*

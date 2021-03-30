@@ -88,7 +88,6 @@ void GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *tran
 int GL_LoadTexture8(const char *name, qpic8_t *pic, enum texture_type type);
 int GL_LoadTexture8_Alpha(const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
 int GL_LoadTexture8_GLPic(const char *name, glpic_t *glpic);
-int GL_FindTexture(const char *name);
 int GL_AllocTexture8(const char *name, const qpic8_t *pic, enum texture_type type);
 int GL_AllocTexture32(const char *name, const qpic32_t *pic, enum texture_type type);
 void GL_SelectTexture(GLenum);
