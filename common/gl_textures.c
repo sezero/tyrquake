@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "console.h"
 #include "crc.h"
 #include "cvar.h"
+#include "list.h"
 #include "glquake.h"
 #include "qpic.h"
 #include "sys.h"
@@ -40,6 +41,7 @@ static cvar_t gl_nobind = { "gl_nobind", "0" };
 cvar_t gl_picmip = { "gl_picmip", "0" };
 
 typedef struct {
+    struct list_node list;
     const model_t *owner;
     GLuint texnum;
     int width, height;
@@ -48,20 +50,43 @@ typedef struct {
     char name[MAX_QPATH];
 } gltexture_t;
 
-#define	MAX_GLTEXTURES	4096
-static gltexture_t gltextures[MAX_GLTEXTURES];
-static int numgltextures;
+#define	MAX_STATIC_GLTEXTURES	4096
+static gltexture_t gltextures_data[MAX_STATIC_GLTEXTURES];
+
+struct {
+    struct list_node free;
+    struct list_node active;
+    gltexture_t *data;
+    int num_textures;
+} manager = {
+    .free = LIST_HEAD_INIT(manager.free),
+    .active = LIST_HEAD_INIT(manager.active),
+};
+
+static void
+GL_InitTextureManager()
+{
+    // TODO: Make this hunk allocated
+    manager.data = gltextures_data;
+    manager.num_textures = MAX_STATIC_GLTEXTURES;
+
+    list_head_init(&manager.free);
+    list_head_init(&manager.active);
+
+    /* Add all textures to the free list */
+    for (int i = 0; i < manager.num_textures; i++)
+        list_add_tail(&manager.data[i].list, &manager.free);
+}
 
 void
 GL_FreeTextures()
 {
-    int i;
+    gltexture_t *texture;
 
-    GL_Bind(0); /* sets currenttexture to zero */
-    for (i = 0; i < numgltextures; i++) {
-        glDeleteTextures(1, &gltextures[i].texnum);
-    }
-    numgltextures = 0;
+    list_for_each_entry(texture, &manager.active, list)
+        glDeleteTextures(1, &texture->texnum);
+
+    GL_InitTextureManager();
 }
 
 void
@@ -94,6 +119,22 @@ static glmode_t gl_texturemodes[] = {
     { "gl_linear_mipmap_linear", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR }
 };
 
+static void
+GL_UpdateTextureMode(const gltexture_t *texture, const glmode_t *mode)
+{
+    if (texture->type == TEXTURE_TYPE_LIGHTMAP)
+        return; /* Lightmap filter is always GL_LINEAR */
+    if (texture->type == TEXTURE_TYPE_NOTEXTURE)
+        return; /* Notexture is always GL_NEAREST */
+    GL_Bind(texture->texnum);
+    if (texture_properties[texture->type].mipmap) {
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode->min_filter);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode->mag_filter);
+    } else {
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode->mag_filter);
+        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode->mag_filter);
+    }
+}
 
 /*
 ===============
@@ -104,7 +145,7 @@ static void
 GL_TextureMode_f(void)
 {
     int i;
-    gltexture_t *glt;
+    gltexture_t *texture;
 
     if (Cmd_Argc() == 1) {
 	Con_Printf("%s\n", glmode->name);
@@ -122,23 +163,9 @@ GL_TextureMode_f(void)
 	return;
     }
 
-    /*
-     * Change all the existing mipmap texture objects
-     */
-    for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-        if (glt->type == TEXTURE_TYPE_LIGHTMAP)
-            continue; /* Lightmap filter is always GL_LINEAR */
-        if (glt->type == TEXTURE_TYPE_NOTEXTURE)
-            continue; /* Notexture is always GL_NEAREST */
-        GL_Bind(glt->texnum);
-        if (texture_properties[glt->type].mipmap) {
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
-        } else {
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
-        }
-    }
+    /* Change all the existing mipmap texture objects */
+    list_for_each_entry(texture, &manager.active, list)
+        GL_UpdateTextureMode(texture, glmode);
 }
 
 static void
@@ -371,40 +398,45 @@ one.
 static int
 GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int width, int height, enum texture_type type)
 {
-    int i;
-    gltexture_t *glt;
+    gltexture_t *texture;
 
-    /* Check if the texture is already present, if so then return it. */
-    for (i = 0, glt = gltextures; i < numgltextures; i++, glt++) {
-        if (owner != glt->owner)
+    /* Check the active list for a match */
+    list_for_each_entry(texture, &manager.active, list) {
+        if (owner != texture->owner)
             continue;
-        if (!strcmp(name, glt->name)) {
-            if (crc != glt->crc)
+        if (!strcmp(name, texture->name)) {
+            if (crc != texture->crc || type != texture->type)
                 goto GL_AllocTexture_setup;
-            if (width != glt->width || height != glt->height)
+            if (width != texture->width || height != texture->height)
                 goto GL_AllocTexture_setup;
 
             goto GL_AllocTexture_out;
         }
     }
 
-    if (numgltextures == MAX_GLTEXTURES)
+    // TODO: use NOTEXTURE instead?
+    if (list_empty(&manager.free))
 	Sys_Error("numgltextures == MAX_GLTEXTURES");
 
-    glt = &gltextures[numgltextures++];
-    qstrncpy(glt->name, name, sizeof(glt->name));
-    glGenTextures(1, &glt->texnum);
+    /* Grab a texture from the free list */
+    texture = container_of(manager.free.next, gltexture_t, list);
+    list_del(&texture->list);
+
+    qstrncpy(texture->name, name, sizeof(texture->name));
+    glGenTextures(1, &texture->texnum);
+
+    list_add(&texture->list, &manager.active);
 
  GL_AllocTexture_setup:
-    glt->crc = crc;
-    glt->width = width;
-    glt->height = height;
-    glt->type = type;
+    texture->crc = crc;
+    texture->width = width;
+    texture->height = height;
+    texture->type = type;
 
  GL_AllocTexture_out:
-    glt->owner = owner;
+    texture->owner = owner;
 
-    return glt->texnum;
+    return texture->texnum;
 }
 
 int
@@ -453,17 +485,31 @@ GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic)
     return texnum;
 }
 
+void
+GL_DisownTextures(const model_t *owner)
+{
+    gltexture_t *texture, *next;
+
+    list_for_each_entry_safe(texture, next, &manager.active, list) {
+        if (texture->owner == owner) {
+            glDeleteTextures(1, &texture->texnum);
+            list_del(&texture->list);
+            list_add(&texture->list, &manager.free);
+        }
+    }
+}
 
 static void
 GL_PrintTextures_f(void)
 {
-    int i;
+    int count = 0;
     gltexture_t *texture;
 
-    for (i = 0, texture = gltextures; i < numgltextures; i++, texture++) {
+    list_for_each_entry(texture, &manager.active, list) {
 	Con_Printf(" %s\n", texture->name);
+        count++;
     }
-    Con_Printf("%d textures loaded\n", numgltextures);
+    Con_Printf("%d textures active\n", count);
 }
 
 void
@@ -490,5 +536,6 @@ GL_InitTextures(void)
     Cmd_SetCompletion("gl_texturemode", GL_TextureMode_Arg_f);
     Cmd_AddCommand("gl_printtextures", GL_PrintTextures_f);
 
+    GL_InitTextureManager();
     GL_LoadNoTexture();
 }

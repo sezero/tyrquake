@@ -575,9 +575,13 @@ Mod_ClearAlias(void)
      * For now, only need to worry about overflow above the host
      * hunklevel which will disappear.
      */
-    for (model = mcache.overflow.next; model; model = model->next)
+    for (model = mcache.overflow.next; model; model = model->next) {
+#ifdef GLQUAKE
+        GL_DisownTextures(model);
+#endif
 	if (model->cache.data)
 	    Cache_Free(&model->cache);
+    }
     mcache.overflow.next = NULL;
 }
 

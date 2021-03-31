@@ -92,6 +92,8 @@ int GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic,
 int GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type);
 void GL_SelectTexture(GLenum);
 
+void GL_DisownTextures(const model_t *owner);
+
 extern int glx, gly, glwidth, glheight;
 
 // r_local.h -- private refresh defs

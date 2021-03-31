@@ -518,6 +518,15 @@ Mod_ClearAll
 void
 Mod_ClearAll(void)
 {
+#ifdef GLQUAKE
+    for (brushmodel_t *brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        GL_DisownTextures(&brushmodel->model);
+    }
+    for (model_t *sprite = loaded_sprites; sprite; sprite = sprite->next) {
+        GL_DisownTextures(sprite);
+    }
+#endif
+
     loaded_brushmodels = NULL;
     loaded_sprites = NULL;
     fatpvs = NULL;
