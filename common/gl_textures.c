@@ -553,14 +553,55 @@ GL_DisownTextures(const model_t *owner)
 static void
 GL_PrintTextures_f(void)
 {
-    int count = 0;
+    struct stree_root root;
     gltexture_t *texture;
+    qboolean print_active = true;
+    qboolean print_inactive = false;
 
-    list_for_each_entry(texture, &manager.active, list) {
-	Con_Printf(" %s\n", texture->name);
-        count++;
+    if (Cmd_Argc() > 1) {
+        if (!strcasecmp(Cmd_Argv(1), "active")) {
+            print_active = true;
+        } else if (!strcasecmp(Cmd_Argv(1), "inactive")) {
+            print_active = false;
+            print_inactive = true;
+        } else if (!strcasecmp(Cmd_Argv(1), "all")) {
+            print_active = true;
+            print_inactive = true;
+        } else {
+            Con_Printf("Usage: %s [active|inactive|all]\n", Cmd_Argv(0));
+            return;
+        }
     }
-    Con_Printf("%d textures active\n", count);
+
+    STree_AllocInit();
+
+    if (print_active) {
+        root = STREE_ROOT;
+        list_for_each_entry(texture, &manager.active, list)
+            STree_InsertAlloc(&root, texture->name, false);
+        Con_ShowTree(&root);
+        Con_Printf("======== %d active textures ========\n", root.entries);
+    }
+    if (print_inactive) {
+        root = STREE_ROOT;
+        list_for_each_entry(texture, &manager.inactive, list)
+            STree_InsertAlloc(&root, texture->name, false);
+        Con_ShowTree(&root);
+        Con_Printf("======== %d inactive textures in cache ========\n", root.entries);
+    }
+}
+
+static void
+GL_PrintTextures_Arg_f(struct stree_root *root, const char *arg)
+{
+    const char *args[] = { "active", "inactive", "all" };
+    int i;
+    int arg_len = arg ? strlen(arg) : 0;
+
+    for (i = 0; i < ARRAY_SIZE(args); i++) {
+        if (!arg || !strncasecmp(args[i], arg, arg_len))
+            STree_InsertAlloc(root, args[i], false);
+    }
 }
 
 void
@@ -586,6 +627,7 @@ GL_InitTextures(void)
     Cmd_AddCommand("gl_texturemode", GL_TextureMode_f);
     Cmd_SetCompletion("gl_texturemode", GL_TextureMode_Arg_f);
     Cmd_AddCommand("gl_printtextures", GL_PrintTextures_f);
+    Cmd_SetCompletion("gl_printtextures", GL_PrintTextures_Arg_f);
 
     GL_InitTextureManager();
     GL_LoadNoTexture();
