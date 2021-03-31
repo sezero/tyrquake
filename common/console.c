@@ -690,6 +690,9 @@ Con_ShowList(const char **list, int cnt, int maxlen)
     unsigned i, j, len, cols, rows;
     char *line;
 
+    if (!cnt)
+        return;
+
     /* Lay them out in columns */
     line = Z_Malloc(Con_GetWidth() + 1);
     cols = Con_GetWidth() / (maxlen + 2);
@@ -739,6 +742,9 @@ Con_ShowTree_Populate(struct rb_node *n)
 void
 Con_ShowTree(struct stree_root *root)
 {
+    if (!root->entries)
+        return;
+
     showtree_list = Z_Malloc(root->entries * sizeof(char *));
     if (showtree_list) {
 	showtree_idx = 0;
