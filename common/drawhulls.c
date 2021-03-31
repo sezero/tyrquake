@@ -31,61 +31,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cmd.h"
 #include "console.h"
 #include "glquake.h" /* FIXME - make usable in software mode too */
+#include "list.h"
 #include "mathlib.h"
 #include "sys.h"
-
-
-struct list_node {
-    struct list_node *next;
-    struct list_node *prev;
-};
-
-/* Iterate over each entry in the list */
-#define list_for_each_entry(pos, head, member)				\
-	for (pos = container_of((head)->next, typeof(*pos), member);	\
-	     &pos->member != (head);					\
-	     pos = container_of(pos->member.next, typeof(*pos), member))
-
-/* Iterate over the list, safe for removal of entries */
-#define list_for_each_entry_safe(pos, n, head, member)			\
-	for (pos = container_of((head)->next, typeof(*pos), member),	\
-	     n = container_of(pos->member.next, typeof(*pos), member);	\
-	     &pos->member != (head);					\
-	     pos = n, n = container_of(n->member.next, typeof(*n), member))
-
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
-
-static inline void
-list_add__(struct list_node *new,
-	   struct list_node *prev,
-	   struct list_node* next)
-{
-    next->prev = new;
-    new->next = next;
-    new->prev = prev;
-    prev->next = new;
-}
-
-/* Add the new entry after the give list entry */
-static inline void
-list_add(struct list_node *new, struct list_node *head)
-{
-    list_add__(new, head, head->next);
-}
-
-/* Add the new entry before the given list entry (list is circular) */
-static inline void
-list_add_tail(struct list_node *new, struct list_node *head)
-{
-    list_add__(new, head->prev, head);
-}
-
-static inline void
-list_del(struct list_node *entry)
-{
-    entry->next->prev = entry->prev;
-    entry->prev->next = entry->next;
-}
 
 typedef struct winding_s {
     const mplane_t *plane;
