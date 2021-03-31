@@ -56,11 +56,13 @@ static gltexture_t gltextures_data[MAX_STATIC_GLTEXTURES];
 struct {
     struct list_node free;
     struct list_node active;
+    struct list_node inactive;
     gltexture_t *data;
     int num_textures;
 } manager = {
     .free = LIST_HEAD_INIT(manager.free),
     .active = LIST_HEAD_INIT(manager.active),
+    .inactive = LIST_HEAD_INIT(manager.inactive),
 };
 
 static void
@@ -72,6 +74,7 @@ GL_InitTextureManager()
 
     list_head_init(&manager.free);
     list_head_init(&manager.active);
+    list_head_init(&manager.inactive);
 
     /* Add all textures to the free list */
     for (int i = 0; i < manager.num_textures; i++)
@@ -84,6 +87,8 @@ GL_FreeTextures()
     gltexture_t *texture;
 
     list_for_each_entry(texture, &manager.active, list)
+        glDeleteTextures(1, &texture->texnum);
+    list_for_each_entry(texture, &manager.inactive, list)
         glDeleteTextures(1, &texture->texnum);
 
     GL_InitTextureManager();
@@ -395,9 +400,15 @@ name (and the CRC matches).  Otherwise allocate and configure a new
 one.
 ================
 */
-static int
+struct alloc_texture_result {
+    qboolean exists;
+    int texnum;
+};
+
+static struct alloc_texture_result
 GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int width, int height, enum texture_type type)
 {
+    struct alloc_texture_result result = {0};
     gltexture_t *texture;
 
     /* Check the active list for a match */
@@ -405,22 +416,44 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
         if (owner != texture->owner)
             continue;
         if (!strcmp(name, texture->name)) {
-            if (crc != texture->crc || type != texture->type)
+            if (type != texture->type || (crc != texture->crc && type != TEXTURE_TYPE_LIGHTMAP))
                 goto GL_AllocTexture_setup;
             if (width != texture->width || height != texture->height)
                 goto GL_AllocTexture_setup;
 
+            result.exists = true;
             goto GL_AllocTexture_out;
         }
     }
 
-    // TODO: use NOTEXTURE instead?
-    if (list_empty(&manager.free))
-	Sys_Error("numgltextures == MAX_GLTEXTURES");
+    /* Check the inactive list for a match, these are unowned */
+    list_for_each_entry(texture, &manager.inactive, list) {
+        if (!strcmp(name, texture->name)) {
+            if (type != texture->type || (crc != texture->crc && type != TEXTURE_TYPE_LIGHTMAP))
+                goto GL_AllocTexture_setup;
+            if (width != texture->width || height != texture->height)
+                goto GL_AllocTexture_setup;
 
-    /* Grab a texture from the free list */
-    texture = container_of(manager.free.next, gltexture_t, list);
-    list_del(&texture->list);
+            /* Move it back to the active list and return */
+            list_del(&texture->list);
+            list_add(&texture->list, &manager.active);
+            result.exists = true;
+            goto GL_AllocTexture_out;
+        }
+    }
+
+    if (!list_empty(&manager.free)) {
+        /* Grab a texture from the free list */
+        texture = container_of(manager.free.next, gltexture_t, list);
+        list_del(&texture->list);
+    } else if (!list_empty(&manager.inactive)) {
+        /* Repurpose the least recently used inactive texture (from the list tail) */
+        texture = container_of(manager.inactive.prev, gltexture_t, list);
+        list_del(&texture->list);
+    } else {
+        // TODO: use NOTEXTURE instead?
+	Sys_Error("numgltextures == MAX_GLTEXTURES");
+    }
 
     qstrncpy(texture->name, name, sizeof(texture->name));
     glGenTextures(1, &texture->texnum);
@@ -435,12 +468,26 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
 
  GL_AllocTexture_out:
     texture->owner = owner;
+    result.texnum = texture->texnum;
 
-    return texture->texnum;
+    return result;
+}
+
+static struct alloc_texture_result
+GL_AllocTexture8_Result(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type)
+{
+    unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
+    return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
 }
 
 int
 GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type)
+{
+    return GL_AllocTexture8_Result(owner, name, pic, type).texnum;
+}
+
+static struct alloc_texture_result
+GL_AllocTexture32_Result(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type)
 {
     unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
     return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
@@ -449,21 +496,20 @@ GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enu
 int
 GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type)
 {
-    unsigned short crc = CRC_Block(pic->pixels, pic->width * pic->height * sizeof(pic->pixels[0]));
-    return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
+    return GL_AllocTexture32_Result(owner, name, pic, type).texnum;
 }
 
 int
 GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha)
 {
-    int texnum = GL_AllocTexture8(owner, name, pic, type);
+    struct alloc_texture_result result = GL_AllocTexture8_Result(owner, name, pic, type);
 
-    if (!isDedicated) {
-	GL_Bind(texnum);
+    if (!isDedicated && !result.exists) {
+	GL_Bind(result.texnum);
 	GL_Upload8_Alpha(pic, type, alpha);
     }
 
-    return texnum;
+    return result.texnum;
 }
 
 int
@@ -475,14 +521,14 @@ GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum textu
 int
 GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic)
 {
-    int texnum = GL_AllocTexture8(owner, name, &glpic->pic, TEXTURE_TYPE_HUD);
+    struct alloc_texture_result result = GL_AllocTexture8_Result(owner, name, &glpic->pic, TEXTURE_TYPE_HUD);
 
-    if (!isDedicated) {
-	GL_Bind(texnum);
+    if (!isDedicated && !result.exists) {
+	GL_Bind(result.texnum);
 	GL_Upload8_GLPic(glpic);
     }
 
-    return texnum;
+    return result.texnum;
 }
 
 void
@@ -490,11 +536,16 @@ GL_DisownTextures(const model_t *owner)
 {
     gltexture_t *texture, *next;
 
+    /*
+     * Disowned textures are added to the head of the list, so more
+     * recently discarded ones are quicker to find.  We then harvest
+     * from the tail if we need a new texture so the least recently
+     * used ones will be purged.
+     */
     list_for_each_entry_safe(texture, next, &manager.active, list) {
         if (texture->owner == owner) {
-            glDeleteTextures(1, &texture->texnum);
             list_del(&texture->list);
-            list_add(&texture->list, &manager.free);
+            list_add(&texture->list, &manager.inactive);
         }
     }
 }
