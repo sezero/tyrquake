@@ -551,12 +551,37 @@ GL_DisownTextures(const model_t *owner)
 }
 
 static void
+GL_AddTexturesToTree(struct stree_root *root, struct list_node *list_head)
+{
+    gltexture_t *texture;
+
+    /*
+     * The same texture name with a different owner could be loaded
+     * more than once, so if the insert fails (due to non-uniqueness)
+     * add an increasing counter to the string until we can
+     * successfully insert.  There are typically very few name
+     * clashes, but they do occur.
+     */
+    *root = STREE_ROOT;
+    list_for_each_entry(texture, list_head, list) {
+        qboolean result = STree_InsertAlloc(root, texture->name, false);
+        if (!result) {
+            int counter = 1;
+            while (!result) {
+                result = STree_InsertAlloc(root, va("%s(%d)", texture->name, counter++), true);
+            }
+        }
+    }
+}
+
+static void
 GL_PrintTextures_f(void)
 {
     struct stree_root root;
     gltexture_t *texture;
     qboolean print_active = true;
     qboolean print_inactive = false;
+    qboolean print_free = false;
 
     if (Cmd_Argc() > 1) {
         if (!strcasecmp(Cmd_Argv(1), "active")) {
@@ -564,11 +589,15 @@ GL_PrintTextures_f(void)
         } else if (!strcasecmp(Cmd_Argv(1), "inactive")) {
             print_active = false;
             print_inactive = true;
+        } else if (!strcasecmp(Cmd_Argv(1), "free")) {
+            print_active = false;
+            print_free = true;
         } else if (!strcasecmp(Cmd_Argv(1), "all")) {
             print_active = true;
             print_inactive = true;
+            print_free = true;
         } else {
-            Con_Printf("Usage: %s [active|inactive|all]\n", Cmd_Argv(0));
+            Con_Printf("Usage: %s [active|inactive|free|all]\n", Cmd_Argv(0));
             return;
         }
     }
@@ -576,25 +605,27 @@ GL_PrintTextures_f(void)
     STree_AllocInit();
 
     if (print_active) {
-        root = STREE_ROOT;
-        list_for_each_entry(texture, &manager.active, list)
-            STree_InsertAlloc(&root, texture->name, false);
+        GL_AddTexturesToTree(&root, &manager.active);
         Con_ShowTree(&root);
         Con_Printf("======== %d active textures ========\n", root.entries);
     }
     if (print_inactive) {
-        root = STREE_ROOT;
-        list_for_each_entry(texture, &manager.inactive, list)
-            STree_InsertAlloc(&root, texture->name, false);
+        GL_AddTexturesToTree(&root, &manager.inactive);
         Con_ShowTree(&root);
         Con_Printf("======== %d inactive textures in cache ========\n", root.entries);
+    }
+    if (print_free) {
+        int count = 0;
+        list_for_each_entry(texture, &manager.free, list)
+            count++;
+        Con_Printf("======== %d free textures slots ========\n", count);
     }
 }
 
 static void
 GL_PrintTextures_Arg_f(struct stree_root *root, const char *arg)
 {
-    const char *args[] = { "active", "inactive", "all" };
+    const char *args[] = { "active", "inactive", "free", "all" };
     int i;
     int arg_len = arg ? strlen(arg) : 0;
 
