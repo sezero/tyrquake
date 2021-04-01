@@ -23,6 +23,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "qtypes.h"
 
+void CDAudio_AddCommands();
+void CDAudio_RegisterVariables();
+
 int CDAudio_Init(void);
 void CDAudio_Play(byte track, qboolean looping);
 void CDAudio_Stop(void);

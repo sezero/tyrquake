@@ -790,11 +790,13 @@ static void
 Commands_Init()
 {
     Cmd_AddCommands();
+    CDAudio_AddCommands();
 }
 
 static void
 Cvars_Init()
 {
+    CDAudio_RegisterVariables();
 }
 
 /*

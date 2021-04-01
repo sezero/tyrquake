@@ -310,6 +310,18 @@ CD_f(void)
     }
 }
 
+void
+CDAudio_AddCommands()
+{
+    Cmd_AddCommand("cd", CD_f);
+}
+
+void
+CDAudio_RegisterVariables()
+{
+    Cvar_RegisterVariable(&bgmvolume);
+}
+
 int
 CDAudio_Init(void)
 {
@@ -324,7 +336,6 @@ CDAudio_Init(void)
     if (COM_CheckParm("-nocdaudio"))
 	return -1;
 
-    Cmd_AddCommand("cd", CD_f);
     err = CDDrv_InitDevice();
     if (err)
 	return err;
@@ -339,7 +350,6 @@ CDAudio_Init(void)
 	Con_Printf("CDAudio_Init: No CD in player.\n");
 	cdValid = false;
     }
-    Cvar_RegisterVariable(&bgmvolume);
 
     return 0;
 }
