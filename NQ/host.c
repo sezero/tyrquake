@@ -792,6 +792,7 @@ Commands_Init()
     Cmd_AddCommands();
     CDAudio_AddCommands();
     COM_AddCommands();
+    Con_AddCommands();
 }
 
 static void
@@ -799,6 +800,7 @@ Cvars_Init()
 {
     CDAudio_RegisterVariables();
     COM_RegisterVariables();
+    Con_RegisterVariables();
 }
 
 /*

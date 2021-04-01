@@ -43,9 +43,12 @@ extern int con_notifylines;	// scan lines to clear for notify lines
 extern qboolean con_forcedup;
 extern qboolean con_initialized;
 
+void Con_AddCommands();
+void Con_RegisterVariables();
+void Con_Init();
+
 void Con_DrawCharacter(int cx, int line, int num);
 void Con_CheckResize(void);
-void Con_Init(void);
 void Con_DrawConsole(int lines);
 void Con_Print(const char *txt);
 void Con_Printf(const char *fmt, ...) __attribute__((format(printf,1,2)));

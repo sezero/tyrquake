@@ -769,6 +769,21 @@ Con_Maplist_f()
     Con_ShowTree(&st_root);
 }
 
+void
+Con_AddCommands()
+{
+    Cmd_AddCommand("toggleconsole", Con_ToggleConsole_f);
+    Cmd_AddCommand("messagemode", Con_MessageMode_f);
+    Cmd_AddCommand("messagemode2", Con_MessageMode2_f);
+    Cmd_AddCommand("clear", Con_Clear_f);
+    Cmd_AddCommand("maplist", Con_Maplist_f);
+}
+
+void
+Con_RegisterVariables()
+{
+    Cvar_RegisterVariable(&con_notifytime);
+}
 
 /*
 ================
@@ -787,15 +802,6 @@ Con_Init(void)
     Con_CheckResize();
 
     Con_Printf("Console initialized.\n");
-
-    /* register our commands */
-    Cvar_RegisterVariable(&con_notifytime);
-
-    Cmd_AddCommand("toggleconsole", Con_ToggleConsole_f);
-    Cmd_AddCommand("messagemode", Con_MessageMode_f);
-    Cmd_AddCommand("messagemode2", Con_MessageMode2_f);
-    Cmd_AddCommand("clear", Con_Clear_f);
-    Cmd_AddCommand("maplist", Con_Maplist_f);
 
     con_initialized = true;
 }
