@@ -784,6 +784,18 @@ Host_Frame(float time)
     Con_Printf("serverprofile: %2i clients %2i msec\n", c, m);
 }
 
+//============================================================================
+
+static void
+Commands_Init()
+{
+    Cmd_AddCommands();
+}
+
+static void
+Cvars_Init()
+{
+}
 
 /*
 ====================
@@ -811,8 +823,10 @@ Host_Init(quakeparms_t *parms)
     com_argv = parms->argv;
 
     Memory_Init(parms->membase, parms->memsize);
+    Cvars_Init();
+    Commands_Init();
+
     Cbuf_Init();
-    Cmd_Init();
     COM_Init();
     V_Init();
     Chase_Init();

@@ -1386,6 +1386,17 @@ Host_Frame(float time)
 
 //============================================================================
 
+static void
+Commands_Init()
+{
+    Cmd_AddCommands();
+}
+
+static void
+Cvars_Init()
+{
+}
+
 /*
 ====================
 Host_Init
@@ -1411,8 +1422,10 @@ Host_Init(quakeparms_t *parms)
 		  parms->memsize / (float)0x100000);
 
     Memory_Init(parms->membase, parms->memsize);
+    Cvars_Init();
+    Commands_Init();
+
     Cbuf_Init();
-    Cmd_Init();
     COM_Init();
 
     V_Init();

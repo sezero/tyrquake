@@ -1614,6 +1614,20 @@ static brush_loader_t SV_BrushLoader = {
 static texture_t qwsv_notexture_mip;
 texture_t *r_notexture_mip = &qwsv_notexture_mip;
 
+//============================================================================
+
+static void
+Commands_Init()
+{
+    Cmd_AddCommands();
+}
+
+static void
+Cvars_Init()
+{
+
+}
+
 /*
 ====================
 SV_Init
@@ -1636,8 +1650,10 @@ SV_Init(quakeparms_t *parms)
 		 parms->memsize / (float)0x100000);
 
     Memory_Init(parms->membase, parms->memsize);
+    Cvars_Init();
+    Commands_Init();
+
     Cbuf_Init();
-    Cmd_Init();
     COM_Init();
 
     PR_Init();

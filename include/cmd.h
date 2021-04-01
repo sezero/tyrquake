@@ -111,7 +111,7 @@ void Cmd_ExecuteString(const char *text, cmd_source_t src);
 void Cmd_ExecuteString(const char *text);
 #endif
 
-void Cmd_Init(void);
+void Cmd_AddCommands(void);
 
 void Cmd_AddCommand(const char *cmd_name, xcommand_t function);
 void Cmd_SetCompletion(const char *cmd_name, cmd_arg_f completion);

@@ -453,7 +453,7 @@ Cmd_Init
 ============
 */
 void
-Cmd_Init(void)
+Cmd_AddCommands(void)
 {
     Cmd_AddCommand("stuffcmds", Cmd_StuffCmds_f);
     Cmd_AddCommand("exec", Cmd_Exec_f);
