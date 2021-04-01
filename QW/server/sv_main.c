@@ -1620,12 +1620,13 @@ static void
 Commands_Init()
 {
     Cmd_AddCommands();
+    COM_AddCommands();
 }
 
 static void
 Cvars_Init()
 {
-
+    COM_RegisterVariables();
 }
 
 /*

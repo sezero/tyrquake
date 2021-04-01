@@ -215,6 +215,9 @@ unsigned COM_CheckParm(const char *parm);
 void COM_AddParm(const char *parm);
 #endif
 
+void COM_AddCommands();
+void COM_RegisterVariables();
+
 void COM_Init(void);
 void COM_InitArgv(int argc, const char **argv);
 

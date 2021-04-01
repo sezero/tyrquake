@@ -1229,6 +1229,20 @@ COM_AddParm(const char *parm)
 }
 #endif
 
+void
+COM_AddCommands()
+{
+    Cmd_AddCommand("path", COM_Path_f);
+}
+
+void
+COM_RegisterVariables()
+{
+    Cvar_RegisterVariable(&registered);
+    Cvar_RegisterVariable(&cmdline);
+}
+
+
 /*
 ================
 COM_Init
@@ -1237,11 +1251,6 @@ COM_Init
 void
 COM_Init(void)
 {
-    Cvar_RegisterVariable(&registered);
-    Cvar_RegisterVariable(&cmdline);
-
-    Cmd_AddCommand("path", COM_Path_f);
-
     COM_InitFilesystem();
     COM_CheckRegistered();
 }
