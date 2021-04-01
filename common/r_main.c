@@ -185,25 +185,16 @@ R_InitTurb(void)
     }
 }
 
-
-/*
-===============
-R_Init
-===============
-*/
 void
-R_Init(void)
+R_AddCommands()
 {
-    int dummy;
-
-    // get stack position so we can guess if we are going to overflow
-    r_stack_start = (byte *)&dummy;
-
-    R_InitTurb();
-
     Cmd_AddCommand("timerefresh", R_TimeRefresh_f);
     Cmd_AddCommand("pointfile", R_ReadPointFile_f);
+}
 
+void
+R_RegisterVariables()
+{
     Cvar_RegisterVariable(&r_draworder);
     Cvar_RegisterVariable(&r_speeds);
     Cvar_RegisterVariable(&r_graphheight);
@@ -238,6 +229,25 @@ R_Init(void)
     Cvar_RegisterVariable(&r_slimealpha);
     Cvar_RegisterVariable(&r_lavaalpha);
     Cvar_RegisterVariable(&r_telealpha);
+
+    D_RegisterVariables();
+}
+
+
+/*
+===============
+R_Init
+===============
+*/
+void
+R_Init(void)
+{
+    int dummy;
+
+    // get stack position so we can guess if we are going to overflow
+    r_stack_start = (byte *)&dummy;
+
+    R_InitTurb();
 
     view_clipplanes[0].leftedge = true;
     view_clipplanes[1].rightedge = true;

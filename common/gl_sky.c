@@ -145,16 +145,19 @@ Sky_SkyCommand_Arg_f(struct stree_root *root, const char *arg)
 }
 
 void
-Sky_Init()
+Sky_AddCommands()
 {
-    Cvar_RegisterVariable(&r_sky_quality);
-    Cvar_RegisterVariable (&r_fastsky);
-    Cvar_RegisterVariable (&r_skyalpha);
-
     Cmd_AddCommand("sky", Sky_SkyCommand_f);
     Cmd_SetCompletion("sky", Sky_SkyCommand_Arg_f);
 }
 
+void
+Sky_RegisterVariables()
+{
+    Cvar_RegisterVariable(&r_sky_quality);
+    Cvar_RegisterVariable (&r_fastsky);
+    Cvar_RegisterVariable (&r_skyalpha);
+}
 
 // ----------------------------------------------------------------------
 // Skybox Bounds Checking

@@ -793,6 +793,11 @@ Commands_Init()
     CDAudio_AddCommands();
     COM_AddCommands();
     Con_AddCommands();
+
+    /* Note cls.state not set at this stage, so can't check for ca_dedicated */
+    if (!COM_CheckParm("-dedicated")) {
+        R_AddCommands();
+    }
 }
 
 static void
@@ -801,6 +806,11 @@ Cvars_Init()
     CDAudio_RegisterVariables();
     COM_RegisterVariables();
     Con_RegisterVariables();
+
+    /* Note cls.state not set at this stage, so can't check for ca_dedicated */
+    if (!COM_CheckParm("-dedicated")) {
+        R_RegisterVariables();
+    }
 }
 
 /*

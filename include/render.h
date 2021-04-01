@@ -196,6 +196,9 @@ extern struct texture_s *r_notexture_mip;
 
 extern entity_t r_worldentity;
 
+void R_AddCommands();
+void R_RegisterVariables();
+
 void R_Init(void);
 void R_InitTextures(void);
 void R_InitEfrags(void);

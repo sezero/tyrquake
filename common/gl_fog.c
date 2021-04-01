@@ -331,6 +331,18 @@ Fog_NewMap()
     map_skyfog = buffer[0] ? atof(buffer) : r_skyfog.value;
 }
 
+void
+Fog_AddCommands()
+{
+    Cmd_AddCommand("fog", Fog_Command_f);
+}
+
+void
+Fog_RegisterVariables()
+{
+    Cvar_RegisterVariable(&r_skyfog);
+}
+
 /*
   =============
   Fog_Init
@@ -341,9 +353,6 @@ Fog_NewMap()
 void
 Fog_Init()
 {
-    Cmd_AddCommand("fog", Fog_Command_f);
-    Cvar_RegisterVariable(&r_skyfog);
-
     //set up global fog
     fog.current.density = 0.0f;
     fog.current.red = 0.3f;

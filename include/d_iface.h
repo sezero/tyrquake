@@ -123,6 +123,8 @@ extern int d_con_indirect;	// if 0, Quake will draw console directly
 
 extern vec3_t r_pright, r_pup, r_ppn;
 
+void D_RegisterVariables();
+void D_Init();
 
 void D_Aff8Patch(void *pcolormap);
 void D_BeginDirectRect(int x, int y, const byte *pbitmap, int width,
@@ -139,7 +141,6 @@ void D_DrawSprite(void);
 void D_DrawSurfaces(qboolean sort_submodels);
 void D_EnableBackBufferAccess(void);
 void D_EndParticles(void);
-void D_Init(void);
 void D_ViewChanged(void);
 void D_SetupFrame(void);
 void D_StartParticles(void);

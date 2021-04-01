@@ -37,6 +37,14 @@ static float basemip[NUM_MIPS - 1] = { 1.0, 0.5 * 0.8, 0.25 * 0.8 };
 
 void (*D_DrawSpans)(espan_t *pspan);
 
+void
+D_RegisterVariables()
+{
+    Cvar_RegisterVariable(&d_subdiv16);
+    Cvar_RegisterVariable(&d_mipcap);
+    Cvar_RegisterVariable(&d_mipscale);
+}
+
 /*
 ===============
 D_Init
@@ -45,13 +53,7 @@ D_Init
 void
 D_Init(void)
 {
-
     r_skydirect = 1;
-
-    Cvar_RegisterVariable(&d_subdiv16);
-    Cvar_RegisterVariable(&d_mipcap);
-    Cvar_RegisterVariable(&d_mipscale);
-
     r_recursiveaffinetriangles = true;
     r_pixbytes = 1;
     r_aliasuvscale = 1.0;

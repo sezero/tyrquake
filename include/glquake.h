@@ -370,7 +370,8 @@ extern char map_skyboxname[256];
 extern float map_skyfog;
 extern vec3_t skyflatcolor;
 void Sky_NewMap();
-void Sky_Init();
+void Sky_AddCommands();
+void Sky_RegisterVariables();
 void Sky_InitBounds(float mins[6][2], float maxs[6][2]);
 void Sky_AddPolyToSkyboxBounds(const glpoly_t *poly, float mins[6][2], float maxs[6][2]);
 qboolean Sky_LoadSkyboxTextures(const char *skyboxname);
@@ -398,6 +399,8 @@ void Draw_InitGLTextures(void);
 //
 // gl_fog.c
 //
+void Fog_AddCommands();
+void Fog_RegisterVariables();
 void Fog_Init();
 void Fog_SetupGL();
 void Fog_EnableGlobalFog();

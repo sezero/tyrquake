@@ -213,19 +213,21 @@ GL_Extensions_f()
     }
 }
 
-/*
-===============
-R_Init
-===============
-*/
 void
-R_Init(void)
+R_AddCommands()
 {
     Cmd_AddCommand("gl_extensions", GL_Extensions_f);
     Cmd_AddCommand("envmap", R_Envmap_f);
     Cmd_AddCommand("pointfile", R_ReadPointFile_f);
     Cmd_AddCommand("timerefresh", R_TimeRefresh_f);
 
+    Fog_AddCommands();
+    Sky_AddCommands();
+}
+
+void
+R_RegisterVariables()
+{
     Cvar_RegisterVariable(&r_speeds);
     Cvar_RegisterVariable(&r_fullbright);
     Cvar_RegisterVariable(&r_drawentities);
@@ -278,12 +280,23 @@ R_Init(void)
 
     Cvar_RegisterVariable(&_debug_models);
 
+    Fog_RegisterVariables();
+    Sky_RegisterVariables();
+}
+
+/*
+===============
+R_Init
+===============
+*/
+void
+R_Init(void)
+{
     R_InitParticles();
     R_InitParticleTexture();
     R_InitTranslationTable();
 
     Fog_Init();
-    Sky_Init();
 }
 
 
