@@ -50,8 +50,12 @@ typedef struct {
     char name[MAX_QPATH];
 } gltexture_t;
 
-#define	MAX_STATIC_GLTEXTURES	4096
-static gltexture_t gltextures_data[MAX_STATIC_GLTEXTURES];
+#define DEFAULT_MAX_TEXTURES 2048
+cvar_t gl_max_textures = {
+    .name = "gl_max_textures",
+    .string = stringify(DEFAULT_MAX_TEXTURES),
+    .flags = CVAR_VIDEO,
+};
 
 struct {
     struct list_node free;
@@ -59,6 +63,7 @@ struct {
     struct list_node inactive;
     gltexture_t *data;
     int num_textures;
+    int hunk_highmark;
 } manager = {
     .free = LIST_HEAD_INIT(manager.free),
     .active = LIST_HEAD_INIT(manager.active),
@@ -68,9 +73,14 @@ struct {
 static void
 GL_InitTextureManager()
 {
-    // TODO: Make this hunk allocated
-    manager.data = gltextures_data;
-    manager.num_textures = MAX_STATIC_GLTEXTURES;
+    if (manager.data) {
+        Hunk_FreeToHighMark(manager.hunk_highmark);
+        manager.data = NULL;
+    }
+
+    manager.num_textures = qmax((int)gl_max_textures.value, 512);
+    manager.hunk_highmark = Hunk_HighMark();
+    manager.data = Hunk_HighAllocName(manager.num_textures * sizeof(gltexture_t), "texmgr");
 
     list_head_init(&manager.free);
     list_head_init(&manager.active);

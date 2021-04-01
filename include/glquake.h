@@ -238,6 +238,7 @@ extern int gl_num_texture_units;
 extern cvar_t gl_max_size;
 extern cvar_t gl_playermip;
 extern cvar_t gl_npot;
+extern cvar_t gl_max_textures;
 
 extern int mirrortexturenum;	// quake texturenum, not gltexturenum
 extern qboolean mirror;

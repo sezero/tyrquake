@@ -432,6 +432,10 @@ Set volume level for background music.  Valid values are between 0 (off) and 1
 .IP "\fBgl_picmip\fP"
 .IP "\fBgl_constretch\fP"
 .IP "\fBgl_max_size\fP"
+.IP "\fBgl_max_textures\fP"
+The maximum number of textures that will be kept in memory at one time.  If
+changed at runtime, a vid_restart is required for the change to take effect.
+Default 2048.
 .IP "\fBgl_npot\fP"
 If 1, allow use of non-power-of-two sized textures in OpenGL (if the ARB
 extension is advertised).  Set to zero to force stretching/padding of textures
