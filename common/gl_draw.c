@@ -369,6 +369,12 @@ Draw_ConbackString(const qpic8_t *conback, byte *pixels, const char *str)
     }
 }
 
+void
+Draw_RegisterVariables()
+{
+    Cvar_RegisterVariable(&gl_constretch);
+}
+
 /*
 ===============
 Draw_Init
@@ -382,8 +388,6 @@ Draw_Init(void)
     char version[5];
 
     GL_InitTextures();
-
-    Cvar_RegisterVariable(&gl_constretch);
 
     /* Load the graphics wad onto the hunk */
     W_LoadWadFile(&host_gfx, "gfx.wad");

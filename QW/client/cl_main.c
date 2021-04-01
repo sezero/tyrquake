@@ -1405,6 +1405,7 @@ Cvars_Init()
     Con_RegisterVariables();
 
     R_RegisterVariables();
+    Draw_RegisterVariables();
 }
 
 /*

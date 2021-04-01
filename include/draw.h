@@ -37,7 +37,9 @@ extern const qpic8_t *draw_disc;	// also used on sbar
 extern const qpic8_t *draw_backtile;
 extern const byte *draw_chars;
 
-void Draw_Init(void);
+void Draw_RegisterVariables();
+void Draw_Init();
+
 void Draw_Character(int x, int y, byte num);
 void Draw_Pic(int x, int y, const qpic8_t *pic);
 void Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color);

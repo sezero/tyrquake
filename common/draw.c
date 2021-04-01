@@ -200,6 +200,10 @@ Draw_CacheConback(void)
     return pic;
 }
 
+void
+Draw_RegisterVariables()
+{
+}
 
 /*
 ===============

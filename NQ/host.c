@@ -810,6 +810,7 @@ Cvars_Init()
     /* Note cls.state not set at this stage, so can't check for ca_dedicated */
     if (!COM_CheckParm("-dedicated")) {
         R_RegisterVariables();
+        Draw_RegisterVariables();
     }
 }
 
