@@ -829,6 +829,7 @@ Cvars_Init()
         S_RegisterVariables();
         VID_RegisterVariables();
         VID_Mode_RegisterVariables();
+        Chase_RegisterVariables();
     }
 }
 
@@ -864,7 +865,6 @@ Host_Init(quakeparms_t *parms)
     Cbuf_Init();
     COM_Init();
     V_Init();
-    Chase_Init();
     Host_InitLocal();
     Key_Init();
     Con_Init();

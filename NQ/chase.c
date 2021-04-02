@@ -36,7 +36,7 @@ vec3_t chase_dest_angles;
 
 
 void
-Chase_Init(void)
+Chase_RegisterVariables()
 {
     Cvar_RegisterVariable(&chase_back);
     Cvar_RegisterVariable(&chase_up);
@@ -48,7 +48,7 @@ void
 Chase_Reset(void)
 {
     // for respawning and teleporting
-//      start position 12 units behind head
+    // start position 12 units behind head
 }
 
 void
