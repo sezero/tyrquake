@@ -1017,35 +1017,68 @@ CL_Skin_Arg_f(struct stree_root *root, const char *arg)
     COM_ScanDir(root, "skins", arg, ".pcx", true);
 }
 
-
-/*
-=================
-CL_Init
-=================
-*/
 void
-CL_Init(void)
+CL_AddCommands()
 {
-    char st[80];
+    Cmd_AddCommand("version", CL_Version_f);
 
-    cls.state = ca_disconnected;
+    Cmd_AddCommand("changing", CL_Changing_f);
+    Cmd_AddCommand("disconnect", CL_Disconnect_f);
+    Cmd_AddCommand("record", CL_Record_f);
+    Cmd_AddCommand("rerecord", CL_ReRecord_f);
+    Cmd_AddCommand("stop", CL_Stop_f);
+    Cmd_AddCommand("playdemo", CL_PlayDemo_f);
+    Cmd_SetCompletion("playdemo", CL_Demo_Arg_f);
+    Cmd_AddCommand("timedemo", CL_TimeDemo_f);
+    Cmd_SetCompletion("timedemo", CL_Demo_Arg_f);
 
-    Info_SetValueForKey(cls.userinfo, "name", "unnamed", MAX_INFO_STRING);
-    Info_SetValueForKey(cls.userinfo, "topcolor", "0", MAX_INFO_STRING);
-    Info_SetValueForKey(cls.userinfo, "bottomcolor", "0", MAX_INFO_STRING);
-    Info_SetValueForKey(cls.userinfo, "rate", "2500", MAX_INFO_STRING);
-    Info_SetValueForKey(cls.userinfo, "msg", "1", MAX_INFO_STRING);
-    qsnprintf(st, sizeof(st), "TyrQuake-%s", build_version);
-    Info_SetValueForStarKey(cls.userinfo, "*ver", st, MAX_INFO_STRING);
+    Cmd_AddCommand("skins", Skin_Skins_f);
+    Cmd_AddCommand("allskins", Skin_AllSkins_f);
 
-    CL_InitInput();
-    CL_InitTEnts();
-    CL_InitPrediction();
-    CL_InitCam();
+    Cmd_AddCommand("quit", CL_Quit_f);
 
-//
-// register our commands
-//
+    Cmd_AddCommand("connect", CL_Connect_f);
+    Cmd_AddCommand("reconnect", CL_Reconnect_f);
+
+    Cmd_AddCommand("rcon", CL_Rcon_f);
+    Cmd_AddCommand("packet", CL_Packet_f);
+    Cmd_AddCommand("user", CL_User_f);
+    Cmd_AddCommand("users", CL_Users_f);
+
+    Cmd_AddCommand("setinfo", CL_SetInfo_f);
+    Cmd_AddCommand("fullinfo", CL_FullInfo_f);
+    Cmd_AddCommand("fullserverinfo", CL_FullServerinfo_f);
+
+    Cmd_AddCommand("color", CL_Color_f);
+    Cmd_AddCommand("download", CL_Download_f);
+
+    Cmd_AddCommand("nextul", CL_NextUpload);
+    Cmd_AddCommand("stopul", CL_StopUpload);
+
+    Cmd_AddCommand("mcache", Mod_Print);
+
+    //
+    // forward to server commands
+    //
+    Cmd_AddCommand("kill", NULL);
+    Cmd_AddCommand("pause", NULL);
+    Cmd_AddCommand("say", NULL);
+    Cmd_AddCommand("say_team", NULL);
+    Cmd_AddCommand("serverinfo", NULL);
+
+    //
+    //  Windows commands
+    //
+#ifdef _WIN32
+    Cmd_AddCommand("windows", CL_Windows_f);
+#endif
+
+    CL_Input_AddCommands();
+}
+
+void
+CL_RegisterVariables()
+{
     Cvar_RegisterVariable(&host_speeds);
     Cvar_RegisterVariable(&cl_warncmd);
     Cvar_RegisterVariable(&cl_upspeed);
@@ -1101,62 +1134,36 @@ CL_Init(void)
     Cvar_RegisterVariable(&noaim);
 
     Cvar_RegisterVariable(&developer);
+
+    CL_Input_RegisterVariables();
+    CL_Cam_RegisterVariables();
+    CL_Predict_RegisterVariables();
+}
+
+/*
+=================
+CL_Init
+=================
+*/
+void
+CL_Init(void)
+{
+    char st[80];
+
+    cls.state = ca_disconnected;
+
+    Info_SetValueForKey(cls.userinfo, "name", "unnamed", MAX_INFO_STRING);
+    Info_SetValueForKey(cls.userinfo, "topcolor", "0", MAX_INFO_STRING);
+    Info_SetValueForKey(cls.userinfo, "bottomcolor", "0", MAX_INFO_STRING);
+    Info_SetValueForKey(cls.userinfo, "rate", "2500", MAX_INFO_STRING);
+    Info_SetValueForKey(cls.userinfo, "msg", "1", MAX_INFO_STRING);
+    qsnprintf(st, sizeof(st), "TyrQuake-%s", build_version);
+    Info_SetValueForStarKey(cls.userinfo, "*ver", st, MAX_INFO_STRING);
+
+    CL_InitTEnts();
+
     if (COM_CheckParm("-developer"))
 	Cvar_SetValue("developer", 1);
-
-    Cmd_AddCommand("version", CL_Version_f);
-
-    Cmd_AddCommand("changing", CL_Changing_f);
-    Cmd_AddCommand("disconnect", CL_Disconnect_f);
-    Cmd_AddCommand("record", CL_Record_f);
-    Cmd_AddCommand("rerecord", CL_ReRecord_f);
-    Cmd_AddCommand("stop", CL_Stop_f);
-    Cmd_AddCommand("playdemo", CL_PlayDemo_f);
-    Cmd_SetCompletion("playdemo", CL_Demo_Arg_f);
-    Cmd_AddCommand("timedemo", CL_TimeDemo_f);
-    Cmd_SetCompletion("timedemo", CL_Demo_Arg_f);
-
-    Cmd_AddCommand("skins", Skin_Skins_f);
-    Cmd_AddCommand("allskins", Skin_AllSkins_f);
-
-    Cmd_AddCommand("quit", CL_Quit_f);
-
-    Cmd_AddCommand("connect", CL_Connect_f);
-    Cmd_AddCommand("reconnect", CL_Reconnect_f);
-
-    Cmd_AddCommand("rcon", CL_Rcon_f);
-    Cmd_AddCommand("packet", CL_Packet_f);
-    Cmd_AddCommand("user", CL_User_f);
-    Cmd_AddCommand("users", CL_Users_f);
-
-    Cmd_AddCommand("setinfo", CL_SetInfo_f);
-    Cmd_AddCommand("fullinfo", CL_FullInfo_f);
-    Cmd_AddCommand("fullserverinfo", CL_FullServerinfo_f);
-
-    Cmd_AddCommand("color", CL_Color_f);
-    Cmd_AddCommand("download", CL_Download_f);
-
-    Cmd_AddCommand("nextul", CL_NextUpload);
-    Cmd_AddCommand("stopul", CL_StopUpload);
-
-    Cmd_AddCommand("mcache", Mod_Print);
-
-//
-// forward to server commands
-//
-    Cmd_AddCommand("kill", NULL);
-    Cmd_AddCommand("pause", NULL);
-    Cmd_AddCommand("say", NULL);
-    Cmd_AddCommand("say_team", NULL);
-    Cmd_AddCommand("serverinfo", NULL);
-
-/* FIXME - more hacks... */
-//
-//  Windows commands
-//
-#ifdef _WIN32
-    Cmd_AddCommand("windows", CL_Windows_f);
-#endif
 }
 
 
@@ -1404,6 +1411,7 @@ Commands_Init()
     S_AddCommands();
     VID_AddCommands();
     VID_Mode_AddCommands();
+    CL_AddCommands();
 }
 
 static void
@@ -1422,6 +1430,7 @@ Cvars_Init()
     S_RegisterVariables();
     VID_RegisterVariables();
     VID_Mode_RegisterVariables();
+    CL_RegisterVariables();
 }
 
 /*

@@ -290,6 +290,8 @@ extern const float dl_colors[4][4]; /* Use enums to reference the colors */
 void CL_DecayLights(void);
 void CL_RunParticles(void);
 
+void CL_AddCommands();
+void CL_RegisterVariables();
 void CL_Init(void);
 
 void CL_EstablishConnection(const char *host);
@@ -321,7 +323,9 @@ extern kbutton_t in_mlook;
 extern kbutton_t in_strafe;
 extern kbutton_t in_speed;
 
-void CL_InitInput(void);
+void CL_Input_AddCommands();
+void CL_Input_RegisterVariables();
+
 void CL_SendCmd(void);
 
 void CL_ParseTEnt(void);

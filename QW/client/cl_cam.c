@@ -541,7 +541,7 @@ Cam_Reset(void)
 }
 
 void
-CL_InitCam(void)
+CL_Cam_RegisterVariables()
 {
     Cvar_RegisterVariable(&cl_hightrack);
     Cvar_RegisterVariable(&cl_chasecam);

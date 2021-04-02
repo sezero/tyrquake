@@ -807,6 +807,7 @@ Commands_Init()
         S_AddCommands();
         VID_AddCommands();
         VID_Mode_AddCommands();
+        CL_AddCommands();
     }
 }
 
@@ -830,6 +831,7 @@ Cvars_Init()
         VID_RegisterVariables();
         VID_Mode_RegisterVariables();
         Chase_RegisterVariables();
+        CL_RegisterVariables();
     }
 }
 

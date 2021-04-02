@@ -370,7 +370,10 @@ extern const float dl_colors[4][4]; /* Use enums to reference the colors */
 void CL_DecayLights(void);
 void CL_RunParticles(void);
 
-void CL_Init(void);
+void CL_AddCommands();
+void CL_RegisterVariables();
+void CL_Init();
+
 void Host_WriteConfiguration(void);
 
 void CL_EstablishConnection(char *host);
@@ -403,7 +406,9 @@ extern kbutton_t in_mlook;
 extern kbutton_t in_strafe;
 extern kbutton_t in_speed;
 
-void CL_InitInput(void);
+void CL_Input_AddCommands();
+void CL_Input_RegisterVariables();
+
 void CL_SendCmd(const physent_stack_t *pestack);
 
 void CL_ParseTEnt(void);
@@ -478,7 +483,7 @@ void CL_ParsePlayerinfo(void);
 //
 // cl_pred.c
 //
-void CL_InitPrediction(void);
+void CL_Predict_RegisterVariables();
 void CL_PredictMove(physent_stack_t *pestack);
 void CL_PredictUsercmd(const player_state_t *from, player_state_t *to,
 		       const usercmd_t *cmd, const physent_stack_t *pestack,
@@ -498,7 +503,8 @@ qboolean Cam_DrawPlayer(int playernum);
 void Cam_Track(usercmd_t *cmd, const physent_stack_t *pestack);
 void Cam_FinishMove(usercmd_t *cmd);
 void Cam_Reset(void);
-void CL_InitCam(void);
+
+void CL_Cam_RegisterVariables();
 
 //
 // skin.c

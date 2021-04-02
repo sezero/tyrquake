@@ -795,13 +795,8 @@ CL_SendCmd(const physent_stack_t *pestack)
 }
 #endif // QW_HACK
 
-/*
-============
-CL_InitInput
-============
-*/
 void
-CL_InitInput(void)
+CL_Input_AddCommands(void)
 {
     Cmd_AddCommand("+moveup", IN_UpDown);
     Cmd_AddCommand("-moveup", IN_UpUp);
@@ -838,6 +833,11 @@ CL_InitInput(void)
     Cmd_AddCommand("-klook", IN_KLookUp);
     Cmd_AddCommand("+mlook", IN_MLookDown);
     Cmd_AddCommand("-mlook", IN_MLookUp);
+}
+
+void
+CL_Input_RegisterVariables()
+{
 #ifdef QW_HACK
     Cvar_RegisterVariable(&cl_nodelta);
 #endif

@@ -194,14 +194,8 @@ CL_PredictMove(physent_stack_t *pestack)
     VectorMA(fromstate->velocity, fraction, cl.simvel, cl.simvel);
 }
 
-
-/*
-==============
-CL_InitPrediction
-==============
-*/
 void
-CL_InitPrediction(void)
+CL_Predict_RegisterVariables(void)
 {
     Cvar_RegisterVariable(&cl_pushlatency);
     Cvar_RegisterVariable(&cl_nopred);
