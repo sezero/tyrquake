@@ -322,20 +322,19 @@ Mod_CountLeafBits(const leafbits_t *leafbits)
 /*
  * Simple LRU cache for decompressed vis data
  */
+#define PVSCACHE_ENTRIES 8
 typedef struct {
     const brushmodel_t *model;
     const mleaf_t *leaf;
     leafbits_t *leafbits;
 } pvscache_t;
-static pvscache_t pvscache[2];
+static pvscache_t pvscache[PVSCACHE_ENTRIES];
 static leafbits_t *fatpvs;
 static int pvscache_numleafs;
 static int pvscache_bytes;
 static int pvscache_blocks;
 
-static int c_cachehit, c_cachemiss;
-
-#define PVSCACHE_SIZE ARRAY_SIZE(pvscache)
+static unsigned int c_cachehit, c_cachemiss;
 
 static void
 Mod_InitPVSCache(int numleafs)
@@ -351,8 +350,8 @@ Mod_InitPVSCache(int numleafs)
     fatpvs = Hunk_AllocName(memsize, "fatpvs");
 
     memset(pvscache, 0, sizeof(pvscache));
-    leafmem = Hunk_AllocName(PVSCACHE_SIZE * memsize, "pvscache");
-    for (i = 0; i < PVSCACHE_SIZE; i++)
+    leafmem = Hunk_AllocName(PVSCACHE_ENTRIES * memsize, "pvscache");
+    for (i = 0; i < PVSCACHE_ENTRIES; i++)
 	pvscache[i].leafbits = (leafbits_t *)(leafmem + i * memsize);
 }
 
@@ -413,14 +412,14 @@ Mod_LeafPVS(const brushmodel_t *model, const mleaf_t *leaf)
     int slot;
     pvscache_t tmp;
 
-    for (slot = 0; slot < PVSCACHE_SIZE; slot++)
+    for (slot = 0; slot < PVSCACHE_ENTRIES; slot++)
 	if (pvscache[slot].model == model && pvscache[slot].leaf == leaf) {
 	    c_cachehit++;
 	    break;
 	}
 
     if (slot) {
-	if (slot == PVSCACHE_SIZE) {
+	if (slot == PVSCACHE_ENTRIES) {
 	    slot--;
 	    tmp.model = model;
 	    tmp.leaf = leaf;
@@ -446,7 +445,11 @@ Mod_LeafPVS(const brushmodel_t *model, const mleaf_t *leaf)
 static void
 PVSCache_f(void)
 {
-    Con_Printf("PVSCache: %7d hits %7d misses\n", c_cachehit, c_cachemiss);
+    uint32_t hit_percent = (uint64_t)c_cachehit * 100 / ((uint64_t)c_cachehit + c_cachemiss);
+    uint32_t cache_bytes = Mod_LeafbitsSize(pvscache_numleafs) * PVSCACHE_ENTRIES;
+
+    Con_Printf("PVSCache: %7d hits %7d misses (%3d%%)\n", c_cachehit, c_cachemiss, hit_percent);
+    Con_Printf("  %d entries, %d bytes total.\n", PVSCACHE_ENTRIES, cache_bytes);
 }
 
 static void
