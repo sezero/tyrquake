@@ -789,6 +789,7 @@ Host_Frame(float time)
 static void
 Commands_Init()
 {
+    Memory_AddCommands();
     Cmd_AddCommands();
     CDAudio_AddCommands();
     COM_AddCommands();

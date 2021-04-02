@@ -1232,6 +1232,15 @@ Memory_GetSize(void)
     return (size_t)128 << 20;
 }
 
+void
+Memory_AddCommands()
+{
+    Cmd_AddCommand("flush", Cache_Flush);
+    Cmd_AddCommand("hunk", Hunk_f);
+    Cmd_AddCommand("zone", Z_Zone_f);
+    Cmd_AddCommand("cache", Cache_f);
+}
+
 /*
  * ========================
  * Memory_Init
@@ -1260,10 +1269,4 @@ Memory_Init(void *buf, int size)
     }
     mainzone = Hunk_AllocName(zonesize, "zone");
     Z_ClearZone(mainzone, zonesize);
-
-    /* Needs to be added after the zone init... */
-    Cmd_AddCommand("flush", Cache_Flush);
-    Cmd_AddCommand("hunk", Hunk_f);
-    Cmd_AddCommand("zone", Z_Zone_f);
-    Cmd_AddCommand("cache", Cache_f);
 }

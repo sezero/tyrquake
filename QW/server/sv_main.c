@@ -1619,6 +1619,7 @@ texture_t *r_notexture_mip = &qwsv_notexture_mip;
 static void
 Commands_Init()
 {
+    Memory_AddCommands();
     Cmd_AddCommands();
     COM_AddCommands();
     Mod_AddCommands();
