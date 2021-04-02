@@ -1394,6 +1394,7 @@ Commands_Init()
     COM_AddCommands();
     Con_AddCommands();
     Key_AddCommands();
+    M_AddCommands();
 
     R_AddCommands();
     IN_AddCommands();

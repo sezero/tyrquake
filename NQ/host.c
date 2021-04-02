@@ -794,6 +794,7 @@ Commands_Init()
     COM_AddCommands();
     Con_AddCommands();
     Key_AddCommands();
+    M_AddCommands();
 
     /* Note cls.state not set at this stage, so can't check for ca_dedicated */
     if (!COM_CheckParm("-dedicated")) {

@@ -953,7 +953,7 @@ M_Quit_Draw(void)
 /* Menu Subsystem */
 
 void
-M_Init(void)
+M_AddCommands()
 {
     Cmd_AddCommand("togglemenu", M_ToggleMenu_f);
     Cmd_AddCommand("menu_main", M_Menu_Main_f);
@@ -969,6 +969,11 @@ M_Init(void)
     Cmd_AddCommand("menu_setup", M_Menu_Setup_f);
     Cmd_AddCommand("help", M_Menu_Help_f);
 #endif
+}
+
+void
+M_Init()
+{
 }
 
 void
