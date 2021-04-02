@@ -782,49 +782,6 @@ CL_ReadFromServer(void)
 
 /*
 =================
-CL_SendCmd
-=================
-*/
-void
-CL_SendCmd(void)
-{
-    usercmd_t cmd;
-
-    if (cls.state < ca_connected)
-	return;
-
-    if (cls.state == ca_active) {
-	// get basic movement from keyboard
-	CL_BaseMove(&cmd);
-
-	// allow mice or other external controllers to add to the move
-	IN_Move(&cmd);
-
-	// send the unreliable message
-	CL_SendMove(&cmd);
-    }
-
-    if (cls.demoplayback) {
-	SZ_Clear(&cls.message);
-	return;
-    }
-// send the reliable message
-    if (!cls.message.cursize)
-	return;			// no message at all
-
-    if (!NET_CanSendMessage(cls.netcon)) {
-	Con_DPrintf("CL_WriteToServer: can't send\n");
-	return;
-    }
-
-    if (NET_SendMessage(cls.netcon, &cls.message) == -1)
-	Host_Error("CL_WriteToServer: lost server connection");
-
-    SZ_Clear(&cls.message);
-}
-
-/*
-=================
 CL_Init
 =================
 */

@@ -405,7 +405,6 @@ extern kbutton_t in_speed;
 
 void CL_InitInput(void);
 void CL_SendCmd(const physent_stack_t *pestack);
-void CL_SendMove(usercmd_t *cmd);
 
 void CL_ParseTEnt(void);
 void CL_UpdateTEnts(void);

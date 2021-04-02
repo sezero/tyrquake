@@ -25,7 +25,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "input.h"
 #include "quakedef.h"
 
+#ifdef NQ_HACK
+#include "host.h"
+#include "net.h"
+#include "protocol.h"
+#endif
+
+#ifdef QW_HACK
 static cvar_t cl_nodelta = { "cl_nodelta", "0" };
+#endif
 
 /*
 ===============================================================================
@@ -48,7 +56,6 @@ state bit 2 is edge triggered on the down to up transition
 ===============================================================================
 */
 
-
 kbutton_t in_mlook, in_strafe, in_speed;
 
 static kbutton_t in_klook;
@@ -58,7 +65,6 @@ static kbutton_t in_use, in_jump, in_attack;
 static kbutton_t in_up, in_down;
 
 static int in_impulse;
-
 
 static void
 KeyDown(kbutton_t *b)
@@ -361,6 +367,7 @@ CL_KeyState(kbutton_t *key)
 	    val = 0;		//      I_Error ();
     }
     if (impulseup && !impulsedown) {
+        // FIXME: both alternatives zero?
 	if (down)
 	    val = 0;		//      I_Error ();
 	else
@@ -468,11 +475,18 @@ Send the intended movement message to the server
 void
 CL_BaseMove(usercmd_t *cmd)
 {
+#ifdef NQ_HACK
+    if (cls.state != ca_active)
+	return;
+#endif
+
     CL_AdjustAngles();
 
     memset(cmd, 0, sizeof(*cmd));
 
+#ifdef QW_HACK
     VectorCopy(cl.viewangles, cmd->angles);
+#endif
     if (in_strafe.state & 1) {
 	cmd->sidemove += cl_sidespeed.value * CL_KeyState(&in_right);
 	cmd->sidemove -= cl_sidespeed.value * CL_KeyState(&in_left);
@@ -498,6 +512,124 @@ CL_BaseMove(usercmd_t *cmd)
     }
 }
 
+#ifdef NQ_HACK
+/*
+==============
+CL_SendMove
+==============
+*/
+static void
+CL_SendMove(usercmd_t *cmd)
+{
+    int i;
+    int bits;
+    sizebuf_t buf;
+    byte data[128];
+
+    buf.maxsize = 128;
+    buf.cursize = 0;
+    buf.data = data;
+
+    cl.cmd = *cmd;
+
+    /*
+     * send the movement message
+     */
+    MSG_WriteByte(&buf, clc_move);
+    MSG_WriteFloat(&buf, cl.mtime[0]);	/* so server can get ping times */
+
+    for (i = 0; i < 3; i++)
+	if (cl.protocol == PROTOCOL_VERSION_FITZ)
+	    MSG_WriteAngle16(&buf, cl.viewangles[i]);
+	else
+	    MSG_WriteAngle(&buf, cl.viewangles[i]);
+
+    MSG_WriteShort(&buf, cmd->forwardmove);
+    MSG_WriteShort(&buf, cmd->sidemove);
+    MSG_WriteShort(&buf, cmd->upmove);
+
+    /*
+     * send button bits
+     */
+    bits = 0;
+
+    if (in_attack.state & 3)
+	bits |= 1;
+    in_attack.state &= ~2;
+
+    if (in_jump.state & 3)
+	bits |= 2;
+    in_jump.state &= ~2;
+
+    MSG_WriteByte(&buf, bits);
+    MSG_WriteByte(&buf, in_impulse);
+    in_impulse = 0;
+
+    if (cls.demoplayback)
+	return;
+
+    /*
+     * deliver the message
+     */
+
+    /*
+     * always dump the first two message, because it may contain leftover
+     * inputs from the last level
+     */
+    if (++cl.movemessages <= 2)
+	return;
+
+    if (NET_SendUnreliableMessage(cls.netcon, &buf) == -1) {
+	Con_Printf("CL_SendMove: lost server connection\n");
+	CL_Disconnect();
+    }
+}
+
+/*
+=================
+CL_SendCmd
+=================
+*/
+void
+CL_SendCmd(void)
+{
+    usercmd_t cmd;
+
+    if (cls.state < ca_connected)
+	return;
+
+    if (cls.state == ca_active) {
+	// get basic movement from keyboard
+	CL_BaseMove(&cmd);
+
+	// allow mice or other external controllers to add to the move
+	IN_Move(&cmd);
+
+	// send the unreliable message
+	CL_SendMove(&cmd);
+    }
+
+    if (cls.demoplayback) {
+	SZ_Clear(&cls.message);
+	return;
+    }
+// send the reliable message
+    if (!cls.message.cursize)
+	return;			// no message at all
+
+    if (!NET_CanSendMessage(cls.netcon)) {
+	Con_DPrintf("CL_WriteToServer: can't send\n");
+	return;
+    }
+
+    if (NET_SendMessage(cls.netcon, &cls.message) == -1)
+	Host_Error("CL_WriteToServer: lost server connection");
+
+    SZ_Clear(&cls.message);
+}
+#endif // NQ_HACK
+
+#ifdef QW_HACK
 static int
 MakeChar(int i)
 {
@@ -661,8 +793,7 @@ CL_SendCmd(const physent_stack_t *pestack)
 //
     Netchan_Transmit(&cls.netchan, buf.cursize, buf.data);
 }
-
-
+#endif // QW_HACK
 
 /*
 ============
@@ -707,19 +838,7 @@ CL_InitInput(void)
     Cmd_AddCommand("-klook", IN_KLookUp);
     Cmd_AddCommand("+mlook", IN_MLookDown);
     Cmd_AddCommand("-mlook", IN_MLookUp);
-
+#ifdef QW_HACK
     Cvar_RegisterVariable(&cl_nodelta);
-}
-
-// FIXME - unused function?
-#if 0
-/*
-============
-CL_ClearStates
-============
-*/
-static void
-CL_ClearStates(void)
-{
-}
 #endif
+}
