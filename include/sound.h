@@ -87,7 +87,10 @@ typedef struct {
     int master_vol;		// 0-255 master volume
 } channel_t;
 
-void S_Init(void);
+void S_AddCommands();
+void S_RegisterVariables();
+void S_Init();
+
 void S_Startup(void);
 void S_Shutdown(void);
 void S_StartSound(int entnum, int entchannel, sfx_t *sfx,

@@ -155,27 +155,24 @@ S_Startup(void)
     sound_started = 1;
 }
 
-
-/*
- * ================
- * S_Init
- * ================
- */
 void
-S_Init(void)
+S_AddCommands()
 {
-    Con_Printf("\nSound Initialization\n");
-
     if (COM_CheckParm("-nosound"))
 	return;
-    if (COM_CheckParm("-simsound"))
-	fakedma = true;
 
     Cmd_AddCommand("play", S_Play);
     Cmd_AddCommand("playvol", S_PlayVol);
     Cmd_AddCommand("stopsound", S_StopAllSoundsC);
     Cmd_AddCommand("soundlist", S_SoundList);
     Cmd_AddCommand("soundinfo", S_SoundInfo_f);
+}
+
+void
+S_RegisterVariables()
+{
+    if (COM_CheckParm("-nosound"))
+	return;
 
     Cvar_RegisterVariable(&nosound);
     Cvar_RegisterVariable(&volume);
@@ -187,6 +184,23 @@ S_Init(void)
     Cvar_RegisterVariable(&snd_noextraupdate);
     Cvar_RegisterVariable(&snd_show);
     Cvar_RegisterVariable(&_snd_mixahead);
+}
+
+/*
+ * ================
+ * S_Init
+ * ================
+ */
+void
+S_Init(void)
+{
+    if (COM_CheckParm("-nosound"))
+	return;
+
+    Con_Printf("\nSound Initialization\n");
+
+    if (COM_CheckParm("-simsound"))
+	fakedma = true;
 
     if (host_parms.memsize < 0x800000) {
 	Cvar_Set("loadas8bit", "1");

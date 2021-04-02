@@ -803,6 +803,7 @@ Commands_Init()
         R_AddCommands();
         IN_AddCommands();
         SCR_AddCommands();
+        S_AddCommands();
     }
 }
 
@@ -821,6 +822,7 @@ Cvars_Init()
         Draw_RegisterVariables();
         IN_RegisterVariables();
         SCR_RegisterVariables();
+        S_RegisterVariables();
     }
 }
 
