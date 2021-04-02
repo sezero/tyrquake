@@ -378,8 +378,13 @@ IN_X11_HandleInputEvent(XEvent *event)
 
 }
 
-static void
-IN_InitCvars(void)
+void
+IN_AddCommands()
+{
+}
+
+void
+IN_RegisterVariables()
 {
     Cvar_RegisterVariable(&m_filter);
     Cvar_RegisterVariable(&_windowed_mouse);
@@ -397,8 +402,6 @@ IN_Init(void)
 
     if (x_disp == NULL)
 	Sys_Error("x_disp not initialised before input...");
-
-    IN_InitCvars();
 
     if (VID_IsFullScreen()) {
 	if (!mouse_grab_active)

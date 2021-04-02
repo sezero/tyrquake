@@ -633,6 +633,19 @@ IN_MouseMove(usercmd_t *cmd)
 }
 
 void
+IN_AddCommands()
+{
+}
+
+void
+IN_RegisterVariables()
+{
+    Cvar_RegisterVariable(&in_snd_block);
+    Cvar_RegisterVariable(&m_filter);
+    Cvar_RegisterVariable(&_windowed_mouse);
+}
+
+void
 IN_Init(void)
 {
     Q_SDL_InitOnce();
@@ -642,10 +655,6 @@ IN_Init(void)
 
     mouse_x = mouse_y = 0.0;
     mouse_available = !COM_CheckParm("-nomouse");
-
-    Cvar_RegisterVariable(&in_snd_block);
-    Cvar_RegisterVariable(&m_filter);
-    Cvar_RegisterVariable(&_windowed_mouse);
 }
 
 void

@@ -39,8 +39,10 @@ extern unsigned int uiWheelMessage;
 extern qboolean mouseactive;
 extern cvar_t _windowed_mouse;
 
-void IN_Init(void);
-void IN_Shutdown(void);
+void IN_AddCommands();
+void IN_RegisterVariables();
+void IN_Init();
+void IN_Shutdown();
 
 void IN_Commands(void);
 // oportunity for devices to stick commands on the script buffer

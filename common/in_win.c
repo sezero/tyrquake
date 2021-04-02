@@ -432,14 +432,15 @@ IN_StartupMouse(void)
 	IN_ActivateMouse();
 }
 
-
-/*
-===========
-IN_Init
-===========
-*/
 void
-IN_Init(void)
+IN_AddCommands()
+{
+    Cmd_AddCommand("force_centerview", Force_CenterView_f);
+    Cmd_AddCommand("joyadvancedupdate", Joy_AdvancedUpdate_f);
+}
+
+void
+IN_RegisterVariables()
 {
     // mouse variables
     Cvar_RegisterVariable(&m_filter);
@@ -465,10 +466,16 @@ IN_Init(void)
     Cvar_RegisterVariable(&joy_yawsensitivity);
     Cvar_RegisterVariable(&joy_wwhack1);
     Cvar_RegisterVariable(&joy_wwhack2);
+}
 
-    Cmd_AddCommand("force_centerview", Force_CenterView_f);
-    Cmd_AddCommand("joyadvancedupdate", Joy_AdvancedUpdate_f);
-
+/*
+===========
+IN_Init
+===========
+*/
+void
+IN_Init(void)
+{
     uiWheelMessage = RegisterWindowMessage("MSWHEEL_ROLLMSG");
 
     IN_StartupMouse();
