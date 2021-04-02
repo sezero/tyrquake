@@ -530,6 +530,16 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 }
 
 void
+VID_RegisterVariables()
+{
+}
+
+void
+VID_AddCommands()
+{
+}
+
+void
 VID_Init(const byte *palette)
 {
     int attrib[] = {
@@ -544,9 +554,6 @@ VID_Init(const byte *palette)
     char gldir[MAX_OSPATH];
     int MajorVersion, MinorVersion;
     const qvidmode_t *mode;
-
-    VID_InitModeCvars();
-    VID_InitModeCommands();
 
     x_disp = XOpenDisplay(NULL);
     if (!x_disp) {

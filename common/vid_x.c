@@ -694,6 +694,16 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     return true;
 }
 
+void
+VID_RegisterVariables()
+{
+}
+
+void
+VID_AddCommands()
+{
+}
+
 // Called at startup to set up translation tables, takes 256 8 bit RGB values
 // the palette data will go away after the call, so it must be copied off if
 // the video driver will need it again
@@ -706,9 +716,6 @@ VID_Init(const byte *palette)
     int template_mask;
     int MajorVersion, MinorVersion;
     const qvidmode_t *mode;
-
-    VID_InitModeCvars();
-    VID_InitModeCommands();
 
     srandom(getpid());
 

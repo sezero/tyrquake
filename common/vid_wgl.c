@@ -729,12 +729,17 @@ Check_Gamma(const byte *palette, byte *newpalette)
     }
 }
 
-static void
-VID_InitCvars()
+void
+VID_RegisterVariables()
 {
     Cvar_RegisterVariable(&vid_wait);
     Cvar_RegisterVariable(&vid_nopageflip);
     Cvar_RegisterVariable(&_vid_wait_override);
+}
+
+void
+VID_AddCommands()
+{
 }
 
 /*
@@ -749,10 +754,6 @@ VID_Init(const byte *palette)
     char gldir[MAX_OSPATH];
     DEVMODE devmode;
     const qvidmode_t *mode;
-
-    VID_InitCvars();
-    VID_InitModeCvars();
-    VID_InitModeCommands();
 
     memset(&devmode, 0, sizeof(devmode));
 

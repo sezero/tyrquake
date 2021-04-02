@@ -804,6 +804,8 @@ Commands_Init()
         IN_AddCommands();
         SCR_AddCommands();
         S_AddCommands();
+        VID_AddCommands();
+        VID_Mode_AddCommands();
     }
 }
 
@@ -824,6 +826,8 @@ Cvars_Init()
         IN_RegisterVariables();
         SCR_RegisterVariables();
         S_RegisterVariables();
+        VID_RegisterVariables();
+        VID_Mode_RegisterVariables();
     }
 }
 

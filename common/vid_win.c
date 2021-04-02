@@ -734,20 +734,26 @@ VID_Minimize_f(void)
 }
 
 void
+VID_RegisterVariables()
+{
+    Cvar_RegisterVariable(&vid_wait);
+    Cvar_RegisterVariable(&vid_nopageflip);
+    Cvar_RegisterVariable(&_vid_wait_override);
+    Cvar_RegisterVariable(&block_switch);
+}
+
+void
+VID_AddCommands()
+{
+    Cmd_AddCommand("vid_minimize", VID_Minimize_f);
+}
+
+void
 VID_Init(const byte *palette)
 {
     const qvidmode_t *mode;
     int i, bestmatch, bestmatchmetric, t, dr, dg, db;
     byte *ptmp;
-
-    VID_InitModeCvars();
-    Cvar_RegisterVariable(&vid_wait);
-    Cvar_RegisterVariable(&vid_nopageflip);
-    Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&block_switch);
-
-    VID_InitModeCommands();
-    Cmd_AddCommand("vid_minimize", VID_Minimize_f);
 
     VID_InitWindowClass(global_hInstance);
     VID_InitModeList();

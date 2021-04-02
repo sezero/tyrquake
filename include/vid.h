@@ -90,8 +90,8 @@ extern int vid_testingmode;
 extern int vid_realmode;
 extern double vid_testendtime;
 
-void VID_InitModeCvars();
-void VID_InitModeCommands();
+void VID_Mode_RegisterVariables();
+void VID_Mode_AddCommands();
 void VID_SortModeList(qvidmode_t *modelist, int nummodes);
 const qvidmode_t *VID_GetCmdlineMode();
 const qvidmode_t *VID_GetModeFromCvars();
@@ -126,6 +126,8 @@ extern void (*VID_SetGammaRamp)(unsigned short ramp[3][256]);
 
 // called to set hardware gamma (if available - primarily for OpenGL renderer)
 
+void VID_RegisterVariables();
+void VID_AddCommands();
 void VID_Init(const byte *palette);
 
 // Called at startup to set up translation tables, takes 256 8 bit RGB values

@@ -352,18 +352,24 @@ VID_ProcessEvents()
 }
 
 void
-VID_Init(const byte *palette)
+VID_RegisterVariables()
 {
-    int err;
-    const qvidmode_t *mode;
-
     Cvar_RegisterVariable(&vid_wait);
     Cvar_RegisterVariable(&vid_nopageflip);
     Cvar_RegisterVariable(&_vid_wait_override);
     Cvar_RegisterVariable(&block_switch);
+}
 
-    VID_InitModeCvars();
-    VID_InitModeCommands();
+void
+VID_AddCommands()
+{
+}
+
+void
+VID_Init(const byte *palette)
+{
+    int err;
+    const qvidmode_t *mode;
 
     /*
      * Init SDL and the video subsystem

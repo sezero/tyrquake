@@ -901,7 +901,16 @@ VID_UpdateWindowPositionCvars(int x, int y)
 }
 
 void
-VID_InitModeCvars(void)
+VID_Mode_AddCommands()
+{
+    Cmd_AddCommand("vid_mode", VID_Mode_f);
+    Cmd_AddCommand("vid_describecurrentmode", VID_DescribeCurrentMode_f);
+    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
+    Cmd_AddCommand("vid_restart", VID_Restart_f);
+}
+
+void
+VID_Mode_RegisterVariables(void)
 {
     Cvar_RegisterVariable(&vid_fullscreen);
     Cvar_RegisterVariable(&vid_width);
@@ -920,15 +929,6 @@ VID_LoadConfig()
     // Load video config and init
     Cbuf_InsertText("exec video.cfg\n");
     Cbuf_Execute();
-}
-
-void
-VID_InitModeCommands()
-{
-    Cmd_AddCommand("vid_mode", VID_Mode_f);
-    Cmd_AddCommand("vid_describecurrentmode", VID_DescribeCurrentMode_f);
-    Cmd_AddCommand("vid_describemodes", VID_DescribeModes_f);
-    Cmd_AddCommand("vid_restart", VID_Restart_f);
 }
 
 /*

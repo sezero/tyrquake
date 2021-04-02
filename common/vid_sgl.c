@@ -205,9 +205,6 @@ VID_Init(const byte *palette)
     int err;
     const qvidmode_t *mode;
 
-    VID_InitModeCvars();
-    VID_InitModeCommands();
-
     Q_SDL_InitOnce();
     err = SDL_InitSubSystem(SDL_INIT_VIDEO);
     if (err < 0)
