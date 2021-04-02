@@ -1628,6 +1628,7 @@ Commands_Init()
 static void
 Cvars_Init()
 {
+    Sys_RegisterVariables();
     COM_RegisterVariables();
     PR_RegisterVariables();
 }
@@ -1666,7 +1667,6 @@ SV_Init(quakeparms_t *parms)
     SV_InitNet();
 
     SV_InitLocal();
-    Sys_Init();
 
     Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
     host_hunklevel = Hunk_LowMark();

@@ -119,12 +119,18 @@ Sys_Quit(void)
 }
 
 void
-Sys_Init(void)
+Sys_RegisterVariables()
 {
 #ifdef SERVERONLY
     Cvar_RegisterVariable(&sys_nostdout);
     Cvar_RegisterVariable(&sys_extrasleep);
-#else
+#endif
+}
+
+void
+Sys_Init(void)
+{
+#ifndef SERVERONLY
     Sys_SetFPCW();
 #endif
 }

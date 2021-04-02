@@ -86,7 +86,6 @@ static HANDLE qwclsemaphore;
 #endif
 #endif /* !SERVERONLY */
 
-
 int64_t
 Sys_FileTime(const char *path)
 {
@@ -127,9 +126,49 @@ Sys_mkdir(const char *path)
     _mkdir(path);
 }
 
-static void
-Sys_InitTimers(void)
+void
+Sys_RegisterVariables()
 {
+#ifdef SERVERONLY
+    Cvar_RegisterVariable(&sys_nostdout);
+#endif
+}
+
+static void
+Sys_Init(void)
+{
+#ifndef SERVERONLY
+    OSVERSIONINFO vinfo;
+
+#ifdef QW_HACK
+    /*
+     * Allocate a named semaphore on the client so the front end can tell
+     * if it is alive. Mutex will fail if semephore already exists
+     */
+    qwclsemaphore = CreateMutex(NULL,		/* Security attributes */
+				0,		/* owner       */
+				"qwcl");	/* Semaphore name      */
+    if (!qwclsemaphore)
+	Sys_Error("QWCL is already running on this system");
+    CloseHandle(qwclsemaphore);
+
+    qwclsemaphore = CreateSemaphore(NULL,	/* Security attributes */
+				    0,		/* Initial count       */
+				    1,		/* Maximum count       */
+				    "qwcl");	/* Semaphore name      */
+#endif
+
+    vinfo.dwOSVersionInfoSize = sizeof(vinfo);
+    if (!GetVersionEx(&vinfo))
+	Sys_Error("Couldn't get OS info");
+
+    if ((vinfo.dwMajorVersion < 4) ||
+	(vinfo.dwPlatformId == VER_PLATFORM_WIN32s)) {
+	Sys_Error("TyrQuake requires at least Win95 or NT 4.0");
+    }
+#endif
+
+    /* Set floating point options */
     MaskExceptions();
     Sys_SetFPCW();
 
@@ -485,21 +524,6 @@ Sys_ConsoleInput(void)
 #ifdef SERVERONLY
 
 /*
- * ================
- * Server Sys_Init
- * ================
- * Quake calls this so the system can register variables before
- * host_hunklevel is marked
- */
-void
-Sys_Init(void)
-{
-    Sys_InitTimers();
-
-    Cvar_RegisterVariable(&sys_nostdout);
-}
-
-/*
  * ==================
  * Server main()
  * ==================
@@ -522,6 +546,7 @@ main(int argc, char **argv)
     if (!parms.membase)
 	Sys_Error("Insufficient memory.");
 
+    Sys_Init();
     SV_Init(&parms);
 
 // run one frame immediately for first heartbeat
@@ -601,44 +626,6 @@ Sys_SendKeyEvents(void)
 
     /* Allow the vid driver to process it's message queue */
     VID_ProcessEvents();
-}
-
-/*
- * ================
- * Client Sys_Init
- * ================
- */
-void
-Sys_Init(void)
-{
-    OSVERSIONINFO vinfo;
-
-#ifdef QW_HACK
-    /*
-     * Allocate a named semaphore on the client so the front end can tell
-     * if it is alive. Mutex will fail if semephore already exists
-     */
-    qwclsemaphore = CreateMutex(NULL,		/* Security attributes */
-				0,		/* owner       */
-				"qwcl");	/* Semaphore name      */
-    if (!qwclsemaphore)
-	Sys_Error("QWCL is already running on this system");
-    CloseHandle(qwclsemaphore);
-
-    qwclsemaphore = CreateSemaphore(NULL,	/* Security attributes */
-				    0,		/* Initial count       */
-				    1,		/* Maximum count       */
-				    "qwcl");	/* Semaphore name      */
-#endif
-
-    vinfo.dwOSVersionInfoSize = sizeof(vinfo);
-    if (!GetVersionEx(&vinfo))
-	Sys_Error("Couldn't get OS info");
-
-    if ((vinfo.dwMajorVersion < 4) ||
-	(vinfo.dwPlatformId == VER_PLATFORM_WIN32s)) {
-	Sys_Error("TyrQuake requires at least Win95 or NT 4.0");
-    }
 }
 
 static void
@@ -776,7 +763,6 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 #endif
 
     Sys_Init();
-    Sys_InitTimers();
 
 // because sound is off until we become active
     S_BlockSound();

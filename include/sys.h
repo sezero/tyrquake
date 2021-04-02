@@ -81,6 +81,6 @@ void Sys_LowFPPrecision(void);
 void Sys_HighFPPrecision(void);
 void Sys_SetFPCW(void);
 
-void Sys_Init(void);
+void Sys_RegisterVariables();
 
 #endif /* SYS_H */

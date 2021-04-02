@@ -810,6 +810,7 @@ Commands_Init()
 static void
 Cvars_Init()
 {
+    Sys_RegisterVariables();
     CDAudio_RegisterVariables();
     COM_RegisterVariables();
     Con_RegisterVariables();
