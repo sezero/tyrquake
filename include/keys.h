@@ -281,8 +281,11 @@ extern char chat_buffer[];
 extern int chat_bufferlen;
 extern qboolean chat_team;
 
+void Key_AddCommands();
+void Key_RegisterVariables();
+void Key_Init();
+
 void Key_Event(knum_t key, qboolean down);
-void Key_Init(void);
 void Key_WriteBindings(FILE *f);
 void Key_SetBinding(knum_t keynum, const char *binding);
 void Key_ClearAllStates(void);

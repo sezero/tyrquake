@@ -728,6 +728,19 @@ Key_WriteBindings(FILE *f)
 		    Key_KeynumToString(i), keybindings[i]);
 }
 
+void
+Key_AddCommands()
+{
+    Cmd_AddCommand("bind", Key_Bind_f);
+    Cmd_AddCommand("unbind", Key_Unbind_f);
+    Cmd_AddCommand("unbindall", Key_Unbindall_f);
+}
+
+void
+Key_RegisterVariables()
+{
+    Cvar_RegisterVariable(&in_cfg_unbindall);
+}
 
 /*
 ===================
@@ -797,18 +810,6 @@ Key_Init(void)
     menubound[K_ESCAPE] = true;
     for (keynum = K_F1; keynum <= K_F15; keynum++)
 	menubound[keynum] = true;
-
-//
-// register our variables
-//
-    Cvar_RegisterVariable(&in_cfg_unbindall);
-
-//
-// register our functions
-//
-    Cmd_AddCommand("bind", Key_Bind_f);
-    Cmd_AddCommand("unbind", Key_Unbind_f);
-    Cmd_AddCommand("unbindall", Key_Unbindall_f);
 }
 
 /*

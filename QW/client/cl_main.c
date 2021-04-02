@@ -1393,6 +1393,7 @@ Commands_Init()
     CDAudio_AddCommands();
     COM_AddCommands();
     Con_AddCommands();
+    Key_AddCommands();
 
     R_AddCommands();
     IN_AddCommands();
@@ -1404,6 +1405,7 @@ Cvars_Init()
     CDAudio_RegisterVariables();
     COM_RegisterVariables();
     Con_RegisterVariables();
+    Key_RegisterVariables();
 
     R_RegisterVariables();
     Draw_RegisterVariables();
