@@ -796,6 +796,7 @@ Commands_Init()
     Key_AddCommands();
     M_AddCommands();
     Mod_AddCommands();
+    PR_AddCommands();
 
     /* Note cls.state not set at this stage, so can't check for ca_dedicated */
     if (!COM_CheckParm("-dedicated")) {
@@ -811,6 +812,7 @@ Cvars_Init()
     COM_RegisterVariables();
     Con_RegisterVariables();
     Key_RegisterVariables();
+    PR_RegisterVariables();
 
     /* Note cls.state not set at this stage, so can't check for ca_dedicated */
     if (!COM_CheckParm("-dedicated")) {

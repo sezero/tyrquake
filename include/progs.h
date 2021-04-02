@@ -66,7 +66,9 @@ extern qboolean pr_alpha_supported;
 
 //============================================================================
 
-void PR_Init(void);
+void PR_AddCommands();
+void PR_RegisterVariables();
+void PR_Init();
 
 void PR_ExecuteProgram(func_t fnum);
 void PR_LoadProgs(void);

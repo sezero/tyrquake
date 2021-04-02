@@ -1622,12 +1622,14 @@ Commands_Init()
     Cmd_AddCommands();
     COM_AddCommands();
     Mod_AddCommands();
+    PR_AddCommands();
 }
 
 static void
 Cvars_Init()
 {
     COM_RegisterVariables();
+    PR_RegisterVariables();
 }
 
 /*

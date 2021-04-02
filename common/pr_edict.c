@@ -1197,19 +1197,18 @@ PR_LoadProgs(void)
     pr_edict_size &= ~(sizeof(void *) - 1);
 }
 
-
-/*
-===============
-PR_Init
-===============
-*/
 void
-PR_Init(void)
+PR_AddCommands()
 {
     Cmd_AddCommand("edict", ED_PrintEdict_f);
     Cmd_AddCommand("edicts", ED_PrintEdicts);
     Cmd_AddCommand("edictcount", ED_Count);
     Cmd_AddCommand("profile", PR_Profile_f);
+}
+
+void
+PR_RegisterVariables()
+{
 #ifdef NQ_HACK
     Cvar_RegisterVariable(&nomonsters);
     Cvar_RegisterVariable(&gamecfg);
@@ -1223,6 +1222,17 @@ PR_Init(void)
     Cvar_RegisterVariable(&saved3);
     Cvar_RegisterVariable(&saved4);
 #endif
+}
+
+
+/*
+===============
+PR_Init
+===============
+*/
+void
+PR_Init(void)
+{
 }
 
 edict_t *
