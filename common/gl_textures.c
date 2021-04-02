@@ -35,9 +35,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 // FIXME - should I let this get larger, with view to enhancements?
-cvar_t gl_max_size = { "gl_max_size", "1024" };
+static cvar_t gl_max_size = { "gl_max_size", "1024" };
 
+static cvar_t gl_playermip = { "gl_playermip", "0" };
 static cvar_t gl_nobind = { "gl_nobind", "0" };
+static cvar_t gl_npot = { "gl_npot", "1" };
 cvar_t gl_picmip = { "gl_picmip", "0" };
 
 typedef struct {
@@ -51,7 +53,7 @@ typedef struct {
 } gltexture_t;
 
 #define DEFAULT_MAX_TEXTURES 2048
-cvar_t gl_max_textures = {
+static cvar_t gl_max_textures = {
     .name = "gl_max_textures",
     .string = stringify(DEFAULT_MAX_TEXTURES),
     .flags = CVAR_VIDEO,
@@ -646,15 +648,31 @@ GL_PrintTextures_Arg_f(struct stree_root *root, const char *arg)
 }
 
 void
-GL_InitTextures(void)
+GL_Textures_RegisterVariables()
+{
+    Cvar_RegisterVariable(&gl_nobind);
+    Cvar_RegisterVariable(&gl_max_size);
+    Cvar_RegisterVariable(&gl_picmip);
+    Cvar_RegisterVariable(&gl_playermip);
+    Cvar_RegisterVariable(&gl_max_textures);
+    Cvar_RegisterVariable(&gl_npot);
+}
+
+void
+GL_Textures_AddCommands()
+{
+    Cmd_AddCommand("gl_texturemode", GL_TextureMode_f);
+    Cmd_SetCompletion("gl_texturemode", GL_TextureMode_Arg_f);
+    Cmd_AddCommand("gl_printtextures", GL_PrintTextures_f);
+    Cmd_SetCompletion("gl_printtextures", GL_PrintTextures_Arg_f);
+}
+
+void
+GL_Textures_Init(void)
 {
     GLint max_size;
 
     glmode = gl_texturemodes;
-
-    Cvar_RegisterVariable(&gl_nobind);
-    Cvar_RegisterVariable(&gl_max_size);
-    Cvar_RegisterVariable(&gl_picmip);
 
     // FIXME - could do better to check on each texture upload with
     //         GL_PROXY_TEXTURE_2D
@@ -664,11 +682,6 @@ GL_InitTextures(void)
 		    (int)gl_max_size.value, max_size);
 	Cvar_Set("gl_max_size", va("%d", max_size));
     }
-
-    Cmd_AddCommand("gl_texturemode", GL_TextureMode_f);
-    Cmd_SetCompletion("gl_texturemode", GL_TextureMode_Arg_f);
-    Cmd_AddCommand("gl_printtextures", GL_PrintTextures_f);
-    Cmd_SetCompletion("gl_printtextures", GL_PrintTextures_Arg_f);
 
     GL_InitTextureManager();
     GL_LoadNoTexture();

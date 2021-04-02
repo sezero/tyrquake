@@ -223,6 +223,7 @@ R_AddCommands()
 
     Fog_AddCommands();
     Sky_AddCommands();
+    GL_Textures_AddCommands();
 }
 
 void
@@ -264,7 +265,6 @@ R_RegisterVariables()
     Cvar_RegisterVariable(&gl_smoothmodels);
     Cvar_RegisterVariable(&gl_affinemodels);
     Cvar_RegisterVariable(&gl_polyblend);
-    Cvar_RegisterVariable(&gl_playermip);
     Cvar_RegisterVariable(&gl_nocolors);
     Cvar_RegisterVariable(&gl_zfix);
 
@@ -282,6 +282,7 @@ R_RegisterVariables()
 
     Fog_RegisterVariables();
     Sky_RegisterVariables();
+    GL_Textures_RegisterVariables();
 }
 
 /*

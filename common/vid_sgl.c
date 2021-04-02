@@ -85,12 +85,6 @@ VID_GetDesktopRect(vrect_t *rect)
     rect->height = mode.h;
 }
 
-static void
-VID_InitCvars(void)
-{
-    Cvar_RegisterVariable(&gl_npot);
-}
-
 static SDL_GLContext gl_context = NULL;
 
 qboolean
@@ -211,7 +205,6 @@ VID_Init(const byte *palette)
     int err;
     const qvidmode_t *mode;
 
-    VID_InitCvars();
     VID_InitModeCvars();
     VID_InitModeCommands();
 

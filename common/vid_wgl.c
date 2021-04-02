@@ -735,7 +735,6 @@ VID_InitCvars()
     Cvar_RegisterVariable(&vid_wait);
     Cvar_RegisterVariable(&vid_nopageflip);
     Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&gl_npot);
 }
 
 /*

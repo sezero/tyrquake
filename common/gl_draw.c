@@ -387,7 +387,7 @@ Draw_Init(void)
     qpic8_t *pic;
     char version[5];
 
-    GL_InitTextures();
+    GL_Textures_Init();
 
     /* Load the graphics wad onto the hunk */
     W_LoadWadFile(&host_gfx, "gfx.wad");

@@ -912,16 +912,6 @@ VID_InitModeCvars(void)
     Cvar_RegisterVariable(&vid_window_y);
     Cvar_RegisterVariable(&vid_window_centered);
     Cvar_RegisterVariable(&vid_window_remember_position);
-
-    /*
-     * TODO: This is a dumb hack to get the cvar in place early enough
-     * in the init process.  Really, we should just init every cvar
-     * and command before loading configs, so that anything can be
-     * early inited.  Including lots of other gl_* cvars.
-     */
-#ifdef GLQUAKE
-    Cvar_RegisterVariable(&gl_max_textures);
-#endif
 }
 
 void

@@ -312,12 +312,6 @@ Check_Gamma(byte *palette)
 #endif
 
 static void
-VID_InitCvars(void)
-{
-    Cvar_RegisterVariable(&gl_npot);
-}
-
-static void
 VID_InitModeList(void)
 {
     XF86VidModeModeInfo **xmodes, *xmode;
@@ -551,7 +545,6 @@ VID_Init(const byte *palette)
     int MajorVersion, MinorVersion;
     const qvidmode_t *mode;
 
-    VID_InitCvars();
     VID_InitModeCvars();
     VID_InitModeCommands();
 

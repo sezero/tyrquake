@@ -235,11 +235,6 @@ void R_ResetNetGraphTexture(void);
 
 extern int gl_num_texture_units;
 
-extern cvar_t gl_max_size;
-extern cvar_t gl_playermip;
-extern cvar_t gl_npot;
-extern cvar_t gl_max_textures;
-
 extern int mirrortexturenum;	// quake texturenum, not gltexturenum
 extern qboolean mirror;
 extern mplane_t *mirror_plane;
@@ -250,7 +245,9 @@ void GL_Init();
 void GL_Shutdown();
 void GL_ReloadTextures();
 
-void GL_InitTextures(void);
+void GL_Textures_AddCommands();
+void GL_Textures_RegisterVariables();
+void GL_Textures_Init();
 
 void R_TranslatePlayerSkin(int playernum);
 void GL_Bind(int texnum);
