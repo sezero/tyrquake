@@ -236,6 +236,11 @@ QPal_CreateTranslucencyTable(byte transtable[65536], const byte palette[768], fl
 
 // ======================================================================
 
+void
+Mod_AddCommands()
+{
+    Cmd_AddCommand("pvscache", PVSCache_f);
+}
 
 /*
 ===============
@@ -245,7 +250,6 @@ Mod_Init
 void
 Mod_Init(const alias_loader_t *alias_loader_in, const brush_loader_t *brush_loader_in)
 {
-    Cmd_AddCommand("pvscache", PVSCache_f);
     alias_loader = alias_loader_in;
     brush_loader = brush_loader_in;
 }

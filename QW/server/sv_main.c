@@ -1621,6 +1621,7 @@ Commands_Init()
 {
     Cmd_AddCommands();
     COM_AddCommands();
+    Mod_AddCommands();
 }
 
 static void

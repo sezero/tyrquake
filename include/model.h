@@ -574,7 +574,9 @@ typedef struct alias_loader {
 
 //============================================================================
 
+void Mod_AddCommands();
 void Mod_Init(const alias_loader_t *alias_loader, const brush_loader_t *brush_loader);
+
 void *Mod_AllocName(int size, const char *name); /* Internal helper */
 #ifndef SERVERONLY
 void Mod_InitAliasCache(void);

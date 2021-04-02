@@ -1395,6 +1395,7 @@ Commands_Init()
     Con_AddCommands();
     Key_AddCommands();
     M_AddCommands();
+    Mod_AddCommands();
 
     R_AddCommands();
     IN_AddCommands();
