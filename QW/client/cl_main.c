@@ -1399,6 +1399,7 @@ Commands_Init()
 
     R_AddCommands();
     IN_AddCommands();
+    SCR_AddCommands();
 }
 
 static void
@@ -1412,6 +1413,7 @@ Cvars_Init()
     R_RegisterVariables();
     Draw_RegisterVariables();
     IN_RegisterVariables();
+    SCR_RegisterVariables();
 }
 
 /*

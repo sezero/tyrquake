@@ -802,6 +802,7 @@ Commands_Init()
     if (!COM_CheckParm("-dedicated")) {
         R_AddCommands();
         IN_AddCommands();
+        SCR_AddCommands();
     }
 }
 
@@ -819,6 +820,7 @@ Cvars_Init()
         R_RegisterVariables();
         Draw_RegisterVariables();
         IN_RegisterVariables();
+        SCR_RegisterVariables();
     }
 }
 

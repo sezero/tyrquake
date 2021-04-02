@@ -27,7 +27,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // screen.h
 
-void SCR_Init(void);
+void SCR_AddCommands();
+void SCR_RegisterVariables();
+void SCR_Init();
+
 void SCR_CheckResize();
 void SCR_UpdateScreen(void);
 void SCR_UpdateWholeScreen(void);

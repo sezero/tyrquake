@@ -1435,13 +1435,20 @@ SCR_UpdateWholeScreen(void)
 
 //=============================================================================
 
-/*
-==================
-SCR_Init
-==================
-*/
 void
-SCR_Init(void)
+SCR_AddCommands()
+{
+    Cmd_AddCommand("hudscale", SCR_Hudscale_f);
+    Cmd_AddCommand("screenshot", SCR_ScreenShot_f);
+    Cmd_AddCommand("sizeup", SCR_SizeUp_f);
+    Cmd_AddCommand("sizedown", SCR_SizeDown_f);
+#ifdef QW_HACK
+    Cmd_AddCommand("snap", SCR_RSShot_f);
+#endif
+}
+
+void
+SCR_RegisterVariables()
 {
     Cvar_RegisterVariable(&scr_fov);
     Cvar_RegisterVariable(&scr_viewsize);
@@ -1453,20 +1460,22 @@ SCR_Init(void)
     Cvar_RegisterVariable(&scr_centertime);
     Cvar_RegisterVariable(&scr_printspeed);
     Cvar_RegisterVariable(&show_fps);
+#ifdef QW_HACK
+    Cvar_RegisterVariable(&scr_allowsnap);
+#endif
+}
 
-    Cmd_AddCommand("hudscale", SCR_Hudscale_f);
-    Cmd_AddCommand("screenshot", SCR_ScreenShot_f);
-    Cmd_AddCommand("sizeup", SCR_SizeUp_f);
-    Cmd_AddCommand("sizedown", SCR_SizeDown_f);
-
+/*
+==================
+SCR_Init
+==================
+*/
+void
+SCR_Init(void)
+{
     scr_ram = Draw_PicFromWad("ram");
     scr_net = Draw_PicFromWad("net");
     scr_turtle = Draw_PicFromWad("turtle");
-
-#ifdef QW_HACK
-    Cvar_RegisterVariable(&scr_allowsnap);
-    Cmd_AddCommand("snap", SCR_RSShot_f);
-#endif
 
     SCR_SetHudscale(scr_hudscale.value);
 
