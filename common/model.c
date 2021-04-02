@@ -58,10 +58,6 @@ static model_t *Mod_LoadModel(const char *name, qboolean crash);
 brushmodel_t *loaded_brushmodels;
 static model_t *loaded_sprites;
 
-#ifdef GLQUAKE
-cvar_t gl_subdivide_size = { "gl_subdivide_size", "128", CVAR_CONFIG };
-#endif
-
 static const alias_loader_t *alias_loader;
 static const brush_loader_t *brush_loader;
 
@@ -249,9 +245,6 @@ Mod_Init
 void
 Mod_Init(const alias_loader_t *alias_loader_in, const brush_loader_t *brush_loader_in)
 {
-#ifdef GLQUAKE
-    Cvar_RegisterVariable(&gl_subdivide_size);
-#endif
     Cmd_AddCommand("pvscache", PVSCache_f);
     alias_loader = alias_loader_in;
     brush_loader = brush_loader_in;
