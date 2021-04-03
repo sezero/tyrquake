@@ -816,6 +816,7 @@ Commands_Init()
         VID_AddCommands();
         VID_Mode_AddCommands();
         CL_AddCommands();
+        Sbar_AddCommands();
     }
 
     SV_AddCommands();

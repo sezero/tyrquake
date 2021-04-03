@@ -28,8 +28,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 extern int sb_lines;		// scan lines to draw
 
-void Sbar_Init(void);
-void Sbar_InitPics(void);
+void Sbar_AddCommands();
+void Sbar_Init();
 
 void Sbar_Changed(void);
 

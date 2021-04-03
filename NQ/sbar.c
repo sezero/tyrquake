@@ -127,14 +127,14 @@ Sbar_Changed(void)
     sb_updates = 0;		// update next frame
 }
 
-static void
-Sbar_InitCommands()
+void
+Sbar_AddCommands()
 {
     Cmd_AddCommand("+showscores", Sbar_ShowScores);
     Cmd_AddCommand("-showscores", Sbar_DontShowScores);
 }
 
-void
+static void
 Sbar_InitPics()
 {
     int i;
@@ -278,7 +278,6 @@ Sbar_Init
 void
 Sbar_Init(void)
 {
-    Sbar_InitCommands();
     Sbar_InitPics();
 }
 
