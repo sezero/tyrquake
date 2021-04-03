@@ -691,6 +691,22 @@ NET_SendToAll(const sizebuf_t *data, double blocktime)
     return count;
 }
 
+void
+NET_AddCommands()
+{
+    Cmd_AddCommand("slist", NET_Slist_f);
+    Cmd_AddCommand("listen", NET_Listen_f);
+    Cmd_AddCommand("maxplayers", MaxPlayers_f);
+    Cmd_AddCommand("port", NET_Port_f);
+}
+
+void
+NET_RegisterVariables()
+{
+    Cvar_RegisterVariable(&net_messagetimeout);
+    Cvar_RegisterVariable(&hostname);
+}
+
 
 /*
  * ====================
@@ -733,14 +749,6 @@ NET_Init(void)
 
     /* allocate space for network message buffer */
     SZ_HunkAlloc(&net_message, NET_MAXMESSAGE);
-
-    Cvar_RegisterVariable(&net_messagetimeout);
-    Cvar_RegisterVariable(&hostname);
-
-    Cmd_AddCommand("slist", NET_Slist_f);
-    Cmd_AddCommand("listen", NET_Listen_f);
-    Cmd_AddCommand("maxplayers", MaxPlayers_f);
-    Cmd_AddCommand("port", NET_Port_f);
 
     /* initialize all the drivers */
     num_inited = 0;

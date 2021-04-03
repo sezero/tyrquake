@@ -25,8 +25,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // net_dgrm.h
 
-
-int Datagram_Init(void);
+void Datagram_AddCommands();
+void Datagram_RegisterVariables();
+int Datagram_Init();
 void Datagram_Listen(qboolean state);
 void Datagram_SearchForHosts(qboolean xmit);
 qsocket_t *Datagram_Connect(const char *host);

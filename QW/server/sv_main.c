@@ -1643,6 +1643,8 @@ Cvars_Init()
     COM_RegisterVariables();
     PR_RegisterVariables();
     SV_RegisterVariables();
+
+    Netchan_RegisterVariables();
 }
 
 /*

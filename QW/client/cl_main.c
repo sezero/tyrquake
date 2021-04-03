@@ -1431,6 +1431,8 @@ Cvars_Init()
     VID_RegisterVariables();
     VID_Mode_RegisterVariables();
     CL_RegisterVariables();
+
+    Netchan_RegisterVariables();
 }
 
 /*

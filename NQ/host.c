@@ -830,6 +830,7 @@ Cvars_Init()
     Con_RegisterVariables();
     Key_RegisterVariables();
     PR_RegisterVariables();
+    NET_RegisterVariables();
 
     /* Note cls.state not set at this stage, so can't check for ca_dedicated */
     if (!COM_CheckParm("-dedicated")) {

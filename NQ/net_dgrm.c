@@ -681,6 +681,19 @@ Test2_f(void)
     SchedulePollProcedure(&poll_procedure, 0.05);
 }
 
+void
+Datagram_AddCommands()
+{
+    Cmd_AddCommand("net_stats", NET_Stats_f);
+    Cmd_AddCommand("ban", NULL);
+    Cmd_AddCommand("test", Test_f);
+    Cmd_AddCommand("test2", Test2_f);
+}
+
+void
+Datagram_RegisterVariables()
+{
+}
 
 int
 Datagram_Init(void)
@@ -688,7 +701,6 @@ Datagram_Init(void)
     int i, csock, num_inited;
 
     dgrm_driver = net_driver;
-    Cmd_AddCommand("net_stats", NET_Stats_f);
 
     if (COM_CheckParm("-nolan"))
 	return -1;
@@ -705,10 +717,6 @@ Datagram_Init(void)
 
     if (num_inited == 0)
 	return -1;
-
-    Cmd_AddCommand("ban", NULL);
-    Cmd_AddCommand("test", Test_f);
-    Cmd_AddCommand("test2", Test2_f);
 
     return 0;
 }

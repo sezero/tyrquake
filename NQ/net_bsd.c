@@ -27,6 +27,8 @@ net_driver_t net_drivers[] = {
     {
 	.name				= "Loopback",
 	.initialized			= false,
+        .AddCommands                    = Loop_AddCommands,
+        .RegisterVariables              = Loop_RegisterVariables,
 	.Init				= Loop_Init,
 	.Listen				= Loop_Listen,
 	.SearchForHosts			= Loop_SearchForHosts,
@@ -42,6 +44,8 @@ net_driver_t net_drivers[] = {
     }, {
 	.name				= "Datagram",
 	.initialized			= false,
+        .AddCommands                    = Datagram_AddCommands,
+        .RegisterVariables              = Datagram_RegisterVariables,
 	.Init				= Datagram_Init,
 	.Listen				= Datagram_Listen,
 	.SearchForHosts			= Datagram_SearchForHosts,

@@ -189,7 +189,9 @@ extern net_landriver_t net_landrivers[];
 typedef struct net_driver_s {
     const char *name;
     qboolean initialized;
-    int (*Init)(void);
+    void (*AddCommands)();
+    void (*RegisterVariables)();
+    int (*Init)();
     void (*Listen)(qboolean state);
     void (*SearchForHosts)(qboolean xmit);
     qsocket_t *(*Connect)(const char *host);
@@ -200,7 +202,7 @@ typedef struct net_driver_s {
     qboolean (*CanSendMessage)(qsocket_t *sock);
     qboolean (*CanSendUnreliableMessage)(qsocket_t *sock);
     void (*Close)(qsocket_t *sock);
-    void (*Shutdown)(void);
+    void (*Shutdown)();
     int controlSock;
 } net_driver_t;
 
@@ -258,8 +260,9 @@ extern int net_activeconnections;
 
 const char *NET_AdrToString(const netadr_t *a);
 
-void NET_Init(void);
-void NET_Shutdown(void);
+void NET_RegisterVariables();
+void NET_Init();
+void NET_Shutdown();
 
 /*
  * returns a new connection number if there is one pending, else -1

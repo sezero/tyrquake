@@ -38,6 +38,15 @@ Loop_Init(void)
     return 0;
 }
 
+void
+Loop_AddCommands()
+{
+}
+
+void
+Loop_RegisterVariables()
+{
+}
 
 void
 Loop_Shutdown(void)

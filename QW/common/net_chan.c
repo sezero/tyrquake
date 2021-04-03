@@ -88,6 +88,14 @@ cvar_t showpackets = { "showpackets", "0" };
 cvar_t showdrop = { "showdrop", "0" };
 cvar_t qport = { "qport", "0" };
 
+void
+Netchan_RegisterVariables()
+{
+    Cvar_RegisterVariable(&showpackets);
+    Cvar_RegisterVariable(&showdrop);
+    Cvar_RegisterVariable(&qport);
+}
+
 /*
  * ===============
  * Netchan_Init
@@ -105,9 +113,6 @@ Netchan_Init(void)
     port = ((int)(getpid() + getuid() * 1000) * time(NULL)) & 0xffff;
 #endif
 
-    Cvar_RegisterVariable(&showpackets);
-    Cvar_RegisterVariable(&showdrop);
-    Cvar_RegisterVariable(&qport);
     Cvar_SetValue("qport", port);
 }
 
