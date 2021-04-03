@@ -1413,6 +1413,7 @@ Commands_Init()
     VID_Mode_AddCommands();
     CL_AddCommands();
     Sbar_AddCommands();
+    V_AddCommands();
 }
 
 static void
@@ -1432,6 +1433,7 @@ Cvars_Init()
     VID_RegisterVariables();
     VID_Mode_RegisterVariables();
     CL_RegisterVariables();
+    V_RegisterVariables();
 
     Netchan_RegisterVariables();
 }

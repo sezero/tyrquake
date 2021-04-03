@@ -33,7 +33,10 @@ extern cvar_t crosshaircolor;
 extern float v_blend[4];
 #endif
 
-void V_Init(void);
+void V_AddCommands();
+void V_RegisterVariables();
+void V_Init();
+
 void V_RenderView(void);
 void V_UpdatePalette(void);
 void V_CalcBlend(void);

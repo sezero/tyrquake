@@ -953,18 +953,17 @@ V_RenderView(void)
 
 //============================================================================
 
-/*
-=============
-V_Init
-=============
-*/
 void
-V_Init(void)
+V_AddCommands()
 {
     Cmd_AddCommand("v_cshift", V_cshift_f);
     Cmd_AddCommand("bf", V_BonusFlash_f);
     Cmd_AddCommand("centerview", V_StartPitchDrift);
+}
 
+void
+V_RegisterVariables()
+{
     Cvar_RegisterVariable(&v_centermove);
     Cvar_RegisterVariable(&v_centerspeed);
 
@@ -997,6 +996,16 @@ V_Init(void)
     Cvar_RegisterVariable(&v_kickroll);
     Cvar_RegisterVariable(&v_kickpitch);
 
-    BuildGammaTable(1.0);	// no gamma yet
     Cvar_RegisterVariable(&v_gamma);
+}
+
+/*
+=============
+V_Init
+=============
+*/
+void
+V_Init(void)
+{
+    BuildGammaTable(1.0);	// no gamma yet
 }
