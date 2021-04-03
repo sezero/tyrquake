@@ -679,6 +679,7 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 
     COM_InitArgv(__argc, (const char **)__argv);
 
+    parms.basedir = cwd;
     parms.argc = com_argc;
     parms.argv = com_argv;
 
