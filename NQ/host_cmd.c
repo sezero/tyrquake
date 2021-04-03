@@ -732,11 +732,11 @@ Host_Stopdemo_f(void)
 
 /*
 ==================
-Host_InitCommands
+SV_AddCommands
 ==================
 */
 void
-Host_InitCommands(void)
+SV_AddOperatorCommands(void)
 {
     Cmd_AddCommand("quit", Host_Quit_f);
     Cmd_AddCommand("restart", Host_Restart_f);

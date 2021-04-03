@@ -1287,18 +1287,20 @@ SV_Frame(float time)
     }
 }
 
-/*
-===============
-SV_InitLocal
-===============
-*/
 static void
-SV_InitLocal(void)
+SV_AddCommands()
 {
-    SV_InitOperatorCommands();
-    SV_ModelInit();
-    SV_UserInit();
+    Cmd_AddCommand("addip", SV_AddIP_f);
+    Cmd_AddCommand("removeip", SV_RemoveIP_f);
+    Cmd_AddCommand("listip", SV_ListIP_f);
+    Cmd_AddCommand("writeip", SV_WriteIP_f);
 
+    SV_AddOperatorCommands();
+}
+
+static void
+SV_RegisterVariables()
+{
     Cvar_RegisterVariable(&rcon_password);
     Cvar_RegisterVariable(&password);
     Cvar_RegisterVariable(&spectator_password);
@@ -1330,7 +1332,6 @@ SV_InitLocal(void)
     Cvar_RegisterVariable(&sv_wateraccelerate);
     Cvar_RegisterVariable(&sv_friction);
     Cvar_RegisterVariable(&sv_waterfriction);
-
     Cvar_RegisterVariable(&sv_aim);
 
     Cvar_RegisterVariable(&filterban);
@@ -1348,13 +1349,21 @@ SV_InitLocal(void)
     Cvar_RegisterVariable(&pausable);
 
     Cvar_RegisterVariable(&developer);
+}
+
+/*
+===============
+SV_InitLocal
+===============
+*/
+static void
+SV_InitLocal(void)
+{
+    SV_ModelInit();
+    SV_UserInit();
+
     if (COM_CheckParm("-developer"))
 	Cvar_SetValue("developer", 1);
-
-    Cmd_AddCommand("addip", SV_AddIP_f);
-    Cmd_AddCommand("removeip", SV_RemoveIP_f);
-    Cmd_AddCommand("listip", SV_ListIP_f);
-    Cmd_AddCommand("writeip", SV_WriteIP_f);
 
     Info_SetValueForStarKey(svs.info, "*version",
 			    va("TyrQuake-%s", build_version), MAX_SERVERINFO_STRING);
@@ -1624,6 +1633,7 @@ Commands_Init()
     COM_AddCommands();
     Mod_AddCommands();
     PR_AddCommands();
+    SV_AddCommands();
 }
 
 static void
@@ -1632,6 +1642,7 @@ Cvars_Init()
     Sys_RegisterVariables();
     COM_RegisterVariables();
     PR_RegisterVariables();
+    SV_RegisterVariables();
 }
 
 /*

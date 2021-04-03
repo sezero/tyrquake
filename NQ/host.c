@@ -220,17 +220,15 @@ Host_FindMaxClients(void)
 	Cvar_SetValue("deathmatch", 0.0);
 }
 
-
-/*
-=======================
-Host_InitLocal
-======================
-*/
-void
-Host_InitLocal(void)
+static void
+SV_AddCommands()
 {
-    Host_InitCommands();
+    SV_AddOperatorCommands();
+}
 
+static void
+SV_RegisterVariables()
+{
     Cvar_RegisterVariable(&host_framerate);
     Cvar_RegisterVariable(&host_speeds);
 
@@ -251,6 +249,16 @@ Host_InitLocal(void)
     Cvar_RegisterVariable(&temp1);
 
     Cvar_RegisterVariable(&developer);
+}
+
+/*
+=======================
+SV_InitLocal
+======================
+*/
+static void
+SV_InitLocal(void)
+{
     if (COM_CheckParm("-developer"))
 	Cvar_SetValue("developer", 1);
 
@@ -809,6 +817,8 @@ Commands_Init()
         VID_Mode_AddCommands();
         CL_AddCommands();
     }
+
+    SV_AddCommands();
 }
 
 static void
@@ -833,6 +843,8 @@ Cvars_Init()
         Chase_RegisterVariables();
         CL_RegisterVariables();
     }
+
+    SV_RegisterVariables();
 }
 
 /*
@@ -867,7 +879,7 @@ Host_Init(quakeparms_t *parms)
     Cbuf_Init();
     COM_Init();
     V_Init();
-    Host_InitLocal();
+    SV_InitLocal();
     Key_Init();
     Con_Init();
     M_Init();

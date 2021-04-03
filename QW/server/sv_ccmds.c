@@ -849,7 +849,7 @@ SV_InitOperatorCommands
 ==================
 */
 void
-SV_InitOperatorCommands(void)
+SV_AddOperatorCommands(void)
 {
     if (COM_CheckParm("-cheats")) {
 	sv_allow_cheats = true;
