@@ -200,6 +200,16 @@ VID_ProcessEvents()
 }
 
 void
+VID_RegisterVariables()
+{
+}
+
+void
+VID_AddCommands()
+{
+}
+
+void
 VID_Init(const byte *palette)
 {
     int err;
