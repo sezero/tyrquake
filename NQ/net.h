@@ -335,4 +335,13 @@ extern qboolean slistLocal;
 void NET_Slist_f(void);
 void NET_Ban_f(client_t *client);
 
+#ifdef DEBUG
+#include "sys.h"
+const char *StrAddr(const netadr_t *addr);
+#define NET_Debug(...) Sys_Printf(__VA_ARGS__)
+#else
+#define StrAddr(_) ((char *)NULL)
+#define NET_Debug(...) do {} while (0)
+#endif
+
 #endif /* NET_H */

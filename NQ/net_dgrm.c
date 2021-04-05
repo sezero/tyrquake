@@ -56,8 +56,8 @@ static struct {
 } packetBuffer;
 
 #ifdef DEBUG
-static const char *
-StrAddr(netadr_t *addr)
+const char *
+StrAddr(const netadr_t *addr)
 {
     static char buf[32];
 
