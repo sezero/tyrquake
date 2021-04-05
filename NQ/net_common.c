@@ -54,43 +54,50 @@ NET_SetSocketPort(netadr_t *addr, int port)
 int
 NET_PartialIPAddress(const char *in, const netadr_t *myaddr, netadr_t *addr)
 {
-    char buff[256];
-    char *b;
+    char buffer[256];
+    char *pos;
     int ip;
     int num;
     int mask;
     int run;
+    int octets;
     int port;
 
-    buff[0] = '.';
-    b = buff;
-    strcpy(buff + 1, in);
-    if (buff[1] == '.')
-	b++;
+    buffer[0] = '.';
+    pos = buffer;
+    qstrncpy(buffer + 1, in, sizeof(buffer) - 1);
+    if (buffer[1] == '.')
+	pos++;
 
     ip = 0;
     mask = -1;
-    while (*b == '.') {
-	b++;
+    octets = 0;
+    while (*pos == '.') {
+	pos++;
 	num = 0;
 	run = 0;
-	while (!(*b < '0' || *b > '9')) {
-	    num = num * 10 + *b++ - '0';
+	while (*pos >= '0' && *pos <= '9') {
+            num = num * 10 + *pos++ - '0';
 	    if (++run > 3)
 		return -1;
 	}
-	if ((*b < '0' || *b > '9') && *b != '.' && *b != ':' && *b != 0)
+	if (*pos != '.' && *pos != ':' && *pos != 0)
 	    return -1;
 	if (num < 0 || num > 255)
 	    return -1;
 	mask <<= 8;
 	ip = (ip << 8) + num;
+        octets++;
     }
 
-    if (*b++ == ':')
-	port = Q_atoi(b);
+    if (*pos++ == ':')
+	port = Q_atoi(pos);
     else
 	port = net_hostport;
+
+    /* If we aren't bound to an address, we need the full IP address */
+    if (!myaddr)
+        return (octets == 4) ? 0 : -1;
 
     addr->port = BigShort(port);
     addr->ip.l = (myaddr->ip.l & BigLong(mask)) | BigLong(ip);
