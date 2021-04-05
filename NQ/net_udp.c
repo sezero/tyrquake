@@ -28,6 +28,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <errno.h>
 #include <unistd.h>
 #include <net/if.h>
+#include <ifaddrs.h>
 
 #include "common.h"
 #include "console.h"
@@ -97,9 +98,8 @@ UDP_PrintLocalAddresses()
 static int
 UDP_InitLocalAddresses(int socket_fd)
 {
-    struct ifconf ifconf = {0};
-    struct ifreq *ifreq;
-    int i, result, ifreq_count;
+    int result, count;
+    struct ifaddrs *interfaces, *interface;
 
     if (local_addresses) {
         Z_Free(local_addresses);
@@ -107,56 +107,45 @@ UDP_InitLocalAddresses(int socket_fd)
         num_local_addresses = 0;
     }
 
-    /* Query all IPv4 interfaces and allocate necessary memory */
-    result = ioctl(socket_fd, SIOCGIFCONF, &ifconf);
+    /* Query all network addresses and copy all IPv4 ones we can use */
+    result = getifaddrs(&interfaces);
     if (result == -1) {
-        NET_Debug("Failed to query network interface configuration\n");
+        NET_Debug("%s: Failed to query network interface configuration\n", __func__);
         return -1;
     }
-    if (!ifconf.ifc_len) {
-        NET_Debug("No network interfaces/addresses to query\n");
-        return -1;
+    count = 0;
+    for (interface = interfaces; interface; interface = interface->ifa_next) {
+	if (!(interface->ifa_flags & IFF_UP))
+	    continue;
+	if (!interface->ifa_addr || interface->ifa_addr->sa_family != AF_INET)
+	    continue;
+	count++;
     }
-    ifconf.ifc_buf = Z_Malloc(ifconf.ifc_len);
-    if (!ifconf.ifc_buf) {
-        NET_Debug("Not enough memory for UDP configuration.\n");
-        return -1;
-    }
-    result = ioctl(socket_fd, SIOCGIFCONF, &ifconf);
-    if (result == -1) {
-	NET_Debug("UDP: unable to query network interface configuration\n");
-        Z_Free(ifconf.ifc_buf);
+    if (!count) {
+        NET_Debug("%s: No network interfaces/addresses to query\n", __func__);
+	freeifaddrs(interfaces);
         return -1;
     }
 
-    ifreq_count = ifconf.ifc_len / sizeof(*ifreq);
-    NET_Debug("Found %d configured addresses...\n", ifreq_count);
-
-    local_addresses = Z_Malloc(ifreq_count * sizeof(*local_addresses));
+    NET_Debug("%s: Found %d addresses\n", __func__, count);
+    local_addresses = Z_Malloc(count * sizeof(*local_addresses));
     if (!local_addresses) {
         NET_Debug("Not enough memory for UDP configuration.\n");
-        Z_Free(ifconf.ifc_buf);
+        freeifaddrs(interfaces);
         return -1;
     }
 
     struct local_address *local_address = local_addresses;
-    for (i = 0, ifreq = ifconf.ifc_req; i < ifreq_count; i++, ifreq++, local_address++) {
-        /* The ifreq structure already has the address in it */
-        local_address->address = ((struct sockaddr_in *)&ifreq->ifr_addr)->sin_addr;
+    for (interface = interfaces; interface; interface = interface->ifa_next) {
+	if (!(interface->ifa_flags & IFF_UP))
+	    continue;
+	if (!interface->ifa_addr || interface->ifa_addr->sa_family != AF_INET)
+	    continue;
+        local_address->address = ((struct sockaddr_in *)interface->ifa_addr)->sin_addr;
 
         /* Check if the address has a valid broadcast address */
-        struct ifreq saved_ifreq = *ifreq;
-        result = ioctl(socket_fd, SIOCGIFFLAGS, ifreq);
-        if (result != -1 && (ifreq->ifr_flags & IFF_BROADCAST)) {
-            /*
-             * Based on testing (docs didn't mention anything), the
-             * ifreq needs to be reset (with the ip address set in the
-             * union) to get the right broadcast address if this
-             * interface has multiple IP addresses.
-             */
-            *ifreq = saved_ifreq;
-            ioctl(socket_fd, SIOCGIFBRDADDR, ifreq);
-            local_address->broadcast = ((struct sockaddr_in *)&ifreq->ifr_broadaddr)->sin_addr;
+	if ((interface->ifa_flags & IFF_BROADCAST) && interface->ifa_dstaddr) {
+            local_address->broadcast = ((struct sockaddr_in *)interface->ifa_dstaddr)->sin_addr;
         } else {
             /* Fallback to the generic broadcast address */
             local_address->broadcast.s_addr = INADDR_BROADCAST;
@@ -169,11 +158,11 @@ UDP_InitLocalAddresses(int socket_fd)
         }
 
         /* Save the interface name */
-        qstrncpy(local_address->interface_name, ifreq->ifr_name, sizeof(local_address->interface_name));
+        qstrncpy(local_address->interface_name, interface->ifa_name, sizeof(local_address->interface_name));
+	local_address++;
     }
-
-    num_local_addresses = ifreq_count;
-    Z_Free(ifconf.ifc_buf);
+    num_local_addresses = local_address - local_addresses;
+    freeifaddrs(interfaces);
 
     UDP_PrintLocalAddresses();
 
