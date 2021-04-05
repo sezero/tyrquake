@@ -148,8 +148,7 @@ WINS_Init(void)
     if (i && i < com_argc - 1) {
 	bindAddr.ip.l = inet_addr(com_argv[i + 1]);
 	if (bindAddr.ip.l == INADDR_NONE)
-	    Sys_Error("%s: %s is not a valid IP address", __func__,
-		      com_argv[i + 1]);
+	    Sys_Error("%s: %s is not a valid IP address", __func__, com_argv[i + 1]);
 	Con_Printf("Binding to IP Interface Address of %s\n", com_argv[i + 1]);
     } else {
 	bindAddr.ip.l = INADDR_NONE;
@@ -159,10 +158,8 @@ WINS_Init(void)
     if (i && i < com_argc - 1) {
 	localAddr.ip.l = inet_addr(com_argv[i + 1]);
 	if (localAddr.ip.l == INADDR_NONE)
-	    Sys_Error("%s: %s is not a valid IP address", __func__,
-		      com_argv[i + 1]);
-	Con_Printf("Advertising %s as the local IP in response packets\n",
-		   com_argv[i + 1]);
+	    Sys_Error("%s: %s is not a valid IP address", __func__, com_argv[i + 1]);
+	Con_Printf("Advertising %s as the local IP in response packets\n", com_argv[i + 1]);
     } else {
 	localAddr.ip.l = INADDR_NONE;
     }
@@ -289,12 +286,10 @@ WINS_Read(int socket, void *buf, int len, netadr_t *addr)
     int addrlen = sizeof(saddr);
     int ret;
 
-    ret = recvfrom(socket, (char *)buf, len, 0, (struct sockaddr *)&saddr,
-		   &addrlen);
+    ret = recvfrom(socket, (char *)buf, len, 0, (struct sockaddr *)&saddr, &addrlen);
     SockadrToNetadr(&saddr, addr);
     if (ret == -1) {
 	int err = WSAGetLastError();
-
 	if (err == WSAEWOULDBLOCK || err == WSAECONNREFUSED)
 	    return 0;
     }
@@ -343,8 +338,7 @@ WINS_Write(int socket, const void *buf, int len, const netadr_t *addr)
     int ret;
 
     NetadrToSockadr(addr, &saddr);
-    ret = sendto(socket, (char *)buf, len, 0, (struct sockaddr *)&saddr,
-		 sizeof(saddr));
+    ret = sendto(socket, (char *)buf, len, 0, (struct sockaddr *)&saddr, sizeof(saddr));
     if (ret == -1)
 	if (WSAGetLastError() == WSAEWOULDBLOCK)
 	    return 0;

@@ -130,8 +130,7 @@ SendPacket(qsocket_t *sock)
     packetBuffer.sequence = BigLong(sock->sendSequence++);
     memcpy(packetBuffer.data, sock->sendMessage, dataLen);
 
-    if (sock->landriver->Write(sock->socket, &packetBuffer, packetLen,
-			       &sock->addr) == -1)
+    if (sock->landriver->Write(sock->socket, &packetBuffer, packetLen, &sock->addr) == -1)
 	return -1;
 
     sock->lastSendTime = net_time;
@@ -214,8 +213,7 @@ Datagram_SendUnreliableMessage(qsocket_t *sock, const sizebuf_t *data)
     packetBuffer.sequence = BigLong(sock->unreliableSendSequence++);
     memcpy(packetBuffer.data, data->data, data->cursize);
 
-    if (sock->landriver->Write(sock->socket, &packetBuffer, packetLen,
-			       &sock->addr) == -1)
+    if (sock->landriver->Write(sock->socket, &packetBuffer, packetLen, &sock->addr) == -1)
 	return -1;
 
     packetsSent++;
@@ -435,8 +433,7 @@ Test_Poll(void *arg)
     byte playerNumber;
 
     while (1) {
-	len = state->driver->Read(state->socket, net_message.data,
-				  net_message.maxsize, &clientaddr);
+	len = state->driver->Read(state->socket, net_message.data, net_message.maxsize, &clientaddr);
 	if (len < sizeof(int))
 	    break;
 
@@ -547,8 +544,7 @@ Test_f(void)
 	MSG_WriteByte(&net_message, CCREQ_PLAYER_INFO);
 	MSG_WriteByte(&net_message, n);
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(state.socket, net_message.data, net_message.cursize,
-		      &sendaddr);
+	driver->Write(state.socket, net_message.data, net_message.cursize, &sendaddr);
     }
     SZ_Clear(&net_message);
     SchedulePollProcedure(&poll_procedure, 0.1);
@@ -565,8 +561,7 @@ Test2_Poll(void *arg)
     char *name;
     char *value;
 
-    len = state->driver->Read(state->socket, net_message.data,
-			      net_message.maxsize, &clientaddr);
+    len = state->driver->Read(state->socket, net_message.data, net_message.maxsize, &clientaddr);
     if (len < sizeof(int))
 	goto Reschedule;
 
@@ -678,8 +673,7 @@ Test2_f(void)
     MSG_WriteByte(&net_message, CCREQ_RULE_INFO);
     MSG_WriteString(&net_message, "");
     MSG_WriteControlHeader(&net_message);
-    state.driver->Write(state.socket, net_message.data, net_message.cursize,
-			&sendaddr);
+    state.driver->Write(state.socket, net_message.data, net_message.cursize, &sendaddr);
     SZ_Clear(&net_message);
     SchedulePollProcedure(&poll_procedure, 0.05);
 }
@@ -782,8 +776,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 
     SZ_Clear(&net_message);
 
-    len = driver->Read(acceptsock, net_message.data, net_message.maxsize,
-		       &clientaddr);
+    len = driver->Read(acceptsock, net_message.data, net_message.maxsize, &clientaddr);
     if (len < sizeof(int))
 	return NULL;
     net_message.cursize = len;
@@ -814,8 +807,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	MSG_WriteByte(&net_message, svs.maxclients);
 	MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(acceptsock, net_message.data, net_message.cursize,
-		      &clientaddr);
+	driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 	SZ_Clear(&net_message);
 	return NULL;
     }
@@ -847,12 +839,10 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	MSG_WriteString(&net_message, client->name);
 	MSG_WriteLong(&net_message, client->colors);
 	MSG_WriteLong(&net_message, (int)client->edict->v.frags);
-	MSG_WriteLong(&net_message,
-		      (int)(net_time - client->netconnection->connecttime));
+	MSG_WriteLong(&net_message, (int)(net_time - client->netconnection->connecttime));
 	MSG_WriteString(&net_message, client->netconnection->address);
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(acceptsock, net_message.data, net_message.cursize,
-		      &clientaddr);
+	driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 	SZ_Clear(&net_message);
 
 	return NULL;
@@ -879,8 +869,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	    MSG_WriteString(&net_message, var->string);
 	}
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(acceptsock, net_message.data, net_message.cursize,
-		      &clientaddr);
+	driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 	SZ_Clear(&net_message);
 
 	return NULL;
@@ -899,8 +888,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	MSG_WriteByte(&net_message, CCREP_REJECT);
 	MSG_WriteString(&net_message, "Incompatible version.\n");
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(acceptsock, net_message.data, net_message.cursize,
-		      &clientaddr);
+	driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 	SZ_Clear(&net_message);
 	return NULL;
     }
@@ -914,8 +902,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	MSG_WriteByte(&net_message, CCREP_REJECT);
 	MSG_WriteString(&net_message, "You have been banned.\n");
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(acceptsock, net_message.data, net_message.cursize,
-		      &clientaddr);
+	driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 	SZ_Clear(&net_message);
 	return NULL;
     }
@@ -936,8 +923,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 		driver->GetSocketAddr(s->socket, &newaddr);
 		MSG_WriteLong(&net_message, NET_GetSocketPort(&newaddr));
 		MSG_WriteControlHeader(&net_message);
-		driver->Write(acceptsock, net_message.data,
-			      net_message.cursize, &clientaddr);
+		driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 		SZ_Clear(&net_message);
 		return NULL;
 	    }
@@ -960,8 +946,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	MSG_WriteByte(&net_message, CCREP_REJECT);
 	MSG_WriteString(&net_message, "Server is full.\n");
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(acceptsock, net_message.data, net_message.cursize,
-		      &clientaddr);
+	driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
 	SZ_Clear(&net_message);
 	return NULL;
     }
@@ -987,8 +972,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
     driver->GetSocketAddr(newsock, &newaddr);
     MSG_WriteLong(&net_message, NET_GetSocketPort(&newaddr));
     MSG_WriteControlHeader(&net_message);
-    driver->Write(acceptsock, net_message.data, net_message.cursize,
-		  &clientaddr);
+    driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
     SZ_Clear(&net_message);
 
     return sock;
@@ -1031,13 +1015,15 @@ _Datagram_SearchForHosts(qboolean xmit, net_landriver_t *driver)
 	MSG_WriteString(&net_message, "QUAKE");
 	MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
 	MSG_WriteControlHeader(&net_message);
-	driver->Broadcast(driver->controlSock, net_message.data,
-			  net_message.cursize);
+	driver->Broadcast(driver->controlSock, net_message.data, net_message.cursize);
 	SZ_Clear(&net_message);
     }
 
-    while ((ret = driver->Read(driver->controlSock, net_message.data,
-			       net_message.maxsize, &readaddr)) > 0) {
+    for (;;) {
+        ret = driver->Read(driver->controlSock, net_message.data, net_message.maxsize, &readaddr);
+        if (ret <= 0)
+            break;
+
 	if (ret < sizeof(int))
 	    continue;
 	net_message.cursize = ret;
@@ -1177,12 +1163,10 @@ _Datagram_Connect(const char *host, net_landriver_t *driver)
 	MSG_WriteString(&net_message, "QUAKE");
 	MSG_WriteByte(&net_message, NET_PROTOCOL_VERSION);
 	MSG_WriteControlHeader(&net_message);
-	driver->Write(newsock, net_message.data, net_message.cursize,
-		     &sendaddr);
+	driver->Write(newsock, net_message.data, net_message.cursize, &sendaddr);
 	SZ_Clear(&net_message);
 	do {
-	    ret = driver->Read(newsock, net_message.data, net_message.maxsize,
-			       &readaddr);
+	    ret = driver->Read(newsock, net_message.data, net_message.maxsize, &readaddr);
 	    // if we got something, validate it
 	    if (ret > 0) {
 		// is it from the right place?
