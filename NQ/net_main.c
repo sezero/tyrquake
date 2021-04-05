@@ -54,10 +54,10 @@ qboolean slistLocal = true;
 static double slistStartTime;
 static int slistLastShown;
 
-static void Slist_Send(void);
-static void Slist_Poll(void);
-static PollProcedure slistSendProcedure = { NULL, 0.0, Slist_Send };
-static PollProcedure slistPollProcedure = { NULL, 0.0, Slist_Poll };
+static void Slist_Send(void *arg);
+static void Slist_Poll(void *arg);
+static PollProcedure slistSendProcedure = { .procedure = Slist_Send };
+static PollProcedure slistPollProcedure = { .procedure = Slist_Poll };
 
 sizebuf_t net_message;
 int net_activeconnections = 0;
@@ -317,7 +317,7 @@ NET_Slist_f(void)
 
 
 static void
-Slist_Send(void)
+Slist_Send(void *dummy)
 {
     int i;
 
@@ -338,7 +338,7 @@ Slist_Send(void)
 
 
 static void
-Slist_Poll(void)
+Slist_Poll(void *dummy)
 {
     int i;
 

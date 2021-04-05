@@ -420,8 +420,10 @@ struct test_poll_state {
 
 
 static void
-Test_Poll(struct test_poll_state *state)
+Test_Poll(void *arg)
 {
+    struct test_poll_state *state = arg;
+
     netadr_t clientaddr;
     int control;
     int len;
@@ -554,8 +556,9 @@ Test_f(void)
 
 
 static void
-Test2_Poll(struct test_poll_state *state)
+Test2_Poll(void *arg)
 {
+    struct test_poll_state *state = arg;
     netadr_t clientaddr;
     int control;
     int len;
