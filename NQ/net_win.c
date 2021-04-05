@@ -76,6 +76,7 @@ net_landriver_t net_landrivers[] = {
 	.OpenSocket		= WINS_OpenSocket,
 	.CloseSocket		= WINS_CloseSocket,
 	.CheckNewConnections	= WINS_CheckNewConnections,
+        .IsMyAddress            = WINS_IsMyAddress,
 	.Read			= WINS_Read,
 	.Write			= WINS_Write,
 	.Broadcast		= WINS_Broadcast,

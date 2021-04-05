@@ -95,11 +95,14 @@ NET_PartialIPAddress(const char *in, const netadr_t *myaddr, netadr_t *addr)
     else
 	port = net_hostport;
 
-    /* If we aren't bound to an address, we need the full IP address */
-    if (!myaddr)
-        return (octets == 4) ? 0 : -1;
-
     addr->port = BigShort(port);
+
+    /* If we aren't bound to an address, we need the full IP address */
+    if (!myaddr) {
+        addr->ip.l = BigLong(ip);
+        return (octets == 4) ? 0 : -1;
+    }
+
     addr->ip.l = (myaddr->ip.l & BigLong(mask)) | BigLong(ip);
 
     return 0;

@@ -74,6 +74,7 @@ net_landriver_t net_landrivers[] = {
 	.OpenSocket		= UDP_OpenSocket,
 	.CloseSocket		= UDP_CloseSocket,
 	.CheckNewConnections	= UDP_CheckNewConnections,
+        .IsMyAddress            = UDP_IsMyAddress,
 	.Read			= UDP_Read,
 	.Write			= UDP_Write,
 	.Broadcast		= UDP_Broadcast,

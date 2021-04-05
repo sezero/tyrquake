@@ -77,14 +77,11 @@ LONG CDDrv_MessageHandler(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 // misc stuff that should be elsewhere...
 
-extern qboolean winsock_lib_initialized;
 extern HWND hwnd_dialog;
 
 /*
  * net stuff
  */
 #define MAXHOSTNAMELEN 256
-extern int winsock_initialized;
-extern WSADATA winsockdata;
 
 #endif /* WINQUAKE_H */

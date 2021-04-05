@@ -799,7 +799,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 	// save space for the header, filled in later
 	MSG_WriteLong(&net_message, 0);
 	MSG_WriteByte(&net_message, CCREP_SERVER_INFO);
-	driver->GetSocketAddr(acceptsock, &newaddr);
+	driver->GetSocketAddr(acceptsock, &newaddr, &clientaddr);
 	MSG_WriteString(&net_message, NET_AdrToString(&newaddr));
 	MSG_WriteString(&net_message, hostname.string);
 	MSG_WriteString(&net_message, sv.name);
@@ -920,7 +920,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
 		// save space for the header, filled in later
 		MSG_WriteLong(&net_message, 0);
 		MSG_WriteByte(&net_message, CCREP_ACCEPT);
-		driver->GetSocketAddr(s->socket, &newaddr);
+		driver->GetSocketAddr(s->socket, &newaddr, &clientaddr);
 		MSG_WriteLong(&net_message, NET_GetSocketPort(&newaddr));
 		MSG_WriteControlHeader(&net_message);
 		driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
@@ -969,7 +969,7 @@ _Datagram_CheckNewConnections(net_landriver_t *driver)
     // save space for the header, filled in later
     MSG_WriteLong(&net_message, 0);
     MSG_WriteByte(&net_message, CCREP_ACCEPT);
-    driver->GetSocketAddr(newsock, &newaddr);
+    driver->GetSocketAddr(newsock, &newaddr, &clientaddr);
     MSG_WriteLong(&net_message, NET_GetSocketPort(&newaddr));
     MSG_WriteControlHeader(&net_message);
     driver->Write(acceptsock, net_message.data, net_message.cursize, &clientaddr);
@@ -1002,11 +1002,9 @@ _Datagram_SearchForHosts(qboolean xmit, net_landriver_t *driver)
     int ret;
     int i, len, hostnum;
     netadr_t readaddr;
-    netadr_t myaddr;
     int control;
     hostcache_t *host;
 
-    driver->GetSocketAddr(driver->controlSock, &myaddr);
     if (xmit) {
 	SZ_Clear(&net_message);
 	// save space for the header, filled in later
@@ -1029,8 +1027,8 @@ _Datagram_SearchForHosts(qboolean xmit, net_landriver_t *driver)
 	net_message.cursize = ret;
 
 	// don't answer our own query
-	if (NET_AddrCompare(&readaddr, &myaddr) >= 0)
-	    continue;
+        if (driver->IsMyAddress(&readaddr))
+            continue;
 
 	// is the cache full?
 	if (hostCacheCount == HOSTCACHESIZE)

@@ -159,15 +159,16 @@ Disable LAN support.
 Set the UDP port that the LAN server will listen on.
 .IP "\fB\-udpport\fP (tyr-quake, tyr-glquake only)"
 Same as \fB\-port\fP.
-.IP "\fB\-noifscan\fP (Linux/BSD only)"
-By default Quake will attempt to scan the network interfaces on the host in
-order to guess the local IP address (needed for Quake's default network
-protocols). In case this causes problems, this command line parameter can be
-used to disable interface scanning.
+.IP "\fB\-ip ip\fP"
+Specify an IP address to restrict Quake to use only that address.
+Note that with this enabled, if you start a server it will not be
+discoverable via broadcast messages.  Players will have to connect
+directly.  By default we bind to any/all interfaces so that any
+connected network may be used.
 .IP "\fB\-localip ip\fP"
-Specify the local IP address to use for network play. Use in conjunction with
-the \fB\-noifscan\fP on Unix/BSD platforms if Quake incorrectly detects the
-local IP address.
+Specify an IP address to advertise as your visible IP for network play. Use if
+you need to advertise a different IP address than the one locally detected,
+e.g. if you are behind NAT or similar.
 .IP "\fB\-noudp\fP (tyr-quake, tyr-glquake only)"
 Disables UDP networking. Essentially the same effect as \fB\-nolan\fP.
 

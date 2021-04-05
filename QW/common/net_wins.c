@@ -34,7 +34,7 @@ int net_socket;
 #define	MAX_UDP_PACKET	(MAX_MSGLEN*2)	/* one more than msg + header */
 static byte net_message_buffer[MAX_UDP_PACKET];
 
-WSADATA winsockdata;
+static WSADATA winsockdata;
 
 
 static void
