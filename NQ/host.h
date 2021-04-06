@@ -33,6 +33,13 @@ extern cvar_t sys_ticrate;
 extern cvar_t sys_nostdout;
 extern cvar_t developer;
 
+extern cvar_t host_framerate;
+extern cvar_t host_speeds;
+extern cvar_t serverprofile;
+extern cvar_t samelevel;
+extern cvar_t noexit;
+extern cvar_t temp1;
+
 extern qboolean host_initialized;	// true if into command execution
 extern double host_frametime;
 extern byte *host_basepal;

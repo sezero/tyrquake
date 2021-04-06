@@ -125,15 +125,38 @@ SV_Protocol_Arg_f(struct stree_root *root, const char *arg)
     }
 }
 
-/*
-===============
-SV_Init
-===============
-*/
 void
-SV_Init(void)
+SV_AddCommands()
 {
-    int i;
+    Cmd_AddCommand("sv_protocol", SV_Protocol_f);
+    Cmd_SetCompletion("sv_protocol", SV_Protocol_Arg_f);
+
+    SV_AddOperatorCommands();
+}
+
+void
+SV_RegisterVariables()
+{
+    Cvar_RegisterVariable(&host_framerate);
+    Cvar_RegisterVariable(&host_speeds);
+
+    Cvar_RegisterVariable(&sys_ticrate);
+    Cvar_RegisterVariable(&serverprofile);
+
+    Cvar_RegisterVariable(&fraglimit);
+    Cvar_RegisterVariable(&timelimit);
+    Cvar_RegisterVariable(&teamplay);
+    Cvar_RegisterVariable(&samelevel);
+    Cvar_RegisterVariable(&noexit);
+    Cvar_RegisterVariable(&skill);
+    Cvar_RegisterVariable(&deathmatch);
+    Cvar_RegisterVariable(&coop);
+
+    Cvar_RegisterVariable(&pausable);
+
+    Cvar_RegisterVariable(&temp1);
+
+    Cvar_RegisterVariable(&developer);
 
     Cvar_RegisterVariable(&sv_maxvelocity);
     Cvar_RegisterVariable(&sv_gravity);
@@ -145,9 +168,17 @@ SV_Init(void)
     Cvar_RegisterVariable(&sv_idealpitchscale);
     Cvar_RegisterVariable(&sv_aim);
     Cvar_RegisterVariable(&sv_nostep);
+}
 
-    Cmd_AddCommand("sv_protocol", SV_Protocol_f);
-    Cmd_SetCompletion("sv_protocol", SV_Protocol_Arg_f);
+/*
+===============
+SV_Init
+===============
+*/
+void
+SV_Init(void)
+{
+    int i;
 
     for (i = 0; i < MAX_MODELS; i++)
 	qsnprintf(localmodels[i], sizeof(localmodels[0]), "*%i", i);
