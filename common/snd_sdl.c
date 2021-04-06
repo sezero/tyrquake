@@ -23,17 +23,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "SDL_audio.h"
 #include "SDL_endian.h"
 
+#include "common.h"
 #include "console.h"
 #include "quakedef.h"
 #include "sdl_common.h"
 #include "sound.h"
 #include "sys.h"
 
+#define SND_DEFAULT_BITS 8
+#define SND_DEFAULT_RATE 11025
+
 static dma_t the_shm;
 static int snd_inited;
-
-static int desired_speed = 11025;
-static int desired_bits = 8;
 
 /* must not be modified while sound system is running */
 static unsigned sdl_buflen;
@@ -69,12 +70,29 @@ paint_audio(void *unused, Uint8 *stream, int len)
 qboolean
 SNDDMA_Init(void)
 {
+    int argnum;
+    int desired_bits;
     SDL_AudioSpec desired, obtained;
 
     snd_inited = 0;
 
     /* Set up the desired format */
-    desired.freq = desired_speed;
+    desired.freq = SND_DEFAULT_RATE;
+    argnum = COM_CheckParm("-sndspeed");
+    if (argnum)
+        desired.freq = atoi(com_argv[argnum + 1]);
+
+    desired_bits = SND_DEFAULT_BITS;
+    argnum = COM_CheckParm("-sndbits");
+    if (argnum) {
+        int specified_bits = atoi(com_argv[argnum + 1]);
+        if (specified_bits == 8 || specified_bits == 16) {
+            desired_bits = specified_bits;
+        } else {
+            Con_Printf("WARNING: ignoring invalid -sndbits %d; must be 8 or 16\n", specified_bits);
+        }
+    }
+
     switch (desired_bits) {
     case 8:
 	desired.format = AUDIO_U8;
@@ -89,7 +107,13 @@ SNDDMA_Init(void)
 	Con_Printf("Unknown number of audio bits: %d\n", desired_bits);
 	return false;
     }
-    desired.channels = 2;
+
+    argnum = COM_CheckParm("-sndmono");
+    if (argnum)
+        desired.channels = 1;
+    else
+        desired.channels = 2;
+
     desired.samples = 512; /* FIXME ~= rate * _s_mixahead / 2 ? */
     desired.callback = paint_audio;
 
