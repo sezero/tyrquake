@@ -317,8 +317,8 @@ TragicDeath(int signal_num)
 static void
 ResetFrameBuffer(void)
 {
-    int mem;
-    int pwidth;
+    int framebuffer_bytes;
+    int pixel_width;
 
     if (x_framebuffer[0]) {
 	free(x_framebuffer[0]->data);
@@ -332,37 +332,33 @@ ResetFrameBuffer(void)
     }
     X11_highhunkmark = Hunk_HighMark();
 
-// alloc an extra line in case we want to wrap, and allocate the z-buffer
-    X11_buffersize = vid.width * vid.height * sizeof(*d_pzbuffer);
-
+    // Allocate the z_buffer and surface cache together
     vid_surfcachesize = D_SurfaceCacheForRes(vid.width, vid.height);
-
+    X11_buffersize = vid.width * vid.height * sizeof(*d_pzbuffer);
     X11_buffersize += vid_surfcachesize;
-
     d_pzbuffer = Hunk_HighAllocName(X11_buffersize, "video");
-    if (d_pzbuffer == NULL)
+    if (!d_pzbuffer)
 	Sys_Error("Not enough memory for video mode");
 
     vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
-    r_warpbuffer = Hunk_HighAllocName(vid.width * vid.height, "warpbuf");
-
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
-    pwidth = x_visinfo->depth / 8;
-    if (pwidth == 3)
-	pwidth = 4;
-    mem = ((vid.width * pwidth + 7) & ~7) * vid.height;
-
+    pixel_width = x_visinfo->depth / 8;
+    if (pixel_width == 3)
+	pixel_width = 4;
+    framebuffer_bytes = ((vid.width * pixel_width + 7) & ~7) * vid.height;
     x_framebuffer[0] = XCreateImage(x_disp,
 				    x_visinfo->visual,
 				    x_visinfo->depth,
 				    ZPixmap,
 				    0,
-				    malloc(mem),
+				    malloc(framebuffer_bytes),
 				    vid.width, vid.height, 32, 0);
-
     if (!x_framebuffer[0])
 	Sys_Error("VID: XCreateImage failed");
+
+    /* Make the warpbuffer match the X11 shared memory buffer */
+    r_warpbuffer = Hunk_HighAllocName(framebuffer_bytes, "warpbuf");
 
     vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
@@ -371,9 +367,9 @@ ResetFrameBuffer(void)
 static void
 ResetSharedFrameBuffers(void)
 {
-    int size;
+    int framebuffer_bytes;
     int key;
-    int minsize = getpagesize();
+    int page_size = getpagesize();
     int frm;
 
     if (d_pzbuffer) {
@@ -384,20 +380,15 @@ ResetSharedFrameBuffers(void)
 
     X11_highhunkmark = Hunk_HighMark();
 
-// alloc an extra line in case we want to wrap, and allocate the z-buffer
-    X11_buffersize = vid.width * vid.height * sizeof(*d_pzbuffer);
-
+    // Allocate the z_buffer and surface cache together
     vid_surfcachesize = D_SurfaceCacheForRes(vid.width, vid.height);
-
+    X11_buffersize = vid.width * vid.height * sizeof(*d_pzbuffer);
     X11_buffersize += vid_surfcachesize;
-
     d_pzbuffer = Hunk_HighAllocName(X11_buffersize, "video");
     if (!d_pzbuffer)
 	Sys_Error("Not enough memory for video mode");
 
-    vid_surfcache = (byte *)d_pzbuffer
-	+ vid.width * vid.height * sizeof(*d_pzbuffer);
-
+    vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
     for (frm = 0; frm < 2; frm++) {
@@ -419,13 +410,12 @@ ResetSharedFrameBuffers(void)
 					     vid.width, vid.height);
 
 	// grab shared memory
-	size = x_framebuffer[frm]->bytes_per_line
-	    * x_framebuffer[frm]->height;
-	if (size < minsize)
-	    Sys_Error("VID: Window must use at least %d bytes", minsize);
+	framebuffer_bytes = x_framebuffer[frm]->bytes_per_line * x_framebuffer[frm]->height;
+	if (framebuffer_bytes < page_size)
+	    Sys_Error("VID: Window must use at least %d bytes", page_size);
 
 	key = random();
-	x_shminfo[frm].shmid = shmget((key_t) key, size, IPC_CREAT | 0777);
+	x_shminfo[frm].shmid = shmget((key_t) key, framebuffer_bytes, IPC_CREAT | 0777);
 	if (x_shminfo[frm].shmid == -1)
 	    Sys_Error("VID: Could not get any shared memory");
 
@@ -443,6 +433,9 @@ ResetSharedFrameBuffers(void)
 	XSync(x_disp, 0);
 	shmctl(x_shminfo[frm].shmid, IPC_RMID, 0);
     }
+
+    /* Make the warpbuffer match the X11 shared memory buffer */
+    r_warpbuffer = Hunk_HighAllocName(framebuffer_bytes, "warpbuf");
 
     vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
