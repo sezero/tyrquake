@@ -387,6 +387,7 @@ static struct {
     int lowbytes;
     int highbytes;
     int tempmark;
+    int peak;
 } hunkstate;
 
 /*
@@ -412,6 +413,11 @@ Hunk_Check(void)
     }
 }
 
+static inline float
+Megabytes(int bytes)
+{
+    return (float)bytes / (1024.0f * 1024.0f);
+}
 
 /*
  * ==============
@@ -427,12 +433,14 @@ Hunk_Print(qboolean all)
 {
     const hunk_t *hunk, *next, *endlow, *starthigh, *endhigh;
     int count, sum, pwidth;
-    int totalblocks;
+    int totalblocks, allocated_bytes;
     char safename[HUNK_NAMELEN + 1];
 
     count = 0;
     sum = 0;
     totalblocks = 0;
+    allocated_bytes = 0;
+
     /*
      * We use a copy of the hunk name with an extra zero terminator
      * for printing, in case of hunk corruption.
@@ -492,6 +500,7 @@ Hunk_Print(qboolean all)
 	next = (hunk_t *)((byte *)hunk + hunk->size);
 	count++;
 	totalblocks++;
+        allocated_bytes += hunk->size;
 	sum += hunk->size;
 
 	if (next != endlow && next != endhigh)
@@ -507,7 +516,10 @@ Hunk_Print(qboolean all)
 	sum = 0;
     }
     Con_Printf("-------------------------\n");
-    Con_Printf("%8i total blocks\n", totalblocks);
+    Con_Printf("%*s%d hunk blocks\n\n", pwidth, "", totalblocks);
+    Con_Printf(" Available: %6.1fMB (%5.1f%%)\n", Megabytes(hunkstate.size), 100.0f);
+    Con_Printf("   Current: %6.1fMB (%5.1f%%)\n", Megabytes(allocated_bytes), (float)allocated_bytes * 100 / hunkstate.size);
+    Con_Printf("      Peak: %6.1fMB (%5.1f%%)\n\n", Megabytes(hunkstate.peak), (float)hunkstate.peak * 100 / hunkstate.size);
 }
 
 static void
@@ -524,6 +536,14 @@ Hunk_f(void)
 	}
     }
     Con_Printf("Usage: hunk print|printall\n");
+}
+
+static inline void
+Hunk_UpdatePeakUsage()
+{
+    int used = hunkstate.lowbytes + hunkstate.highbytes;
+    if (used > hunkstate.peak)
+        hunkstate.peak = used;
 }
 
 /*
@@ -576,6 +596,8 @@ Hunk_AllocName(int size, const char *name)
     /* Save a copy of the allocated address */
     hunkstate.lowbase = hunk + 1;
 
+    Hunk_UpdatePeakUsage();
+
     return hunkstate.lowbase;
 }
 
@@ -620,6 +642,8 @@ Hunk_AllocExtend(const void *base, int size)
     memptr = (byte *)hunk + hunk->size;
     memset(memptr, 0, size);
     hunk->size += size;
+
+    Hunk_UpdatePeakUsage();
 
     return memptr;
 }
@@ -708,6 +732,8 @@ Hunk_HighAllocName(int size, const char *name)
     hunk->size = size;
     hunk->sentinal = HUNK_SENTINAL;
     memcpy(hunk->name, name, qmin((int)strlen(name), HUNK_NAMELEN));
+
+    Hunk_UpdatePeakUsage();
 
     return (void *)(hunk + 1);
 }
