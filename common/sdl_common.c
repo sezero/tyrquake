@@ -103,7 +103,7 @@ VID_SDL_InitModeList(void)
 	Con_SafePrintf("%s: error enumerating SDL display modes (%s)\n",
 		       __func__, SDL_GetError());
 
-    vid_modelist = Hunk_AllocName(sdlmodes * sizeof(qvidmode_t), "vidmodes");
+    vid_modelist = Hunk_HighAllocName(sdlmodes * sizeof(qvidmode_t), "vidmodes");
 
     /*
      * Check availability of fullscreen modes

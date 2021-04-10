@@ -333,7 +333,7 @@ VID_InitModeList(void)
         if (xmode->hdisplay <= MAXWIDTH && xmode->vdisplay <= MAXHEIGHT)
             vid_nummodes++;
     }
-    vid_modelist = Hunk_AllocName(vid_nummodes * sizeof(qvidmode_t), "vidmodes");
+    vid_modelist = Hunk_HighAllocName(vid_nummodes * sizeof(qvidmode_t), "vidmodes");
     vid_nummodes = 0;
 
     /* Init the mode list */

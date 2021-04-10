@@ -389,6 +389,7 @@ VID_InitModeList(void)
     mode->bpp = devmode.dmBitsPerPel;
     mode->refresh = devmode.dmDisplayFrequency;
 
+    int mark = Hunk_LowMark();
     vid_modelist = Hunk_AllocName(0, "vidmodes");
     vid_nummodes = 0;
 
@@ -418,6 +419,12 @@ VID_InitModeList(void)
 	mode->bpp = devmode.dmBitsPerPel;
 	mode->refresh = devmode.dmDisplayFrequency;
     }
+
+    /* Move the modelist to the high hunk memory */
+    qvidmode_t *copy = Hunk_HighAllocName(vid_nummodes * sizeof(*vid_modelist), "vidmodes");
+    memcpy(copy, vid_modelist, vid_nummodes * sizeof(*vid_modelist));
+    vid_modelist = copy;
+    Hunk_FreeToLowMark(mark);
 
     if (!vid_nummodes)
 	Con_SafePrintf("No fullscreen DIB modes found\n");
