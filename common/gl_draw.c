@@ -192,7 +192,14 @@ typedef struct cachepic_s {
     glpic_t glpic;
 } cachepic_t;
 
-#define MAX_CACHED_PICS 128
+/*
+ * There should be just 41 potential cachepics in the game.
+ *
+ *   find . -name '*.c' -exec grep 'Draw_CachePic([^c]' {} + \
+ *       | sed -r 's/^.*(Draw_CachePic\([^)]+\)).*$/\1/' \
+ *       | sort | uniq
+ */
+#define MAX_CACHED_PICS 64
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 

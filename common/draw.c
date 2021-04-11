@@ -74,7 +74,14 @@ typedef struct cachepic_s {
     cache_user_t cache;
 } cachepic_t;
 
-#define	MAX_CACHED_PICS		128
+/*
+ * There should be just 41 potential cachepics in the game.
+ *
+ *   find . -name '*.c' -exec grep 'Draw_CachePic([^c]' {} + \
+ *       | sed -r 's/^.*(Draw_CachePic\([^)]+\)).*$/\1/' \
+ *       | sort | uniq
+ */
+#define	MAX_CACHED_PICS 64
 static cachepic_t menu_cachepics[MAX_CACHED_PICS];
 static int menu_numcachepics;
 
@@ -91,6 +98,19 @@ Draw_PicFromWad(const char *name)
     pic->pixels = dpic->data;
 
     return pic;
+}
+
+static void
+Draw_ClearCache()
+{
+    int i;
+    cachepic_t *cachepic;
+
+    cachepic = menu_cachepics;
+    for (i = 0; i < menu_numcachepics; i++, cachepic++)
+        if (cachepic->cache.data)
+            Cache_Free(&cachepic->cache);
+    menu_numcachepics = 0;
 }
 
 /*
@@ -216,6 +236,8 @@ Draw_Init(void)
     static qpic8_t draw_disc_pic;
     static qpic8_t draw_backtile_pic;
     dpic8_t *dpic;
+
+    Draw_ClearCache();
 
     /* Load the graphics wad onto the hunk */
     W_LoadWadFile(&host_gfx, "gfx.wad");
