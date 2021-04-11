@@ -79,7 +79,10 @@ extern double realtime;		// not bounded in any way, changed at
 
 void Host_ServerFrame(void);
 void Host_InitCommands(void);
-void Host_Init(quakeparms_t *parms);
+
+typedef const char *(*basedir_fn)();
+void Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns);
+
 void Host_Shutdown(void);
 void Host_Error(const char *error, ...)
     __attribute__((noreturn, format(printf,1,2)));

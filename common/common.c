@@ -1129,6 +1129,7 @@ COM_CheckRegistered(void)
     int i;
 
     COM_FOpenFile("gfx/pop.lmp", &f);
+    Cvar_Set("registered", "0");
     static_registered = 0;
 
     if (!f) {
@@ -1463,7 +1464,6 @@ COM_FOpenFile(const char *filename, FILE **file)
     char path[MAX_OSPATH];
     pack_t *pak;
     int i;
-    int findtime;
 
 //
 // search through the path, one element at a time
@@ -1490,11 +1490,10 @@ COM_FOpenFile(const char *filename, FILE **file)
 		    continue;
 	    }
 	    qsnprintf(path, sizeof(path), "%s/%s", search->filename, filename);
-	    findtime = Sys_FileTime(path);
-	    if (findtime == -1)
-		continue;
-
 	    *file = fopen(path, "rb");
+            if (!*file)
+                continue;
+
 	    return COM_filelength(*file);
 	}
     }
@@ -1722,21 +1721,19 @@ COM_LoadPackFile(const char *packfile)
 	return NULL;
 
     fread(&header, 1, sizeof(header), packhandle);
-    if (header.id[0] != 'P' || header.id[1] != 'A'
-	|| header.id[2] != 'C' || header.id[3] != 'K')
+    if (header.id[0] != 'P' || header.id[1] != 'A' || header.id[2] != 'C' || header.id[3] != 'K')
 	Sys_Error("%s is not a packfile", packfile);
     header.dirofs = LittleLong(header.dirofs);
     header.dirlen = LittleLong(header.dirlen);
 
     numfiles = header.dirlen / sizeof(dpackfile_t);
-
     if (numfiles != ID1_PAK0_COUNT)
 	com_modified = true;	// not the original file
 
 #ifdef NQ_HACK
     mfiles = Hunk_AllocName(numfiles * sizeof(*mfiles), "packfile");
     int mark = Hunk_LowMark();
-    dfiles = Hunk_AllocName(numfiles * sizeof(*dfiles), "packfile");
+    dfiles = Hunk_AllocName(numfiles * sizeof(*dfiles), "packtmp");
 #endif
 #ifdef QW_HACK
     mfiles = Z_Malloc(numfiles * sizeof(*mfiles));
@@ -1926,9 +1923,30 @@ COM_InitFilesystem(void)
 {
     int i;
     char *home;
-#ifdef NQ_HACK
-    searchpath_t *search;
+
+#ifdef QW_HACK
+    /*
+     * This is janky but soon I'll get all QW searchpaths onto the
+     * hunk as well so we don't have to do this.  But for now we have
+     * to be careful to Z_Free (some) of the searchpaths if we re-init.
+     */
+    searchpath_t *next;
+    qboolean basepaths = !com_base_searchpaths;
+    while (com_searchpaths) {
+        if (com_searchpaths == com_base_searchpaths)
+            basepaths = true;
+        if (com_searchpaths->pack) {
+            Z_Free(com_searchpaths->pack->files);
+            Z_Free(com_searchpaths->pack);
+        }
+        next = com_searchpaths->next;
+        if (!basepaths)
+            Z_Free(com_searchpaths); // basepaths are hunk allocated...
+        com_searchpaths = next;
+    }
+    com_base_searchpaths = NULL;
 #endif
+    com_searchpaths = NULL;
 
     home = getenv("HOME");
 
@@ -1998,7 +2016,7 @@ COM_InitFilesystem(void)
 		|| com_argv[i][0] == '-')
 		break;
 
-	    search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
+	    searchpath_t *search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
 	    if (!strcmp(COM_FileExtension(com_argv[i]), "pak")) {
 		search->pack = COM_LoadPackFile(com_argv[i]);
 		if (!search->pack)

@@ -48,22 +48,21 @@ extern byte **host_transtables;
 
 extern int host_framecount;	// incremented every frame, never reset
 extern double realtime;		// not bounded in any way, changed at
-
 				// start of every frame, never reset
 
 void Host_ClearMemory(void);
 void Host_ServerFrame(void);
 void SV_AddOperatorCommands(void);
-void Host_Init(quakeparms_t *parms);
+
+typedef const char *(*basedir_fn)();
+void Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns);
+
 void Host_Shutdown(void);
-void Host_Error(const char *error, ...)
-    __attribute__((noreturn, format(printf,1,2)));
-void Host_EndGame(const char *message, ...)
-    __attribute__((noreturn, format(printf,1,2)));
+void Host_Error(const char *error, ...) __attribute__((noreturn, format(printf,1,2)));
+void Host_EndGame(const char *message, ...) __attribute__((noreturn, format(printf,1,2)));
 void Host_Frame(float time);
 void Host_Quit_f(void);
-void Host_ClientCommands(client_t *client, const char *fmt, ...)
-    __attribute__((format(printf,2,3)));
+void Host_ClientCommands(client_t *client, const char *fmt, ...) __attribute__((format(printf,2,3)));
 void Host_ShutdownServer(qboolean crash);
 
 extern int current_skill;	// skill level for currently loaded level (in

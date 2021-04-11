@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <limits.h>
 #include <windows.h>
 #include <mmsystem.h>
+#include <shlobj.h>
+#include <winreg.h>
 #include <winsock2.h>
 
 #include "common.h"
@@ -85,6 +87,86 @@ static void Print_Win32SystemError(DWORD messageid);
 static HANDLE qwclsemaphore;
 #endif
 #endif /* !SERVERONLY */
+
+static char win32_cwd[MAX_PATH];
+static char win32_basedir[MAX_PATH];
+
+static const char *
+Win32_StripTrailingSlash(char *path)
+{
+    size_t length = strlen(path);
+    if (length && (path[length - 1] == '/' || path[length - 1] == '\\'))
+        path[length - 1] = 0;
+
+    return path;
+}
+
+static const char *
+Win32_SteamPath()
+{
+    /*
+     * https://docs.microsoft.com/en-us/windows/win32/api/winreg/nf-winreg-regopenkeyexa
+     * https://docs.microsoft.com/en-us/windows/win32/winprog64/accessing-an-alternate-registry-view
+     */
+    const char *subkey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 2310";
+    const char *value_name = "InstallLocation";
+    LSTATUS status;
+    HKEY key_handle;
+
+    HKEY keys[] = { HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE };
+    for (int i = 0; i < ARRAY_SIZE(keys); i++) {
+        DWORD flags[] = { KEY_WOW64_64KEY, KEY_WOW64_32KEY };
+        for (int j = 0; j < ARRAY_SIZE(flags); j++) {
+            status = RegOpenKeyExA(keys[i], subkey, 0, KEY_QUERY_VALUE | flags[j], &key_handle);
+            if (status != ERROR_SUCCESS)
+                continue;
+            DWORD value_type;
+            DWORD path_size = sizeof(win32_basedir);
+            status = RegQueryValueExA(key_handle, value_name, NULL, &value_type, (BYTE *)win32_basedir, &path_size);
+            RegCloseKey(key_handle);
+            if (status != ERROR_SUCCESS || value_type != REG_SZ)
+                continue;
+
+            return Win32_StripTrailingSlash(win32_basedir);
+        }
+    }
+
+    return NULL;
+}
+
+static const char *
+Win32_CSIDL_Path(int csidl)
+{
+    char folder_path[MAX_PATH];
+    BOOL result;
+
+    result = SHGetSpecialFolderPathA(0, folder_path, csidl, false);
+    if (!result)
+        return NULL;
+
+    Win32_StripTrailingSlash(folder_path);
+    qsnprintf(win32_basedir, sizeof(win32_basedir), "%s/Quake", folder_path);
+
+    return win32_basedir;
+}
+
+static const char *
+Win32_ProgramFilesX86Path()
+{
+    return Win32_CSIDL_Path(CSIDL_PROGRAM_FILESX86);
+}
+
+static const char *
+Win32_ProgramFilesPath()
+{
+    return Win32_CSIDL_Path(CSIDL_PROGRAM_FILES);
+}
+
+static const char *
+Win32_DefaultPath()
+{
+    return "C:/quake";
+}
 
 int64_t
 Sys_FileTime(const char *path)
@@ -649,7 +731,6 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 {
     quakeparms_t parms;
     double time, oldtime, newtime;
-    static char cwd[1024];
     RECT rect;
 
     /* previous instances do not exist in Win32 */
@@ -659,14 +740,13 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
     global_hInstance = hInstance;
     global_nCmdShow = nCmdShow;
 
-    if (!GetCurrentDirectory(sizeof(cwd), cwd))
+    if (!GetCurrentDirectory(sizeof(win32_cwd), win32_cwd))
 	Sys_Error("Couldn't determine current directory");
-    if (cwd[strlen(cwd) - 1] == '/')
-       cwd[strlen(cwd) - 1] = 0;
+    Win32_StripTrailingSlash(win32_cwd);
 
     COM_InitArgv(__argc, (const char **)__argv);
 
-    parms.basedir = cwd;
+    parms.basedir = win32_cwd;
     parms.argc = com_argc;
     parms.argv = com_argv;
 
@@ -768,7 +848,15 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
     S_BlockSound();
 
     Sys_Printf("Host_Init\n");
-    Host_Init(&parms);
+
+    basedir_fn basedir_fns[] = {
+        Win32_SteamPath,
+        Win32_ProgramFilesX86Path,
+        Win32_ProgramFilesPath,
+        Win32_DefaultPath,
+        NULL,
+    };
+    Host_Init(&parms, basedir_fns);
 
     oldtime = Sys_DoubleTime();
 

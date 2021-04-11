@@ -822,13 +822,47 @@ Cvars_Init()
 }
 
 /*
-====================
-Host_Init
-====================
-*/
-void
-Host_Init(quakeparms_t *parms)
+ * Returns an error message on failure, or NULL on success.
+ */
+static const char *
+Host_LoadPalettes()
 {
+    host_basepal = COM_LoadHunkFile("gfx/palette.lmp", NULL);
+    if (!host_basepal)
+        return "Couldn't load gfx/palette.lmp";
+    host_colormap = COM_LoadHunkFile("gfx/colormap.lmp", NULL);
+    if (!host_colormap)
+        return "Couldn't load gfx/colormap.lmp";
+
+    return NULL;
+}
+
+/*
+ * Called when the filesystem has been initialised to load various
+ * graphical resources: palette, charset, console background, menu
+ * pics, etc.
+ */
+static void
+Host_NewGame()
+{
+    //Host_LoadPalettes();
+    Draw_Init();
+    SCR_Init();
+}
+
+
+/*
+ * ====================
+ *  Host_Init
+ * ====================
+ * The system code can optionally pass a null terminated list of function pointers which can be
+ * called by host init to find more basedir candidates if the initial (CWD) one fails.
+ */
+void
+Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
+{
+    int filesystem_mark;
+
     if (standard_quake)
 	minimum_memory = MINIMUM_MEMORY;
     else
@@ -849,9 +883,9 @@ Host_Init(quakeparms_t *parms)
     Memory_Init(parms->membase, parms->memsize);
     Cvars_Init();
     Commands_Init();
-
     Cbuf_Init();
-    COM_Init();
+
+
     V_Init();
     SV_InitLocal();
     Key_Init();
@@ -867,36 +901,43 @@ Host_Init(quakeparms_t *parms)
 
     R_InitTextures();		// needed even for dedicated servers
 
+next_basedir:
+    filesystem_mark = Hunk_LowMark();
+    COM_Init();     // <- Init filesystem
+
     if (cls.state != ca_dedicated) {
-	host_basepal = COM_LoadHunkFile("gfx/palette.lmp", NULL);
-	if (!host_basepal)
-	    Sys_Error("Couldn't load gfx/palette.lmp");
-	host_colormap = COM_LoadHunkFile("gfx/colormap.lmp", NULL);
-	if (!host_colormap)
-	    Sys_Error("Couldn't load gfx/colormap.lmp");
+        /*
+         * Attempt to load palettes.  If this fails, the caller may have supplied alternative
+         * basedirs to try.  Try each in turn until we succeed or run out of options.
+         */
+        const char *error = Host_LoadPalettes();
+        if (error) {
+            if (!COM_CheckParm("-basedir")) {
+                while (basedir_fns && *basedir_fns) {
+                    host_parms.basedir = (*basedir_fns++)();
+                    if (host_parms.basedir) {
+                        goto next_basedir;
+                    }
+                }
+            }
+            Sys_Error("%s", error);
+        }
 
         VID_Init(host_basepal);
+        Host_NewGame();
 
-	Draw_Init();
-	SCR_Init();
+        Alpha_Init();
 	R_Init();
+	Sbar_Init();
 
 	S_Init();
 	CDAudio_Init();
-
-	Sbar_Init();
 	CL_Init();
-
 	IN_Init();
     }
     Mod_InitAliasCache();
 
-    if (cls.state != ca_dedicated) {
-        Con_Printf("Initializing alpha palettes...\n");
-        Alpha_Init();
-    }
-
-    Hunk_AllocName(0, "-HOST_HUNKLEVEL-");
+    Hunk_AllocName(0, "--HOST--");
     host_hunklevel = Hunk_LowMark();
 
     host_initialized = true;

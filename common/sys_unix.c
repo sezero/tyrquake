@@ -371,7 +371,7 @@ main(int argc, char **argv)
 #endif
 
     Sys_Init();
-    Host_Init(&parms);
+    Host_Init(&parms, NULL);
 #endif /* SERVERONLY */
 
     /*
