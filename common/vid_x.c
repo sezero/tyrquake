@@ -310,7 +310,8 @@ st3_fixup(XImage * framebuf, int x, int y, int width, int height)
 static void
 TragicDeath(int signal_num)
 {
-    XCloseDisplay(x_disp);
+    if (x_disp)
+        XCloseDisplay(x_disp);
     Sys_Error("This death brought to you by the number %d", signal_num);
 }
 
@@ -839,7 +840,8 @@ VID_Shutdown(void)
 {
     Con_Printf("VID_Shutdown\n");
     VID_restore_vidmode();
-    XCloseDisplay(x_disp);
+    if (x_disp)
+        XCloseDisplay(x_disp);
 }
 
 static int config_notify = 0;
