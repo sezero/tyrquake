@@ -55,6 +55,8 @@ VID_SDL_SetIcon()
     const uint32_t amask = 0xff000000;
 #endif
 
+    if (NULL == tyrquake_icon_128) return;
+    
     surface = SDL_CreateRGBSurfaceFrom((void *)tyrquake_icon_128, 128, 128, 32, 128 * 4, rmask, gmask, bmask, amask);
     if (!surface)
         return;

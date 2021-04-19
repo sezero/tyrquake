@@ -1148,7 +1148,7 @@ $(BUILD_DIR)/icons/tyrquake.ico: $(WINDOWS_ICON_SOURCE_FILES)
 # ----------------------------------------------------------------------------
 
 quiet_cmd_iconheader = '  GENERATE $@'
-      cmd_iconheader = convert $< -resize $(1)x$(2) -define h:format=rgba -depth 8 -size $(1)x$(2) $@
+      cmd_iconheader = convert $< -resize $(1)x$(2) -define h:format=rgba -depth 8 -size $(1)x$(2) $@ 2>/dev/null || ( echo "WARNING: 'convert' not found, skipping icon generation" >&2; echo "static const unsigned char * MagickImage = NULL;" >> $@ )
 
 define do_iconheader
 	$(do_mkdir)
