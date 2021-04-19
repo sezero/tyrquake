@@ -759,7 +759,6 @@ void
 VID_Init(const byte *palette)
 {
     byte gamma_palette[256 * 3];
-    char gldir[MAX_OSPATH];
     DEVMODE devmode;
     const qvidmode_t *mode;
 
@@ -791,9 +790,6 @@ VID_Init(const byte *palette)
 
     VID_SetMode(mode, gamma_palette);
     Gamma_Init();
-
-    qsnprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
-    Sys_mkdir(gldir);
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;

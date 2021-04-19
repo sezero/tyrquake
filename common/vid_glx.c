@@ -559,7 +559,6 @@ VID_Init(const byte *palette)
 	GLX_DEPTH_SIZE, 1,
 	None
     };
-    char gldir[MAX_OSPATH];
     int MajorVersion, MinorVersion;
     const qvidmode_t *mode;
 
@@ -606,9 +605,6 @@ VID_Init(const byte *palette)
     vid_menukeyfn = VID_MenuKey;
 
     InitSig();			// trap evil signals
-
-    qsnprintf(gldir, sizeof(gldir), "%s/glquake", com_gamedir);
-    Sys_mkdir(gldir);
 }
 
 void
