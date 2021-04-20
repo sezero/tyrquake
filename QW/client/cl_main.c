@@ -366,7 +366,8 @@ CL_ClearState(void)
     Con_DPrintf("Clearing memory\n");
     D_FlushCaches();
     Mod_ClearAll();
-    if (host_hunklevel)		// FIXME: check this...
+    S_ClearOverflow();
+    if (host_hunklevel)
 	Hunk_FreeToLowMark(host_hunklevel);
 
     CL_ClearTEnts();

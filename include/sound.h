@@ -90,6 +90,7 @@ typedef struct {
 void S_AddCommands();
 void S_RegisterVariables();
 void S_Init();
+void S_ClearOverflow();
 
 void S_Startup(void);
 void S_Shutdown(void);

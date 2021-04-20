@@ -69,8 +69,12 @@ static int soundtime;		/* sample PAIRS */
 int paintedtime;		/* sample PAIRS */
 
 #define	MAX_SFX 512
-static sfx_t *known_sfx;	/* hunk allocated [MAX_SFX] */
-static int num_sfx;
+struct known_sfx {
+    int num_sfx;
+    sfx_t sfx[MAX_SFX];
+    struct known_sfx *overflow;
+};
+static struct known_sfx *known_sfx;
 
 static sfx_t *ambient_sfx[NUM_AMBIENTS];
 
@@ -213,8 +217,7 @@ S_Init(void)
 
     SND_InitScaletable();
 
-    known_sfx = Hunk_AllocName(MAX_SFX * sizeof(sfx_t), "sfx_t");
-    num_sfx = 0;
+    known_sfx = Hunk_AllocName(sizeof(*known_sfx), "sfxlist");
 
     /* create a piece of DMA memory */
     if (fakedma) {
@@ -241,6 +244,12 @@ S_Init(void)
     ambient_sfx[AMBIENT_SKY] = S_PrecacheSound("ambience/wind2.wav");
 
     S_StopAllSounds(true);
+}
+
+void
+S_ClearOverflow()
+{
+    known_sfx->overflow = NULL;
 }
 
 
@@ -279,17 +288,20 @@ S_FindName(const char *name)
 	Sys_Error("%s: name too long: %s", __func__, name);
 
     /* see if already loaded */
-    for (i = 0; i < num_sfx; i++)
-	if (!strcmp(known_sfx[i].name, name))
-	    return &known_sfx[i];
+    struct known_sfx *known = known_sfx;
+overflow:
+    for (i = 0, sfx = known->sfx; i < known->num_sfx; i++, sfx++)
+        if (!strcmp(sfx->name, name))
+            return sfx;
+    if (known->num_sfx ==  MAX_SFX) {
+        if (!known->overflow)
+            known->overflow = Hunk_AllocName(sizeof(*known->overflow), "sfxextra");
+        known = known->overflow;
+        goto overflow;
+    }
 
-    if (num_sfx == MAX_SFX)
-	Sys_Error("%s: out of sfx_t", __func__);
-
-    sfx = &known_sfx[i];
-    strcpy(sfx->name, name);
-
-    num_sfx++;
+    qstrncpy(sfx->name, name, sizeof(sfx->name));
+    known->num_sfx++;
 
     return sfx;
 }
@@ -874,22 +886,30 @@ S_SoundList(void)
     int i;
     sfx_t *sfx;
     sfxcache_t *sc;
-    int size, total;
+    int size, total, count;
 
+    count = 0;
     total = 0;
-    for (sfx = known_sfx, i = 0; i < num_sfx; i++, sfx++) {
-	sc = Cache_Check(&sfx->cache);
-	if (!sc)
-	    continue;
-	size = sc->length * sc->width * (sc->stereo + 1);
-	total += size;
-	if (sc->loopstart >= 0)
-	    Con_Printf("L");
-	else
-	    Con_Printf(" ");
-	Con_Printf("(%2db) %6i : %s\n", sc->width * 8, size, sfx->name);
+    struct known_sfx *known = known_sfx;
+    while (known) {
+        for (sfx = known->sfx, i = 0; i < known->num_sfx; i++, sfx++) {
+            count++;
+            sc = Cache_Check(&sfx->cache);
+            if (!sc)
+                continue;
+            size = sc->length * sc->width * (sc->stereo + 1);
+            total += size;
+            if (sc->loopstart >= 0)
+                Con_Printf("L");
+            else
+                Con_Printf(" ");
+            Con_Printf("(%2db) %6i : %s\n", sc->width * 8, size, sfx->name);
+        }
+        known = known->overflow;
     }
-    Con_Printf("Total resident: %i\n", total);
+
+    Con_Printf("Known sounds: %i\n", count);
+    Con_Printf("Total bytes resident: %i\n", total);
 }
 
 
