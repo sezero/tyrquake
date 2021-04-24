@@ -215,8 +215,7 @@ VID_CreateDIB(int width, int height, const byte *palette)
     }
 
     // create the DIB section
-    hDIBSection = CreateDIBSection(maindc, pbmiDIB, DIB_RGB_COLORS,
-				   (void **)&pDIBBase, NULL, 0);
+    hDIBSection = CreateDIBSection(maindc, pbmiDIB, DIB_RGB_COLORS, (void **)&pDIBBase, NULL, 0);
 
     // set video buffers
     if (pbmiDIB->bmiHeader.biHeight > 0) {
@@ -321,7 +320,12 @@ VID_AllocBuffers(int width, int height)
     VID_highhunkmark = Hunk_HighMark();
     d_pzbuffer = Hunk_HighAllocName(tbuffersize, "video");
     vid_surfcache = (byte *)d_pzbuffer + width * height * sizeof(*d_pzbuffer);
+
     r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
+    if (vid.rowbytes < 0) {
+        /* Deal with case where we get a bottom up DIBSection */
+        r_warpbuffer += (height - 1) * width;
+    }
 
     return true;
 }
