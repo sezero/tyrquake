@@ -79,10 +79,10 @@ typedef void (*xcommand_t)(void);
  * Command argument completion function.
  *
  * An initialised stree_root will be passed in, along with the partial
- * argument string to be completed.  The function should then add
- * possible completions to the stree.
+ * argument string to be completed and which argument number this is.
+ * The function should then add possible completions to the stree.
  */
-typedef void (*cmd_arg_f)(struct stree_root *root, const char *);
+typedef void (*cmd_arg_f)(struct stree_root *root, int argnum);
 
 #ifdef NQ_HACK
 /*
@@ -115,8 +115,8 @@ void Cmd_AddCommands(void);
 
 void Cmd_AddCommand(const char *cmd_name, xcommand_t function);
 void Cmd_SetCompletion(const char *cmd_name, cmd_arg_f completion);
-const char *Cmd_ArgComplete(const char *name, const char *buf);
-struct stree_root *Cmd_ArgCompletions(const char *name, const char *buf);
+const char *Cmd_ArgComplete(const char *name, int argnum);
+struct stree_root *Cmd_ArgCompletions(const char *name, int argnum);
 
 struct stree_root *Cmd_CommandCompletions(const char *buf);
 const char *Cmd_CommandComplete(const char *buf);

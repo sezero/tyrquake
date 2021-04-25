@@ -126,9 +126,12 @@ Host_Map_f(void)
 }
 
 static void
-Host_Map_Arg_f(struct stree_root *root, const char *arg)
+Host_Map_Arg_f(struct stree_root *root, int argnum)
 {
-    COM_ScanDir(root, "maps", arg, ".bsp", true);
+    if (argnum != 1)
+        return;
+
+    COM_ScanDir(root, "maps", Cmd_Argv(1), ".bsp", true);
 }
 
 /*
@@ -657,6 +660,12 @@ DEMO LOOP CONTROL
 ===============================================================================
 */
 
+static void
+Host_Startdemos_Arg_f(struct stree_root *root, int argnum)
+{
+    COM_ScanDir(root, "", Cmd_Argv(argnum), ".dem", true);
+}
+
 
 /*
 ==================
@@ -682,7 +691,7 @@ Host_Startdemos_f(void)
     Con_Printf("%i demo(s) in loop\n", c);
 
     for (i = 1; i < c + 1; i++)
-	strncpy(cls.demos[i - 1], Cmd_Argv(i), sizeof(cls.demos[0]) - 1);
+	qstrncpy(cls.demos[i - 1], Cmd_Argv(i), sizeof(cls.demos[0]));
 
     if (!sv.active && cls.demonum != -1 && !cls.demoplayback) {
 	cls.demonum = 0;
@@ -753,6 +762,7 @@ SV_AddOperatorCommands(void)
     Cmd_AddCommand("save", Host_Savegame_f);
 
     Cmd_AddCommand("startdemos", Host_Startdemos_f);
+    Cmd_SetCompletion("startdemos", Host_Startdemos_Arg_f);
     Cmd_AddCommand("demos", Host_Demos_f);
     Cmd_AddCommand("stopdemo", Host_Stopdemo_f);
 

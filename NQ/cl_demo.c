@@ -345,9 +345,12 @@ CL_PlayDemo_f(void)
 }
 
 void
-CL_Demo_Arg_f(struct stree_root *root, const char *arg)
+CL_Demo_Arg_f(struct stree_root *root, int argnum)
 {
-    COM_ScanDir(root, "", arg, ".dem", true);
+    if (argnum != 1)
+        return;
+
+    COM_ScanDir(root, "", Cmd_Argv(1), ".dem", true);
 }
 
 /*

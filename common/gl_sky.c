@@ -138,10 +138,13 @@ Sky_SkyCommand_f()
 }
 
 static void
-Sky_SkyCommand_Arg_f(struct stree_root *root, const char *arg)
+Sky_SkyCommand_Arg_f(struct stree_root *root, int argnum)
 {
-    COM_ScanDir(root, "gfx/env", arg, "rt.tga", true);
-    COM_ScanDir(root, "gfx/env", arg, "rt.pcx", true);
+    if (argnum != 1)
+        return;
+
+    COM_ScanDir(root, "gfx/env", Cmd_Argv(1), "rt.tga", true);
+    COM_ScanDir(root, "gfx/env", Cmd_Argv(1), "rt.pcx", true);
 }
 
 void

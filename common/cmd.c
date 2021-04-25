@@ -767,7 +767,7 @@ Cmd_ExecuteString(const char *text)
  * buffer for the given command.  The root needs to be Z_Free()'d after use.
  */
 struct stree_root *
-Cmd_ArgCompletions(const char *name, const char *buffer)
+Cmd_ArgCompletions(const char *name, int argnum)
 {
     cmd_function_t *cmd;
     struct stree_root *root = NULL;
@@ -778,7 +778,7 @@ Cmd_ArgCompletions(const char *name, const char *buffer)
         if (root) {
             *root = STREE_ROOT;
             STree_AllocInit();
-            cmd->completion(root, buffer);
+            cmd->completion(root, argnum);
         }
     }
 
@@ -790,14 +790,14 @@ Cmd_ArgCompletions(const char *name, const char *buffer)
  * Returned result should be Z_Free'd after use.
  */
 const char *
-Cmd_ArgComplete(const char *name, const char *buf)
+Cmd_ArgComplete(const char *name, int argnum)
 {
     char *result = NULL;
     struct stree_root *root;
 
-    root = Cmd_ArgCompletions(name, buf);
+    root = Cmd_ArgCompletions(name, argnum);
     if (root) {
-	result = STree_MaxMatch(root, buf);
+	result = STree_MaxMatch(root, Cmd_Argv(argnum));
 	Z_Free(root);
     }
 

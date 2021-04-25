@@ -342,9 +342,12 @@ SV_Map_f(void)
 }
 
 static void
-SV_Map_Arg_f(struct stree_root *root, const char *arg)
+SV_Map_Arg_f(struct stree_root *root, int argnum)
 {
-    COM_ScanDir(root, "maps", arg, ".bsp", true);
+    if (argnum != 1)
+        return;
+
+    COM_ScanDir(root, "maps", Cmd_Argv(1), ".bsp", true);
 }
 
 /*

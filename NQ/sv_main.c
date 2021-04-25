@@ -110,11 +110,15 @@ SV_Protocol_f(void)
 }
 
 static void
-SV_Protocol_Arg_f(struct stree_root *root, const char *arg)
+SV_Protocol_Arg_f(struct stree_root *root, int argnum)
 {
     int i, arg_len;
     char digits[10];
 
+    if (argnum != 1)
+        return;
+
+    const char *arg = Cmd_Argv(argnum);
     arg_len = arg ? strlen(arg) : 0;
     for (i = 0; i < ARRAY_SIZE(sv_protocols); i++) {
         if (!arg || !strncasecmp(sv_protocols[i].name, arg, arg_len))

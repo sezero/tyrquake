@@ -182,14 +182,19 @@ GetCommandPos(char *buf)
 {
     char *pos;
 
+    /* Search backward for last semicolon (if any) */
     pos = strrchr(buf, ';');
     if (pos) {
 	pos++;
-	while (*pos == ' ')
-	    pos++;
-    } else
+    } else {
 	pos = buf;
+    }
 
+    /* Skip space */
+    while (*pos == ' ')
+        pos++;
+
+    /* If preceeded by a forward/backward slash, skip over that */
     if (*pos == '\\' || *pos == '/')
 	pos++;
 
@@ -219,65 +224,56 @@ CheckForCommand(void)
 static void
 CompleteCommand(void)
 {
-    const char *cmd, *completion;
-    char *s, *newcmd;
-    int len;
-
-    s = GetCommandPos(key_lines[edit_line] + 1);
-    cmd = Cmd_CommandComplete(s);
-    if (cmd) {
-	key_linepos = s - key_lines[edit_line];
-	if (s == key_lines[edit_line] + 1) {
-	    *s++ = '/';
+    char *start = GetCommandPos(key_lines[edit_line] + 1);
+    const char *command = Cmd_CommandComplete(start);
+    if (command) {
+	key_linepos = start - key_lines[edit_line];
+	if (start == key_lines[edit_line] + 1) {
+	    *start++ = '/';
 	    key_linepos++;
 	}
-	strcpy(s, cmd);
-	key_linepos += strlen(cmd);
+	qstrncpy(start, command, sizeof(key_lines[0]) - key_linepos);
+	key_linepos += strlen(command);
+        key_linepos = qmin(key_linepos, (int)sizeof(key_lines[0]) - 1);
 	key_lines[edit_line][key_linepos] = 0;
-	Z_Free(cmd);
+	Z_Free(command);
         return;
     }
 
     /* Try argument completion? */
-    cmd = strchr(s, ' ');
-    if (!cmd)
+    char *space = strrchr(start, ' ');
+    if (!space)
         return;
 
-    len = cmd - s;
-    newcmd = Z_StrnDup(s, len);
-    if (!newcmd)
-        return;
+    Cmd_TokenizeString(start);
+    qboolean trailing_space = (space[strlen(space) - 1] == ' ');
+    start = space + 1;
 
-    completion = NULL;
-    if (Cmd_Exists(newcmd)) {
-        s += len;
-        while (*s == ' ')
-            s++;
-        completion = Cmd_ArgComplete(newcmd, s);
-    } else if (Cvar_FindVar(newcmd)) {
-        s += len;
-        while (*s == ' ')
-            s++;
-        completion = Cvar_ArgComplete(newcmd, s);
+    const char *completion = NULL;
+    if (Cmd_Exists(Cmd_Argv(0))) {
+        /* If there's space at the end, we are completing the next arg */
+        int argnum = Cmd_Argc() - !trailing_space;
+        completion = Cmd_ArgComplete(Cmd_Argv(0), argnum);
+    } else if (Cvar_FindVar(Cmd_Argv(0))) {
+        /* Only one arg can complete for cvars */
+        if ((Cmd_Argc() == 1 && trailing_space) || (Cmd_Argc() == 2 && !trailing_space)) {
+            completion = Cvar_ArgComplete(Cmd_Argv(0), Cmd_Argv(1));
+        }
     }
     if (completion) {
-        key_linepos = s - key_lines[edit_line];
-        strcpy(s, completion);
+        key_linepos = start - key_lines[edit_line];
+        qstrncpy(start, completion, sizeof(key_lines[0]) - key_linepos);
         key_linepos += strlen(completion);
+        key_linepos = qmin(key_linepos, (int)sizeof(key_lines[0]) - 1);
         Z_Free(completion);
     }
-    Z_Free(newcmd);
 }
 
 static void
 ShowCompletions(void)
 {
-    const char *s;
-    struct stree_root *root;
-    unsigned int len;
-
-    s = GetCommandPos(key_lines[edit_line] + 1);
-    root = Cmd_CommandCompletions(s);
+    const char *start = GetCommandPos(key_lines[edit_line] + 1);
+    struct stree_root *root = Cmd_CommandCompletions(start);
     if (root) {
         if (root->entries) {
             Con_Printf("%s\n", key_lines[edit_line]);
@@ -288,21 +284,17 @@ ShowCompletions(void)
 	Z_Free(root);
     }
 
-    char *cmd = strchr(s, ' ');
-    if (!cmd)
+    char *space = strrchr(start, ' ');
+    if (!space)
         return;
 
-    len = cmd - s;
-    cmd = Z_StrnDup(s, len);
-    if (!cmd)
-        return;
+    Cmd_TokenizeString(start);
+    qboolean trailing_space = (space[strlen(space) - 1] == ' ');
+    start = space + 1;
 
-    if (Cmd_Exists(cmd)) {
-        s += len;
-        while (*s == ' ')
-            s++;
-
-        struct stree_root *root = Cmd_ArgCompletions(cmd, s);
+    if (Cmd_Exists(Cmd_Argv(0))) {
+        int argnum = Cmd_Argc() - !trailing_space;
+        struct stree_root *root = Cmd_ArgCompletions(Cmd_Argv(0), argnum);
         if (root) {
             if (root->entries) {
                 Con_Printf("%s\n", key_lines[edit_line]);
@@ -310,21 +302,19 @@ ShowCompletions(void)
             }
             Z_Free(root);
         }
-    } else if (Cvar_FindVar(cmd)) {
-        s += len;
-        while (*s == ' ')
-            s++;
-
-        struct stree_root *root = Cvar_ArgCompletions(cmd, s);
-        if (root) {
-            if (root->entries) {
-                Con_Printf("%s\n", key_lines[edit_line]);
-                Con_ShowTree(root);
+    } else if (Cvar_FindVar(Cmd_Argv(0))) {
+        /* Only one arg can complete for cvars */
+        if ((Cmd_Argc() == 1 && trailing_space) || (Cmd_Argc() == 2 && !trailing_space)) {
+            struct stree_root *root = Cvar_ArgCompletions(Cmd_Argv(0), Cmd_Argv(1));
+            if (root) {
+                if (root->entries) {
+                    Con_Printf("%s\n", key_lines[edit_line]);
+                    Con_ShowTree(root);
+                }
+                Z_Free(root);
             }
-            Z_Free(root);
         }
     }
-    Z_Free(cmd);
 }
 
 static void

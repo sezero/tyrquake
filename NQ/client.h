@@ -349,7 +349,7 @@ void CL_Record_f(void);
 
 void CL_TimeDemo_f(void);
 void CL_PlayDemo_f(void);
-void CL_Demo_Arg_f(struct stree_root *root, const char *arg);
+void CL_Demo_Arg_f(struct stree_root *root, int argnum);
 
 //
 // cl_parse.c

@@ -186,10 +186,14 @@ GL_TextureMode_f(void)
 }
 
 static void
-GL_TextureMode_Arg_f(struct stree_root *root, const char *arg)
+GL_TextureMode_Arg_f(struct stree_root *root, int argnum)
 {
     int i, arg_len;
 
+    if (argnum != 1)
+        return;
+
+    const char *arg = Cmd_Argv(1);
     arg_len = arg ? strlen(arg) : 0;
     for (i = 0; i < ARRAY_SIZE(gl_texturemodes); i++) {
         if (!arg || !strncasecmp(gl_texturemodes[i].name, arg, arg_len))
@@ -632,11 +636,22 @@ GL_PrintTextures_f(void)
             count++;
         Con_Printf("======== %d free textures slots ========\n", count);
     }
+
+    Con_Printf("NO OWNER:\n");
+    list_for_each_entry(texture, &manager.active, list) {
+        if (texture->owner)
+            continue;
+        Con_Printf("%s\n", texture->name);
+    }
 }
 
 static void
-GL_PrintTextures_Arg_f(struct stree_root *root, const char *arg)
+GL_PrintTextures_Arg_f(struct stree_root *root, int argnum)
 {
+    if (argnum != 1)
+        return;
+
+    const char *arg = Cmd_Argv(1);
     const char *args[] = { "active", "inactive", "free", "all" };
     int i;
     int arg_len = arg ? strlen(arg) : 0;
