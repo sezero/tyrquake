@@ -129,6 +129,7 @@ extern void (*VID_SetGammaRamp)(unsigned short ramp[3][256]);
 void VID_RegisterVariables();
 void VID_AddCommands();
 void VID_Init(const byte *palette);
+void VID_InitColormap(const byte *palette);
 
 // Called at startup to set up translation tables, takes 256 8 bit RGB values
 // the palette data will go away after the call, so it must be copied off if

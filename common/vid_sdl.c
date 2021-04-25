@@ -190,6 +190,13 @@ VID_AllocBuffers(int width, int height)
     return true;
 }
 
+void
+VID_InitColormap(const byte *palette)
+{
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -237,17 +244,14 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	Sys_Error("%s: Unable to create texture: %s", __func__, SDL_GetError());
 
     VID_SDL_SetIcon();
-
     //VID_InitGamma(palette);
     VID_SetPalette(palette);
+    VID_InitColormap(palette);
 
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
-
-    vid.colormap = host_colormap;
-    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
     VID_AllocBuffers(vid.width, vid.height);
 

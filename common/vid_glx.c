@@ -395,6 +395,13 @@ VID_restore_vidmode()
     }
 }
 
+void
+VID_InitColormap(const byte *palette)
+{
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -509,8 +516,9 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
-    vid.colormap = host_colormap;
-    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+
+    VID_SetPalette(palette);
+    VID_InitColormap(palette);
 
     Con_SafePrintf("Video mode %dx%d initialized.\n", mode->width, mode->height);
 
@@ -593,8 +601,6 @@ VID_Init(const byte *palette)
 	mode = &vid_windowed_mode;
 
     VID_SetMode(mode, palette);
-
-    VID_SetPalette(palette);
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;

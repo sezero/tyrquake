@@ -652,6 +652,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	vid_palettized = false;
 
     VID_SetPalette(palette);
+    VID_InitColormap(palette);
+
     ReleaseDC(NULL, hdc);
 
     if (!VID_AllocBuffers(vid.width, vid.height))
@@ -753,24 +755,12 @@ VID_AddCommands()
 }
 
 void
-VID_Init(const byte *palette)
+VID_InitColormap(const byte *palette)
 {
-    const qvidmode_t *mode;
-    int i, bestmatch, bestmatchmetric, t, dr, dg, db;
-    byte *ptmp;
-
-    VID_InitWindowClass(global_hInstance);
-    VID_InitModeList();
-    VID_LoadConfig();
-    mode = VID_GetCmdlineMode();
-    if (!mode)
-        mode = VID_GetModeFromCvars();
-    if (!mode)
-	mode = &vid_windowed_mode;
-
     vid.colormap = host_colormap;
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
-    vid_testingmode = 0;
+
+    int i, bestmatch, bestmatchmetric, t, dr, dg, db;
 
     /*
      * GDI doesn't let us remap palette index 0, so we'll remap color
@@ -795,10 +785,29 @@ VID_Init(const byte *palette)
 	}
     }
 
-    for (i = 0, ptmp = vid.colormap; i < (1 << (VID_CBITS + 8)); i++, ptmp++) {
-	if (*ptmp == 0)
-	    *ptmp = bestmatch;
+    /* Replace index 0 in the colormap with the closest match in the palette */
+    for (i = 0; i < (1 << (VID_CBITS + 8)); i++) {
+	if (vid.colormap[i] == 0)
+	    vid.colormap[i] = bestmatch;
     }
+}
+
+void
+VID_Init(const byte *palette)
+{
+    const qvidmode_t *mode;
+
+    VID_InitWindowClass(global_hInstance);
+    VID_InitModeList();
+    VID_LoadConfig();
+
+    vid_testingmode = 0;
+
+    mode = VID_GetCmdlineMode();
+    if (!mode)
+        mode = VID_GetModeFromCvars();
+    if (!mode)
+	mode = &vid_windowed_mode;
 
     if (hwnd_dialog)
 	DestroyWindow(hwnd_dialog);

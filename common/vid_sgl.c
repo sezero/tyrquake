@@ -87,6 +87,13 @@ VID_GetDesktopRect(vrect_t *rect)
 
 static SDL_GLContext gl_context = NULL;
 
+void
+VID_InitColormap(const byte *palette)
+{
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -142,6 +149,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 		  __func__, SDL_GetError());
 
     VID_SDL_SetIcon();
+    VID_SetPalette(palette);
+    VID_InitColormap(palette);
 
     GL_Init();
     if (reload_textures)
@@ -151,9 +160,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
-
-    vid.colormap = host_colormap;
-    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
     vid_currentmode = mode;
 
@@ -229,7 +235,6 @@ VID_Init(const byte *palette)
 	mode = &vid_windowed_mode;
 
     VID_SetMode(mode, palette);
-    VID_SetPalette(palette);
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;

@@ -436,6 +436,13 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     return true;
 }
 
+void
+VID_InitColormap(const byte *palette)
+{
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -516,6 +523,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     SetForegroundWindow(mainwindow);
 
     VID_SetPalette(palette);
+    VID_InitColormap(palette);
 
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
 	TranslateMessage(&msg);
@@ -771,9 +779,6 @@ VID_Init(const byte *palette)
 	mode = &vid_windowed_mode;
 
     vid_initialized = true;
-
-    vid.colormap = host_colormap;
-    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
     DestroyWindow(hwnd_dialog);
 

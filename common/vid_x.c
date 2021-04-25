@@ -524,6 +524,13 @@ VID_restore_vidmode()
     }
 }
 
+void
+VID_InitColormap(const byte *palette)
+{
+    vid.colormap = host_colormap;
+    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -612,6 +619,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	    XSetWindowColormap(x_disp, x_win, x_cmap);
 	}
     }
+    VID_InitColormap(palette);
 
     /* Create the GC */
     {
@@ -667,8 +675,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.height = vid.conheight = mode->height;
     vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
     vid.numpages = 2;
-    vid.colormap = host_colormap;
-    vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 
     if (doShm) {
 	x_shmeventtype = XShmGetEventBase(x_disp) + ShmCompletion;
@@ -810,12 +816,8 @@ VID_SetPalette(const byte *palette)
     XColor colors[256];
 
     for (i = 0; i < 256; i++) {
-	st2d_8to16table[i] =
-	    xlib_rgb16(palette[i * 3], palette[i * 3 + 1],
-		       palette[i * 3 + 2]);
-	st2d_8to24table[i] =
-	    xlib_rgb24(palette[i * 3], palette[i * 3 + 1],
-		       palette[i * 3 + 2]);
+	st2d_8to16table[i] = xlib_rgb16(palette[i * 3], palette[i * 3 + 1], palette[i * 3 + 2]);
+	st2d_8to24table[i] = xlib_rgb24(palette[i * 3], palette[i * 3 + 1], palette[i * 3 + 2]);
     }
 
     if (x_visinfo->class == PseudoColor && x_visinfo->depth == 8) {
