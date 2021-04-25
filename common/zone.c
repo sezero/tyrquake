@@ -400,16 +400,25 @@ static struct {
 void
 Hunk_Check(void)
 {
-    hunk_t *hunk;
+    const hunk_t *hunk, *next, *endlow, *starthigh, *endhigh;
 
-    hunk = (hunk_t *)hunkstate.base;
-    while ((byte *)hunk != hunkstate.base + hunkstate.lowbytes) {
+    endlow = (const hunk_t *)(hunkstate.base + hunkstate.lowbytes);
+    endhigh = (const hunk_t *)(hunkstate.base + hunkstate.size);
+    starthigh = (const hunk_t *)((byte *)endhigh - hunkstate.highbytes);
+
+    next = (const hunk_t *)hunkstate.base;
+    for (;;) {
+        hunk = next;
+        if (hunk == endlow)
+            hunk = starthigh;
+        if (hunk == endhigh)
+            break;
+
 	if (hunk->sentinal != HUNK_SENTINAL)
-	    Sys_Error("%s: trashed sentinal", __func__);
-	if (hunk->size < sizeof(hunk_t) ||
-	    hunk->size + (byte *)hunk - hunkstate.base > hunkstate.size)
-	    Sys_Error("%s: bad size", __func__);
-	hunk = (hunk_t *)((byte *)hunk + hunk->size);
+	    Sys_Error("%s: trashed sentinal (%s)", __func__, hunk >= starthigh ? "high" : "low");
+	if (hunk->size < sizeof(hunk_t) || hunk->size + (const byte *)hunk - hunkstate.base > hunkstate.size)
+	    Sys_Error("%s: bad size (%s)", __func__, hunk >= starthigh ? "high" : "low");
+	next = (const hunk_t *)((const byte *)hunk + hunk->size);
     }
 }
 
