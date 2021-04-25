@@ -74,8 +74,7 @@ ResampleSfx(sfx_t *sfx, int inrate, int inwidth, const byte *data)
     if (stepscale == 1 && inwidth == 1 && sc->width == 1) {
 // fast special case
 	for (i = 0; i < outcount; i++)
-	    ((signed char *)sc->data)[i]
-		= (int)((unsigned char)(data[i]) - 128);
+	    ((signed char *)sc->data)[i] = (int)((unsigned char)(data[i]) - 128);
     } else {
 // general case
 	samplefrac = 0;

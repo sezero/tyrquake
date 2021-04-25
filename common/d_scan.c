@@ -348,9 +348,7 @@ D_DrawSpans8(espan_t *pspan)
     zi8stepu = d_zistepu * 8;
 
     do {
-	pdest = (unsigned char *)((byte *)d_viewbuffer +
-				  (screenwidth * pspan->v) + pspan->u);
-
+	pdest = (unsigned char *)((byte *)d_viewbuffer + (screenwidth * pspan->v) + pspan->u);
 	count = pspan->count;
 
 	// calculate the initial s/z, t/z, 1/z, s, and t and clamp

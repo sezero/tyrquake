@@ -1147,8 +1147,7 @@ PR_LoadProgs(void)
     }
 
     for (i = 0; i < progs->numfunctions; i++) {
-	pr_functions[i].first_statement =
-	    LittleLong(pr_functions[i].first_statement);
+	pr_functions[i].first_statement = LittleLong(pr_functions[i].first_statement);
 	pr_functions[i].parm_start = LittleLong(pr_functions[i].parm_start);
 	pr_functions[i].s_name = LittleLong(pr_functions[i].s_name);
 	pr_functions[i].s_file = LittleLong(pr_functions[i].s_file);

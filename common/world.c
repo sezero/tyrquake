@@ -624,11 +624,9 @@ SV_ClipToLinks_r(const edict_t *clipent, const areanode_t *node,
 	    clipbounds = &clip->monster;
 	else
 	    clipbounds = &clip->object;
-	SV_ClipToEntity(touch, clip->start, clipbounds->mins, clipbounds->maxs,
-			clip->end, &stacktrace);
 
-	if (stacktrace.allsolid || stacktrace.startsolid
-	    || stacktrace.fraction < trace->fraction) {
+	SV_ClipToEntity(touch, clip->start, clipbounds->mins, clipbounds->maxs,	clip->end, &stacktrace);
+	if (stacktrace.allsolid || stacktrace.startsolid || stacktrace.fraction < trace->fraction) {
 	    clipent = touch;
 	    if (trace->startsolid) {
 		*trace = stacktrace;

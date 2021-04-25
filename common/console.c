@@ -182,9 +182,9 @@ Con_Resize(console_t *console)
 	memset(console->text, ' ', CON_TEXTSIZE);
 	for (i = 0; i < numlines; i++) {
 	    for (j = 0; j < numchars; j++) {
-		console->text[(con_totallines - 1 - i) * con_linewidth + j] =
-		    buffer[((console->current - i + oldtotallines) %
-			  oldtotallines) * oldwidth + j];
+                int dst_pos = (con_totallines - 1 - i) * con_linewidth + j;
+                int src_pos = ((console->current - i + oldtotallines) % oldtotallines) * oldwidth + j;
+                console->text[dst_pos] = buffer[src_pos];
 	    }
 	}
 
@@ -633,14 +633,10 @@ Con_NotifyBox(char *text)
     double t1, t2;
 
 // during startup for sound / cd warnings
-    Con_Printf
-	("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n");
-
+    Con_Printf("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n");
     Con_Printf("%s", text);
-
     Con_Printf("Press a key.\n");
-    Con_Printf
-	("\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n");
+    Con_Printf("\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n");
 
     key_count = -2;		// wait for a key down and up
     key_dest = key_console;

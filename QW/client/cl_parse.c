@@ -253,13 +253,9 @@ Model_NextDownload(void)
 	cl.model_precache[i] = Mod_ForName(cl.model_name[i], false);
 
 	if (!cl.model_precache[i]) {
-	    Con_Printf
-		("\nThe required model file '%s' could not be found or "
-		 "downloaded.\n\n",
-		 cl.model_name[i]);
+	    Con_Printf("\nThe required model file '%s' could not be found or downloaded.\n\n", cl.model_name[i]);
 	    Con_Printf("You may need to download or purchase a %s client "
-		       "pack in order to play on this server.\n\n",
-		       gamedirfile);
+		       "pack in order to play on this server.\n\n", gamedirfile);
 	    CL_Disconnect();
 	    return;
 	}

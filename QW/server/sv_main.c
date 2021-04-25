@@ -1220,8 +1220,7 @@ SV_CheckVars(void)
     if (!v)
 	Info_SetValueForKey(svs.info, "needpass", "", MAX_SERVERINFO_STRING);
     else
-	Info_SetValueForKey(svs.info, "needpass", va("%i", v),
-			    MAX_SERVERINFO_STRING);
+	Info_SetValueForKey(svs.info, "needpass", va("%i", v), MAX_SERVERINFO_STRING);
 }
 
 /*
@@ -1365,8 +1364,7 @@ SV_InitLocal(void)
     if (COM_CheckParm("-developer"))
 	Cvar_SetValue("developer", 1);
 
-    Info_SetValueForStarKey(svs.info, "*version",
-			    va("TyrQuake-%s", build_version), MAX_SERVERINFO_STRING);
+    Info_SetValueForStarKey(svs.info, "*version", va("TyrQuake-%s", build_version), MAX_SERVERINFO_STRING);
 
     // init fraglog stuff
     svs.logsequence = 1;

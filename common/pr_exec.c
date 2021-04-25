@@ -519,8 +519,7 @@ PR_ExecuteProgram(func_t fnum)
 		(a->vector[2] == b->vector[2]);
 	    break;
 	case OP_EQ_S:
-	    c->_float =
-		!strcmp(PR_GetString(a->string), PR_GetString(b->string));
+	    c->_float =	!strcmp(PR_GetString(a->string), PR_GetString(b->string));
 	    break;
 	case OP_EQ_E:
 	    c->_float = a->_int == b->_int;
@@ -538,8 +537,7 @@ PR_ExecuteProgram(func_t fnum)
 		(a->vector[2] != b->vector[2]);
 	    break;
 	case OP_NE_S:
-	    c->_float =
-		strcmp(PR_GetString(a->string), PR_GetString(b->string));
+	    c->_float = strcmp(PR_GetString(a->string), PR_GetString(b->string));
 	    break;
 	case OP_NE_E:
 	    c->_float = a->_int != b->_int;
@@ -709,12 +707,10 @@ PR_GetString(int num)
 	s = pr_strtbl[-num - 1];
     else
 #ifdef NQ_HACK
-	Host_Error("%s: invalid string offset %d (%d to %d valid)\n",
-		 __func__, num, -num_prstr, pr_strings_size - 2);
+	Host_Error("%s: invalid string offset %d (%d to %d valid)\n", __func__, num, -num_prstr, pr_strings_size - 2);
 #endif
 #ifdef QW_HACK
-	SV_Error("%s: invalid string offset %d (%d to %d valid)\n",
-		 __func__, num, -num_prstr, pr_strings_size - 2);
+	SV_Error("%s: invalid string offset %d (%d to %d valid)\n", __func__, num, -num_prstr, pr_strings_size - 2);
 #endif
 
     return s;

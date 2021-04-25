@@ -131,8 +131,7 @@ FreeSound(void)
 	waveOutReset(hWaveOut);
 	if (lpWaveHdr) {
 	    for (i = 0; i < WAV_BUFFERS; i++)
-		waveOutUnprepareHeader(hWaveOut, lpWaveHdr + i,
-				       sizeof(WAVEHDR));
+		waveOutUnprepareHeader(hWaveOut, lpWaveHdr + i, sizeof(WAVEHDR));
 	}
 	waveOutClose(hWaveOut);
 
@@ -185,8 +184,7 @@ SNDDMA_LockBuffer(void)
 
 	reps = 0;
 	while ((hresult =
-		pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &pData,
-				     &dsLockSize, NULL, NULL, 0)) != DS_OK) {
+		pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &pData, &dsLockSize, NULL, NULL, 0)) != DS_OK) {
 	    if (hresult != DSERR_BUFFERLOST) {
 		Con_Printf("%s: DS::Lock Sound Buffer Failed\n", __func__);
 		return 1;
@@ -255,8 +253,7 @@ SNDDMA_InitDirect(void)
 	    return SIS_FAILURE;
 	}
 
-	pDirectSoundCreate =
-	    (void *)GetProcAddress(hInstDS, "DirectSoundCreate");
+	pDirectSoundCreate = (void *)GetProcAddress(hInstDS, "DirectSoundCreate");
 	if (!pDirectSoundCreate) {
 	    Con_SafePrintf("Couldn't get DS proc addr\n");
 	    return SIS_FAILURE;
@@ -284,8 +281,7 @@ SNDDMA_InitDirect(void)
 	return SIS_FAILURE;
     }
 
-    if (DS_OK !=
-	pDS->lpVtbl->SetCooperativeLevel(pDS, mainwindow, DSSCL_EXCLUSIVE)) {
+    if (DS_OK != pDS->lpVtbl->SetCooperativeLevel(pDS, mainwindow, DSSCL_EXCLUSIVE)) {
 	Con_SafePrintf("Set coop level failed\n");
 	FreeSound();
 	return SIS_FAILURE;
@@ -306,8 +302,7 @@ SNDDMA_InitDirect(void)
     primary_format_set = false;
 
     if (!COM_CheckParm("-snoforceformat")) {
-	if (DS_OK ==
-	    pDS->lpVtbl->CreateSoundBuffer(pDS, &dsbuf, &pDSPBuf, NULL)) {
+	if (DS_OK == pDS->lpVtbl->CreateSoundBuffer(pDS, &dsbuf, &pDSPBuf, NULL)) {
 	    pformat = format;
 
 	    if (DS_OK != pDSPBuf->lpVtbl->SetFormat(pDSPBuf, &pformat)) {
@@ -353,9 +348,7 @@ SNDDMA_InitDirect(void)
 	if (snd_firsttime)
 	    Con_SafePrintf("Using secondary sound buffer\n");
     } else {
-	if (DS_OK !=
-	    pDS->lpVtbl->SetCooperativeLevel(pDS, mainwindow,
-					     DSSCL_WRITEPRIMARY)) {
+	if (DS_OK != pDS->lpVtbl->SetCooperativeLevel(pDS, mainwindow, DSSCL_WRITEPRIMARY)) {
 	    Con_SafePrintf("Set coop level failed\n");
 	    FreeSound();
 	    return SIS_FAILURE;
@@ -384,19 +377,15 @@ SNDDMA_InitDirect(void)
 // initialize the buffer
     reps = 0;
 
-    while ((hresult =
-	    pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &lpData, &dwSize,
-				 NULL, NULL, 0)) != DS_OK) {
+    while ((hresult = pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &lpData, &dwSize, NULL, NULL, 0)) != DS_OK) {
 	if (hresult != DSERR_BUFFERLOST) {
-	    Con_SafePrintf
-		("SNDDMA_InitDirect: DS::Lock Sound Buffer Failed\n");
+	    Con_SafePrintf("SNDDMA_InitDirect: DS::Lock Sound Buffer Failed\n");
 	    FreeSound();
 	    return SIS_FAILURE;
 	}
 
 	if (++reps > 10000) {
-	    Con_SafePrintf
-		("SNDDMA_InitDirect: DS: couldn't restore buffer\n");
+	    Con_SafePrintf("SNDDMA_InitDirect: DS: couldn't restore buffer\n");
 	    FreeSound();
 	    return SIS_FAILURE;
 	}
@@ -412,8 +401,7 @@ SNDDMA_InitDirect(void)
     lpData = NULL;
 
     pDSBuf->lpVtbl->Stop(pDSBuf);
-    pDSBuf->lpVtbl->GetCurrentPosition(pDSBuf, &mmstarttime.u.sample,
-				       &dwWrite);
+    pDSBuf->lpVtbl->GetCurrentPosition(pDSBuf, &mmstarttime.u.sample, &dwWrite);
     pDSBuf->lpVtbl->Play(pDSBuf, 0, 0, DSBPLAY_LOOPING);
 
     shm->samples = gSndBufSize / (shm->samplebits / 8);
@@ -461,8 +449,7 @@ SNDDMA_InitWav(void)
     format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
 
     /* Open a waveform device for output using window callback. */
-    hr = waveOutOpen((LPHWAVEOUT) & hWaveOut, WAVE_MAPPER, &format,
-		     0, 0L, CALLBACK_NULL);
+    hr = waveOutOpen((LPHWAVEOUT) & hWaveOut, WAVE_MAPPER, &format, 0, 0L, CALLBACK_NULL);
     if (hr != MMSYSERR_NOERROR) {
 	if (hr != MMSYSERR_ALLOCATED) {
 	    Con_SafePrintf("waveOutOpen failed\n");
@@ -497,9 +484,7 @@ SNDDMA_InitWav(void)
      * also be globally allocated with GMEM_MOVEABLE and
      * GMEM_SHARE flags.
      */
-    hWaveHdr = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE,
-			   (DWORD)sizeof(WAVEHDR) * WAV_BUFFERS);
-
+    hWaveHdr = GlobalAlloc(GMEM_MOVEABLE | GMEM_SHARE, (DWORD)sizeof(WAVEHDR) * WAV_BUFFERS);
     if (hWaveHdr == NULL) {
 	Con_SafePrintf("Sound: Failed to Alloc header.\n");
 	FreeSound();
@@ -520,8 +505,7 @@ SNDDMA_InitWav(void)
 	lpWaveHdr[i].dwBufferLength = WAV_BUFFER_SIZE;
 	lpWaveHdr[i].lpData = (LPSTR)lpData + i * WAV_BUFFER_SIZE;
 
-	if (waveOutPrepareHeader(hWaveOut, lpWaveHdr + i, sizeof(WAVEHDR))
-	    != MMSYSERR_NOERROR) {
+	if (waveOutPrepareHeader(hWaveOut, lpWaveHdr + i, sizeof(WAVEHDR)) != MMSYSERR_NOERROR) {
 	    Con_SafePrintf("Sound: failed to prepare wave headers\n");
 	    FreeSound();
 	    return false;
@@ -621,8 +605,7 @@ SNDDMA_GetDMAPos(void)
 
     if (dsound_init) {
 	mmtime.wType = TIME_SAMPLES;
-	pDSBuf->lpVtbl->GetCurrentPosition(pDSBuf, &mmtime.u.sample,
-					   &dwWrite);
+	pDSBuf->lpVtbl->GetCurrentPosition(pDSBuf, &mmtime.u.sample, &dwWrite);
 	s = mmtime.u.sample - mmstarttime.u.sample;
     } else if (wav_init) {
 	s = snd_sent * WAV_BUFFER_SIZE;

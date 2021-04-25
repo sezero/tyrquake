@@ -318,8 +318,7 @@ SV_Map_f(void)
 
 #if 0
     if (!strcmp(level, "e1m8")) {	// QuakeWorld can't go to e1m8
-	SV_BroadcastPrintf(PRINT_HIGH,
-			   "can't go to low grav level in QuakeWorld...\n");
+	SV_BroadcastPrintf(PRINT_HIGH, "can't go to low grav level in QuakeWorld...\n");
 	strcpy(level, "e1m5");
     }
 #endif
@@ -373,8 +372,7 @@ SV_Kick_f(void)
 	    SV_BroadcastPrintf(PRINT_HIGH, "%s was kicked\n", cl->name);
 	    // print directly, because the dropped client won't get the
 	    // SV_BroadcastPrintf message
-	    SV_ClientPrintf(cl, PRINT_HIGH,
-			    "You were kicked from the game\n");
+	    SV_ClientPrintf(cl, PRINT_HIGH, "You were kicked from the game\n");
 	    SV_DropClient(cl);
 	    return;
 	}
@@ -636,8 +634,7 @@ SV_Gamedir(void)
     const char *dir;
 
     if (Cmd_Argc() == 1) {
-	Con_Printf("Current *gamedir: %s\n",
-		   Info_ValueForKey(svs.info, "*gamedir"));
+	Con_Printf("Current *gamedir: %s\n", Info_ValueForKey(svs.info, "*gamedir"));
 	return;
     }
 
@@ -856,8 +853,7 @@ SV_AddOperatorCommands(void)
 {
     if (COM_CheckParm("-cheats")) {
 	sv_allow_cheats = true;
-	Info_SetValueForStarKey(svs.info, "*cheats", "ON",
-				MAX_SERVERINFO_STRING);
+	Info_SetValueForStarKey(svs.info, "*cheats", "ON", MAX_SERVERINFO_STRING);
     }
 
     Cmd_AddCommand("logfile", SV_Logfile_f);
