@@ -84,7 +84,10 @@ qsnprintf(char *str, size_t size, const char *format, ...)
 char *
 qstrncpy(char *dest, const char *src, size_t size)
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-truncation"
     strncpy(dest, src, size - 1);
+#pragma GCC diagnostic pop
     dest[size - 1] = 0;
 
     return dest;
