@@ -183,8 +183,7 @@ SNDDMA_LockBuffer(void)
 	}
 
 	reps = 0;
-	while ((hresult =
-		pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &pData, &dsLockSize, NULL, NULL, 0)) != DS_OK) {
+	while ((hresult = pDSBuf->lpVtbl->Lock(pDSBuf, 0, gSndBufSize, &pData, &dsLockSize, NULL, NULL, 0)) != DS_OK) {
 	    if (hresult != DSERR_BUFFERLOST) {
 		Con_Printf("%s: DS::Lock Sound Buffer Failed\n", __func__);
 		return 1;

@@ -350,19 +350,9 @@ CL_Rcon_f(void)
     NET_SendPacket(strlen(message) + 1, message, to);
 }
 
-/*
-=====================
-CL_ClearState
-
-=====================
-*/
 void
-CL_ClearState(void)
+Host_ClearMemory()
 {
-    int i;
-
-    S_StopAllSounds(true);
-
     Con_DPrintf("Clearing memory\n");
     D_FlushCaches();
     Mod_ClearAll();
@@ -371,11 +361,6 @@ CL_ClearState(void)
 	Hunk_FreeToLowMark(host_hunklevel);
 
     CL_ClearTEnts();
-
-// wipe the entire cl structure
-    memset(&cl, 0, sizeof(cl));
-
-    SZ_Clear(&cls.netchan.message);
 
 // clear other arrays
     memset(cl_efrags, 0, sizeof(cl_efrags));
@@ -386,9 +371,27 @@ CL_ClearState(void)
 // allocate the efrags and chain together into a free list
 //
     cl.free_efrags = cl_efrags;
-    for (i = 0; i < MAX_EFRAGS - 1; i++)
+    for (int i = 0; i < MAX_EFRAGS - 1; i++)
 	cl.free_efrags[i].entnext = &cl.free_efrags[i + 1];
-    cl.free_efrags[i].entnext = NULL;
+}
+
+/*
+=====================
+CL_ClearState
+
+=====================
+*/
+void
+CL_ClearState()
+{
+    S_StopAllSounds(true);
+
+    /* Wipe the entire cl structure */
+    memset(&cl, 0, sizeof(cl));
+
+    Host_ClearMemory();
+
+    SZ_Clear(&cls.netchan.message);
 }
 
 /*
@@ -497,21 +500,19 @@ Dump userids for all current players
 void
 CL_Users_f(void)
 {
-    int i;
-    int c;
+    int i, count;
 
-    c = 0;
+    count = 0;
     Con_Printf("userid frags name\n");
     Con_Printf("------ ----- ----\n");
     for (i = 0; i < MAX_CLIENTS; i++) {
 	if (cl.players[i].name[0]) {
-	    Con_Printf("%6i %4i %s\n", cl.players[i].userid,
-		       cl.players[i].frags, cl.players[i].name);
-	    c++;
+	    Con_Printf("%6i %4i %s\n", cl.players[i].userid, cl.players[i].frags, cl.players[i].name);
+	    count++;
 	}
     }
 
-    Con_Printf("%i total users\n", c);
+    Con_Printf("%i total users\n", count);
 }
 
 void
@@ -1167,6 +1168,11 @@ CL_Init(void)
 	Cvar_SetValue("developer", 1);
 }
 
+void
+CL_Reinit()
+{
+    CL_InitTEnts();
+}
 
 /*
 ================
@@ -1466,6 +1472,9 @@ Host_NewGame()
     //Host_LoadPalettes();
     Draw_Init();
     SCR_Init();
+    Alpha_Init();
+    R_Init();
+    Sbar_Init();
 }
 
 /*
@@ -1478,8 +1487,6 @@ Host_NewGame()
 void
 Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
 {
-    int filesystem_mark;
-
     COM_InitArgv(parms->argc, parms->argv);
     COM_AddParm("-game");
     COM_AddParm("qw");
@@ -1500,10 +1507,7 @@ Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
     Cvars_Init();
     Commands_Init();
     Cbuf_Init();
-
-
     V_Init();
-
     NET_Init(PORT_CLIENT);
     Netchan_Init();
 
@@ -1518,8 +1522,8 @@ Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
     R_InitTextures();
 
 next_basedir:
-    filesystem_mark = Hunk_LowMark();
-    COM_Init();
+    COM_InitFileSystem();
+    COM_InitGameDirectoryFromCommandLine();
 
     /*
      * Attempt to load palettes.  If this fails, the caller may have supplied alternative
@@ -1541,11 +1545,6 @@ next_basedir:
     VID_Init(host_basepal);
     Host_NewGame();
 
-    Alpha_Init();
-
-    R_Init();
-    Sbar_Init();
-
     cls.state = ca_disconnected;
 
     S_Init();
@@ -1559,8 +1558,7 @@ next_basedir:
 
     host_initialized = true;
     Con_Printf("\nClient Version TyrQuake-%s\n\n", build_version);
-    Con_Printf("\200\201\201\201\201\201\201 QuakeWorld Initialized "
-	       "\201\201\201\201\201\201\202\n");
+    Con_Printf("\200\201\201\201\201\201\201 QuakeWorld Initialized \201\201\201\201\201\201\202\n");
 
     /* In case exec of quake.rc fails */
     if (!setjmp(host_abort)) {
@@ -1568,11 +1566,52 @@ next_basedir:
 	Cbuf_Execute();
     }
 
-    Cbuf_AddText("echo Type connect <internet address> or use GameSpy to "
-		 "connect to a game.\n");
+    Cbuf_AddText("echo Type connect <internet address> to connect to a game.\n");
     Cbuf_AddText("cl_warncmd 1\n");
 }
 
+/*
+ * Host_Reinit - Called after Host_NewGame() to finish setting up the host, ready to spawn the level
+ */
+void
+Host_Reinit()
+{
+    S_Init();
+    CL_Reinit();
+    Mod_InitAliasCache();
+
+    Hunk_AllocName(0, "--HOST--");
+    host_hunklevel = Hunk_LowMark();
+}
+
+void
+Host_Gamedir(const char *directory, enum game_type game_type)
+{
+    qboolean changing = COM_CheckForGameDirectoryChange(directory, game_type);
+    if (!changing)
+        return;
+
+    Host_ClearMemory();
+
+    /*
+     * We need a full sound shutdown because some sound drivers hunk
+     * allocate their buffers.
+     */
+    S_Shutdown();
+
+    scr_block_drawing = true;
+    COM_Gamedir(directory, game_type);
+    const char *error = Host_LoadPalettes();
+    if (error)
+        Sys_Error("%s", error);
+
+    VID_InitColormap(host_basepal);
+    VID_SetMode(vid_currentmode, host_basepal);
+
+    Host_NewGame();
+    Host_Reinit();
+    scr_block_drawing = false;
+}
 
 /*
 ===============

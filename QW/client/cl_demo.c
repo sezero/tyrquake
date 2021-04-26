@@ -439,7 +439,7 @@ CL_Record_f(void)
     MSG_WriteByte(&buf, svc_serverdata);
     MSG_WriteLong(&buf, PROTOCOL_VERSION);
     MSG_WriteLong(&buf, cl.servercount);
-    MSG_WriteString(&buf, gamedirfile);
+    MSG_WriteString(&buf, com_gamedirfile);
 
     if (cl.spectator)
 	MSG_WriteByte(&buf, cl.playernum | 128);

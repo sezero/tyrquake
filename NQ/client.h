@@ -293,6 +293,7 @@ void CL_RunParticles(void);
 void CL_AddCommands();
 void CL_RegisterVariables();
 void CL_Init(void);
+void CL_Reinit();
 
 void CL_EstablishConnection(const char *host);
 void CL_Signon1(void);

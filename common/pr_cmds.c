@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "progs.h"
 #include "server.h"
 #include "world.h"
+#include "sys.h"
 
 #ifdef NQ_HACK
 #include "host.h"

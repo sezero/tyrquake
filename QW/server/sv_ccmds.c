@@ -323,18 +323,27 @@ SV_Map_f(void)
     }
 #endif
 
+    qboolean changing_gamedir = COM_CheckForGameDirectoryChange(svs.next_gamedir, GAME_TYPE_QW);
+    if (changing_gamedir)
+        COM_InitTempGameDirectory(svs.next_gamedir, GAME_TYPE_QW);
+
     // check to make sure the level exists
     qsnprintf(expanded, sizeof(expanded), "maps/%s.bsp", level);
     COM_FOpenFile(expanded, &f);
-    if (!f) {
+    qboolean map_exists = !!f;
+    if (f)
+        fclose(f);
+
+    if (changing_gamedir)
+        COM_RestoreGameDirectory();
+
+    if (!map_exists) {
 	Con_Printf("Can't find %s\n", expanded);
 	return;
     }
-    fclose(f);
 
     SV_BroadcastCommand("changing\n");
     SV_SendMessagesToAll();
-
     SV_SpawnServer(level);
 
     SV_BroadcastCommand("reconnect\n");
@@ -631,27 +640,22 @@ Sets the fake *gamedir to a different directory.
 static void
 SV_Gamedir(void)
 {
-    const char *dir;
-
     if (Cmd_Argc() == 1) {
 	Con_Printf("Current *gamedir: %s\n", Info_ValueForKey(svs.info, "*gamedir"));
 	return;
     }
-
     if (Cmd_Argc() != 2) {
 	Con_Printf("Usage: sv_gamedir <newgamedir>\n");
 	return;
     }
 
-    dir = Cmd_Argv(1);
-
-    if (strstr(dir, "..") || strstr(dir, "/")
-	|| strstr(dir, "\\") || strstr(dir, ":")) {
-	Con_Printf("*Gamedir should be a single filename, not a path\n");
+    const char *directory = Cmd_Argv(1);
+    if (!COM_ValidGamedir(directory)) {
+	Con_Printf("*Gamedir should be a single directory name, not a path\n");
 	return;
     }
 
-    Info_SetValueForStarKey(svs.info, "*gamedir", dir, MAX_SERVERINFO_STRING);
+    Info_SetValueForStarKey(svs.info, "*gamedir", directory, MAX_SERVERINFO_STRING);
 }
 
 /*
@@ -727,28 +731,27 @@ Sets the gamedir and path to a different directory.
 static void
 SV_Gamedir_f(void)
 {
-    const char *dir;
-
     if (Cmd_Argc() == 1) {
-	Con_Printf("Current gamedir: %s\n", com_gamedir);
+	Con_Printf("Current gamedir: %s\n", com_gamedirfile);
 	return;
     }
-
     if (Cmd_Argc() != 2) {
 	Con_Printf("Usage: gamedir <newdir>\n");
 	return;
     }
 
-    dir = Cmd_Argv(1);
-
-    if (strstr(dir, "..") || strstr(dir, "/")
-	|| strstr(dir, "\\") || strstr(dir, ":")) {
-	Con_Printf("Gamedir should be a single filename, not a path\n");
+    const char *directory = Cmd_Argv(1);
+    if (!COM_ValidGamedir(directory)) {
+	Con_Printf("*Gamedir should be a single directory name, not a path\n");
 	return;
     }
 
-    COM_Gamedir(dir);
-    Info_SetValueForStarKey(svs.info, "*gamedir", dir, MAX_SERVERINFO_STRING);
+    Info_SetValueForStarKey(svs.info, "*gamedir", directory, MAX_SERVERINFO_STRING);
+
+    if (COM_CheckForGameDirectoryChange(directory, GAME_TYPE_QW)) {
+        qstrncpy(svs.next_gamedir, directory, sizeof(svs.next_gamedir));
+        Con_Printf("Gamedir will change to '%s' on next map change\n", directory);
+    }
 }
 
 /*
@@ -777,14 +780,18 @@ SV_Snap(int uid)
 
     qsnprintf(pcxname, sizeof(pcxname), "%d-00.pcx", uid);
 
-    qsnprintf(checkname, sizeof(checkname), "%s/snap", gamedirfile);
-    Sys_mkdir(gamedirfile);
+    /*
+     * TODO: This should be the user directory (although it is qwsv...)
+     *       Create COM_ functions for this kind of thing?
+     */
+    qsnprintf(checkname, sizeof(checkname), "%s/snap", com_gamedir);
+    Sys_mkdir(com_gamedir);
     Sys_mkdir(checkname);
 
     for (i = 0; i <= 99; i++) {
 	pcxname[strlen(pcxname) - 6] = i / 10 + '0';
 	pcxname[strlen(pcxname) - 5] = i % 10 + '0';
-	qsnprintf(checkname, sizeof(checkname), "%s/snap/%s", gamedirfile, pcxname);
+	qsnprintf(checkname, sizeof(checkname), "%s/snap/%s", com_gamedir, pcxname);
 	if (Sys_FileTime(checkname) == -1)
 	    break;		// file doesn't exist
     }

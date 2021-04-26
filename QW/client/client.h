@@ -356,6 +356,8 @@ extern dlight_t cl_dlights[MAX_DLIGHTS];
 // cl_main
 //
 
+extern int host_hunklevel;              // FIXME: probably should be an internal thing
+
 dlight_t *CL_AllocDlight(int key);
 
 /* The standard dynamic light colors */
@@ -373,8 +375,6 @@ void CL_RunParticles(void);
 void CL_AddCommands();
 void CL_RegisterVariables();
 void CL_Init();
-
-void Host_WriteConfiguration(void);
 
 void CL_EstablishConnection(char *host);
 

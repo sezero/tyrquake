@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // Shared model functions for renderers
 
 #include "client.h"
+#include "console.h"
 #include "mathlib.h"
 #include "qtypes.h"
 #include "render.h"
@@ -70,6 +71,8 @@ Alpha_Init()
     int i;
     float alphastep;
     byte *tables;
+
+    Con_Printf("Initializing palettes...\n");
 
     num_transtables = 4; // TODO: Add cvar to configure
     host_transtables = Hunk_AllocName((sizeof(byte *) + 65536) * num_transtables, "translucency");

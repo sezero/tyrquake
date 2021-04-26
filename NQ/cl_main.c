@@ -853,6 +853,12 @@ void
 CL_Init(void)
 {
     SZ_HunkAlloc(&cls.message, 1024);
-
     CL_InitTEnts();
+}
+
+void
+CL_Reinit()
+{
+    assert(!cls.message.cursize);
+    CL_Init();
 }

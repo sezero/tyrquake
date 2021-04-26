@@ -466,7 +466,7 @@ not reinitialize anything.
 ================
 */
 void
-Host_ClearMemory(void)
+Host_ClearMemory()
 {
     Con_DPrintf("Clearing memory\n");
     D_FlushCaches();
@@ -764,6 +764,21 @@ Host_Frame(float time)
 
 //============================================================================
 
+void Host_Gamedir_f();
+void Host_Gamedir_Arg_f(struct stree_root *root, int argnum)
+{
+    if (argnum == 1) {
+        COM_ScanBaseDir(root, Cmd_Argv(1));
+    } else if (argnum == 2) {
+        const char *arg = Cmd_Argv(2);
+        const char *args[] = { "-hipnotic", "-quoth", "-rogue" };
+        int arg_len = arg ? strlen(arg) : 0;
+        for (int i = 0; i < ARRAY_SIZE(args); i++)
+            if (!arg || !strncasecmp(args[i], arg, arg_len))
+                STree_InsertAlloc(root, args[i], false);
+    }
+}
+
 static void
 Commands_Init()
 {
@@ -791,6 +806,9 @@ Commands_Init()
     }
 
     SV_AddCommands();
+
+    Cmd_AddCommand("game", Host_Gamedir_f);
+    Cmd_SetCompletion("game", Host_Gamedir_Arg_f);
 }
 
 static void
@@ -838,16 +856,18 @@ Host_LoadPalettes()
 }
 
 /*
- * Called when the filesystem has been initialised to load various
- * graphical resources: palette, charset, console background, menu
- * pics, etc.
+ * Called when the filesystem has been initialised (and assuming
+ * palette and colormap are already loaded) to load various graphical
+ * resources: palette, charset, console background, menu pics, etc.
  */
 static void
 Host_NewGame()
 {
-    //Host_LoadPalettes();
     Draw_Init();
     SCR_Init();
+    Alpha_Init();
+    R_Init();
+    Sbar_Init();
 }
 
 
@@ -861,8 +881,6 @@ Host_NewGame()
 void
 Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
 {
-    int filesystem_mark;
-
     if (standard_quake)
 	minimum_memory = MINIMUM_MEMORY;
     else
@@ -885,7 +903,6 @@ Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
     Commands_Init();
     Cbuf_Init();
 
-
     V_Init();
     SV_InitLocal();
     Key_Init();
@@ -899,11 +916,11 @@ Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns)
     Con_Printf("Exe: %s\n", Build_DateString());
     Con_Printf("%4.1f megabyte heap\n", parms->memsize / (1024 * 1024.0));
 
-    R_InitTextures();		// needed even for dedicated servers
+    R_InitTextures(); // needed even for dedicated servers (TODO: why? shouldn't be...)
 
 next_basedir:
-    filesystem_mark = Hunk_LowMark();
-    COM_Init();     // <- Init filesystem
+    COM_InitFileSystem();
+    COM_InitGameDirectoryFromCommandLine();
 
     if (cls.state != ca_dedicated) {
         /*
@@ -926,10 +943,6 @@ next_basedir:
         VID_Init(host_basepal);
         Host_NewGame();
 
-        Alpha_Init();
-	R_Init();
-	Sbar_Init();
-
 	S_Init();
 	CDAudio_Init();
 	CL_Init();
@@ -941,7 +954,7 @@ next_basedir:
     host_hunklevel = Hunk_LowMark();
 
     host_initialized = true;
-    Sys_Printf("========Quake Initialized=========\n");
+    Sys_Printf("======= Quake Initialized =======\n");
 
     /* In case exec of quake.rc fails */
     if (!setjmp(host_abort)) {
@@ -950,6 +963,99 @@ next_basedir:
     }
 }
 
+/*
+ * Host_Reinit - Called after Host_NewGame() to finish setting up the host, ready to spawn the level
+ */
+void
+Host_Reinit()
+{
+    if (cls.state != ca_dedicated) {
+        S_Init();
+        CL_Reinit();
+    }
+    Mod_InitAliasCache();
+
+    Hunk_AllocName(0, "--HOST--");
+    host_hunklevel = Hunk_LowMark();
+}
+
+void
+Host_Gamedir(const char *directory, enum game_type game_type)
+{
+    qboolean changing = COM_CheckForGameDirectoryChange(Cmd_Argv(1), game_type);
+    if (!changing)
+        return;
+
+    /*
+     * TODO: We are relying on VID_SetMode() to free all textures and re-init them
+     *       If we can avoid a mode set and do this ourselves, we should.
+     */
+    CL_Disconnect();
+    Host_ShutdownServer(true);
+    Host_ClearMemory();
+
+    /*
+     * We need a full sound shutdown because some sound drivers hunk
+     * allocate their buffers.
+     */
+    S_Shutdown();
+
+    scr_block_drawing = true;
+    COM_Gamedir(Cmd_Argv(1), game_type);
+    const char *error = Host_LoadPalettes();
+    if (error)
+        Sys_Error("%s", error);
+
+    if (cls.state != ca_dedicated) {
+        VID_InitColormap(host_basepal);
+        VID_SetMode(vid_currentmode, host_basepal);
+    }
+
+    Host_NewGame();
+    Host_Reinit();
+    scr_block_drawing = false;
+
+    Cbuf_AddText("exec quake.rc\n");
+}
+
+void
+Host_Gamedir_f()
+{
+    if (Cmd_Argc() == 1)
+        goto print_current;
+    if (Cmd_Argc() < 2 || Cmd_Argc() > 3)
+        goto print_usage;
+
+    enum game_type game_type = GAME_TYPE_ID1;
+    if (Cmd_Argc() == 3) {
+        if (!strcmp(Cmd_Argv(2), "-hipnotic"))
+            game_type = GAME_TYPE_HIPNOTIC;
+        else if (!strcmp(Cmd_Argv(2), "-rogue"))
+            game_type = GAME_TYPE_ROGUE;
+        else if (!strcmp(Cmd_Argv(2), "-quoth"))
+            game_type = GAME_TYPE_QUOTH;
+        else
+            goto print_usage;
+    }
+
+    qboolean changing = COM_CheckForGameDirectoryChange(Cmd_Argv(1), game_type);
+    if (changing) {
+        Host_Gamedir(Cmd_Argv(1), game_type);
+        return;
+    }
+
+print_current:
+    if (com_game_type < GAME_TYPE_HIPNOTIC) {
+        Con_Printf("game is \"%s\"\n", com_gamedirfile);
+    } else {
+        Con_Printf("game is \"%s\" -%s\n", com_gamedirfile, com_game_type_names[com_game_type]);
+    }
+    return;
+
+print_usage:
+    Con_Printf("Usage: game <directory> [-hipnotic|-rogue|-quoth]\n");
+    return;
+}
 
 /*
 ===============

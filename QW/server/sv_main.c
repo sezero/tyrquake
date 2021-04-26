@@ -1671,7 +1671,8 @@ SV_Init(quakeparms_t *parms)
     Commands_Init();
 
     Cbuf_Init();
-    COM_Init();
+    COM_InitFileSystem();
+    COM_InitGameDirectoryFromCommandLine();
 
     PR_Init();
     Mod_Init(&SV_AliasLoader, &SV_BrushLoader);
@@ -1701,4 +1702,14 @@ SV_Init(quakeparms_t *parms)
 	Cmd_ExecuteString("map start");
     if (sv.state == ss_dead)
 	SV_Error("Couldn't spawn a server");
+}
+
+/*
+ * Re-initialise the host after filesystem/gamedir re-init
+ */
+void
+SV_Reinit()
+{
+    Hunk_AllocName(0, "--HOST--");
+    host_hunklevel = Hunk_LowMark();
 }

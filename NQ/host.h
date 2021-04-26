@@ -40,6 +40,7 @@ extern cvar_t samelevel;
 extern cvar_t noexit;
 extern cvar_t temp1;
 
+extern int host_hunklevel;              // FIXME: probably should be an internal thing
 extern qboolean host_initialized;	// true if into command execution
 extern double host_frametime;
 extern byte *host_basepal;

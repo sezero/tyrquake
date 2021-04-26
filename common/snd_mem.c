@@ -104,7 +104,7 @@ S_LoadSound
 sfxcache_t *
 S_LoadSound(sfx_t *s)
 {
-    byte *data;
+    const byte *data;
     size_t datasize;
     wavinfo_t *info;
     int len;

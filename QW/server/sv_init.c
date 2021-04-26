@@ -307,8 +307,14 @@ SV_SpawnServer(const char *server)
 
     sv.state = ss_dead;
 
-    Mod_ClearAll();
-    Hunk_FreeToLowMark(host_hunklevel);
+    qboolean changed = COM_Gamedir(svs.next_gamedir, GAME_TYPE_QW);
+    svs.next_gamedir[0] = 0;
+    if (changed) {
+        SV_Reinit();
+    } else {
+        Mod_ClearAll();
+        Hunk_FreeToLowMark(host_hunklevel);
+    }
 
     // wipe the entire per-level structure
     memset(&sv, 0, sizeof(sv));

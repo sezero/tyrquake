@@ -34,6 +34,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <time.h>
 
 #include "qtypes.h"
+#include "common.h"
 #include "cvar.h"
 
 //=============================================================================
@@ -79,6 +80,8 @@ extern double realtime;		// not bounded in any way, changed at
 
 void Host_ServerFrame(void);
 void Host_InitCommands(void);
+void Host_WriteConfiguration(void);
+void Host_Gamedir(const char *directory, enum game_type game_type);
 
 typedef const char *(*basedir_fn)();
 void Host_Init(quakeparms_t *parms, basedir_fn *basedir_fns);

@@ -249,6 +249,7 @@ typedef struct {
     byte log_buf[2][MAX_DATAGRAM];
 
     challenge_t challenges[MAX_CHALLENGES];	// to prevent invalid IPs from connecting
+    char next_gamedir[MAX_QPATH];               // set if the gamedir was changed via SV_Gamedir_f ("gamedir" command)
 } server_static_t;
 
 //=============================================================================

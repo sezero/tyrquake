@@ -277,6 +277,9 @@ Draw_PicFromWad(const char *name)
     return pic;
 }
 
+static model_t cachepic_owner = {
+    .name = "cachepic",
+};
 
 /*
 ================
@@ -314,7 +317,7 @@ Draw_CachePic(const char *path)
     pic->height = dpic->height;
     pic->pixels = dpic->data;
 
-    cachepic->glpic.texnum = GL_LoadTexture8_GLPic(NULL, path, &cachepic->glpic);
+    cachepic->glpic.texnum = GL_LoadTexture8_GLPic(&cachepic_owner, path, &cachepic->glpic);
 
     Hunk_FreeToLowMark(mark);
 
@@ -393,6 +396,8 @@ Draw_Init(void)
     dpic8_t *dpic;
     qpic8_t *pic;
     char version[5];
+
+    GL_DisownTextures(&cachepic_owner);
 
     GL_Textures_Init();
 

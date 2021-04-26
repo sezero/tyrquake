@@ -72,5 +72,6 @@ extern double realtime;		// not bounded in any way, changed at
 void SV_Error(const char *fmt, ...)
     __attribute__((noreturn, format(printf,1,2)));
 void SV_Init(quakeparms_t *parms);
+void SV_Reinit();
 
 #endif /* SERVER_QWSVDEF_H */

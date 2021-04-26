@@ -37,7 +37,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
-/* FIXME - reorder to remove forward decls? */
 static void S_Play(void);
 static void S_PlayVol(void);
 static void S_SoundList(void);
@@ -56,7 +55,7 @@ static qboolean snd_ambient = 1;
 static qboolean snd_initialized = false;
 
 /* pointer should go away (JC?) */
-volatile dma_t *shm = 0;
+volatile dma_t *shm;
 volatile dma_t sn;
 
 static vec3_t listener_origin;
@@ -190,6 +189,31 @@ S_RegisterVariables()
     Cvar_RegisterVariable(&_snd_mixahead);
 }
 
+static void
+S_AllocBuffers()
+{
+    known_sfx = Hunk_AllocName(sizeof(*known_sfx), "sfxlist");
+
+    /* create a piece of DMA memory */
+    if (fakedma) {
+	shm = Hunk_AllocName(sizeof(*shm), "snddma");
+	shm->samplebits = 16;
+	shm->speed = 22050;
+	shm->channels = 2;
+	shm->samples = 32768;
+	shm->samplepos = 0;
+	shm->submission_chunk = 1;
+	shm->buffer = Hunk_AllocName(1 << 16, "snddma");
+    }
+}
+
+static void
+S_InitAmbients()
+{
+    ambient_sfx[AMBIENT_WATER] = S_PrecacheSound("ambience/water1.wav");
+    ambient_sfx[AMBIENT_SKY] = S_PrecacheSound("ambience/wind2.wav");
+}
+
 /*
  * ================
  * S_Init
@@ -214,22 +238,8 @@ S_Init(void)
     snd_initialized = true;
 
     S_Startup();
-
     SND_InitScaletable();
-
-    known_sfx = Hunk_AllocName(sizeof(*known_sfx), "sfxlist");
-
-    /* create a piece of DMA memory */
-    if (fakedma) {
-	shm = (void *)Hunk_AllocName(sizeof(*shm), "shm");
-	shm->samplebits = 16;
-	shm->speed = 22050;
-	shm->channels = 2;
-	shm->samples = 32768;
-	shm->samplepos = 0;
-	shm->submission_chunk = 1;
-	shm->buffer = Hunk_AllocName(1 << 16, "shmbuf");
-    }
+    S_AllocBuffers();
 
     if (sound_started)
 	Con_Printf("Sound sampling rate: %i\n", shm->speed);
@@ -240,8 +250,7 @@ S_Init(void)
 	shm->buffer[4] = shm->buffer[5] = 0x7f;
 #endif
 
-    ambient_sfx[AMBIENT_WATER] = S_PrecacheSound("ambience/water1.wav");
-    ambient_sfx[AMBIENT_SKY] = S_PrecacheSound("ambience/wind2.wav");
+    S_InitAmbients();
 
     S_StopAllSounds(true);
 }
@@ -259,7 +268,6 @@ S_ClearOverflow()
 void
 S_Shutdown(void)
 {
-
     if (!sound_started)
 	return;
 

@@ -218,8 +218,36 @@ void COM_AddParm(const char *parm);
 void COM_AddCommands();
 void COM_RegisterVariables();
 
-void COM_Init(void);
+enum game_type {
+    GAME_TYPE_ID1,
+    GAME_TYPE_QW,
+    GAME_TYPE_HIPNOTIC,
+    GAME_TYPE_ROGUE,
+    GAME_TYPE_QUOTH,
+};
+extern const char *com_game_type_names[];
+
 void COM_InitArgv(int argc, const char **argv);
+void COM_InitFileSystem();
+void COM_InitGameDirectory(const char *gamedir, enum game_type game_type);
+void COM_InitGameDirectoryFromCommandLine();
+void COM_CheckRegistered();
+
+qboolean COM_CheckForGameDirectoryChange(const char *gamedir, enum game_type game_type);
+
+/*
+ * So we can check for existance of files in the new game directory
+ * before doing the switch, we allow a temp initialisation of the new
+ * gamedir filesystem (hunk allocated).
+ *
+ * After tests are done, call the restore function to clean up the
+ * temporary changes.
+ */
+void COM_InitTempGameDirectory(const char *directory, enum game_type game_type);
+void COM_RestoreGameDirectory();
+
+qboolean COM_ValidGamedir(const char *name);
+qboolean COM_Gamedir(const char *dir, enum game_type game_type);
 
 const char *COM_SkipPath(const char *pathname);
 void COM_StripExtension(const char *filename, char *out, size_t buflen);
@@ -233,19 +261,21 @@ const char *va(const char *format, ...) __attribute__((format(printf,1,2)));
 
 struct cache_user_s;
 
-extern char com_basedir[MAX_OSPATH];
-extern char com_gamedir[MAX_OSPATH];
+extern char com_basedir[];
+extern char com_gamedir[];
+extern char com_gamedirfile[];
+extern enum game_type com_game_type;
 
 void COM_WriteFile(const char *filename, const void *data, int len);
 int COM_FOpenFile(const char *filename, FILE **file);
 void COM_ScanDir(struct stree_root *root, const char *path, const char *prefix, const char *suffix, qboolean strip);
+void COM_ScanBaseDir(struct stree_root *root, const char *prefix);
 void *COM_LoadStackFile(const char *path, void *buffer, size_t buffersize, size_t *size);
 void *COM_LoadTempFile(const char *path, size_t *size);
 void *COM_LoadHunkFile(const char *path, size_t *size);
 void COM_LoadCacheFile(const char *path, struct cache_user_s *cu);
 #ifdef QW_HACK
 void COM_CreatePath(const char *path);
-void COM_Gamedir(const char *dir);
 #endif
 
 extern struct cvar_s registered;
@@ -265,8 +295,6 @@ unsigned Com_BlockChecksum(const void *buffer, int length);
 void Com_BlockFullChecksum(const void *buffer, int len, unsigned char outbuf[16]);
 byte COM_BlockSequenceCheckByte(const byte *base, int length, int sequence, unsigned mapchecksum);
 byte COM_BlockSequenceCRCByte(const byte *base, int length, int sequence);
-
-extern char gamedirfile[];
 #endif
 
 #endif /* COMMON_H */

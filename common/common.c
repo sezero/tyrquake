@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #ifdef NQ_HACK
@@ -36,6 +37,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "qwsvdef.h"
 #include "server.h"
 #else
+#include "client.h"
 #include "quakedef.h"
 #endif
 #include "protocol.h"
@@ -110,7 +112,6 @@ static cvar_t cmdline = { "cmdline", "0", 0, true };
 static qboolean com_modified;		// set true if using non-id files
 static int static_registered = 1;	// only for startup check, then set
 
-static void COM_InitFilesystem(void);
 static void COM_Path_f(void);
 static void *SZ_GetSpace(sizebuf_t *buf, int length);
 
@@ -128,11 +129,6 @@ static char com_cmdline[CMDLINE_LENGTH];
 
 qboolean standard_quake = true, rogue, hipnotic;
 
-#ifdef QW_HACK
-char gamedirfile[MAX_OSPATH];
-#endif
-
-/* FIXME - remove this and checks like it; no need to be registered... */
 // this graphic needs to be in the pak file to use registered features
 static unsigned short pop[] = {
     0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000,
@@ -228,11 +224,10 @@ InsertLinkAfter(link_t *l, link_t *after)
 static char *
 COM_GetStrBuf(void)
 {
-    static char buffers[4][COM_STRBUF_LEN];
+    static char buffers[8][COM_STRBUF_LEN];
     static int index;
-    return buffers[3 & ++index];
+    return buffers[7 & ++index];
 }
-
 
 
 int
@@ -1204,18 +1199,6 @@ COM_InitArgv(int argc, const char **argv)
 
     largv[com_argc] = argvdummy;
     com_argv = largv;
-
-#ifdef NQ_HACK
-    if (COM_CheckParm("-rogue")) {
-	rogue = true;
-	standard_quake = false;
-    }
-
-    if (COM_CheckParm("-hipnotic") || COM_CheckParm("-quoth")) {
-	hipnotic = true;
-	standard_quake = false;
-    }
-#endif
 }
 
 /*
@@ -1245,20 +1228,6 @@ COM_RegisterVariables()
     Cvar_RegisterVariable(&registered);
     Cvar_RegisterVariable(&cmdline);
 }
-
-
-/*
-================
-COM_Init
-================
-*/
-void
-COM_Init(void)
-{
-    COM_InitFilesystem();
-    COM_CheckRegistered();
-}
-
 
 /*
 ============
@@ -1325,8 +1294,18 @@ typedef struct {
     int dirlen;
 } dpackheader_t;
 
-char com_gamedir[MAX_OSPATH];
 char com_basedir[MAX_OSPATH];
+char com_gamedir[MAX_OSPATH];
+char com_gamedirfile[MAX_OSPATH];
+enum game_type com_game_type;
+
+const char *com_game_type_names[] = {
+    "id1",
+    "qw",
+    "hipnotic",
+    "rogue",
+    "quoth",
+};
 
 typedef struct searchpath_s {
     char filename[MAX_OSPATH];
@@ -1335,9 +1314,7 @@ typedef struct searchpath_s {
 } searchpath_t;
 
 static searchpath_t *com_searchpaths;
-#ifdef QW_HACK
-static searchpath_t *com_base_searchpaths;	// without gamedirs
-#endif
+static searchpath_t *com_base_searchpaths;
 
 /*
 ================
@@ -1605,6 +1582,34 @@ COM_ScanDir(struct stree_root *root, const char *path,
     }
 }
 
+/**
+ * Scan the basedir for subdirectories.
+ * Just for the game/gamedir command for now.
+ */
+void
+COM_ScanBaseDir(struct stree_root *root, const char *prefix)
+{
+    DIR *directory;
+    struct dirent *entry;
+
+    directory = opendir(com_basedir);
+    if (!directory)
+        return;
+
+    int prefix_len = prefix ? strlen(prefix) : 0;
+    while ((entry = readdir(directory))) {
+        if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            continue;
+        if (prefix && prefix_len && strncasecmp(entry->d_name, prefix, prefix_len))
+            continue;
+        struct stat file_info;
+        int error = stat(va("%s/%s", com_basedir, entry->d_name), &file_info);
+        if (error || !(file_info.st_mode & S_IFDIR))
+            continue;
+        STree_InsertAlloc(root, entry->d_name, true);
+    }
+}
+
 static void
 COM_ReadFileAndClose(byte *buffer, size_t filesize, FILE *f)
 {
@@ -1733,15 +1738,9 @@ COM_LoadPackFile(const char *packfile)
     if (numfiles != ID1_PAK0_COUNT)
 	com_modified = true;	// not the original file
 
-#ifdef NQ_HACK
     mfiles = Hunk_AllocName(numfiles * sizeof(*mfiles), "packfile");
     int mark = Hunk_LowMark();
     dfiles = Hunk_AllocName(numfiles * sizeof(*dfiles), "packtmp");
-#endif
-#ifdef QW_HACK
-    mfiles = Z_Malloc(numfiles * sizeof(*mfiles));
-    dfiles = Z_Malloc(numfiles * sizeof(*dfiles));
-#endif
 
     fseek(packhandle, header.dirofs, SEEK_SET);
     fread(dfiles, 1, header.dirlen, packhandle);
@@ -1772,14 +1771,8 @@ COM_LoadPackFile(const char *packfile)
 	mfiles[i].filelen = LittleLong(dfiles[i].filelen);
     }
 
-#ifdef NQ_HACK
     Hunk_FreeToLowMark(mark);
     pack = Hunk_AllocName(sizeof(pack_t), "pakheadr");
-#endif
-#ifdef QW_HACK
-    Z_Free(dfiles);
-    pack = Z_Malloc(sizeof(pack_t));
-#endif
     qsnprintf(pack->filename, sizeof(pack->filename), "%s", packfile);
     pack->numfiles = numfiles;
     pack->files = mfiles;
@@ -1799,30 +1792,24 @@ then loads and adds pak1.pak pak2.pak ...
 ================
 */
 static void
-COM_AddGameDirectory(const char *base, const char *dir)
+COM_AddGameDirectory(const char *base, const char *directory)
 {
     int i;
     searchpath_t *search;
-    pack_t *pak;
+    pack_t *pack;
     char pakfile[MAX_OSPATH];
 
     if (!base)
 	return;
 
-    strcpy(com_gamedir, va("%s/%s", base, dir));
-#ifdef QW_HACK
-    {
-	char *p;
-	p = strrchr(com_gamedir, '/');
-	strcpy(gamedirfile, ++p);
-    }
-#endif
+    qstrncpy(com_gamedir, va("%s/%s", base, directory), sizeof(com_gamedir));
+    qstrncpy(com_gamedirfile, directory, sizeof(com_gamedirfile));
 
 //
 // add the directory to the search path
 //
     search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
-    strcpy(search->filename, com_gamedir);
+    qstrncpy(search->filename, com_gamedir, sizeof(search->filename));
     search->next = com_searchpaths;
     com_searchpaths = search;
 
@@ -1831,14 +1818,112 @@ COM_AddGameDirectory(const char *base, const char *dir)
 //
     for (i = 0;; i++) {
 	qsnprintf(pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
-	pak = COM_LoadPackFile(pakfile);
-	if (!pak)
+	pack = COM_LoadPackFile(pakfile);
+	if (!pack)
 	    break;
-	search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
-	search->pack = pak;
+        search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
+	search->pack = pack;
 	search->next = com_searchpaths;
 	com_searchpaths = search;
     }
+}
+
+qboolean
+COM_ValidGamedir(const char *name)
+{
+    char c;
+
+    if (!name || !*name)
+        return false;
+
+    while ((c = *name++))
+        if (!isalnum(c) && c != '_' && c != '-')
+            return false;
+
+    return true;
+}
+
+static int com_filesystem_mark;
+static int com_basedir_mark;
+
+/*
+ * TODO: The global state might be better in a struct anyway and then we can just assign/memcpy it.
+ */
+static struct game_directory_state {
+    qboolean saved;
+    int hunk_mark;
+    qboolean standard_quake;
+    qboolean hipnotic;
+    qboolean rogue;
+    qboolean com_modified;
+    enum game_type com_game_type;
+    searchpath_t *com_searchpaths;
+    char com_gamedir[MAX_OSPATH];
+    char com_gamedirfile[MAX_OSPATH];
+} saved_game_directory_state;
+
+static void
+COM_SaveGameDirectoryState()
+{
+    saved_game_directory_state.standard_quake  = standard_quake;
+    saved_game_directory_state.hipnotic        = hipnotic;
+    saved_game_directory_state.rogue           = rogue;
+    saved_game_directory_state.com_modified    = com_modified;
+    saved_game_directory_state.com_game_type   = com_game_type;
+    saved_game_directory_state.com_searchpaths = com_searchpaths;
+    qstrncpy(saved_game_directory_state.com_gamedir, com_gamedir, sizeof(saved_game_directory_state.com_gamedir));
+    qstrncpy(saved_game_directory_state.com_gamedirfile, com_gamedirfile, sizeof(saved_game_directory_state.com_gamedirfile));
+
+    saved_game_directory_state.saved = true;
+    saved_game_directory_state.hunk_mark = Hunk_LowMark();
+}
+
+static void
+COM_RestoreGameDirectoryState()
+{
+    assert(saved_game_directory_state.saved);
+
+    standard_quake  = saved_game_directory_state.standard_quake;
+    hipnotic        = saved_game_directory_state.hipnotic;
+    rogue           = saved_game_directory_state.rogue;
+    com_modified    = saved_game_directory_state.com_modified;
+    com_game_type   = hipnotic = saved_game_directory_state.com_game_type;
+    hipnotic        = saved_game_directory_state.hipnotic;
+    com_searchpaths = saved_game_directory_state.com_searchpaths;
+    qstrncpy(com_gamedir, saved_game_directory_state.com_gamedir, sizeof(com_gamedir));
+    qstrncpy(com_gamedirfile, saved_game_directory_state.com_gamedirfile, sizeof(com_gamedirfile));
+
+    saved_game_directory_state.saved = false;
+    Hunk_FreeToLowMark(saved_game_directory_state.hunk_mark);
+}
+
+void
+COM_InitTempGameDirectory(const char *directory, enum game_type game_type)
+{
+    COM_SaveGameDirectoryState();
+    com_searchpaths = com_base_searchpaths;
+    qstrncpy(com_gamedirfile, directory, sizeof(com_gamedirfile));
+    COM_InitGameDirectory(directory, game_type);
+}
+
+void
+COM_RestoreGameDirectory()
+{
+    COM_RestoreGameDirectoryState();
+}
+
+qboolean
+COM_CheckForGameDirectoryChange(const char *directory, enum game_type game_type)
+{
+    if (!directory || !directory[0])
+        return false;
+
+    /* For the purposes of QW, the "id1" gamedir is the same as "qw" */
+    if (game_type == GAME_TYPE_QW && !strcmp(directory, "id1"))
+        directory = "qw";
+
+    /* If directory and game type unchanged, nothing to do */
+    return strcmp(com_gamedirfile, directory) || com_game_type != game_type;
 }
 
 /*
@@ -1846,110 +1931,51 @@ COM_AddGameDirectory(const char *base, const char *dir)
 COM_Gamedir
 
 Sets the gamedir and path to a different directory.
-
-FIXME - if home dir is available, should we create ~/.tyrquake/gamedir ??
 ================
 */
-#ifdef QW_HACK
-void
-COM_Gamedir(const char *dir)
+qboolean
+COM_Gamedir(const char *directory, enum game_type game_type)
 {
-    searchpath_t *search, *next;
-    int i;
-    pack_t *pak;
-    char pakfile[MAX_OSPATH];
+    if (!COM_ValidGamedir(directory))
+        return false;
+    if (!COM_CheckForGameDirectoryChange(directory, game_type))
+        return false;
 
-    if (strstr(dir, "..") || strstr(dir, "/")
-	|| strstr(dir, "\\") || strstr(dir, ":")) {
-	Con_Printf("Gamedir should be a single filename, not a path\n");
-	return;
-    }
-
-    if (!strcmp(gamedirfile, dir))
-	return;			// still the same
-    strcpy(gamedirfile, dir);
-
-    //
-    // free up any current game dir info
-    //
-    while (com_searchpaths != com_base_searchpaths) {
-	if (com_searchpaths->pack) {
-	    Z_Free(com_searchpaths->pack->files);
-	    Z_Free(com_searchpaths->pack);
-	}
-	next = com_searchpaths->next;
-	Z_Free(com_searchpaths);
-	com_searchpaths = next;
-    }
-
-    //
-    // flush all data, so it will be forced to reload
-    //
+    /* flush all data, so it will be forced to reload */
     Cache_Flush();
+    Mod_ClearAll();
 
-    if (!strcmp(dir, "id1") || !strcmp(dir, "qw"))
-	return;
+    /* Free up any current game directory info */
+    host_hunklevel = 0;
+    Hunk_FreeToLowMark(com_basedir_mark);
+    com_searchpaths = com_base_searchpaths;
 
-    qsnprintf(com_gamedir, sizeof(com_gamedir), "%s/%s", com_basedir, dir);
+    /*
+     * Set com_gamedirfile here, because if we are resetting to a base
+     * path, InitGameDirectory won't write this via
+     * COM_AddGameDirectory
+     */
+    qstrncpy(com_gamedirfile, directory, sizeof(com_gamedirfile));
+    COM_InitGameDirectory(directory, game_type);
 
-    //
-    // add the directory to the search path
-    //
-    search = Z_Malloc(sizeof(searchpath_t));
-    strcpy(search->filename, com_gamedir);
-    search->next = com_searchpaths;
-    com_searchpaths = search;
-
-    //
-    // add any pak files in the format pak0.pak pak1.pak, ...
-    //
-    for (i = 0;; i++) {
-	qsnprintf(pakfile, sizeof(pakfile), "%s/pak%i.pak", com_gamedir, i);
-	pak = COM_LoadPackFile(pakfile);
-	if (!pak)
-	    break;
-	search = Z_Malloc(sizeof(searchpath_t));
-	search->pack = pak;
-	search->next = com_searchpaths;
-	com_searchpaths = search;
-    }
+    return true;
 }
-#endif
 
-/*
-================
-COM_InitFilesystem
-================
-*/
-static void
-COM_InitFilesystem(void)
+/**
+ * Initialise the filesystem up to the base gamedir (id1)
+ */
+void
+COM_InitFileSystem()
 {
     int i;
     char *home;
 
-#ifdef QW_HACK
-    /*
-     * This is janky but soon I'll get all QW searchpaths onto the
-     * hunk as well so we don't have to do this.  But for now we have
-     * to be careful to Z_Free (some) of the searchpaths if we re-init.
-     */
-    searchpath_t *next;
-    qboolean basepaths = !com_base_searchpaths;
-    while (com_searchpaths) {
-        if (com_searchpaths == com_base_searchpaths)
-            basepaths = true;
-        if (com_searchpaths->pack) {
-            Z_Free(com_searchpaths->pack->files);
-            Z_Free(com_searchpaths->pack);
-        }
-        next = com_searchpaths->next;
-        if (!basepaths)
-            Z_Free(com_searchpaths); // basepaths are hunk allocated...
-        com_searchpaths = next;
-    }
-    com_base_searchpaths = NULL;
-#endif
     com_searchpaths = NULL;
+
+    /* Free any existing hunk allocations and mark the start */
+    if (com_filesystem_mark)
+        Hunk_FreeToLowMark(com_filesystem_mark);
+    com_filesystem_mark = Hunk_LowMark();
 
     home = getenv("HOME");
 
@@ -1963,78 +1989,113 @@ COM_InitFilesystem(void)
     else
 	strcpy(com_basedir, host_parms.basedir);
 
-//
-// start up with id1 by default
-//
+    /* Load ID1 by default */
     COM_AddGameDirectory(com_basedir, "id1");
-    COM_AddGameDirectory(home, ".tyrquake/id1");
+    if (home)
+        COM_AddGameDirectory(va("%s/.tyrquake", home), "id1");
 
-#ifdef NQ_HACK
-    if (COM_CheckParm("-rogue")) {
-	COM_AddGameDirectory(com_basedir, "rogue");
-	COM_AddGameDirectory(home, ".tyrquake/rogue");
-    }
-    if (COM_CheckParm("-hipnotic")) {
-	COM_AddGameDirectory(com_basedir, "hipnotic");
-	COM_AddGameDirectory(home, ".tyrquake/hipnotic");
-    }
-    if (COM_CheckParm("-quoth")) {
-	COM_AddGameDirectory(com_basedir, "quoth");
-	COM_AddGameDirectory(home, ".tyrquake/quoth");
-    }
-
-//
-// -game <gamedir>
-// Adds basedir/gamedir as an override game
-//
-    i = COM_CheckParm("-game");
-    if (i && i < com_argc - 1) {
-	com_modified = true;
-	COM_AddGameDirectory(com_basedir, com_argv[i + 1]);
-	COM_AddGameDirectory(home, va(".tyrquake/%s", com_argv[i + 1]));
-    }
-#endif
 #ifdef QW_HACK
     COM_AddGameDirectory(com_basedir, "qw");
-    COM_AddGameDirectory(home, ".tyrquake/qw");
+    if (home)
+        COM_AddGameDirectory(va("%s/.tyrquake", home), "qw");
+    com_modified = true;
+    com_game_type = GAME_TYPE_QW;
 #endif
 
-    /* If home is available, create the game directory */
-    if (home) {
-	COM_CreatePath(com_gamedir);
-	Sys_mkdir(com_gamedir);
-    }
-
-//
-// -path <dir or packfile> [<dir or packfile>] ...
-// Fully specifies the exact search path, overriding the generated one
-//
-#ifdef NQ_HACK
-    i = COM_CheckParm("-path");
-    if (i) {
-	com_modified = true;
-	com_searchpaths = NULL;
-	while (++i < com_argc) {
-	    if (!com_argv[i] || com_argv[i][0] == '+'
-		|| com_argv[i][0] == '-')
-		break;
-
-	    searchpath_t *search = Hunk_AllocName(sizeof(searchpath_t), "gamedir");
-	    if (!strcmp(COM_FileExtension(com_argv[i]), "pak")) {
-		search->pack = COM_LoadPackFile(com_argv[i]);
-		if (!search->pack)
-		    Sys_Error("Couldn't load packfile: %s", com_argv[i]);
-	    } else
-		strcpy(search->filename, com_argv[i]);
-	    search->next = com_searchpaths;
-	    com_searchpaths = search;
-	}
-    }
-#endif
-#ifdef QW_HACK
-    // any set gamedirs will be freed up to here
     com_base_searchpaths = com_searchpaths;
+    com_basedir_mark = Hunk_LowMark();
+    COM_CheckRegistered();
+}
+
+void
+COM_InitGameDirectory(const char *gamedir, enum game_type game_type)
+{
+    /* TODO: use proper location for user files on Win32.  Sys_UserDir()? */
+    const char *home = getenv("HOME");
+
+    com_modified = false;
+    rogue = false;
+    hipnotic = false;
+    standard_quake = true;
+
+    switch (game_type) {
+        case GAME_TYPE_HIPNOTIC:
+            COM_AddGameDirectory(com_basedir, "hipnotic");
+            if (home)
+                COM_AddGameDirectory(va("%s/.tyrquake", home), "hipnotic");
+            hipnotic = true;
+            standard_quake = false;
+            com_modified = true;
+            break;
+        case GAME_TYPE_QUOTH:
+            COM_AddGameDirectory(com_basedir, "quoth");
+            if (home)
+                COM_AddGameDirectory(va("%s/.tyrquake", home), "quoth");
+            hipnotic = true;
+            standard_quake = false;
+            com_modified = true;
+            break;
+        case GAME_TYPE_ROGUE:
+            COM_AddGameDirectory(com_basedir, "rogue");
+            if (home)
+                COM_AddGameDirectory(va("%s/.tyrquake", home), "rogue");
+            rogue = true;
+            standard_quake = false;
+            com_modified = true;
+            break;
+        case GAME_TYPE_QW:
+            COM_AddGameDirectory(com_basedir, "qw");
+            if (home)
+                COM_AddGameDirectory(va("%s/.tyrquake", home), "qw");
+            com_modified = true;
+        default:
+            break;
+    }
+    com_game_type = game_type;
+
+    if (gamedir) {
+        /* If gamedir is already in the search path, don't add */
+        searchpath_t *search;
+        for (search = com_searchpaths; search; search = search->next) {
+            if (!search->pack && !strcmp(gamedir, COM_SkipPath(search->filename)))
+                return;
+        }
+
+        COM_AddGameDirectory(com_basedir, gamedir);
+        if (home)
+            COM_AddGameDirectory(va("%s/.tyrquake", home), gamedir);
+    }
+}
+
+void
+COM_InitGameDirectoryFromCommandLine()
+{
+    enum game_type game_type = GAME_TYPE_ID1;
+    const char *game_directory = "id1";
+
+    /* Check for mission pack parameters */
+#ifdef NQ_HACK
+    if (COM_CheckParm("-hipnotic")) {
+        game_type = GAME_TYPE_HIPNOTIC;
+    } else if (COM_CheckParm("-quoth")) {
+        game_type = GAME_TYPE_QUOTH;
+    } else if (COM_CheckParm("-rogue")) {
+        game_type = GAME_TYPE_ROGUE;
+    }
 #endif
+
+    /* Check the -game parameter */
+    int i = COM_CheckParm("-game");
+    if (!i)
+        return;
+    game_directory = com_argv[i + 1];
+    if (!COM_ValidGamedir(game_directory)) {
+        Con_Printf("Invalid game directory name '%s'.  "
+                   "Must be a single directory name and not a path.\n", com_argv[i + 1]);
+        return;
+    }
+
+    COM_InitGameDirectory(game_directory, game_type);
 }
 
 /*

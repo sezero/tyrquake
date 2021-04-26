@@ -255,7 +255,7 @@ Model_NextDownload(void)
 	if (!cl.model_precache[i]) {
 	    Con_Printf("\nThe required model file '%s' could not be found or downloaded.\n\n", cl.model_name[i]);
 	    Con_Printf("You may need to download or purchase a %s client "
-		       "pack in order to play on this server.\n\n", gamedirfile);
+		       "pack in order to play on this server.\n\n", com_gamedirfile);
 	    CL_Disconnect();
 	    return;
 	}
@@ -268,8 +268,7 @@ Model_NextDownload(void)
 
     // done with modellist, request first of static signon messages
     MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
-    MSG_WriteStringf(&cls.netchan.message, "prespawn %i 0 %i",
-		     cl.servercount, cl.worldmodel->checksum2);
+    MSG_WriteStringf(&cls.netchan.message, "prespawn %i 0 %i", cl.servercount, cl.worldmodel->checksum2);
 }
 
 /*
@@ -534,7 +533,6 @@ CL_ParseServerData
 static void
 CL_ParseServerData(void)
 {
-    char *str;
     FILE *f;
     char fn[MAX_OSPATH];
     qboolean cflag = false;
@@ -560,15 +558,16 @@ CL_ParseServerData(void)
     cl.servercount = MSG_ReadLong();
 
     // game directory
-    str = MSG_ReadString();
+    const char *gamedir = MSG_ReadString();
 
-    if (strcasecmp(gamedirfile, str)) {
+    // TODO: handle this in Host_Gamedir
+    if (strcasecmp(com_gamedirfile, gamedir)) {
 	// save current config
 	Host_WriteConfiguration();
 	cflag = true;
     }
 
-    COM_Gamedir(str);
+    Host_Gamedir(gamedir, GAME_TYPE_QW);
 
     //ZOID--run the autoexec.cfg in the gamedir
     //if it exists
@@ -589,8 +588,8 @@ CL_ParseServerData(void)
 	cl.playernum &= ~128;
     }
     // get the full level name
-    str = MSG_ReadString();
-    qsnprintf(cl.levelname, sizeof(cl.levelname), "%s", str);
+    const char *levelname = MSG_ReadString();
+    qsnprintf(cl.levelname, sizeof(cl.levelname), "%s", levelname);
 
     // get the movevars
     movevars.gravity = MSG_ReadFloat();
@@ -607,7 +606,7 @@ CL_ParseServerData(void)
     // seperate the printfs so the server message can have a color
     Con_Printf("\n\n\35\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36"
 	       "\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\36\37\n\n");
-    Con_Printf("%c%s\n", 2, str);
+    Con_Printf("%c%s\n", 2, levelname);
 
     // ask for the sound list next
     memset(cl.sound_name, 0, sizeof(cl.sound_name));
