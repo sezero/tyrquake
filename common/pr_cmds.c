@@ -751,10 +751,23 @@ PF_traceline(void)
     nomonsters = G_FLOAT(OFS_PARM2);
     entity = G_EDICT(OFS_PARM3);
 
-    /* Find the obstructing entity, if any. Default to world. */
-    entity = SV_TraceLine(v1, v2, nomonsters, entity, &trace);
-    if (!entity)
-	entity = sv.edicts;
+    if (isnan(v1[0]) || isnan(v1[1]) || isnan(v1[2]) || isnan(v2[0]) || isnan(v2[1]) || isnan(v2[2])) {
+        /*
+         * Buggy QC can pass us NaN's here, which breaks the trace.
+         * Report it then work around it.
+         */
+        Con_DPrintf("%s: Called with NaN in endpoint (%f, %f, %f) -> (%f, %f, %f)\n",
+                    __func__, v1[0], v1[1], v1[2], v2[0], v2[1], v2[3]);
+        PR_StackTrace_Developer();
+        SV_DefaultTrace(&trace);
+        VectorCopy(v2, trace.endpos);
+        entity = sv.edicts;
+    } else {
+        /* Find the obstructing entity, if any. Default to world. */
+        entity = SV_TraceLine(v1, v2, nomonsters, entity, &trace);
+        if (!entity)
+            entity = sv.edicts;
+    }
 
     pr_global_struct->trace_allsolid = trace.allsolid;
     pr_global_struct->trace_startsolid = trace.startsolid;

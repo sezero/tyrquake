@@ -73,7 +73,9 @@ void PR_Init();
 void PR_ExecuteProgram(func_t fnum);
 void PR_LoadProgs(void);
 
-void PR_Profile_f(void);
+void PR_Profile_f();
+void PR_StackTrace();
+void PR_StackTrace_Developer();
 
 edict_t *ED_Alloc(void);
 void ED_Free(edict_t *ed);

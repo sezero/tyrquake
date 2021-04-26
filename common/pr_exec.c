@@ -185,14 +185,14 @@ PR_PrintStatement(dstatement_t *s)
 PR_StackTrace
 ============
 */
-void
-PR_StackTrace(void)
+static void
+PR_StackTrace_Internal(void (*Print)(const char *fmt, ...))
 {
     dfunction_t *f;
     int i;
 
     if (pr_depth == 0) {
-	Con_Printf("<NO STACK>\n");
+	Print("<NO STACK>\n");
 	return;
     }
 
@@ -200,13 +200,13 @@ PR_StackTrace(void)
     for (i = pr_depth; i >= 0; i--) {
 	f = pr_stack[i].f;
 	if (!f)
-	    Con_Printf("<NO FUNCTION>\n");
+	    Print("<NO FUNCTION>\n");
 	else
-	    Con_Printf("%12s : %s\n", PR_GetString(f->s_file),
-		       PR_GetString(f->s_name));
+	    Print("%12s : %s\n", PR_GetString(f->s_file), PR_GetString(f->s_name));
     }
 }
-
+void PR_StackTrace() { PR_StackTrace_Internal(Con_Printf); }
+void PR_StackTrace_Developer() { PR_StackTrace_Internal(Con_DPrintf); }
 
 /*
 ============

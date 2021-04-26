@@ -84,6 +84,15 @@ SV_TraceLine(const vec3_t start, const vec3_t end, movetype_t type, const edict_
     return SV_TraceMove(start, vec3_origin, vec3_origin, end, type, passedict, trace);
 }
 
+static inline trace_t *
+SV_DefaultTrace(trace_t *trace)
+{
+        memset(trace, 0, sizeof(*trace));
+        trace->fraction = 1;
+        trace->allsolid = true;
+        return trace;
+}
+
 #if defined(QW_HACK) && defined(SERVERONLY)
 #include "pmove.h"
 void SV_AddLinksToPhysents(const edict_t *player, const vec3_t mins,

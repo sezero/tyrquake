@@ -542,10 +542,7 @@ SV_ClipToEntity(const edict_t *ent, const vec3_t start, const vec3_t mins,
     vec3_t offset;
     vec3_t start_l, end_l;
 
-    /* fill in a default trace */
-    memset(trace, 0, sizeof(trace_t));
-    trace->fraction = 1;
-    trace->allsolid = true;
+    SV_DefaultTrace(trace);
     VectorCopy(end, trace->endpos);
 
     /* get the clipping hull */
