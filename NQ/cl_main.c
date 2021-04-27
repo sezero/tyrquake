@@ -861,4 +861,9 @@ CL_Reinit()
 {
     assert(!cls.message.cursize);
     CL_Init();
+
+    /* Reset demos */
+    cls.demonum = 0;
+    cls.demos[0][0] = 0;
+    cls.demoplayback = false;
 }

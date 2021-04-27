@@ -675,7 +675,7 @@ Host_Startdemos_f
 static void
 Host_Startdemos_f(void)
 {
-    int i, c;
+    int i, numdemos;
 
     if (cls.state == ca_dedicated) {
 	if (!sv.active)
@@ -683,15 +683,15 @@ Host_Startdemos_f(void)
 	return;
     }
 
-    c = Cmd_Argc() - 1;
-    if (c > MAX_DEMOS) {
+    numdemos = Cmd_Argc() - 1;
+    if (numdemos > MAX_DEMOS) {
 	Con_Printf("Max %i demos in demoloop\n", MAX_DEMOS);
-	c = MAX_DEMOS;
+	numdemos = MAX_DEMOS;
     }
-    Con_Printf("%i demo(s) in loop\n", c);
+    Con_Printf("%i demo(s) in loop\n", numdemos);
 
-    for (i = 1; i < c + 1; i++)
-	qstrncpy(cls.demos[i - 1], Cmd_Argv(i), sizeof(cls.demos[0]));
+    for (i = 0; i < numdemos; i++)
+	qstrncpy(cls.demos[i], Cmd_Argv(i + 1), sizeof(cls.demos[0]));
 
     if (!sv.active && cls.demonum != -1 && !cls.demoplayback) {
 	cls.demonum = 0;
