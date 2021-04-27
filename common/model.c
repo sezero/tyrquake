@@ -600,7 +600,7 @@ Loads a model into the cache
 static model_t *
 Mod_LoadModel(const char *name, qboolean crash)
 {
-    byte stackbuf[1024];
+    byte stackbuf[64 * 1024];
     unsigned *buffer, header;
     brushmodel_t *brushmodel;
     model_t *model;

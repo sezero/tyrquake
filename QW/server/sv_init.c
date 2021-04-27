@@ -273,7 +273,7 @@ SV_CheckModel(const char *mdl)
     const byte *buffer;
     size_t buffersize;
     unsigned short crc;
-    byte stackbuffer[1024];	// avoid dirtying the cache heap
+    byte stackbuffer[64 * 1024];
 
     buffer = COM_LoadStackFile(mdl, stackbuffer, sizeof(stackbuffer), &buffersize);
     crc = CRC_Block(buffer, buffersize);

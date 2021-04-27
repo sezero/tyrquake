@@ -111,7 +111,7 @@ S_LoadSound(sfx_t *s)
     float stepscale;
     sfxcache_t *sc;
     char namebuffer[256];
-    byte stackbuf[1024];	// avoid dirtying the cache heap
+    byte stackbuf[64 * 1024];
 
     sc = Cache_Check(&s->cache);
     if (sc)
