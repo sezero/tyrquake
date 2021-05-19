@@ -79,8 +79,7 @@ D_DrawParticle(particle_t *pparticle)
     u = (int)(xcenter + zi * transformed[0] + 0.5);
     v = (int)(ycenter - zi * transformed[1] + 0.5);
 
-    if ((v > d_vrectbottom_particle) ||
-	(u > d_vrectright_particle) || (v < d_vrecty) || (u < d_vrectx)) {
+    if ((v > d_vrectbottom_particle) || (u > d_vrectright_particle) || (v < d_vrecty) || (u < d_vrectx)) {
 	return;
     }
 

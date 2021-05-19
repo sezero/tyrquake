@@ -234,6 +234,8 @@ void R_ParticleExplosion2(vec3_t org, int colorStart, int colorLength);
 
 void R_PushDlights(void);
 
+extern cvar_t r_particle_scale;
+
 void R_InitParticles(void);
 void R_ClearParticles(void);
 void R_DrawParticles(void);

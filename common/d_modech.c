@@ -46,14 +46,16 @@ D_ViewChanged(void)
     d_zrowbytes = vid.width * 2;
     d_zwidth = vid.width;
 
-    d_pix_min = r_refdef.vrect.width / 640;
+    d_pix_min = r_refdef.vrect.width * r_particle_scale.value / 320;
     if (d_pix_min < 1)
 	d_pix_min = 1;
 
-    d_pix_max = (int)((float)r_refdef.vrect.width / (640.0 / 4.0) + 0.5);
-    d_pix_shift = 8 - (int)((float)r_refdef.vrect.width / 640.0 + 0.5);
+    d_pix_max = (int)((float)r_refdef.vrect.width / (320.0 / 4.0) * r_particle_scale.value + 0.5);
+    d_pix_shift = 8 - (int)((float)r_refdef.vrect.width / 320.0 + 0.5);
     if (d_pix_max < 1)
 	d_pix_max = 1;
+    if (d_pix_shift < 0)
+        d_pix_shift = 0;
 
     if (pixelAspect > 1.4)
 	d_y_aspect_shift = 1;

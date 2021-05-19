@@ -230,6 +230,8 @@ R_RegisterVariables()
     Cvar_RegisterVariable(&r_lavaalpha);
     Cvar_RegisterVariable(&r_telealpha);
 
+    Cvar_RegisterVariable(&r_particle_scale);
+
     D_RegisterVariables();
 }
 
@@ -442,8 +444,7 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
     r_refdef.fvrecty = (float)r_refdef.vrect.y;
     r_refdef.fvrecty_adj = (float)r_refdef.vrect.y - 0.5;
     r_refdef.vrectright = r_refdef.vrect.x + r_refdef.vrect.width;
-    r_refdef.vrectright_adj_shift20 =
-	(r_refdef.vrectright << 20) + (1 << 19) - 1;
+    r_refdef.vrectright_adj_shift20 = (r_refdef.vrectright << 20) + (1 << 19) - 1;
     r_refdef.fvrectright = (float)r_refdef.vrectright;
     r_refdef.fvrectright_adj = (float)r_refdef.vrectright - 0.5;
     r_refdef.vrectrightedge = (float)r_refdef.vrectright - 0.99;
@@ -454,12 +455,9 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
     r_refdef.aliasvrect.x = (int)(r_refdef.vrect.x * r_aliasuvscale);
     r_refdef.aliasvrect.y = (int)(r_refdef.vrect.y * r_aliasuvscale);
     r_refdef.aliasvrect.width = (int)(r_refdef.vrect.width * r_aliasuvscale);
-    r_refdef.aliasvrect.height =
-	(int)(r_refdef.vrect.height * r_aliasuvscale);
-    r_refdef.aliasvrectright =
-	r_refdef.aliasvrect.x + r_refdef.aliasvrect.width;
-    r_refdef.aliasvrectbottom =
-	r_refdef.aliasvrect.y + r_refdef.aliasvrect.height;
+    r_refdef.aliasvrect.height = (int)(r_refdef.vrect.height * r_aliasuvscale);
+    r_refdef.aliasvrectright = r_refdef.aliasvrect.x + r_refdef.aliasvrect.width;
+    r_refdef.aliasvrectbottom = r_refdef.aliasvrect.y + r_refdef.aliasvrect.height;
 
     pixelAspect = aspect;
     xOrigin = r_refdef.xOrigin;
@@ -491,20 +489,17 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
     yscale = xscale * pixelAspect;
     aliasyscale = yscale * r_aliasuvscale;
     yscaleinv = 1.0 / yscale;
-    xscaleshrink =
-	(r_refdef.vrect.width - 6) / r_refdef.horizontalFieldOfView;
+    xscaleshrink = (r_refdef.vrect.width - 6) / r_refdef.horizontalFieldOfView;
     yscaleshrink = xscaleshrink * pixelAspect;
 
 // left side clip
-    screenedge[0].normal[0] =
-	-1.0 / (xOrigin * r_refdef.horizontalFieldOfView);
+    screenedge[0].normal[0] = -1.0 / (xOrigin * r_refdef.horizontalFieldOfView);
     screenedge[0].normal[1] = 0;
     screenedge[0].normal[2] = 1;
     screenedge[0].type = PLANE_ANYZ;
 
 // right side clip
-    screenedge[1].normal[0] =
-	1.0 / ((1.0 - xOrigin) * r_refdef.horizontalFieldOfView);
+    screenedge[1].normal[0] = 1.0 / ((1.0 - xOrigin) * r_refdef.horizontalFieldOfView);
     screenedge[1].normal[1] = 0;
     screenedge[1].normal[2] = 1;
     screenedge[1].type = PLANE_ANYZ;

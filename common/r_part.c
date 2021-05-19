@@ -725,8 +725,19 @@ CL_RunParticles(void)
     }
 }
 
+static void
+R_ParticleScale_f(cvar_t *cvar)
+{
+#ifndef GLQUAKE
+    D_ViewChanged();
+#endif
+}
+cvar_t r_particle_scale = { "r_particle_scale", "1.0", .callback = R_ParticleScale_f };
+
 #ifdef GLQUAKE
-#define PARTICLE_BUFFER_MAX_VERTS (1024 * 3)
+#define PARTICLE_BUFFER_MAX 1024
+#define PARTICLE_BUFFER_MAX_VERTS (PARTICLE_BUFFER_MAX * 4)
+#define PARTICLE_BUFFER_MAX_INDICES (PARTICLE_BUFFER_MAX * 6)
 typedef struct {
     // Particle orientation
     vec3_t up;
@@ -734,13 +745,16 @@ typedef struct {
 
     // Triangle buffer
     int numverts;
+    int numindices;
     float verts[PARTICLE_BUFFER_MAX_VERTS][5];
     byte colors[PARTICLE_BUFFER_MAX_VERTS][4];
+    uint16_t indices[PARTICLE_BUFFER_MAX_INDICES];
 } particle_buffer_t;
 
 static inline void
 PBuf_AddParticle(particle_buffer_t *buffer, const particle_t *particle)
 {
+    vec3_t corner;
     vec_t *vertex;
     vec3_t offset;
     float scale;
@@ -750,22 +764,31 @@ PBuf_AddParticle(particle_buffer_t *buffer, const particle_t *particle)
     // hack a scale up to keep particles from disapearing
     VectorSubtract(particle->org, r_origin, offset);
     scale = DotProduct(offset, vpn);
-    scale = qmin(1.0f, 1.0f + scale * 0.004f);
+    scale = qmax(1.0f, 1.0f + scale * 0.002f * r_particle_scale.value);
+
+    // Line up the corner of the particle texture
+    VectorMA(particle->org, scale * -0.5, buffer->up, corner);
+    VectorMA(corner, scale * -0.5, buffer->right, corner);
 
     vertex = buffer->verts[buffer->numverts];
 
-    VectorCopy(particle->org, vertex);
+    VectorCopy(corner, vertex);
     vertex[3] = 0.0f;
     vertex[4] = 0.0f;
     vertex += 5;
 
-    VectorMA(particle->org, scale, buffer->up, vertex);
+    VectorMA(corner, scale, buffer->up, vertex);
     vertex[3] = 1.0f;
     vertex[4] = 0.0f;
     vertex += 5;
 
-    VectorMA(particle->org, scale, buffer->right, vertex);
+    VectorMA(corner, scale, buffer->right, vertex);
     vertex[3] = 0.0f;
+    vertex[4] = 1.0f;
+
+    VectorMA(vertex, scale, buffer->up, vertex + 5);
+    vertex += 5;
+    vertex[3] = 1.0f;
     vertex[4] = 1.0f;
 
     color = qpal_standard.colors[(byte)particle->color];
@@ -774,14 +797,23 @@ PBuf_AddParticle(particle_buffer_t *buffer, const particle_t *particle)
     }
 
     byte *dstcolor = buffer->colors[buffer->numverts];
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < 4; i++) {
         *dstcolor++ = color.c.red;
         *dstcolor++ = color.c.green;
         *dstcolor++ = color.c.blue;
         *dstcolor++ = color.c.alpha;
     }
 
-    buffer->numverts += 3;
+    uint16_t *index = buffer->indices + buffer->numindices;
+    *index++ = buffer->numverts;
+    *index++ = buffer->numverts + 1;
+    *index++ = buffer->numverts + 2;
+    *index++ = buffer->numverts + 2;
+    *index++ = buffer->numverts + 1;
+    *index++ = buffer->numverts + 3;
+
+    buffer->numverts += 4;
+    buffer->numindices += 6;
 }
 
 static void
@@ -790,7 +822,7 @@ PBuf_Draw(particle_buffer_t *buffer)
     glVertexPointer(3, GL_FLOAT, 5 * sizeof(float), &buffer->verts[0][0]);
     glTexCoordPointer(2, GL_FLOAT, 5 * sizeof(float), &buffer->verts[0][3]);
     glColorPointer(4, GL_UNSIGNED_BYTE, 0, &buffer->colors[0][0]);
-    glDrawArrays(GL_TRIANGLES, 0, buffer->numverts);
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
     gl_draw_calls++;
     gl_verts_submitted += buffer->numverts;
 }
@@ -806,7 +838,6 @@ R_DrawParticles(void)
     particle_t *particle;
     particle_buffer_t buffer;
 
-    buffer.numverts = 0;
     VectorScale(vup, 1.5, buffer.up);
     VectorScale(vright, 1.5, buffer.right);
 
@@ -826,6 +857,9 @@ R_DrawParticles(void)
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
 
+    buffer.numverts = 0;
+    buffer.numindices = 0;
+
     int count = 0;
     for (particle = active_particles; particle; particle = particle->next) {
         count++;
@@ -837,6 +871,7 @@ R_DrawParticles(void)
  drawBuffer:
     PBuf_Draw(&buffer);
     buffer.numverts = 0;
+    buffer.numindices = 0;
     if (particle)
         goto addParticle;
 

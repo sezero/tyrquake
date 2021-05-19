@@ -79,46 +79,44 @@ GL_LoadNoTexture()
     r_notexture_mip->gl_texturenum = GL_LoadTexture8(NULL, r_notexture_mip->name, &pic, TEXTURE_TYPE_NOTEXTURE);
 }
 
-static const byte dottexture[8][8] = {
-    {0, 1, 1, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 0, 0, 0, 0},
-    {1, 1, 1, 1, 0, 0, 0, 0},
-    {0, 1, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0},
-};
-
 void
 R_InitParticleTexture(void)
 {
-    byte pixels[8][8][4];
+#define PARTICLE_TX_SIZE 16
+    byte pixels[PARTICLE_TX_SIZE][PARTICLE_TX_SIZE][4];
     int x, y;
 
-    //
-    // particle texture
-    //
-    for (x = 0; x < 8; x++) {
-	for (y = 0; y < 8; y++) {
+    /* Create a circle in the middle of the texture */
+    const float mid = (float)(PARTICLE_TX_SIZE - 1) / 2.0f;
+    const float inside = (float)(PARTICLE_TX_SIZE - 3) / 2.0f;
+
+    for (x = 0; x < PARTICLE_TX_SIZE; x++) {
+	for (y = 0; y < PARTICLE_TX_SIZE; y++) {
 	    pixels[y][x][0] = 255;
 	    pixels[y][x][1] = 255;
 	    pixels[y][x][2] = 255;
-	    pixels[y][x][3] = dottexture[x][y] * 255;
-	}
+
+            float dist = sqrtf((x - mid) * (x - mid) + (y - mid) * (y - mid));
+            if (dist <= inside) {
+                pixels[y][x][3] = 255;
+            } else if (dist > mid) {
+                pixels[y][x][3] = 0;
+            } else {
+                // Alpha blend partially covered pixels
+                pixels[y][x][3] = qclamp(mid - dist, 0.0f, 1.0f) * 255;
+            }
+        }
     }
 
     const qpic8_t particle = {
-        .width = 8,
-        .height = 8,
-        .pixels = &dottexture[0][0],
+        .width = PARTICLE_TX_SIZE,
+        .height = PARTICLE_TX_SIZE,
+        .pixels = &pixels[0][0][0],
     };
     particletexture = GL_AllocTexture8(NULL, "@particle", &particle, TEXTURE_TYPE_PARTICLE);
     GL_Bind(particletexture);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, 8, 8, 0, GL_RGBA,
-		 GL_UNSIGNED_BYTE, pixels);
-
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_alpha_format, PARTICLE_TX_SIZE, PARTICLE_TX_SIZE, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -229,6 +227,8 @@ R_AddCommands()
 void
 R_RegisterVariables()
 {
+    Cvar_RegisterVariable(&r_particle_scale);
+
     Cvar_RegisterVariable(&r_speeds);
     Cvar_RegisterVariable(&r_fullbright);
     Cvar_RegisterVariable(&r_drawentities);
