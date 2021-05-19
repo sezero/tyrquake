@@ -45,10 +45,11 @@ texture_properties_t texture_properties[] = {
     { &qpal_fullbright,       QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  true,  false, false }, // ALIAS_SKIN_FULLBRIGHT
     { &qpal_standard,         QPIC_ALPHA_OP_NONE,          true,  false, true,  false }, // PLAYER_SKIN
     { &qpal_fullbright,       QPIC_ALPHA_OP_CLAMP_TO_ZERO, true,  false, true,  false }, // PLAYER_SKIN_FULLBRIGHT
-    { NULL,                   QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
     { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      false, false, false, false }, // PARTICLE
     { &qpal_alpha,            QPIC_ALPHA_OP_EDGE_FIX,      true,  true,  false, false }, // SPRITE
     { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // NOTEXTURE
+    { NULL,                   QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
+    { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // WARP_TARGET
 };
 
 /*

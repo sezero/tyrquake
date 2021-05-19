@@ -710,12 +710,9 @@ GL_LoadBrushModelTexture(const model_t *model, texture_t *texture)
 
     texture->gl_texturenum = GL_LoadTexture8(model, texture->name, &pic, type);
 
-    /* Fullbright mask if required (not on liquids) */
+    /* Add warp target or fullbright mask if required */
     if (type == TEXTURE_TYPE_TURB) {
-        static byte pixels[WARP_RENDER_TEXTURE_SIZE * WARP_RENDER_TEXTURE_SIZE];
-        pic.width = pic.height = qmin(texture->width * 4, WARP_RENDER_TEXTURE_SIZE);
-        pic.pixels = pixels;
-        texture->gl_warpimage = GL_LoadTexture8(model, va("%s:warp", texture->name), &pic, type);
+        texture->gl_warpimage = GL_LoadTexture8(model, va("%s:warp", texture->name), &pic, TEXTURE_TYPE_WARP_TARGET);
         texture->gl_warpimagesize = pic.width;
     } else if (QPic_HasFullbrights(&pic, type)) {
         type = (texture->name[0] == '{') ? TEXTURE_TYPE_FENCE_FULLBRIGHT : TEXTURE_TYPE_WORLD_FULLBRIGHT;

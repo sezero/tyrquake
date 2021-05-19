@@ -122,7 +122,7 @@ extern int glx, gly, glwidth, glheight;
 #define WARP_WIDTH 320
 #define WARP_HEIGHT 200
 #define WARP_IMAGE_SIZE 128
-#define WARP_RENDER_TEXTURE_SIZE 512u
+#define WARP_RENDER_TEXTURE_SIZE 512
 
 void R_TimeRefresh_f(void);
 void R_ReadPointFile_f(void);

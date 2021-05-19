@@ -318,6 +318,36 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     pic->height = height;
 }
 
+/**
+ * Special rules for determining the required size for the warp target
+ * texture (warp texture is assumed to be square).
+ *
+ * Must be less or equal to the backbuffer size since we need to
+ * render into that first then copy the pixels out.  If npot textures
+ * are not supported, make sure we select the next *smaller* power of
+ * two here to avoid the generic upload function from stretching it
+ * up.
+ */
+static int
+GL_GetWarpImageSize(qpic8_t *pic)
+{
+    int size = qmin(pic->width * 4, WARP_RENDER_TEXTURE_SIZE);
+
+    if (!gl_npotable || !gl_npot.value) {
+        int original_size = size;
+        size = 1;
+        while (size < original_size)
+            size <<= 1;
+        while (size > vid.width || size > vid.height)
+            size >>= 1;
+    } else {
+        size = qmin(size, vid.width);
+        size = qmin(size, vid.height);
+    }
+
+    return size;
+}
+
 /*
 ===============
 GL_Upload8
@@ -338,10 +368,15 @@ GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha)
 
     mark = Hunk_LowMark();
 
-    pic32 = QPic32_Alloc(pic->width, pic->height);
-    QPic_8to32(pic, pic32, palette, alpha_op);
-    if (alpha != 255)
-        QPic32_ScaleAlpha(pic32, alpha);
+    if (type == TEXTURE_TYPE_WARP_TARGET) {
+        int size = GL_GetWarpImageSize(pic);
+        pic32 = QPic32_Alloc(size, size);
+    } else {
+        pic32 = QPic32_Alloc(pic->width, pic->height);
+        QPic_8to32(pic, pic32, palette, alpha_op);
+        if (alpha != 255)
+            QPic32_ScaleAlpha(pic32, alpha);
+    }
     GL_Upload32(pic32, type);
 
     pic->width = pic32->width;
@@ -432,7 +467,7 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
         if (owner != texture->owner)
             continue;
         if (!strcmp(name, texture->name)) {
-            if (type != texture->type || (crc != texture->crc && type != TEXTURE_TYPE_LIGHTMAP))
+            if (type != texture->type || (crc != texture->crc && type < TEXTURE_TYPE_LIGHTMAP))
                 goto GL_AllocTexture_setup;
             if (width != texture->width || height != texture->height)
                 goto GL_AllocTexture_setup;
@@ -445,7 +480,7 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
     /* Check the inactive list for a match, these are unowned */
     list_for_each_entry(texture, &manager.inactive, list) {
         if (!strcmp(name, texture->name)) {
-            if (type != texture->type || (crc != texture->crc && type != TEXTURE_TYPE_LIGHTMAP))
+            if (type != texture->type || (crc != texture->crc && type < TEXTURE_TYPE_LIGHTMAP))
                 goto GL_AllocTexture_setup;
             if (width != texture->width || height != texture->height)
                 goto GL_AllocTexture_setup;
