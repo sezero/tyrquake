@@ -38,6 +38,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 static void S_Play(void);
+static void S_Play_Arg_f(struct stree_root *root, int argnum);
 static void S_PlayVol(void);
 static void S_SoundList(void);
 static void S_Update_();
@@ -165,6 +166,7 @@ S_AddCommands()
 	return;
 
     Cmd_AddCommand("play", S_Play);
+    Cmd_SetCompletion("play", S_Play_Arg_f);
     Cmd_AddCommand("playvol", S_PlayVol);
     Cmd_AddCommand("stopsound", S_StopAllSoundsC);
     Cmd_AddCommand("soundlist", S_SoundList);
@@ -843,6 +845,12 @@ console functions
 
 ===============================================================================
 */
+
+static void
+S_Play_Arg_f(struct stree_root *root, int argnum)
+{
+    COM_ScanDir(root, "sound", Cmd_Argv(argnum), ".wav", QSCANDIR_SUBDIRS);
+}
 
 static void
 S_Play(void)
