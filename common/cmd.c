@@ -90,7 +90,7 @@ Cbuf_Init
 void
 Cbuf_Init(void)
 {
-    SZ_HunkAlloc(&cmd_text, 8192);
+    SZ_HunkAlloc(&cmd_text, 16384);
 }
 
 
