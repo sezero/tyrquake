@@ -1483,34 +1483,60 @@ COM_FOpenFile(const char *filename, FILE **file)
 }
 
 static void
-COM_ScanDirDir(struct stree_root *root, DIR *dir,
-               const char *prefix, const char *suffix, qboolean strip)
+COM_ScanDirDir(struct stree_root *root, const char *path, const char *relative_path, DIR *dir,
+               const char *prefix, const char *suffix, enum qscandir_flags flags)
 {
     int prefix_len, suffix_len;
     struct dirent *d;
     char *fname;
+    char relative_name[MAX_QPATH];
 
     prefix_len = prefix ? strlen(prefix) : 0;
     suffix_len = suffix ? strlen(suffix) : 0;
 
     while ((d = readdir(dir))) {
-	if (prefix && prefix_len && strncasecmp(d->d_name, prefix, prefix_len))
+        if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
+            continue;
+
+        qsnprintf(relative_name, sizeof(relative_name), "%s%s", relative_path, d->d_name);
+        if (flags & QSCANDIR_SUBDIRS) {
+            struct stat fileinfo;
+            char fullpath[MAX_OSPATH];
+
+            qsnprintf(fullpath, sizeof(fullpath), "%s/%s", path, d->d_name);
+            int error = stat(fullpath, &fileinfo);
+            if (!error && S_ISDIR(fileinfo.st_mode)) {
+                /* It's a directory.  If it doesn't conflict with prefix, check contents */
+                int common_length = qmin(prefix_len, (int)strlen(relative_name));
+                if (!common_length || !strncasecmp(prefix, relative_name, common_length)) {
+                    DIR *subdir = opendir(fullpath);
+                    if (subdir) {
+                        qsnprintf(relative_name, sizeof(relative_name), "%s%s/", relative_path, d->d_name);
+                        COM_ScanDirDir(root, fullpath, relative_name, subdir, prefix, suffix, flags);
+                        closedir(subdir);
+                        continue;
+                    }
+                }
+            }
+        }
+
+	if (prefix && prefix_len && strncasecmp(relative_name, prefix, prefix_len))
 	    continue;
-	if (suffix && suffix_len && !COM_CheckSuffix(d->d_name, suffix))
+	if (suffix && suffix_len && !COM_CheckSuffix(relative_name, suffix))
 	    continue;
 
-	int len = strlen(d->d_name);
-	if (suffix && strip)
+	int len = strlen(relative_name);
+	if (suffix && !(flags & QSCANDIR_KEEP_SUFFIX))
 	    len -= suffix_len;
-	fname = Z_StrnDup(d->d_name, len);
+	fname = Z_StrnDup(relative_name, len);
 	STree_InsertAlloc(root, fname, true);
 	Z_Free(fname);
     }
 }
 
 static void
-COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
-               const char *prefix, const char *suffix, qboolean strip)
+COM_ScanDirPak(struct stree_root *root, const pack_t *pak, const char *path,
+               const char *prefix, const char *suffix, enum qscandir_flags flags)
 {
     int i, path_len, prefix_len, suffix_len, len;
     char *pak_f, *fname;
@@ -1530,8 +1556,7 @@ COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
 	    pak_f += path_len + 1;
 	}
 
-	/* Don't match sub-directories */
-	if (strchr(pak_f, '/'))
+	if (strchr(pak_f, '/') && !(flags & QSCANDIR_SUBDIRS))
 	    continue;
 
 	/* Check the prefix and suffix, if set */
@@ -1542,7 +1567,7 @@ COM_ScanDirPak(struct stree_root *root, pack_t *pak, const char *path,
 
 	/* Ok, we have a match. Add it */
 	len = strlen(pak_f);
-	if (suffix && strip)
+	if (suffix && !(flags & QSCANDIR_KEEP_SUFFIX))
 	    len -= suffix_len;
 	fname = Z_StrnDup(pak_f, len);
 	STree_InsertAlloc(root, fname, true);
@@ -1561,7 +1586,7 @@ Caller MUST have already called STree_AllocInit()
 */
 void
 COM_ScanDir(struct stree_root *root, const char *path,
-            const char *prefix, const char *suffix, qboolean strip)
+            const char *prefix, const char *suffix, enum qscandir_flags flags)
 {
     searchpath_t *search;
     char fullpath[MAX_OSPATH];
@@ -1569,13 +1594,13 @@ COM_ScanDir(struct stree_root *root, const char *path,
 
     for (search = com_searchpaths; search; search = search->next) {
 	if (search->pack) {
-	    COM_ScanDirPak(root, search->pack, path, prefix, suffix, strip);
+	    COM_ScanDirPak(root, search->pack, path, prefix, suffix, flags);
 	} else {
 	    qsnprintf(fullpath, sizeof(fullpath), "%s/%s", search->filename, path);
 	    fullpath[MAX_OSPATH - 1] = '\0';
 	    dir = opendir(fullpath);
 	    if (dir) {
-		COM_ScanDirDir(root, dir, prefix, suffix, strip);
+		COM_ScanDirDir(root, fullpath, "", dir, prefix, suffix, flags);
 		closedir(dir);
 	    }
 	}

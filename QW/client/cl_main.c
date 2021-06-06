@@ -1016,7 +1016,7 @@ CL_Windows_f(void)
 static void
 CL_Skin_Arg_f(struct stree_root *root, const char *arg)
 {
-    COM_ScanDir(root, "skins", arg, ".pcx", true);
+    COM_ScanDir(root, "skins", arg, ".pcx", 0);
 }
 
 void

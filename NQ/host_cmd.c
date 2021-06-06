@@ -131,7 +131,7 @@ Host_Map_Arg_f(struct stree_root *root, int argnum)
     if (argnum != 1)
         return;
 
-    COM_ScanDir(root, "maps", Cmd_Argv(1), ".bsp", true);
+    COM_ScanDir(root, "maps", Cmd_Argv(1), ".bsp", 0);
 }
 
 /*
@@ -663,7 +663,7 @@ DEMO LOOP CONTROL
 static void
 Host_Startdemos_Arg_f(struct stree_root *root, int argnum)
 {
-    COM_ScanDir(root, "", Cmd_Argv(argnum), ".dem", true);
+    COM_ScanDir(root, "", Cmd_Argv(argnum), ".dem", 0);
 }
 
 

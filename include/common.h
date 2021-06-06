@@ -266,9 +266,14 @@ extern char com_gamedir[];
 extern char com_gamedirfile[];
 extern enum game_type com_game_type;
 
+enum qscandir_flags {
+    QSCANDIR_KEEP_SUFFIX = (1 << 0),
+    QSCANDIR_SUBDIRS     = (1 << 1),
+};
+
 void COM_WriteFile(const char *filename, const void *data, int len);
 int COM_FOpenFile(const char *filename, FILE **file);
-void COM_ScanDir(struct stree_root *root, const char *path, const char *prefix, const char *suffix, qboolean strip);
+void COM_ScanDir(struct stree_root *root, const char *path, const char *prefix, const char *suffix, enum qscandir_flags flags);
 void COM_ScanBaseDir(struct stree_root *root, const char *prefix);
 void *COM_LoadStackFile(const char *path, void *buffer, size_t buffersize, size_t *size);
 void *COM_LoadTempFile(const char *path, size_t *size);
