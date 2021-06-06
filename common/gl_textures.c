@@ -555,9 +555,22 @@ GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum
 {
     struct alloc_texture_result result = GL_AllocTexture8_Result(owner, name, pic, type);
 
-    if (!isDedicated && !result.exists) {
-	GL_Bind(result.texnum);
-	GL_Upload8_Alpha(pic, type, alpha);
+    if (!isDedicated) {
+        if (!result.exists) {
+            GL_Bind(result.texnum);
+            GL_Upload8_Alpha(pic, type, alpha);
+        } else if (type == TEXTURE_TYPE_WARP_TARGET) {
+            /*
+             * TODO: Kind of a temporary fix for the terrible interface to handle textures that end
+             * up a different size after upload due to picmip, npot stretching and all that.  When
+             * fixing that, fix this too!
+             *
+             * Probably should decide the desired upload size for the input pic in advance and then
+             * check the cache for those factors matching as well as the input image size (or at
+             * least CRC).
+             */
+            pic->width = pic->height = GL_GetWarpImageSize(pic);
+        }
     }
 
     return result.texnum;
