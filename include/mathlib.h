@@ -55,7 +55,10 @@ typedef int fixed16_t;
 #define qclamp(var,min,max) qmax(qmin(var,max),min)
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846	// matches value in gcc v2 math.h
+#define M_PI  3.14159265358979323846
+#endif
+#ifndef M_TAU
+#define M_TAU 6.28318530717958647693
 #endif
 
 extern vec3_t vec3_origin;
@@ -67,6 +70,12 @@ extern int nanmask;
 	memcpy(&tmp, _x, sizeof(int));	\
 	((tmp & nanmask) == nanmask);	\
 })
+
+static inline qboolean
+is_power_of_two(int x)
+{
+    return x && !(x & (x - 1));
+}
 
 #define DotProduct(x,y) (x[0]*y[0]+x[1]*y[1]+x[2]*y[2])
 #define VectorSubtract(a,b,c) do {c[0]=a[0]-b[0];c[1]=a[1]-b[1];c[2]=a[2]-b[2];} while (0)

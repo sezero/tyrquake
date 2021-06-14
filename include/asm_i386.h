@@ -63,9 +63,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // !!! if this is changed, it much be changed in sound.h too !!!
 #define sfxc_length		0
 #define sfxc_loopstart		4
-#define sfxc_speed		8
-#define sfxc_width		12
-#define sfxc_stereo		16
+#define sfxc_alloc_samples      8
+#define sfxc_speed		12
+#define sfxc_width		16
+#define sfxc_stereo		18
 #define sfxc_data		20
 
 // channel_t structure

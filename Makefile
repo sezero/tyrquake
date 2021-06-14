@@ -329,6 +329,7 @@ CFLAGS += $(call cc-option,-frename-registers,)
 CFLAGS += $(call cc-option,-fno-math-errno)
 CFLAGS += $(call cc-option,-ffinite-math-only)
 CFLAGS += $(call cc-option,-fno-signaling-nans)
+CFLAGS += $(call cc-option,-ftree-vectorize,)
 endif
 endif
 

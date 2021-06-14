@@ -201,6 +201,7 @@ S_RegisterVariables()
     Cvar_RegisterVariable(&snd_noextraupdate);
     Cvar_RegisterVariable(&snd_show);
     Cvar_RegisterVariable(&snd_crossfade_effects);
+    Cvar_RegisterVariable(&snd_filterquality);
     Cvar_RegisterVariable(&_snd_mixahead);
 }
 
@@ -209,6 +210,7 @@ S_AllocBuffers()
 {
     known_sfx = Hunk_AllocName(sizeof(*known_sfx), "sfxlist");
     S_InitRamp();
+    S_HunkAllocFilterBuffers();
 
     /* create a piece of DMA memory */
     if (fakedma) {

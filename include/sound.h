@@ -56,9 +56,10 @@ typedef struct sfx_s {
 typedef struct {
     int length;
     int loopstart;
+    int alloc_samples;
     int speed;
-    int width;
-    int stereo;
+    uint16_t width;
+    uint16_t stereo;
     byte data[0];		// variable sized
 } sfxcache_t;
 
@@ -91,6 +92,7 @@ typedef struct {
 void S_AddCommands();
 void S_RegisterVariables();
 void S_Init();
+void S_HunkAllocFilterBuffers();
 void S_ClearOverflow();
 
 void S_Startup(void);
@@ -153,6 +155,7 @@ extern cvar_t loadas8bit;
 extern cvar_t bgmvolume;
 extern cvar_t sfxvolume;
 extern cvar_t _snd_mixahead;
+extern cvar_t snd_filterquality;
 
 extern int snd_blocked;
 

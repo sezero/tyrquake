@@ -189,8 +189,7 @@ CL_ParseStartSoundPacket(void)
     for (i = 0; i < 3; i++)
 	pos[i] = MSG_ReadCoord();
 
-    S_StartSound(ent, channel, cl.sound_precache[sound_num], pos,
-		 volume / 255.0, attenuation);
+    S_StartSound(ent, channel, cl.sound_precache[sound_num], pos, volume / 255.0, attenuation);
 }
 
 /*

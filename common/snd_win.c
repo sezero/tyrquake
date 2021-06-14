@@ -29,6 +29,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "winquake.h"
 
+//#define WIN_DEFAULT_SOUND_RATE 11025
+#define WIN_DEFAULT_SOUND_RATE 48000
+
+
 static HRESULT (WINAPI * pDirectSoundCreate)(GUID FAR *lpGUID,
 					     LPDIRECTSOUND FAR *lplpDS,
 					     IUnknown FAR *pUnkOuter);
@@ -235,7 +239,7 @@ SNDDMA_InitDirect(void)
     shm = &win_shm;
     shm->channels = 2;
     shm->samplebits = 16;
-    shm->speed = 11025;
+    shm->speed = WIN_DEFAULT_SOUND_RATE;
 
     memset(&format, 0, sizeof(format));
     format.wFormatTag = WAVE_FORMAT_PCM;
@@ -437,7 +441,7 @@ SNDDMA_InitWav(void)
 
     shm->channels = 2;
     shm->samplebits = 16;
-    shm->speed = 11025;
+    shm->speed = WIN_DEFAULT_SOUND_RATE;
 
     memset(&format, 0, sizeof(format));
     format.wFormatTag = WAVE_FORMAT_PCM;
@@ -449,7 +453,7 @@ SNDDMA_InitWav(void)
     format.nAvgBytesPerSec = format.nSamplesPerSec * format.nBlockAlign;
 
     /* Open a waveform device for output using window callback. */
-    hr = waveOutOpen((LPHWAVEOUT) & hWaveOut, WAVE_MAPPER, &format, 0, 0L, CALLBACK_NULL);
+    hr = waveOutOpen((LPHWAVEOUT)&hWaveOut, WAVE_MAPPER, &format, 0, 0L, CALLBACK_NULL);
     if (hr != MMSYSERR_NOERROR) {
 	if (hr != MMSYSERR_ALLOCATED) {
 	    Con_SafePrintf("waveOutOpen failed\n");

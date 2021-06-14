@@ -832,8 +832,7 @@ CL_ParseStartSoundPacket(void)
     if (ent > MAX_EDICTS)
 	Host_EndGame("%s: ent = %i", __func__, ent);
 
-    S_StartSound(ent, channel, cl.sound_precache[sound_num], pos,
-		 volume / 255.0, attenuation);
+    S_StartSound(ent, channel, cl.sound_precache[sound_num], pos, volume / 255.0, attenuation);
 }
 
 
