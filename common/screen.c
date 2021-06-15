@@ -250,7 +250,7 @@ SCR_DrawTurtle(void)
     if (!scr_showturtle.value)
 	return;
 
-    if (host_frametime < 0.1) {
+    if (host_frametime < 0.05) {
 	count = 0;
 	return;
     }
