@@ -30,8 +30,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sound.h"
 #include "sys.h"
 
-#define SND_DEFAULT_BITS 8
-#define SND_DEFAULT_RATE 11025
+#define SND_DEFAULT_BITS 16
+#define SND_DEFAULT_RATE 48000
 
 static dma_t the_shm;
 static int snd_inited;
@@ -114,7 +114,11 @@ SNDDMA_Init(void)
     else
         desired.channels = 2;
 
-    desired.samples = 512; /* FIXME ~= rate * _s_mixahead / 2 ? */
+    /*
+     * Selecting the nearest power of two samples, just under half the
+     * mixahead buffer seems about right.  This is ~50ms by default
+     */
+    desired.samples = 1 << Q_log2(desired.freq * _snd_mixahead.value * 0.5f);
     desired.callback = paint_audio;
 
     /* Init the SDL Audio Sub-system */
@@ -165,8 +169,16 @@ SNDDMA_Init(void)
     shm->samplepos = 0;
     shm->submission_chunk = 1;
 
-    /* Allow enough buffer for ~0.5s of mix ahead */
-    shm->samples = obtained.samples * obtained.channels * 8;
+    /*
+     * Allow enough SHM buffer to mix ahead twice the "hardware"
+     * buffer size.  This will be approximately _snd_mixahead seconds
+     * of audio.
+     *
+     * FIXME: I think this is one too many levels of buffer.  Surely
+     * paintbuffer can go straight into the hardware buffer via the
+     * callback??
+     */
+    shm->samples = obtained.samples * obtained.channels * 2;
     sdl_buflen = shm->samples * (shm->samplebits / 8);
 
     shm->buffer = Hunk_AllocName(sdl_buflen, "shm->buffer");

@@ -148,6 +148,7 @@ extern volatile dma_t sn;
 extern cvar_t loadas8bit;
 extern cvar_t bgmvolume;
 extern cvar_t volume;
+extern cvar_t _snd_mixahead;
 
 extern int snd_blocked;
 

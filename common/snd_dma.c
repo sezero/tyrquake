@@ -90,7 +90,8 @@ static cvar_t ambient_level = { "ambient_level", "0.3" };
 static cvar_t ambient_fade = { "ambient_fade", "100" };
 static cvar_t snd_noextraupdate = { "snd_noextraupdate", "0" };
 static cvar_t snd_show = { "snd_show", "0" };
-static cvar_t _snd_mixahead = { "_snd_mixahead", "0.1", CVAR_CONFIG };
+
+cvar_t _snd_mixahead = { "_snd_mixahead", "0.1", CVAR_CONFIG };
 
 /*
  * User-setable variables
