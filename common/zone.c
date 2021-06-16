@@ -1263,8 +1263,8 @@ Memory_GetSize(void)
     if (parm && com_argc > parm + 1)
 	return (size_t)atoi(com_argv[parm + 1]) << 10;
 
-    /* Default memory is now 128MB */
-    return (size_t)128 << 20;
+    /* Default memory is now 256MB */
+    return (size_t)256 << 20;
 }
 
 void
