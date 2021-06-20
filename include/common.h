@@ -272,6 +272,7 @@ enum qscandir_flags {
 };
 
 void COM_WriteFile(const char *filename, const void *data, int len);
+int COM_FilePriority(const char *filename);
 int COM_FOpenFile(const char *filename, FILE **file);
 void COM_ScanDir(struct stree_root *root, const char *path, const char *prefix, const char *suffix, enum qscandir_flags flags);
 void COM_ScanBaseDir(struct stree_root *root, const char *prefix);

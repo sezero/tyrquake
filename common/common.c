@@ -1440,10 +1440,9 @@ into the file.
 int
 COM_FOpenFile(const char *filename, FILE **file)
 {
-    searchpath_t *search;
+    const searchpath_t *search;
+    const pack_t *pak;
     char path[MAX_OSPATH];
-    pack_t *pak;
-    int i;
 
 //
 // search through the path, one element at a time
@@ -1453,7 +1452,7 @@ COM_FOpenFile(const char *filename, FILE **file)
 	if (search->pack) {
 	    // look through all the pak file elements
 	    pak = search->pack;
-	    for (i = 0; i < pak->numfiles; i++)
+	    for (int i = 0; i < pak->numfiles; i++)
 		if (!strcmp(pak->files[i].name, filename)) {	// found it!
 		    // open a new file on the pakfile
 		    *file = fopen(pak->filename, "rb");
@@ -1478,6 +1477,46 @@ COM_FOpenFile(const char *filename, FILE **file)
 	}
     }
     *file = NULL;
+
+    return -1;
+}
+
+/**
+ * Returns the priority of a file in the current searchpaths.  Lower
+ * numbers are higher priority.  If the file is not found, then -1 is
+ * returned.
+ */
+int
+COM_FilePriority(const char *filename)
+{
+    int priority = 0;
+    const searchpath_t *search;
+    const pack_t *pak;
+    char path[MAX_OSPATH];
+
+    for (search = com_searchpaths; search; search = search->next, priority++) {
+	// is the element a pak file?
+	if (search->pack) {
+	    // look through all the pak file elements
+	    pak = search->pack;
+	    for (int i = 0; i < pak->numfiles; i++) {
+		if (!strcmp(pak->files[i].name, filename))
+                    return priority;
+            }
+	} else {
+	    // check a file in the directory tree
+	    if (!static_registered) {
+		// if not a registered version, don't ever go beyond base
+		if (strchr(filename, '/') || strchr(filename, '\\'))
+		    continue;
+	    }
+	    qsnprintf(path, sizeof(path), "%s/%s", search->filename, filename);
+            struct stat fileinfo;
+            int error = stat(path, &fileinfo);
+            if (!error && S_ISREG(fileinfo.st_mode))
+                return priority;
+	}
+    }
 
     return -1;
 }
