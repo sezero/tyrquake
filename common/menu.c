@@ -442,9 +442,9 @@ M_AdjustSliders(int dir)
 	Cvar_SetValue("bgmvolume", bgmvolume.value);
 	break;
     case M_OPTIONS_CURSOR_SOUNDVOLUME:
-	volume.value += dir * 0.1;
-	volume.value = qclamp(volume.value, 0.0f, 1.0f);
-	Cvar_SetValue("volume", volume.value);
+	sfxvolume.value += dir * 0.1;
+	sfxvolume.value = qclamp(sfxvolume.value, 0.0f, 1.0f);
+	Cvar_SetValue("volume", sfxvolume.value);
 	break;
     case M_OPTIONS_CURSOR_ALWAYSRUN:
 	Cvar_SetValue("cl_run", !cl_run.value);
@@ -530,7 +530,7 @@ M_Options_Draw(void)
     M_Print(16, height += 8, "       CD Music Volume");
     M_DrawSlider(220, height, slider);
 
-    slider = volume.value;
+    slider = sfxvolume.value;
     M_Print(16, height += 8, "          Sound Volume");
     M_DrawSlider(220, height, slider);
 

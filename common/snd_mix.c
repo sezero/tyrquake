@@ -27,7 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define PAINTBUFFER_SIZE 512
 portable_samplepair_t paintbuffer[PAINTBUFFER_SIZE];
 int snd_scaletable[32][256];
-int *snd_p, snd_linear_count, snd_vol;
+int *snd_p, snd_linear_count;
 short *snd_out;
 
 void Snd_WriteLinearBlastStereo16(void);
@@ -40,7 +40,7 @@ Snd_WriteLinearBlastStereo16(void)
     int val;
 
     for (i = 0; i < snd_linear_count; i += 2) {
-	val = (snd_p[i] * snd_vol) >> 8;
+	val = snd_p[i] >> 8;
 	if (val > 0x7fff)
 	    snd_out[i] = 0x7fff;
 	else if (val < (short)0x8000)
@@ -48,7 +48,7 @@ Snd_WriteLinearBlastStereo16(void)
 	else
 	    snd_out[i] = val;
 
-	val = (snd_p[i + 1] * snd_vol) >> 8;
+	val = snd_p[i + 1] >> 8;
 	if (val > 0x7fff)
 	    snd_out[i + 1] = 0x7fff;
 	else if (val < (short)0x8000)
@@ -66,7 +66,6 @@ S_TransferStereo16(int endtime)
     int lpaintedtime;
     int err;
 
-    snd_vol = volume.value * 256;
     snd_p = (int *)paintbuffer;
     lpaintedtime = paintedtime;
 
@@ -114,9 +113,8 @@ S_TransferPaintBuffer(int endtime)
     p = (int *)paintbuffer;
     count = (endtime - paintedtime) * shm->channels;
     out_mask = shm->samples - 1;
-    out_idx = paintedtime * shm->channels & out_mask;
+    out_idx = (paintedtime * shm->channels) & out_mask;
     step = 3 - shm->channels;
-    snd_vol = volume.value * 256;
 
     err = SNDDMA_LockBuffer();
     if (err) {
@@ -128,7 +126,7 @@ S_TransferPaintBuffer(int endtime)
     if (shm->samplebits == 16) {
 	short *out = (short *)shm->buffer;
 	while (count--) {
-	    val = (*p * snd_vol) >> 8;
+	    val = *p >> 8;
 	    p += step;
 	    if (val > 0x7fff)
 		val = 0x7fff;
@@ -140,7 +138,7 @@ S_TransferPaintBuffer(int endtime)
     } else if (shm->samplebits == 8) {
 	unsigned char *out = (unsigned char *)shm->buffer;
 	while (count--) {
-	    val = (*p * snd_vol) >> 8;
+	    val = *p >> 8;
 	    p += step;
 	    if (val > 0x7fff)
 		val = 0x7fff;
@@ -234,9 +232,11 @@ SND_InitScaletable(void)
 {
     int i, j;
 
-    for (i = 0; i < 32; i++)
+    for (i = 0; i < 32; i++) {
+        int scale = i * 8 * 256 * sfxvolume.value;
 	for (j = 0; j < 256; j++)
-	    snd_scaletable[i][j] = ((j < 128) ? j : j - 256) * i * 8;
+	    snd_scaletable[i][j] = ((j < 128) ? j : j - 256) * scale;
+    }
 }
 
 
@@ -280,14 +280,17 @@ SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int count)
     signed short *sfx;
     int i;
 
-    leftvol = ch->leftvol;
-    rightvol = ch->rightvol;
+    leftvol = ch->leftvol * sfxvolume.value * 256;
+    rightvol = ch->rightvol * sfxvolume.value * 256;
     sfx = (signed short *)sc->data + ch->pos;
+
+    leftvol >>= 8;
+    rightvol >>= 8;
 
     for (i = 0; i < count; i++) {
 	data = sfx[i];
-	left = (data * leftvol) >> 8;
-	right = (data * rightvol) >> 8;
+	left = (data * leftvol);
+	right = (data * rightvol);
 	paintbuffer[i].left += left;
 	paintbuffer[i].right += right;
     }

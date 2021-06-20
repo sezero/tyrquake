@@ -80,7 +80,19 @@ static sfx_t *ambient_sfx[NUM_AMBIENTS];
 
 static int sound_started = 0;
 
-cvar_t volume = { "volume", "0.7", CVAR_CONFIG };
+static void
+S_Volume_f(cvar_t *cvar)
+{
+    static float previous = -1.0f;
+
+    float value = qclamp(cvar->value, 0.0f, 1.0f);
+    if (value != previous) {
+        previous = value;
+        SND_InitScaletable();
+    }
+}
+
+cvar_t sfxvolume = { "volume", "0.7", CVAR_CONFIG, .callback = S_Volume_f };
 cvar_t loadas8bit = { "loadas8bit", "0" };
 
 static cvar_t nosound = { "nosound", "0" };
@@ -181,7 +193,7 @@ S_RegisterVariables()
 	return;
 
     Cvar_RegisterVariable(&nosound);
-    Cvar_RegisterVariable(&volume);
+    Cvar_RegisterVariable(&sfxvolume);
     Cvar_RegisterVariable(&precache);
     Cvar_RegisterVariable(&loadas8bit);
     Cvar_RegisterVariable(&bgmbuffer);
