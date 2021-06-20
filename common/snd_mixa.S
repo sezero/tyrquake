@@ -35,8 +35,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define sc	8+16
 #define count	12+16
 
-.globl C(SND_PaintChannelFrom8)
-C(SND_PaintChannelFrom8):
+.globl C(SND_PaintChannelFrom8_ASM)
+C(SND_PaintChannelFrom8_ASM):
 	pushl	%esi				// preserve register variables
 	pushl	%edi
 	pushl	%ebx

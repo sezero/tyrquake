@@ -160,8 +160,35 @@ CHANNEL MIXING
 ===============================================================================
 */
 
-void SND_PaintChannelFrom8(channel_t *ch, sfxcache_t *sc, int endtime);
-void SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int endtime);
+static void SND_PaintChannelFrom8_Generic(channel_t *ch, sfxcache_t *sc, int endtime, int paintstart);
+static void SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int endtime, int paintstart);
+
+#ifdef USE_X86_ASM
+
+void SND_PaintChannelFrom8_ASM(channel_t *ch, sfxcache_t *sc, int endtime);
+static inline void
+SND_PaintChannelFrom8(channel_t *ch, sfxcache_t *sc, int endtime, int paintstart)
+{
+    /*
+     * Use ASM version if painting from the start of the buffer.  This
+     * is the common case with the offset only being non-zero when
+     * dealing with the wrapping point of a looped sound effect.
+     */
+    if (paintstart)
+        SND_PaintChannelFrom8_Generic(ch, sc, endtime, paintstart);
+    else
+        SND_PaintChannelFrom8_ASM(ch, sc, endtime);
+}
+
+#else
+
+static inline void
+SND_PaintChannelFrom8(channel_t *ch, sfxcache_t *sc, int endtime, int paintstart)
+{
+    SND_PaintChannelFrom8_Generic(ch, sc, endtime, paintstart);
+}
+
+#endif // USE_X86_ASM
 
 void
 S_PaintChannels(int endtime)
@@ -201,11 +228,11 @@ S_PaintChannels(int endtime)
 		    count = end - ltime;
 
 		if (count > 0) {
-		    if (sc->width == 1)
-			SND_PaintChannelFrom8(ch, sc, count);
-		    else
-			SND_PaintChannelFrom16(ch, sc, count);
-
+		    if (sc->width == 1) {
+                        SND_PaintChannelFrom8(ch, sc, count, ltime - paintedtime);
+                    } else {
+                        SND_PaintChannelFrom16(ch, sc, count, ltime - paintedtime);
+                    }
 		    ltime += count;
 		}
 		// if at end of loop, restart
@@ -234,16 +261,15 @@ SND_InitScaletable(void)
 
     for (i = 0; i < 32; i++) {
         int scale = i * 8 * 256 * sfxvolume.value;
-	for (j = 0; j < 256; j++)
-	    snd_scaletable[i][j] = ((j < 128) ? j : j - 256) * scale;
+	for (j = 0; j < 128; j++)
+	    snd_scaletable[i][j] = j * scale;
+        for (j = 128; j < 256; j++)
+            snd_scaletable[i][j] = (j - 256) * scale;
     }
 }
 
-
-#ifndef USE_X86_ASM
-
-void
-SND_PaintChannelFrom8(channel_t *ch, sfxcache_t *sc, int count)
+static void
+SND_PaintChannelFrom8_Generic(channel_t *ch, sfxcache_t *sc, int count, int paintstart)
 {
     int data;
     int *lscale, *rscale;
@@ -261,18 +287,15 @@ SND_PaintChannelFrom8(channel_t *ch, sfxcache_t *sc, int count)
 
     for (i = 0; i < count; i++) {
 	data = sfx[i];
-	paintbuffer[i].left += lscale[data];
-	paintbuffer[i].right += rscale[data];
+	paintbuffer[paintstart + i].left += lscale[data];
+	paintbuffer[paintstart + i].right += rscale[data];
     }
 
     ch->pos += count;
 }
 
-#endif /* USE_X86_ASM */
-
-
-void
-SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int count)
+static void
+SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int count, int paintstart)
 {
     int data;
     int left, right;
@@ -291,8 +314,8 @@ SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int count)
 	data = sfx[i];
 	left = (data * leftvol);
 	right = (data * rightvol);
-	paintbuffer[i].left += left;
-	paintbuffer[i].right += right;
+	paintbuffer[paintstart + i].left += left;
+	paintbuffer[paintstart + i].right += right;
     }
 
     ch->pos += count;
