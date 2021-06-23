@@ -281,7 +281,7 @@ GetWavinfo(const char *name, const byte *wav, int wavlength)
 // find "RIFF" chunk
     FindChunk("RIFF", name);
     if (!(data_p && !strncmp((char *)data_p + 8, "WAVE", 4))) {
-	Con_Printf("Missing RIFF/WAVE chunks\n");
+	Con_DPrintf("Missing RIFF/WAVE chunks\n");
 	return &info;
     }
 // get "fmt " chunk
@@ -290,13 +290,13 @@ GetWavinfo(const char *name, const byte *wav, int wavlength)
 
     FindChunk("fmt ", name);
     if (!data_p) {
-	Con_Printf("Missing fmt chunk\n");
+	Con_DPrintf("Missing fmt chunk\n");
 	return &info;
     }
     data_p += 8;
     format = GetLittleShort();
     if (format != 1) {
-	Con_Printf("Microsoft PCM format only\n");
+	Con_DPrintf("Microsoft PCM format only\n");
 	return &info;
     }
 
@@ -327,7 +327,7 @@ GetWavinfo(const char *name, const byte *wav, int wavlength)
 // find data chunk
     FindChunk("data", name);
     if (!data_p) {
-	Con_Printf("Missing data chunk\n");
+	Con_DPrintf("Missing data chunk\n");
 	return &info;
     }
 
