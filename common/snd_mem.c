@@ -48,50 +48,64 @@ ResampleSfx(sfx_t *sfx, int inrate, int inwidth, const byte *data)
     int srcsample;
     float stepscale;
     int i;
-    int sample, samplefrac, fracstep;
+    int sample;
     sfxcache_t *sc;
 
     sc = Cache_Check(&sfx->cache);
     if (!sc)
 	return;
 
-    stepscale = (float)inrate / shm->speed;	// this is usually 0.5, 1, or 2
+    const int in_length = sc->length;
 
+    stepscale = (float)inrate / shm->speed;
     outcount = sc->length / stepscale;
+    assert(outcount <= sc->alloc_samples);
+
     sc->length = outcount;
-    if (sc->loopstart != -1)
-	sc->loopstart = sc->loopstart / stepscale;
+    if (sc->loopstart >= 0)
+	sc->loopstart = roundf(sc->loopstart / stepscale);
 
     sc->speed = shm->speed;
-    if (loadas8bit.value)
-	sc->width = 1;
-    else
-	sc->width = inwidth;
+    sc->width = loadas8bit.value ? 1 : inwidth;
     sc->stereo = 0;
 
-// resample / decimate to the current source rate
-
+    // Resample / decimate to the current source rate
     if (stepscale == 1 && inwidth == 1 && sc->width == 1) {
-// fast special case
 	for (i = 0; i < outcount; i++)
 	    ((signed char *)sc->data)[i] = (int)((unsigned char)(data[i]) - 128);
+        srcsample = in_length - 1;
+    } else if (inwidth == 1 && sc->width == 1) {
+        for (i = 0; i < outcount; i++) {
+            srcsample = i * stepscale;
+            assert(srcsample < in_length);
+            ((int8_t *)sc->data)[i] = (int)((uint8_t)(data[srcsample])) - 128;
+        }
+    } else if (inwidth == 1 && sc->width == 2) {
+        for (i = 0; i < outcount; i++) {
+            srcsample = i * stepscale;
+            assert(srcsample < in_length);
+            sample = (int)((unsigned char)(data[srcsample]) - 128) << 8;
+            ((short *)sc->data)[i] = sample;
+        }
+    } else if (inwidth == 2 && sc->width == 1) {
+        for (i = 0; i < outcount; i++) {
+            srcsample = i * stepscale;
+            assert(srcsample < in_length);
+            sample = LittleShort(((const short *)data)[srcsample]);
+            ((signed char *)sc->data)[i] = sample >> 8;
+        }
+    } else if (inwidth == 2 && sc->width == 2) {
+        for (i = 0; i < outcount; i++) {
+            srcsample = i * stepscale;
+            assert(srcsample < in_length);
+            sample = LittleShort(((const short *)data)[srcsample]);
+            ((short *)sc->data)[i] = sample;
+        }
     } else {
-// general case
-	samplefrac = 0;
-	fracstep = stepscale * 256;
-	for (i = 0; i < outcount; i++) {
-	    srcsample = samplefrac >> 8;
-	    samplefrac += fracstep;
-	    if (inwidth == 2)
-		sample = LittleShort(((const short *)data)[srcsample]);
-	    else
-		sample = (int)((unsigned char)(data[srcsample]) - 128) << 8;
-	    if (sc->width == 2)
-		((short *)sc->data)[i] = sample;
-	    else
-		((signed char *)sc->data)[i] = sample >> 8;
-	}
+        assert(!"Unsupported sound width in resampler");
     }
+
+    assert(srcsample < in_length);
 }
 
 //=============================================================================
