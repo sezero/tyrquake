@@ -230,6 +230,12 @@ S_PaintChannels(int endtime)
 	    }
 	}
 
+        /* Halve the volume to make room for music and clamp */
+        for (i = 0; i < end - paintedtime; i++) {
+            paintbuffer[i].left  = qclamp(paintbuffer[i].left  / 2, -32768 * 256, 32767 * 256);
+            paintbuffer[i].right = qclamp(paintbuffer[i].right / 2, -32768 * 256, 32767 * 256);
+        }
+
 	// transfer out according to DMA format
 	S_TransferPaintBuffer(end);
 	paintedtime = end;
