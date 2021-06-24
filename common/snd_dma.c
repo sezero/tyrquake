@@ -183,6 +183,8 @@ S_AddCommands()
     Cmd_AddCommand("stopsound", S_StopAllSoundsC);
     Cmd_AddCommand("soundlist", S_SoundList);
     Cmd_AddCommand("soundinfo", S_SoundInfo_f);
+
+    S_Music_AddCommands();
 }
 
 void
@@ -203,6 +205,8 @@ S_RegisterVariables()
     Cvar_RegisterVariable(&snd_crossfade_effects);
     Cvar_RegisterVariable(&snd_filterquality);
     Cvar_RegisterVariable(&_snd_mixahead);
+
+    S_Music_RegisterVariables();
 }
 
 static void
@@ -269,6 +273,8 @@ S_Init(void)
     S_InitAmbients();
 
     S_StopAllSounds(true);
+
+    S_Music_Init();
 }
 
 void

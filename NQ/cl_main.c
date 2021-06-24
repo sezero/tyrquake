@@ -148,6 +148,7 @@ CL_Disconnect(void)
     int i;
 
 // stop sounds (especially looping!)
+    BGM_Stop();
     S_StopAllSounds(true);
 
     /* Clear up view, remove palette shift */
@@ -289,6 +290,7 @@ CL_NextDemo(void)
 	return;			// don't play demos
 
     SCR_BeginLoadingPlaque();
+    CL_Disconnect();
 
     if (!cls.demos[cls.demonum][0] || cls.demonum == MAX_DEMOS) {
 	cls.demonum = 0;

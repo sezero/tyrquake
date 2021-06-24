@@ -236,6 +236,9 @@ S_PaintChannels(int endtime)
             paintbuffer[i].right = qclamp(paintbuffer[i].right / 2, -32768 * 256, 32767 * 256);
         }
 
+        // Add in background music samples, if enabled
+        S_PaintMusic(paintbuffer, end - paintedtime);
+
 	// transfer out according to DMA format
 	S_TransferPaintBuffer(end);
 	paintedtime = end;

@@ -722,6 +722,7 @@ CL_OBJS := \
 	snd_dma.o	\
 	snd_mem.o	\
 	snd_mix.o	\
+	snd_music.o \
 	sprite_model.o	\
 	vid_mode.o	\
 	view.o		\
@@ -835,7 +836,7 @@ COMMON_CPPFLAGS += -DNDEBUG
 endif
 
 # Includes
-COMMON_CPPFLAGS += -iquote $(TOPDIR)/include -iquote $(BUILD_DIR)/include
+COMMON_CPPFLAGS += -iquote $(TOPDIR)/include -iquote $(TOPDIR)/external -iquote $(BUILD_DIR)/include
 COMMON_CPPFLAGS += $(if $(LOCALBASE),-idirafter $(LOCALBASE)/include,)
 COMMON_LFLAGS   += $(if $(LOCALBASE),$(call libdir-check,$(LOCALBASE)/lib,),)
 NQCL_CPPFLAGS   += -iquote $(TOPDIR)/NQ

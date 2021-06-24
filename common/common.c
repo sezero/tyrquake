@@ -912,27 +912,12 @@ COM_StripExtension(const char *filename, char *out, size_t buflen)
 COM_FileExtension
 ============
 */
-#ifdef NQ_HACK
-static const char *
+const char *
 COM_FileExtension(const char *in)
 {
-    static char exten[8];
-    const char *dot;
-    int i;
-
-    in = COM_SkipPath(in);
-    dot = strrchr(in, '.');
-    if (!dot)
-	return "";
-
-    dot++;
-    for (i = 0; i < sizeof(exten) - 1 && *dot; i++, dot++)
-	exten[i] = *dot;
-    exten[i] = 0;
-
-    return exten;
+    const char *dot = strrchr(in, '.');
+    return dot ? ++dot : "";
 }
-#endif
 
 /*
 ============

@@ -95,6 +95,12 @@ void S_Init();
 void S_HunkAllocFilterBuffers();
 void S_ClearOverflow();
 
+void S_Music_RegisterVariables();
+void S_Music_AddCommands();
+void S_Music_Init();
+void S_InitMusicFilterParams(int sample_rate, int cutoff_frequency);
+void S_FilterMusic(int16_t *samples, int numsamples);
+
 void S_Startup(void);
 void S_Shutdown(void);
 void S_StartSound(int entnum, int entchannel, sfx_t *sfx,
@@ -115,6 +121,12 @@ void S_BeginPrecaching(void);
 void S_EndPrecaching(void);
 void S_PaintChannels(int endtime);
 void S_InitPaintChannels(void);
+void S_PaintMusic(portable_samplepair_t *buffer, int numsamples);
+
+// Background Music
+void BGM_Stop();
+void BGM_PlayCDTrack(byte track, qboolean looping);
+void BGM_ClearBuffers();
 
 // initializes cycling through a DMA buffer and returns information on it
 qboolean SNDDMA_Init(void);

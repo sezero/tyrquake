@@ -1293,7 +1293,7 @@ CL_ParseServerMessage(void)
 
 	case svc_cdtrack:
 	    cl.cdtrack = MSG_ReadByte();
-	    CDAudio_Play((byte)cl.cdtrack, true);
+	    BGM_PlayCDTrack((byte)cl.cdtrack, true);
 	    break;
 
 	case svc_intermission:

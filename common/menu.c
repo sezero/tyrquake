@@ -433,11 +433,7 @@ M_AdjustSliders(int dir)
 	Cvar_SetValue("sensitivity", sensitivity.value);
 	break;
     case M_OPTIONS_CURSOR_MUSICVOLUME:
-#ifdef _WIN32
-	bgmvolume.value += dir * 1.0;
-#else
 	bgmvolume.value += dir * 0.1;
-#endif
 	bgmvolume.value = qclamp(bgmvolume.value, 0.0f, 1.0f);
 	Cvar_SetValue("bgmvolume", bgmvolume.value);
 	break;

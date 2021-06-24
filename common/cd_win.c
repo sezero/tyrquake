@@ -206,18 +206,14 @@ CDDrv_Resume(byte track)
 int
 CDDrv_SetVolume(byte volume)
 {
-    int ret;
-
     /* No real volume controls here... */
     if (volume) {
 	CDAudio_Resume();
-	ret = 255;
     } else {
 	CDAudio_Pause();
-	ret = 0;
     }
 
-    return ret;
+    return volume;
 }
 
 int

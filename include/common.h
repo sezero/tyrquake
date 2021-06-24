@@ -252,6 +252,7 @@ qboolean COM_Gamedir(const char *dir, enum game_type game_type);
 const char *COM_SkipPath(const char *pathname);
 void COM_StripExtension(const char *filename, char *out, size_t buflen);
 void COM_FileBase(const char *in, char *out, size_t buflen);
+const char *COM_FileExtension(const char *in);
 int COM_DefaultExtension(const char *path, const char *extension, char *out, size_t buflen);
 
 // does a varargs printf into a temp buffer

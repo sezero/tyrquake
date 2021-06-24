@@ -357,6 +357,7 @@ Host_ClearMemory()
     D_FlushCaches();
     Mod_ClearAll();
     S_ClearOverflow();
+    BGM_ClearBuffers();
     if (host_hunklevel)
 	Hunk_FreeToLowMark(host_hunklevel);
 
@@ -415,6 +416,7 @@ CL_Disconnect(void)
 #endif
 
 // stop sounds (especially looping!)
+    BGM_Stop();
     S_StopAllSounds(true);
 
     /* Clear up view, remove palette shift */
@@ -718,6 +720,8 @@ CL_NextDemo(void)
 
     if (cls.demonum == -1)
 	return;			// don't play demos
+
+    CL_Disconnect();
 
     if (!cls.demos[cls.demonum][0] || cls.demonum == MAX_DEMOS) {
 	cls.demonum = 0;

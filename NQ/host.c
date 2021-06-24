@@ -472,6 +472,7 @@ Host_ClearMemory()
     D_FlushCaches();
     Mod_ClearAll();
     S_ClearOverflow();
+    BGM_ClearBuffers();
     if (host_hunklevel)
 	Hunk_FreeToLowMark(host_hunklevel);
 
