@@ -49,6 +49,7 @@ static qboolean primary_format_set;
 
 static int sample16;
 static int snd_sent, snd_completed;
+static dma_t win_shm;
 
 static HANDLE hData;
 static LPVOID lpData;
@@ -230,8 +231,8 @@ SNDDMA_InitDirect(void)
     HRESULT hresult;
     int reps;
 
-    memset((void *)&sn, 0, sizeof(sn));
-    shm = &sn;
+    memset((void *)&win_shm, 0, sizeof(win_shm));
+    shm = &win_shm;
     shm->channels = 2;
     shm->samplebits = 16;
     shm->speed = 11025;
@@ -432,7 +433,7 @@ SNDDMA_InitWav(void)
     snd_sent = 0;
     snd_completed = 0;
 
-    shm = &sn;
+    shm = &win_shm;
 
     shm->channels = 2;
     shm->samplebits = 16;

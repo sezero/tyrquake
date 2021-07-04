@@ -143,8 +143,7 @@ extern channel_t channels[MAX_CHANNELS];
 extern int total_channels;
 
 extern int paintedtime;
-extern volatile dma_t *shm;
-extern volatile dma_t sn;
+extern dma_t *shm;
 
 extern int snd_ramp_count;
 extern const byte *snd_ramp;

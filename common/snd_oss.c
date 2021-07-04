@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 static int audio_fd;
 static int snd_inited;
 static const char *snd_dev = "/dev/dsp";
+static dma_t oss_shm;
 
 static const int tryrates[] = { 11025, 22050, 22051, 44100, 48000, 8000 };
 static const unsigned num_tryrates = sizeof(tryrates) / sizeof(int);
@@ -81,7 +82,8 @@ SNDDMA_Init(void)
 	return 0;
     }
 
-    shm = &sn;
+    memset(&oss_shm, 0, sizeof(oss_shm));
+    shm = &oss_shm;
 
     // Get sample format
     s = getenv("QUAKE_SOUND_SAMPLEBITS");

@@ -29,6 +29,7 @@
 #include "quakedef.h"
 #include "sound.h"
 
+static dma_t sndio_shm;
 static struct sio_hdl *hdl;
 static qboolean snd_inited;
 
@@ -53,7 +54,8 @@ SNDDMA_Init(void)
 	return false;
     }
 
-    shm = &sn;
+    memset(&sndio_shm, 0, sizeof(sndio_shm));
+    shm = &sndio_shm;
 
     s = getenv("QUAKE_SOUND_CHANNELS");
     if (s)

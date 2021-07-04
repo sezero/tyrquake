@@ -55,9 +55,7 @@ int snd_blocked = 0;
 static qboolean snd_ambient = 1;
 static qboolean snd_initialized = false;
 
-/* pointer should go away (JC?) */
-volatile dma_t *shm;
-volatile dma_t sn;
+dma_t *shm;
 
 static vec3_t listener_origin;
 static vec3_t listener_forward;
