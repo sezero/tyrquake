@@ -85,6 +85,7 @@ typedef struct {
     vec3_t origin;		// origin of sound effect
     vec_t dist_mult;		// distance multiplier (attenuation/clipK)
     int master_vol;		// 0-255 master volume
+    int kill;                   // Number of samples left, ramping down volume
 } channel_t;
 
 void S_AddCommands();
@@ -144,6 +145,10 @@ extern int total_channels;
 extern int paintedtime;
 extern volatile dma_t *shm;
 extern volatile dma_t sn;
+
+extern int snd_ramp_count;
+extern const byte *snd_ramp;
+void S_InitRamp();
 
 extern cvar_t loadas8bit;
 extern cvar_t bgmvolume;

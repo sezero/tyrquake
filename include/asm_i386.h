@@ -81,7 +81,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define ch_origin		32
 #define ch_dist_mult		44
 #define ch_master_vol		48
-#define ch_size			52
+#define ch_kill                 52
+#define ch_size                 64
 
 // portable_samplepair_t structure
 // !!! if this is changed, it much be changed in sound.h too !!!

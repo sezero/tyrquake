@@ -102,6 +102,7 @@ static cvar_t ambient_level = { "ambient_level", "0.3" };
 static cvar_t ambient_fade = { "ambient_fade", "100" };
 static cvar_t snd_noextraupdate = { "snd_noextraupdate", "0" };
 static cvar_t snd_show = { "snd_show", "0" };
+static cvar_t snd_crossfade_effects = { "snd_crossfade_effects", "1", CVAR_CONFIG };
 
 cvar_t _snd_mixahead = { "_snd_mixahead", "0.1", CVAR_CONFIG };
 
@@ -201,6 +202,7 @@ S_RegisterVariables()
     Cvar_RegisterVariable(&ambient_fade);
     Cvar_RegisterVariable(&snd_noextraupdate);
     Cvar_RegisterVariable(&snd_show);
+    Cvar_RegisterVariable(&snd_crossfade_effects);
     Cvar_RegisterVariable(&_snd_mixahead);
 }
 
@@ -208,6 +210,7 @@ static void
 S_AllocBuffers()
 {
     known_sfx = Hunk_AllocName(sizeof(*known_sfx), "sfxlist");
+    S_InitRamp();
 
     /* create a piece of DMA memory */
     if (fakedma) {
@@ -391,22 +394,32 @@ SND_PickChannel(int entnum, int entchannel)
 	 * - channel 0 never overrides
 	 * - always override sound from same entity
 	 */
-	if (entchannel != 0 && channel->entnum == entnum &&
-	    (channel->entchannel == entchannel || entchannel == -1)) {
-	    first_to_die = channel;
-	    break;
-	}
-	/* don't let monster sounds override player sounds */
+	if (entchannel != 0 && channel->entnum == entnum && (channel->entchannel == entchannel || entchannel == -1)) {
+            if (snd_crossfade_effects.value) {
+                channel->entnum = -1;
+                if (channel->end - paintedtime < 0 && !channel->looping) {
+                    first_to_die = channel;
+                    break;
+                }
+                channel->kill = qmin(channel->end - paintedtime, snd_ramp_count - 1);
+                channel->end = qmin(paintedtime + snd_ramp_count, channel->end);
+                channel->entnum = -1;
+                channel->looping = false;
+            } else {
+                first_to_die = channel;
+                break;
+            }
+	} else {
+            /* don't let monster sounds override player sounds */
 #ifdef NQ_HACK
-	if (channel->entnum == cl.viewentity
-	    && entnum != cl.viewentity && channel->sfx)
-	    continue;
+            if (channel->entnum == cl.viewentity && entnum != cl.viewentity && channel->sfx)
+                continue;
 #endif
 #ifdef QW_HACK
-	if (channel->entnum == cl.playernum + 1
-	    && entnum != cl.playernum + 1 && channel->sfx)
-	    continue;
+            if (channel->entnum == cl.playernum + 1 && entnum != cl.playernum + 1 && channel->sfx)
+                continue;
 #endif
+        }
 	if (channel->end - paintedtime < life_left) {
 	    life_left = channel->end - paintedtime;
 	    first_to_die = channel;
@@ -474,8 +487,7 @@ SND_Spatialize(channel_t *ch)
 
 
 void
-S_StartSound(int entnum, int entchannel, sfx_t *sfx, vec3_t origin,
-	     float fvol, float attenuation)
+S_StartSound(int entnum, int entchannel, sfx_t *sfx, vec3_t origin, float fvol, float attenuation)
 {
     channel_t *target_chan, *check;
     sfxcache_t *sc;
@@ -516,8 +528,9 @@ S_StartSound(int entnum, int entchannel, sfx_t *sfx, vec3_t origin,
 	return;			/* couldn't load the sound's data */
     }
 
+    target_chan->looping = (sc->loopstart >= 0);
     target_chan->sfx = sfx;
-    target_chan->pos = 0.0;
+    target_chan->pos = 0;
     target_chan->end = paintedtime + sc->length;
 
     /*
@@ -610,7 +623,7 @@ S_ClearBuffer(void)
 void
 S_StaticSound(sfx_t *sfx, vec3_t origin, float vol, float attenuation)
 {
-    channel_t *ss;
+    channel_t *channel;
     sfxcache_t *sc;
 
     if (!sfx)
@@ -620,7 +633,7 @@ S_StaticSound(sfx_t *sfx, vec3_t origin, float vol, float attenuation)
 	return;
     }
 
-    ss = &channels[total_channels];
+    channel = &channels[total_channels];
     total_channels++;
 
     sc = S_LoadSound(sfx);
@@ -632,13 +645,14 @@ S_StaticSound(sfx_t *sfx, vec3_t origin, float vol, float attenuation)
 	return;
     }
 
-    ss->sfx = sfx;
-    VectorCopy(origin, ss->origin);
-    ss->master_vol = vol;
-    ss->dist_mult = (attenuation / 64) / sound_nominal_clip_dist;
-    ss->end = paintedtime + sc->length;
+    channel->sfx = sfx;
+    VectorCopy(origin, channel->origin);
+    channel->master_vol = vol;
+    channel->dist_mult = (attenuation / 64) / sound_nominal_clip_dist;
+    channel->end = paintedtime + sc->length;
+    channel->looping = (sc->loopstart >= 0);
 
-    SND_Spatialize(ss);
+    SND_Spatialize(channel);
 }
 
 
@@ -664,17 +678,15 @@ S_UpdateAmbientSounds(void)
 
     leaf = Mod_PointInLeaf(cl.worldmodel, listener_origin);
     if (!leaf || !ambient_level.value) {
-	for (ambient_channel = 0; ambient_channel < NUM_AMBIENTS;
-	     ambient_channel++)
+	for (ambient_channel = 0; ambient_channel < NUM_AMBIENTS; ambient_channel++)
 	    channels[ambient_channel].sfx = NULL;
 	return;
     }
 
-    for (ambient_channel = 0; ambient_channel < NUM_AMBIENTS;
-	 ambient_channel++) {
+    for (ambient_channel = 0; ambient_channel < NUM_AMBIENTS; ambient_channel++) {
 	chan = &channels[ambient_channel];
 	chan->sfx = ambient_sfx[ambient_channel];
-
+        chan->looping = true; // Assumed to be looping (without forcing sfx into cache)
 	vol = ambient_level.value * leaf->ambient_sound_level[ambient_channel];
 	if (vol < 8)
 	    vol = 0;
@@ -746,8 +758,7 @@ S_Update(vec3_t origin, vec3_t forward, vec3_t right, vec3_t up)
 	    }
 	    /* search for one */
 	    combine = channels + MAX_DYNAMIC_CHANNELS + NUM_AMBIENTS;
-	    for (j = MAX_DYNAMIC_CHANNELS + NUM_AMBIENTS; j < i;
-		 j++, combine++)
+	    for (j = MAX_DYNAMIC_CHANNELS + NUM_AMBIENTS; j < i; j++, combine++)
 		if (combine->sfx == ch->sfx)
 		    break;
 
@@ -755,6 +766,7 @@ S_Update(vec3_t origin, vec3_t forward, vec3_t right, vec3_t up)
 		combine = NULL;
 	    } else {
 		if (combine != ch) {
+                    combine->looping = ch->looping;
 		    combine->leftvol += ch->leftvol;
 		    combine->rightvol += ch->rightvol;
 		    ch->leftvol = ch->rightvol = 0;

@@ -108,6 +108,22 @@ ResampleSfx(sfx_t *sfx, int inrate, int inwidth, const byte *data)
     assert(srcsample < in_length);
 }
 
+const byte *snd_ramp;
+int snd_ramp_count;
+
+void
+S_InitRamp()
+{
+    snd_ramp_count = shm->speed / 64; // Only ~0.01 second - just enough to avoid a sharp 'pop'
+    byte *ramp = Hunk_AllocName(snd_ramp_count * sizeof(*snd_ramp), "snd_ramp");
+
+    for (int i = 0; i < snd_ramp_count; i++) {
+        float fraction = (float)i / snd_ramp_count * M_PI;
+        ramp[snd_ramp_count - 1 - i] = (cosf(fraction) + 1.0f) * 127;
+    }
+    snd_ramp = ramp;
+}
+
 //=============================================================================
 
 /*

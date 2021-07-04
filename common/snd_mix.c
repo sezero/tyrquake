@@ -174,7 +174,7 @@ SND_PaintChannelFrom8(channel_t *ch, sfxcache_t *sc, int endtime, int paintstart
      * is the common case with the offset only being non-zero when
      * dealing with the wrapping point of a looped sound effect.
      */
-    if (paintstart)
+    if (paintstart || ch->kill)
         SND_PaintChannelFrom8_Generic(ch, sc, endtime, paintstart);
     else
         SND_PaintChannelFrom8_ASM(ch, sc, endtime);
@@ -237,7 +237,8 @@ S_PaintChannels(int endtime)
 		}
 		// if at end of loop, restart
 		if (ltime >= ch->end) {
-		    if (sc->loopstart >= 0) {
+                    /* Check sc->loopstart here as well in case a non-looping ambient gets used */
+                    if (ch->looping && sc->loopstart >= 0) {
 			ch->pos = sc->loopstart;
 			ch->end = ltime + sc->length - ch->pos;
 		    } else {	// channel just stopped
@@ -285,10 +286,23 @@ SND_PaintChannelFrom8_Generic(channel_t *ch, sfxcache_t *sc, int count, int pain
     rscale = snd_scaletable[ch->rightvol >> 3];
     sfx = (unsigned char *)sc->data + ch->pos;
 
-    for (i = 0; i < count; i++) {
-	data = sfx[i];
-	paintbuffer[paintstart + i].left += lscale[data];
-	paintbuffer[paintstart + i].right += rscale[data];
+    if (ch->kill) {
+        /* Ramp down sound */
+        int kill = ch->kill;
+        int mincount = qmin(count, kill);
+        for (i = 0; i < mincount; i++) {
+            data = sfx[i];
+            paintbuffer[paintstart + i].left  += (lscale[data] * (int)snd_ramp[kill]) / 256;
+            paintbuffer[paintstart + i].right += (rscale[data] * (int)snd_ramp[kill]) / 256;
+            kill--;
+        }
+        ch->kill -= mincount;
+    } else {
+        for (i = 0; i < count; i++) {
+            data = sfx[i];
+            paintbuffer[paintstart + i].left += lscale[data];
+            paintbuffer[paintstart + i].right += rscale[data];
+        }
     }
 
     ch->pos += count;
@@ -310,12 +324,27 @@ SND_PaintChannelFrom16(channel_t *ch, sfxcache_t *sc, int count, int paintstart)
     leftvol >>= 8;
     rightvol >>= 8;
 
-    for (i = 0; i < count; i++) {
-	data = sfx[i];
-	left = (data * leftvol);
-	right = (data * rightvol);
-	paintbuffer[paintstart + i].left += left;
-	paintbuffer[paintstart + i].right += right;
+    if (ch->kill) {
+        /* Ramp down sound */
+        int kill = ch->kill;
+        int mincount = qmin(count, kill);
+        for (i = 0; i < mincount; i++) {
+            data = sfx[i];
+            left = (data * leftvol);
+            right = (data * rightvol);
+            paintbuffer[paintstart + i].left  += (left  * (int)snd_ramp[kill]) / 256;
+            paintbuffer[paintstart + i].right += (right * (int)snd_ramp[kill]) / 256;
+            kill--;
+        }
+        ch->kill -= mincount;
+    } else {
+        for (i = 0; i < count; i++) {
+            data = sfx[i];
+            left = (data * leftvol);
+            right = (data * rightvol);
+            paintbuffer[paintstart + i].left  += left;
+            paintbuffer[paintstart + i].right += right;
+        }
     }
 
     ch->pos += count;

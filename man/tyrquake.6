@@ -589,6 +589,12 @@ command.  Default 0.
 .IP "\fBambient_fade\fP"
 .IP "\fBsnd_noextraupdate\fP"
 .IP "\fBsnd_show\fP"
+.IP "\fBsnd_crossfade_effects\fP"
+When enabled, entity sounds that are cut off by another sound starting
+will fade out very quickly and smoothly instead of cutting off
+suddenly, as long as a sound channel is available to do so.  This
+avoids some audio artifacts that can otherwise be heard if the cut off
+is instantaneous.  Default 1.
 .IP "\fB_snd_mixahead\fP"
 .IP "\fBsys_nostdout\fP"
 .IP "\fBvid_mode\fP"
