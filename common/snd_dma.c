@@ -595,20 +595,20 @@ S_StopAllSoundsC(void)
 void
 S_ClearBuffer(void)
 {
-    int err;
-    int clear;
-
     if (!sound_started || !shm)
 	return;
 
-    err = SNDDMA_LockBuffer();
+    int err = SNDDMA_LockBuffer();
     if (err) {
 	S_Shutdown();
+	S_Startup();
 	return;
     }
 
-    clear = (shm->samplebits == 8) ? 0x80 : 0;
+    int clear = (shm->samplebits == 8) ? 0x80 : 0;
     memset(shm->buffer, clear, shm->samples * shm->samplebits / 8);
+
+    SNDDMA_Submit();
     SNDDMA_UnlockBuffer();
 }
 
@@ -839,8 +839,15 @@ S_Update_(void)
     unsigned endtime;
     int samps;
 
-    if (!sound_started || (snd_blocked > 0))
+    if (!snd_initialized || !sound_started || (snd_blocked > 0))
 	return;
+
+    int err = SNDDMA_LockBuffer();
+    if (err) {
+	S_Shutdown();
+	S_Startup();
+	return;
+    }
 
     /* Updates DMA time */
     GetSoundtime();
@@ -848,9 +855,10 @@ S_Update_(void)
     /* check to make sure that we haven't overshot */
     if (paintedtime < soundtime) {
 	/* FIXME - handle init & wrap properly and report actual overflow */
-	//Con_DPrintf("%s: overflow\n", __func__);
+	Con_DPrintf("%s: overflow\n", __func__);
 	paintedtime = soundtime;
     }
+
     /* mix ahead of current position */
     endtime = soundtime + _snd_mixahead.value * shm->speed;
     samps = shm->samples >> (shm->channels - 1);
@@ -858,7 +866,9 @@ S_Update_(void)
 	endtime = soundtime + samps;
 
     S_PaintChannels(endtime);
+
     SNDDMA_Submit();
+    SNDDMA_UnlockBuffer();
 }
 
 /*
