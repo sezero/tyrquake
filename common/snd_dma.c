@@ -241,8 +241,6 @@ S_Init(void)
     if (COM_CheckParm("-nosound"))
 	return;
 
-    Con_Printf("\nSound Initialization\n");
-
     if (COM_CheckParm("-simsound"))
 	fakedma = true;
 
@@ -258,7 +256,7 @@ S_Init(void)
     S_AllocBuffers();
 
     if (sound_started)
-	Con_Printf("Sound sampling rate: %i\n", shm->speed);
+	Con_Printf("Sound Initialized: %d bits @ %dHz\n", shm->samplebits, shm->speed);
 
 #if 0
     /* provides a tick sound until washed clean; for debugging */
