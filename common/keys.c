@@ -236,7 +236,7 @@ CompleteCommand(void)
 	key_linepos += strlen(command);
         key_linepos = qmin(key_linepos, (int)sizeof(key_lines[0]) - 1);
 	key_lines[edit_line][key_linepos] = 0;
-	Z_Free(command);
+	Z_Free(mainzone, command);
         return;
     }
 
@@ -265,7 +265,7 @@ CompleteCommand(void)
         qstrncpy(start, completion, sizeof(key_lines[0]) - key_linepos);
         key_linepos += strlen(completion);
         key_linepos = qmin(key_linepos, (int)sizeof(key_lines[0]) - 1);
-        Z_Free(completion);
+        Z_Free(mainzone, completion);
     }
 }
 
@@ -278,10 +278,10 @@ ShowCompletions(void)
         if (root->entries) {
             Con_Printf("%s\n", key_lines[edit_line]);
             Con_ShowTree(root);
-            Z_Free(root);
+            Z_Free(mainzone, root);
             return;
         }
-	Z_Free(root);
+	Z_Free(mainzone, root);
     }
 
     char *space = strrchr(start, ' ');
@@ -300,7 +300,7 @@ ShowCompletions(void)
                 Con_Printf("%s\n", key_lines[edit_line]);
                 Con_ShowTree(root);
             }
-            Z_Free(root);
+            Z_Free(mainzone, root);
         }
     } else if (Cvar_FindVar(Cmd_Argv(0))) {
         /* Only one arg can complete for cvars */
@@ -311,7 +311,7 @@ ShowCompletions(void)
                     Con_Printf("%s\n", key_lines[edit_line]);
                     Con_ShowTree(root);
                 }
-                Z_Free(root);
+                Z_Free(mainzone, root);
             }
         }
     }
@@ -602,13 +602,13 @@ Key_SetBinding(knum_t keynum, const char *binding)
 
     /* free old bindings */
     if (keybindings[keynum]) {
-	Z_Free(keybindings[keynum]);
+	Z_Free(mainzone, keybindings[keynum]);
 	keybindings[keynum] = NULL;
     }
 
     /* allocate memory for new binding */
     if (binding) {
-	keybindings[keynum] = Z_StrDup(binding);
+	keybindings[keynum] = Z_StrDup(mainzone, binding);
     }
 }
 

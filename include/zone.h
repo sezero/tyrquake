@@ -93,11 +93,18 @@ size_t Memory_GetSize(void);
 void Memory_AddCommands();
 void Memory_Init(void *buf, int size);
 
-void Z_Free(const void *ptr);
-void *Z_Malloc(int size);	// returns 0 filled memory
-void *Z_Realloc(const void *ptr, int size);
-char *Z_StrDup(const char *string);
-char *Z_StrnDup(const char *string, size_t size);
+struct memzone;
+typedef struct memzone memzone_t;
+
+extern memzone_t *mainzone;
+
+void Z_ClearZone(memzone_t *zone, int size);
+
+void Z_Free(memzone_t *zone, const void *ptr);
+void *Z_Malloc(memzone_t *zone, int size);	// returns 0 filled memory
+void *Z_Realloc(memzone_t *zone, const void *ptr, int size);
+char *Z_StrDup(memzone_t *zone, const char *string);
+char *Z_StrnDup(memzone_t *zone, const char *string, size_t size);
 
 #define HUNK_NAMELEN 8
 void *Hunk_AllocName(int size, const char *name);

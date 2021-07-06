@@ -102,7 +102,7 @@ UDP_InitLocalAddresses(int socket_fd)
     struct ifaddrs *interfaces, *interface;
 
     if (local_addresses) {
-        Z_Free(local_addresses);
+        Z_Free(mainzone, local_addresses);
         local_addresses = NULL;
         num_local_addresses = 0;
     }
@@ -128,7 +128,7 @@ UDP_InitLocalAddresses(int socket_fd)
     }
 
     NET_Debug("%s: Found %d addresses\n", __func__, count);
-    local_addresses = Z_Malloc(count * sizeof(*local_addresses));
+    local_addresses = Z_Malloc(mainzone, count * sizeof(*local_addresses));
     if (!local_addresses) {
         NET_Debug("Not enough memory for UDP configuration.\n");
         freeifaddrs(interfaces);

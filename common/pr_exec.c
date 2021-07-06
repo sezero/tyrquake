@@ -689,7 +689,7 @@ void
 PR_InitStringTable(void)
 {
     if (pr_strtbl) {
-	Z_Free(pr_strtbl);
+	Z_Free(mainzone, pr_strtbl);
 	pr_strtbl = NULL;
     }
     pr_strtbl_size = 0;
@@ -729,7 +729,7 @@ PR_SetString(const char *s)
 	    return -i - 1;
 	if (num_prstr == pr_strtbl_size) {
 	    pr_strtbl_size += PR_STRTBL_CHUNK;
-	    pr_strtbl = Z_Realloc(pr_strtbl, pr_strtbl_size * sizeof(char *));
+	    pr_strtbl = Z_Realloc(mainzone, pr_strtbl, pr_strtbl_size * sizeof(char *));
 	}
 	pr_strtbl[num_prstr] = s;
 	num_prstr++;

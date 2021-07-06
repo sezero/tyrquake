@@ -94,7 +94,7 @@ WINS_InitLocalAddresses(int socket_fd)
     INTERFACE_INFO *interfaces;
 
     if (local_addresses) {
-        Z_Free(local_addresses);
+        Z_Free(mainzone, local_addresses);
         local_addresses = NULL;
         num_local_addresses = 0;
     }
@@ -102,14 +102,14 @@ WINS_InitLocalAddresses(int socket_fd)
     max_interfaces = 8;
  retry:
     buffer_size = max_interfaces * sizeof(*interfaces);
-    interfaces = Z_Malloc(buffer_size);
+    interfaces = Z_Malloc(mainzone, buffer_size);
     if (!interfaces) {
         NET_Debug("%s: Not enough memory to enumerate network interfaces\n", __func__);
         return -1;
     }
     result = WSAIoctl(socket_fd, SIO_GET_INTERFACE_LIST, 0, 0, interfaces, buffer_size, &bytes_returned, 0, 0);
     if (result == WSAEFAULT) {
-        Z_Free(interfaces);
+        Z_Free(mainzone, interfaces);
         if (max_interfaces > 100) {
             NET_Debug("%s: There seems to be hundreds of interfaces... giving up enumeration.\n", __func__);
             return -1;
@@ -119,10 +119,10 @@ WINS_InitLocalAddresses(int socket_fd)
     }
 
     int num_interfaces = bytes_returned / sizeof(*interfaces);
-    local_addresses = Z_Malloc(num_interfaces * sizeof(*local_addresses));
+    local_addresses = Z_Malloc(mainzone, num_interfaces * sizeof(*local_addresses));
     if (!local_addresses) {
         NET_Debug("%s: Not enough memory for UDP configuration.\n", __func__);
-        Z_Free(interfaces);
+        Z_Free(mainzone, interfaces);
         return -1;
     }
 
@@ -152,7 +152,7 @@ WINS_InitLocalAddresses(int socket_fd)
             broadcast_address.port = htons(net_hostport);
         }
     }
-    Z_Free(interfaces);
+    Z_Free(mainzone, interfaces);
     num_local_addresses = local_address - local_addresses;
     NET_Debug("Found %d configured addresses...\n", num_local_addresses);
 

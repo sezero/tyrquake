@@ -75,7 +75,7 @@ Cvar_ArgCompletions(const char *name, const char *buf)
 
     cvar = Cvar_FindVar(name);
     if (cvar && cvar->completion) {
-        root = Z_Malloc(sizeof(*root));
+        root = Z_Malloc(mainzone, sizeof(*root));
         if (root) {
             *root = STREE_ROOT;
             STree_AllocInit();
@@ -99,7 +99,7 @@ Cvar_ArgComplete(const char *name, const char *buf)
     root = Cvar_ArgCompletions(name, buf);
     if (root) {
 	result = STree_MaxMatch(root, buf);
-	Z_Free(root);
+	Z_Free(mainzone, root);
     }
 
     return result;
@@ -215,10 +215,10 @@ Cvar_Set(const char *var_name, const char *value)
 #endif
 #endif
 
-	Z_Free(var->string);
+	Z_Free(mainzone, var->string);
     }
 
-    var->string = Z_StrDup(value);
+    var->string = Z_StrDup(mainzone, value);
     var->value = Q_atof(var->string);
 
 #ifdef NQ_HACK

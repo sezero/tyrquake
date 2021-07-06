@@ -254,7 +254,7 @@ Cmd_StuffCmds_f(void)
     if (!s)
 	return;
 
-    text = Z_Malloc(s + 1);
+    text = Z_Malloc(mainzone, s + 1);
     text[0] = 0;
     for (i = 1; i < com_argc; i++) {
 	if (!com_argv[i])
@@ -265,7 +265,7 @@ Cmd_StuffCmds_f(void)
     }
 
 // pull out the commands
-    build = Z_Malloc(s + 1);
+    build = Z_Malloc(mainzone, s + 1);
     build[0] = 0;
 
     for (i = 0; i < s - 1; i++) {
@@ -288,8 +288,8 @@ Cmd_StuffCmds_f(void)
     if (build[0])
 	Cbuf_InsertText(build);
 
-    Z_Free(text);
-    Z_Free(build);
+    Z_Free(mainzone, text);
+    Z_Free(mainzone, build);
 }
 
 
@@ -388,10 +388,10 @@ Cmd_Alias_f(void)
     // if the alias already exists, reuse it
     a = Cmd_Alias_Find(s);
     if (a)
-	Z_Free(a->value);
+	Z_Free(mainzone, a->value);
 
     if (!a) {
-	a = Z_Malloc(sizeof(cmdalias_t));
+	a = Z_Malloc(mainzone, sizeof(cmdalias_t));
 	strcpy(a->name, s);
 	a->stree.string = a->name;
 	STree_Insert(&cmdalias_tree, &a->stree);
@@ -416,7 +416,7 @@ Cmd_Alias_f(void)
     }
     strcat(cmd, "\n");
 
-    a->value = Z_StrDup(cmd);
+    a->value = Z_StrDup(mainzone, cmd);
 }
 
 /*
@@ -520,7 +520,7 @@ Cmd_TokenizeString(const char *text)
 
 // clear the args from the last string
     for (i = 0; i < cmd_argc; i++)
-	Z_Free(cmd_argv[i]);
+	Z_Free(mainzone, cmd_argv[i]);
 
     cmd_argc = 0;
     cmd_args = NULL;
@@ -547,7 +547,7 @@ Cmd_TokenizeString(const char *text)
 	    return;
 
 	if (cmd_argc < MAX_ARGS) {
-	    cmd_argv[cmd_argc] = Z_StrDup(com_token);
+	    cmd_argv[cmd_argc] = Z_StrDup(mainzone, com_token);
 	    cmd_argc++;
 	}
     }
@@ -774,7 +774,7 @@ Cmd_ArgCompletions(const char *name, int argnum)
 
     cmd = Cmd_FindCommand(name);
     if (cmd && cmd->completion) {
-        root = Z_Malloc(sizeof(*root));
+        root = Z_Malloc(mainzone, sizeof(*root));
         if (root) {
             *root = STREE_ROOT;
             STree_AllocInit();
@@ -798,7 +798,7 @@ Cmd_ArgComplete(const char *name, int argnum)
     root = Cmd_ArgCompletions(name, argnum);
     if (root) {
 	result = STree_MaxMatch(root, Cmd_Argv(argnum));
-	Z_Free(root);
+	Z_Free(mainzone, root);
     }
 
     return result;
@@ -833,7 +833,7 @@ Cmd_CommandCompletions(const char *buf)
 {
     struct stree_root *root;
 
-    root = Z_Malloc(sizeof(struct stree_root));
+    root = Z_Malloc(mainzone, sizeof(struct stree_root));
     if (root) {
         *root = STREE_ROOT;
         STree_AllocInit();
@@ -854,7 +854,7 @@ Cmd_CommandComplete(const char *buf)
     root = Cmd_CommandCompletions(buf);
     if (root) {
         ret = STree_MaxMatch(root, buf);
-        Z_Free(root);
+        Z_Free(mainzone, root);
     }
 
     return ret;

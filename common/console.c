@@ -690,7 +690,7 @@ Con_ShowList(const char **list, int cnt, int maxlen)
         return;
 
     /* Lay them out in columns */
-    line = Z_Malloc(Con_GetWidth() + 1);
+    line = Z_Malloc(mainzone, Con_GetWidth() + 1);
     cols = Con_GetWidth() / (maxlen + 2);
     rows = cnt / cols + ((cnt % cols) ? 1 : 0);
 
@@ -719,7 +719,7 @@ Con_ShowList(const char **list, int cnt, int maxlen)
 	}
 	Con_Printf("%s\n", line);
     }
-    Z_Free(line);
+    Z_Free(mainzone, line);
 }
 
 static const char **showtree_list;
@@ -741,12 +741,12 @@ Con_ShowTree(struct stree_root *root)
     if (!root->entries)
         return;
 
-    showtree_list = Z_Malloc(root->entries * sizeof(char *));
+    showtree_list = Z_Malloc(mainzone, root->entries * sizeof(char *));
     if (showtree_list) {
 	showtree_idx = 0;
 	Con_ShowTree_Populate(root->root.rb_node);
 	Con_ShowList(showtree_list, root->entries, root->maxlen);
-	Z_Free(showtree_list);
+	Z_Free(mainzone, showtree_list);
     }
 }
 

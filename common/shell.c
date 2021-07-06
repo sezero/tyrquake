@@ -210,12 +210,12 @@ STree_MaxMatch(struct stree_root *root, const char *pfx)
 
     if (root->entries == 1) {
 	match = strlen(sn->string);
-	result = Z_StrnDup(sn->string, match + 1);
+	result = Z_StrnDup(mainzone, sn->string, match + 1);
 	result[match] = ' ';
 	result[match + 1] = 0;
     } else if (root->entries > 1) {
 	match = ST_node_match(n, sn->string, min_match, max_match);
-	result = Z_StrnDup(sn->string, match);
+	result = Z_StrnDup(mainzone, sn->string, match);
     }
 
     return result;
@@ -255,14 +255,14 @@ STree_MaxDepth(struct stree_root *root)
 static void
 STree_StackInit(struct stree_root *root)
 {
-    root->stack = Z_Malloc(sizeof(struct stree_stack));
+    root->stack = Z_Malloc(mainzone, sizeof(struct stree_stack));
     if (root->stack) {
 	struct stree_stack *s = root->stack;
 	s->depth = 0;
 	s->max_depth = STree_MaxDepth(root);
-	s->stack = Z_Malloc(s->max_depth * sizeof(struct rb_node *));
+	s->stack = Z_Malloc(mainzone, s->max_depth * sizeof(struct rb_node *));
 	if (!s->stack) {
-	    Z_Free(s);
+	    Z_Free(mainzone, s);
 	    root->stack = NULL;
 	}
     }
@@ -289,8 +289,8 @@ void
 STree_ForEach_Cleanup__(struct stree_root *root)
 {
     if (root->stack) {
-	Z_Free(root->stack->stack);
-	Z_Free(root->stack);
+	Z_Free(mainzone, root->stack->stack);
+	Z_Free(mainzone, root->stack);
 	root->stack = NULL;
     }
 }

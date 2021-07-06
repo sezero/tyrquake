@@ -84,7 +84,7 @@ VID_X11_SetWindowName(const char *name)
     XTextProperty text_property;
     XClassHint *class_hint;
 
-    temp_name = Z_StrDup(name);
+    temp_name = Z_StrDup(mainzone, name);
 
     /* Set name and icon name */
     XmbTextListToTextProperty(x_disp, &temp_name, 1, XTextStyle, &text_property);
@@ -98,5 +98,5 @@ VID_X11_SetWindowName(const char *name)
     XSetClassHint(x_disp, x_win, class_hint);
     XFree(class_hint);
 
-    Z_Free(temp_name);
+    Z_Free(mainzone, temp_name);
 }

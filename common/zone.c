@@ -38,11 +38,11 @@ typedef struct memblock_s {
     struct memblock_s *next, *prev;
 } memblock_t;
 
-typedef struct {
+struct memzone {
     int size;			/* total bytes malloced, including header */
     memblock_t blocklist;	/* start/end cap for linked list */
     memblock_t *rover;
-} memzone_t;
+};
 
 static void Cache_FreeLow(int new_low_hunk);
 static void Cache_FreeHigh(int new_high_hunk);
@@ -63,17 +63,14 @@ static void Cache_Dealloc(cache_user_t *c);
  * ============================================================================
  */
 
-static memzone_t *mainzone;
-
-static void Z_ClearZone(memzone_t *zone, int size);
-
+memzone_t *mainzone;
 
 /*
  * ========================
  * Z_ClearZone
  * ========================
  */
-static void
+void
 Z_ClearZone(memzone_t *zone, int size)
 {
     memblock_t *block;
@@ -101,7 +98,7 @@ Z_ClearZone(memzone_t *zone, int size)
  * ========================
  */
 void
-Z_Free(const void *ptr)
+Z_Free(memzone_t *zone, const void *ptr)
 {
     memblock_t *block, *other;
 
@@ -121,8 +118,8 @@ Z_Free(const void *ptr)
 	other->size += block->size;
 	other->next = block->next;
 	other->next->prev = other;
-	if (block == mainzone->rover)
-	    mainzone->rover = other;
+	if (block == zone->rover)
+	    zone->rover = other;
 	block = other;
     }
 
@@ -131,16 +128,16 @@ Z_Free(const void *ptr)
 	block->size += other->size;
 	block->next = other->next;
 	block->next->prev = block;
-	if (other == mainzone->rover)
-	    mainzone->rover = block;
+	if (other == zone->rover)
+	    zone->rover = block;
     }
 
     /*
      * Always start looking from the first available free block.
      * Slower, but not too bad and we don't fragment nearly as much.
      */
-    if (block < mainzone->rover) {
-	mainzone->rover = block;
+    if (block < zone->rover) {
+	zone->rover = block;
     }
 }
 
@@ -151,13 +148,13 @@ Z_Free(const void *ptr)
  * ========================
  */
 static void
-Z_CheckHeap(void)
+Z_CheckHeap(memzone_t *zone)
 {
 #ifdef DEBUG
     memblock_t *block;
 
-    for (block = mainzone->blocklist.next;; block = block->next) {
-	if (block->next == &mainzone->blocklist)
+    for (block = zone->blocklist.next;; block = block->next) {
+	if (block->next == &zone->blocklist)
 	    break;	/* all blocks have been hit */
         if (block->id != ZONEID)
             Sys_Error("%s: block ID trashed - previous block overflowed?", __func__);
@@ -173,7 +170,7 @@ Z_CheckHeap(void)
 
 
 static void *
-Z_TagMalloc(int size, int tag)
+Z_TagMalloc(memzone_t *zone, int size, int tag)
 {
     int extra;
     memblock_t *start, *rover, *new, *base;
@@ -189,12 +186,12 @@ Z_TagMalloc(int size, int tag)
     size = (size + 7) & ~7;	/* align to 8-byte boundary */
 
     /* If we ended on an allocated block, skip forward to the first free block */
-    start = mainzone->rover->prev;
-    while (mainzone->rover->tag && mainzone->rover != start) {
-	mainzone->rover = mainzone->rover->next;
+    start = zone->rover->prev;
+    while (zone->rover->tag && zone->rover != start) {
+	zone->rover = zone->rover->next;
     }
 
-    base = rover = mainzone->rover;
+    base = rover = zone->rover;
     do {
 	if (rover == start)	/* scaned all the way around the list */
 	    return NULL;
@@ -225,8 +222,8 @@ Z_TagMalloc(int size, int tag)
      * If we just allocated the first available block, the next
      * allocation starts looking after this one.
      */
-    if (base == mainzone->rover) {
-	mainzone->rover = base->next;
+    if (base == zone->rover) {
+	zone->rover = base->next;
     }
     base->id = ZONEID;
 
@@ -240,12 +237,12 @@ Z_TagMalloc(int size, int tag)
  * ========================
  */
 void *
-Z_Malloc(int size)
+Z_Malloc(memzone_t *zone, int size)
 {
     void *buf;
 
-    Z_CheckHeap();		/* DEBUG */
-    buf = Z_TagMalloc(size, 1);
+    Z_CheckHeap(zone);		/* DEBUG */
+    buf = Z_TagMalloc(zone, size, 1);
     if (!buf)
 	Sys_Error("%s: failed on allocation of %i bytes", __func__, size);
     memset(buf, 0, size);
@@ -259,14 +256,14 @@ Z_Malloc(int size)
  * ========================
  */
 void *
-Z_Realloc(const void *ptr, int size)
+Z_Realloc(memzone_t *zone, const void *ptr, int size)
 {
     memblock_t *block;
     int orig_size;
     void *ret;
 
     if (!ptr)
-	return Z_Malloc(size);
+	return Z_Malloc(zone, size);
 
     block = (memblock_t *)((byte *)ptr - sizeof(memblock_t));
     if (block->id != ZONEID)
@@ -277,8 +274,8 @@ Z_Realloc(const void *ptr, int size)
     orig_size = block->size;
     orig_size -= sizeof(memblock_t);
 
-    Z_Free(ptr);
-    ret = Z_TagMalloc(size, 1);
+    Z_Free(zone, ptr);
+    ret = Z_TagMalloc(zone, size, 1);
     if (!ret)
 	Sys_Error("%s: failed on allocation of %i bytes", __func__, size);
     if (ret != ptr)
@@ -337,7 +334,7 @@ Z_Print(const memzone_t *zone, qboolean detailed)
 }
 
 static void
-Z_Zone_f(void)
+Z_Zone_f()
 {
     if (Cmd_Argc() == 2) {
 	if (!strcmp(Cmd_Argv(1), "print")) {
@@ -353,18 +350,18 @@ Z_Zone_f(void)
 }
 
 char *
-Z_StrDup(const char *string)
+Z_StrDup(memzone_t *zone, const char *string)
 {
-    char *dup = Z_Malloc(strlen(string) + 1);
+    char *dup = Z_Malloc(zone, strlen(string) + 1);
     strcpy(dup, string);
 
     return dup;
 }
 
 char *
-Z_StrnDup(const char *string, size_t size)
+Z_StrnDup(memzone_t *zone, const char *string, size_t size)
 {
-    char *dup = Z_Malloc(size + 1);
+    char *dup = Z_Malloc(zone, size + 1);
     qstrncpy(dup, string, size + 1);
 
     return dup;

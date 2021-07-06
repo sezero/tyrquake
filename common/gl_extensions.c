@@ -103,7 +103,7 @@ GL_ParseVersionString(const char *version)
         return;
 
     /* Get a writeable copy we can parse */
-    gl_version = Z_StrDup(version);
+    gl_version = Z_StrDup(mainzone, version);
 
     /* OpenGL ES has a specific prefix, if found strip it off */
     if (!strncmp(gl_version, "OpenGL ES", 9)) {
@@ -121,7 +121,7 @@ GL_ParseVersionString(const char *version)
         gl_version_minor = atoi(token);
     }
 
-    Z_Free(gl_version);
+    Z_Free(mainzone, gl_version);
 }
 
 /*

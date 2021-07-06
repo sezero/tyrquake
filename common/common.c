@@ -1567,9 +1567,9 @@ COM_ScanDirDir(struct stree_root *root, const char *path, const char *relative_p
 	int len = strlen(relative_name);
 	if (suffix && !(flags & QSCANDIR_KEEP_SUFFIX))
 	    len -= suffix_len;
-	fname = Z_StrnDup(relative_name, len);
+	fname = Z_StrnDup(mainzone, relative_name, len);
 	STree_InsertAlloc(root, fname, true);
-	Z_Free(fname);
+	Z_Free(mainzone, fname);
     }
 }
 
@@ -1608,9 +1608,9 @@ COM_ScanDirPak(struct stree_root *root, const pack_t *pak, const char *path,
 	len = strlen(pak_f);
 	if (suffix && !(flags & QSCANDIR_KEEP_SUFFIX))
 	    len -= suffix_len;
-	fname = Z_StrnDup(pak_f, len);
+	fname = Z_StrnDup(mainzone, pak_f, len);
 	STree_InsertAlloc(root, fname, true);
-	Z_Free(fname);
+	Z_Free(mainzone, fname);
     }
 }
 
