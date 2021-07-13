@@ -244,6 +244,13 @@ Cmd_StuffCmds_f(void)
 	Con_Printf("stuffcmds : execute command line parameters\n");
 	return;
     }
+
+    /* Only do this once - don't repeat when e.g. switching gamedirs */
+    static qboolean done = false;
+    if (done)
+        return;
+    done = true;
+
 // build the combined string to parse from
     s = 0;
     for (i = 1; i < com_argc; i++) {
