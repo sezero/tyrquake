@@ -108,7 +108,6 @@ V_CalcRoll(vec3_t angles, vec3_t velocity)
 	side = value;
 
     return side * sign;
-
 }
 
 
@@ -133,6 +132,9 @@ V_CalcBob(const vec3_t velocity)
         return bob;
 
     bobtime += host_frametime;
+#ifdef NQ_HACK
+    bobtime = cl.time; // Stops bobbing when gameplay is paused
+#endif
     cycle = bobtime - (int)(bobtime / cl_bobcycle.value) * cl_bobcycle.value;
     cycle /= cl_bobcycle.value;
     if (cycle < cl_bobup.value)
