@@ -38,7 +38,7 @@ static int snd_inited;
 static const char *snd_dev = "/dev/dsp";
 static dma_t oss_shm;
 
-static const int tryrates[] = { 11025, 22050, 22051, 44100, 48000, 8000 };
+static const int tryrates[] = { 48000, 22051, 22050, 11025, 8000 };
 static const unsigned num_tryrates = sizeof(tryrates) / sizeof(int);
 
 /* Request sound format as signed 16-bit (host-endian) */

@@ -29,6 +29,12 @@
 #include "quakedef.h"
 #include "sound.h"
 
+static struct snd_params {
+    int speed;
+    int bits;
+    int channels;
+} snd_params = { 48000, 16, 2 };
+
 static dma_t sndio_shm;
 static struct sio_hdl *hdl;
 static qboolean snd_inited;
@@ -54,25 +60,43 @@ SNDDMA_Init(void)
 	return false;
     }
 
-    memset(&sndio_shm, 0, sizeof(sndio_shm));
-    shm = &sndio_shm;
+    // Get sound sample rate
+    s = getenv("QUAKE_SOUND_SPEED");
+    if (s)
+	snd_params.speed = atoi(s);
+    else if ((i = COM_CheckParm("-sndspeed")) != 0)
+	snd_params.speed = atoi(com_argv[i + 1]);
 
+    // Get sample format
+    int bits = 0;
+    s = getenv("QUAKE_SOUND_SAMPLEBITS");
+    if (s) {
+	bits = atoi(s);
+    } else if ((i = COM_CheckParm("-sndbits")) != 0) {
+        bits = atoi(com_argv[i + 1]);
+    }
+    if (bits) {
+        if (bits == 8 || bits == 16)
+            snd_params.bits = bits;
+        else
+            Con_Printf("WARNING: ignoring invalid -sndbits %d; must be 8 or 16\n", bits);
+    }
+
+    // Get number of sound channels
     s = getenv("QUAKE_SOUND_CHANNELS");
     if (s)
-	shm->channels = atoi(s);
+	snd_params.channels = atoi(s);
     else if ((i = COM_CheckParm("-sndmono")) != 0)
-	shm->channels = 1;
+	snd_params.channels = 1;
     else if ((i = COM_CheckParm("-sndstereo")) != 0)
-	shm->channels = 2;
-    else
-	shm->channels = 2;
+	snd_params.channels = 2;
 
     sio_initpar(&par);
-    par.rate = 11025;
-    par.bits = 16;
+    par.rate = snd_params.speed;
+    par.bits = snd_params.bits;
     par.sig = 1;
     par.le = SIO_LE_NATIVE;
-    par.pchan = shm->channels;
+    par.pchan = snd_params.channels;
     par.appbufsz = par.rate / 10;	/* 1/10 second latency */
 
     if (!sio_setpar(hdl, &par) || !sio_getpar(hdl, &par)) {
@@ -86,6 +110,8 @@ SNDDMA_Init(void)
 	sio_close(hdl);
 	return false;
     }
+    memset(&sndio_shm, 0, sizeof(sndio_shm));
+    shm = &sndio_shm;
     shm->speed = par.rate;
     shm->channels = par.pchan;
     shm->samplebits = par.bits;

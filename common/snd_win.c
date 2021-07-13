@@ -29,9 +29,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "winquake.h"
 
-//#define WIN_DEFAULT_SOUND_RATE 11025
-#define WIN_DEFAULT_SOUND_RATE 48000
-
+static struct snd_params {
+    int speed;
+    int bits;
+    int channels;
+} snd_params = { 48000, 16, 2 };
 
 static HRESULT (WINAPI * pDirectSoundCreate)(GUID FAR *lpGUID,
 					     LPDIRECTSOUND FAR *lplpDS,
@@ -237,9 +239,9 @@ SNDDMA_InitDirect(void)
 
     memset((void *)&win_shm, 0, sizeof(win_shm));
     shm = &win_shm;
-    shm->channels = 2;
-    shm->samplebits = 16;
-    shm->speed = WIN_DEFAULT_SOUND_RATE;
+    shm->channels = snd_params.channels;
+    shm->samplebits = snd_params.bits;
+    shm->speed = snd_params.speed;
 
     memset(&format, 0, sizeof(format));
     format.wFormatTag = WAVE_FORMAT_PCM;
@@ -439,9 +441,9 @@ SNDDMA_InitWav(void)
 
     shm = &win_shm;
 
-    shm->channels = 2;
-    shm->samplebits = 16;
-    shm->speed = WIN_DEFAULT_SOUND_RATE;
+    shm->channels = snd_params.channels;
+    shm->samplebits = snd_params.bits;
+    shm->speed = snd_params.speed;
 
     memset(&format, 0, sizeof(format));
     format.wFormatTag = WAVE_FORMAT_PCM;
@@ -546,6 +548,21 @@ SNDDMA_Init(void)
 
     dsound_init = wav_init = 0;
     stat = SIS_FAILURE;
+
+    int argnum = COM_CheckParm("-sndspeed");
+    if (argnum)
+        snd_params.speed = atoi(com_argv[argnum + 1]);
+    argnum = COM_CheckParm("-sndbits");
+    if (argnum) {
+        int bits = atoi(com_argv[argnum + 1]);
+        if (bits == 8 || bits == 16)
+            snd_params.bits = bits;
+        else
+            Con_Printf("WARNING: ignoring invalid -sndbits %d; must be 8 or 16\n", bits);
+    }
+    argnum = COM_CheckParm("-sndmono");
+    if (argnum)
+        snd_params.channels = 1;
 
     /* Init DirectSound */
     if (!wavonly) {

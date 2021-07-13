@@ -25,7 +25,11 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sound.h"
 #include "sys.h"
 
-#define SND_DEFAULT_RATE 11025
+static struct snd_params {
+    int speed;
+    int bits;
+    int channels;
+} snd_params = { 48000, 16, 2 };
 
 static int snd_inited;
 static dma_t snd_dma;
@@ -77,30 +81,27 @@ SNDDMA_Init(void)
     enum pa_context_state context_state;
     enum pa_stream_state stream_state;
     double start;
-    int argnum;
+
+    int argnum = COM_CheckParm("-sndspeed");
+    if (argnum)
+        snd_params.speed = atoi(com_argv[argnum + 1]);
+    argnum = COM_CheckParm("-sndbits");
+    if (argnum) {
+        int bits = atoi(com_argv[argnum + 1]);
+        if (bits == 8 || bits == 16)
+            snd_params.bits = bits;
+        else
+            Con_Printf("WARNING: ignoring invalid -sndbits %d; must be 8 or 16\n", bits);
+    }
+    argnum = COM_CheckParm("-sndmono");
+    if (argnum)
+        snd_params.channels = 1;
 
     snd_inited = 0;
     shm = &snd_dma;
-
-    // TODO: Refactor gathering sound parameters from command line and/or environment
-    shm->samplebits = 16;
-    shm->channels = 2;
-    shm->speed = SND_DEFAULT_RATE;
-
-    argnum = COM_CheckParm("-sndbits");
-    if (argnum) {
-        shm->samplebits = atoi(com_argv[argnum + 1]);
-        if (shm->samplebits != 8 && shm->samplebits != 16)
-            shm->samplebits = 16;
-    }
-
-    argnum = COM_CheckParm("-sndmono");
-    if (argnum)
-        shm->channels = 1;
-
-    argnum = COM_CheckParm("-sndspeed");
-    if (argnum)
-        shm->speed = atoi(com_argv[argnum + 1]);
+    shm->samplebits = snd_params.bits;
+    shm->channels = snd_params.channels;
+    shm->speed = snd_params.speed;
 
     /* Allow Quake to buffer approx 0.5-1.0 seconds.  Must be power of two */
     shm->samples = 1 << Q_log2(shm->speed * shm->channels);
