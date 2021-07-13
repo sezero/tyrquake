@@ -96,6 +96,8 @@ Disable joystick input.
 Set the cd device filname to dev. Default /dev/cdrom.
 .IP "\fB\-nocdaudio\fP"
 Disable CD audio.
+.IP "\fB\-noextmusic\fP"
+Disable the use of music files in place of CD audio tracks.
 .IP "\fB\-nosound\fP"
 Disable sound support.
 .IP "\fB\-simsound\fP"
@@ -207,6 +209,16 @@ contents.
 Displays number of tracks on the currently loaded CD, which track is currently
 playing or paused (if any) and the current CD audio volume.
 .RE
+.IP "\fBmusic <filename>\fP"
+Start playing the given music file.  If the file extension is not specified,
+then the supported file extensions will be tried in sequence (ogg, mp3, flac,
+wav).
+.IP "\fBmusic_stop\fP"
+Stop the currently playing music file.
+.IP "\fBmusic_pause\fP"
+Pause the currently playing music file.
+.IP "\fBmusic_resume\fP"
+Resume playing the currently paused music file.
 .IP "\fBstuffcmds\fP"
 .IP "\fBexec\fP"
 .IP "\fBecho\fP"
@@ -395,6 +407,10 @@ the mlook key activates mouse movement instead.
 .IP "\fBsetmaster\fP"
 .IP "\fBheartbeat\fP"
 .IP "\fBlocalinfo\fP"
+.IP "\fBgame <directory> [-hipnotic|-rogue|-quoth]\fP"
+End the current game and load the specified game (mod) directory.  Optionally
+specify one of -hipnotic, -rogue, -quoth to enable the game specific HUD
+changes for these mods.
 .IP "\fBgamedir\fP"
 .IP "\fBsv_gamedir\fP"
 .IP "\fBfloodprot\fP"
@@ -417,8 +433,18 @@ listip.cfg which can later be restored with 'exec listip.cfg'.
 .SH "CONSOLE VARIABLES"
 
 .IP "\fBbgmvolume\fP"
-Set volume level for background music.  Valid values are between 0 (off) and 1
-(full volume).  Default 1.
+Set volume level for background music.  Valid values are between 0.0 (off) and
+1.0 (full volume).  Default 1.0.
+.IP "\fBbgm_extmusic\fP"
+If set to 1, then external music files will be used in place of CD audio if
+available.  Files should be placed in a 'music' directory, within the game
+directory (e.g. id1/music).  CD tracks should be named track02.<ext>,
+track03.<ext>, etc. where '<ext>' is one of the supported file extensions
+(ogg, mp3, flac, wav).  E.g. id1/music/track02.flac.  Music files may also be
+placed inside pack files using the same relative paths.  Default 1.
+.IP "\fBmusic_loop\fP"
+If set to 1 then external music files will loop.  If set to 0, music files
+play once and then stop.  Default 1.
 .IP "\fBregistered\fP"
 .IP "\fBcmdline\fP"
 .IP "\fBcon_notifytime\fP"
@@ -582,6 +608,9 @@ command.  Default 0.
 .IP "\fBscr_allowsnap\fP"
 .IP "\fBnosound\fP"
 .IP "\fBvolume\fP"
+Sets the volume of sound effects between 0 (off) and 1 (full volume).  Default
+0.7.
+.IP "\fBprecache\fP"
 .IP "\fBprecache\fP"
 .IP "\fBloadas8bit\fP"
 .IP "\fBbgmbuffer\fP"
@@ -595,7 +624,15 @@ will fade out very quickly and smoothly instead of cutting off
 suddenly, as long as a sound channel is available to do so.  This
 avoids some audio artifacts that can otherwise be heard if the cut off
 is instantaneous.  Default 1.
+.IP "\fBsnd_filterquality\fP"
+Set to an integer value between 1 and 5 to control the quality of the sound
+filter used when resampling audio.  1 is the fastest but lowest quality and 5
+is the highest quality, but slowest.  Set to 0 to completely disable audio
+filtering.  Default 3.
 .IP "\fB_snd_mixahead\fP"
+Specifies how far ahead (in seconds) to mix sound effects.  Lower values
+provide better audio latency, while higher values help prevent audio skipping
+when framerate drops.  Default 0.1.
 .IP "\fBsys_nostdout\fP"
 .IP "\fBvid_mode\fP"
 .IP "\fBgl_ztrick\fP"
