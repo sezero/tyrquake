@@ -167,11 +167,20 @@ void
 signal_handler(int sig)
 {
     printf("Received signal %d, exiting...\n", sig);
+    if (ctx) {
+        glXMakeCurrent(x_disp, None, NULL);
+        glXDestroyContext(x_disp, ctx);
+    }
+    if (x_win) {
+        IN_UngrabKeyboard();
+        IN_UngrabMouse();
+        XDestroyWindow(x_disp, x_win);
+    }
     if (VID_SetGammaRamp)
-	XF86VidModeSetGammaRamp(x_disp, scrnum, x11_gamma_size,
-				x11_gamma_ramp,
-				x11_gamma_ramp + x11_gamma_size,
-				x11_gamma_ramp + x11_gamma_size * 2);
+        XF86VidModeSetGammaRamp(x_disp, scrnum, x11_gamma_size,
+                                x11_gamma_ramp,
+                                x11_gamma_ramp + x11_gamma_size,
+                                x11_gamma_ramp + x11_gamma_size * 2);
     XCloseDisplay(x_disp);
     Sys_Quit();
 }
@@ -416,6 +425,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     /* Free the existing structures */
     if (ctx) {
         GL_Shutdown();
+        glXMakeCurrent(x_disp, None, NULL);
 	glXDestroyContext(x_disp, ctx);
 	ctx = NULL;
         reload_textures = true;
@@ -610,20 +620,22 @@ VID_Init(const byte *palette)
 void
 VID_Shutdown(void)
 {
-    if (VID_SetGammaRamp) {
-	XF86VidModeSetGammaRamp(x_disp, scrnum, x11_gamma_size,
-				x11_gamma_ramp,
-				x11_gamma_ramp + x11_gamma_size,
-				x11_gamma_ramp + x11_gamma_size * 2);
-    }
     if (x_disp != NULL) {
-	if (ctx != NULL)
-	    glXDestroyContext(x_disp, ctx);
-	if (x_win != None)
-	    XDestroyWindow(x_disp, x_win);
-	if (vidmode_active)
-	    VID_restore_vidmode();
-	XCloseDisplay(x_disp);
+        if (VID_SetGammaRamp) {
+            XF86VidModeSetGammaRamp(x_disp, scrnum, x11_gamma_size,
+                                    x11_gamma_ramp,
+                                    x11_gamma_ramp + x11_gamma_size,
+                                    x11_gamma_ramp + x11_gamma_size * 2);
+        }
+        if (ctx != NULL) {
+            glXMakeCurrent(x_disp, None, NULL);
+            glXDestroyContext(x_disp, ctx);
+        }
+        if (x_win != None)
+            XDestroyWindow(x_disp, x_win);
+        if (vidmode_active)
+            VID_restore_vidmode();
+        XCloseDisplay(x_disp);
     }
     vidmode_active = false;
     x_disp = NULL;
