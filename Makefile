@@ -329,7 +329,11 @@ CFLAGS += $(call cc-option,-frename-registers,)
 CFLAGS += $(call cc-option,-fno-math-errno)
 CFLAGS += $(call cc-option,-ffinite-math-only)
 CFLAGS += $(call cc-option,-fno-signaling-nans)
-CFLAGS += $(call cc-option,-ftree-vectorize,)
+# Enable tree vectorizer, but not on the old GCC on my PPC box,
+# because we get an internal compiler error compiling the MP3 decoder
+# :(
+CFLAGS += $(shell if [ $(GCC_VERSION) -gt 0401 ] ;\
+		then echo $(call cc-option,-ftree-vectorize,); fi ;)
 endif
 endif
 
