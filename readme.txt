@@ -2,19 +2,18 @@
  Tyr-Quake
 -----------
 
-Date:		2019-12-03
-Version: 	0.66
+Date:		2021-07-16
+Version: 	0.67
 Author:		Kevin Shanahan (aka. Tyrann)
 Webpage:	http://disenchant.net
 email:		kevin@shanahan.id.au
 
 Why?
 ----
-At this point, it's just to exercise my brain with some low-level programming.
-I want this to be a version of Quake that basically looks like the Quake of
-old, but one that works on current operating systems.  Some enhancements may
-be added, as long as they don't completely change the look and feel of the
-original game.
+I want this to be a version of Quake that basically looks like the
+Quake of old, but one that works on current operating systems.  Some
+graphical enhancements may be added, as long as they don't completely
+change the look and feel of the original game.
 
 Building:
 ---------
@@ -44,7 +43,6 @@ directory simply type "make bundles".  The OSX bundles will be output to
 dist/osx/.  The OSX launcher needs a little more polish, but the main thing
 remember is to add '-basedir /path/to/Quake' to the command line parameters in
 the Launcher.
-
 
 History:
 --------

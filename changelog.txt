@@ -2,6 +2,27 @@
   CHANGELOG
 \-----------/
 
+v.067
+=====
+- Added (finally) loading new mods at runtime with the 'game' command.
+- Added ability to play music tracks from sound files.  Currently ogg
+  (vorbis), mp3, flac and wav are supported.
+- Add some auto-detection of quake installation directory (windows).
+  If the game is started without specifying the base directory and the
+  working directory is not a valid basedir, the game will try to check
+  if you have a copy of Quake in Steam and use that.
+- Improved console tab completion for commands with multiple arguments
+- Fixed overflowing the sound effects cache
+- Improved detection of local network address
+- Improved reliability of game discovery via broadcast on LANs
+- Fixed fullbright textures on player skins
+- Added a pulseaudio sound driver, now the default on Linux.
+- Fixes for minor audio artifacts in looping sounds
+- Fix crash in NQ dedicated server
+- Higher quality (resolution) underwater warping in software renderer
+- Fix particle sizes in software and GL
+- Make a fixed size LRU cache of textures in GLQuake and free unused textures
+
 v0.66
 =====
 - Reworked video mode setting, now uses vid_width, vid_height, etc. cvars
