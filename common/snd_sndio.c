@@ -199,3 +199,7 @@ void
 SNDDMA_UnlockBuffer(void)
 {
 }
+
+/* TODO: check if we can pause/cork the buffer? */
+void S_BlockSound() {}
+void S_UnblockSound() {}
