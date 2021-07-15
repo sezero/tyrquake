@@ -214,6 +214,12 @@ static struct draw_glpic draw_glpics[MAX_DRAW_GLPICS];
 static int num_draw_glpics;
 
 void
+Draw_ResetPicTextures()
+{
+    num_draw_glpics = 0;
+}
+
+void
 Draw_ReloadPicTextures()
 {
     int i;

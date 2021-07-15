@@ -293,7 +293,8 @@ void R_UpdateWarpTextures();
 //
 #define TRANSPARENT_COLOR 0xFF
 void GL_Set2D(void);
-void Draw_ReloadPicTextures(void);
+void Draw_ReloadPicTextures();
+void Draw_ResetPicTextures();
 
 //
 // gl_rmain.c

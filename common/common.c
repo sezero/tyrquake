@@ -1993,6 +1993,9 @@ COM_Gamedir(const char *directory, enum game_type game_type)
     /* flush all data, so it will be forced to reload */
     Cache_Flush();
     Mod_ClearAll();
+#ifdef GLQUAKE
+    Draw_ResetPicTextures();
+#endif
 
     /* Free up any current game directory info */
     host_hunklevel = 0;
