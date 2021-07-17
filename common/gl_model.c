@@ -126,11 +126,18 @@ GL_LoadAliasSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_
     GL_LoadAliasSkinTextures(model, aliashdr);
 }
 
+static void
+GL_AliasModelCacheDestructor(cache_user_t *cache)
+{
+    const model_t *model = container_of(cache, model_t, cache);
+    GL_DisownTextures(model);
+}
+
 static alias_loader_t GL_AliasModelLoader = {
     .Padding = GL_AliashdrPadding,
     .LoadSkinData = GL_LoadAliasSkinData,
     .LoadMeshData = GL_LoadAliasMeshData,
-    .CacheDestructor = NULL,
+    .CacheDestructor = GL_AliasModelCacheDestructor,
 };
 
 const alias_loader_t *

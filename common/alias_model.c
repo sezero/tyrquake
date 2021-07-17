@@ -576,9 +576,6 @@ Mod_ClearAlias(void)
      * hunklevel which will disappear.
      */
     for (model = mcache.overflow.next; model; model = model->next) {
-#ifdef GLQUAKE
-        GL_DisownTextures(model);
-#endif
 	if (model->cache.data)
 	    Cache_Free(&model->cache);
     }
