@@ -1281,8 +1281,14 @@ Memory_AddCommands()
 void
 Memory_Init(void *buf, int size)
 {
-    int p;
-    int zonesize = DYNAMIC_SIZE;
+    int zonesize = 256 * 1024; // 256kB
+
+    if (size >= 256 * 1024 * 1024)
+        zonesize = 2 * 1024 * 1024; // 2MB
+    else if (size >= 128 * 1024 * 1024)
+        zonesize = 1024 * 1024; // 1MB
+    else if (size >= 64 * 1024 * 1024)
+        zonesize = 512 * 1024; // 512kB
 
     hunkstate.base = buf;
     hunkstate.size = size;
@@ -1291,14 +1297,13 @@ Memory_Init(void *buf, int size)
     hunkstate.tempmark = 0;
 
     Cache_Init();
-    p = COM_CheckParm("-zone");
-    if (p) {
-	if (p < com_argc - 1)
-	    zonesize = Q_atoi(com_argv[p + 1]) * 1024;
-	else
-	    Sys_Error("%s: you must specify a size in KB after -zone",
-		      __func__);
+    int index = COM_CheckParm("-zone");
+    if (index) {
+	if (index >= com_argc - 1)
+	    Sys_Error("%s: you must specify a size in KB after -zone", __func__);
+        zonesize = Q_atoi(com_argv[index + 1]) * 1024;
     }
+
     mainzone = Hunk_AllocName(zonesize, "zone");
     Z_ClearZone(mainzone, zonesize);
 }
