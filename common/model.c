@@ -673,8 +673,6 @@ Mod_ForName(const char *name, qboolean crash)
 	    return model;
 
 	buffer = COM_LoadTempFile(name, &buffersize);
-	model = Mod_NewAliasModel();
-	qsnprintf(model->name, sizeof(model->name), "%s", name);
 	Mod_LoadAliasModel(alias_loader, model, buffer, buffersize);
 #endif
 	return model;
