@@ -780,8 +780,8 @@ static void
 D_PatchAffineTriangleCode(byte *colormap)
 {
 #ifdef USE_X86_ASM
-    static byte *current_colormap = NULL;
-    static byte *current_transtable = NULL;
+    static const byte *current_colormap = NULL;
+    static const byte *current_transtable = NULL;
 
     /* Need to patch the asm if the transtable or colormap changed */
     if ((r_transtable && r_transtable != current_transtable) || colormap != current_colormap) {
