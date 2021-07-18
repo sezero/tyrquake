@@ -781,13 +781,15 @@ D_PatchAffineTriangleCode(byte *colormap)
 {
 #ifdef USE_X86_ASM
     static byte *current_colormap = NULL;
+    static byte *current_transtable = NULL;
 
-    if (colormap != current_colormap) {
+    /* Need to patch the asm if the transtable or colormap changed */
+    if ((r_transtable && r_transtable != current_transtable) || colormap != current_colormap) {
         /*
          * The original implementation from id made the code writable
          * once and kept the code writable for the entire program
          * execution.  I'm making sure to switch write protection back
-         * on right away.  This gets called relatively often, so not
+         * on right away.  This may get called relatively often, so not
          * sure if there is a significant performance impact on older
          * machines.  Not noticable on my test machines, but I don't
          * have anything very old.
@@ -796,6 +798,7 @@ D_PatchAffineTriangleCode(byte *colormap)
 	D_Aff8Patch(colormap);
 	Sys_MakeCodeUnwriteable(D_PolysetAff8Start, D_PolysetAff8End);
         current_colormap = colormap;
+        current_transtable = r_transtable;
     }
 #endif /* USE_X86_ASM */
 }
