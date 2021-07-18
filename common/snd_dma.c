@@ -136,8 +136,7 @@ S_SoundInfo_f(void)
 	return;
     }
 
-    Con_Printf("%5d channels (%s)\n", shm->channels,
-	       shm->channels == 1 ? "mono" : "stereo");
+    Con_Printf("%5d channels (%s)\n", shm->channels, shm->channels == 1 ? "mono" : "stereo");
     Con_Printf("%5d samples\n", shm->samples);
     Con_Printf("%5d samplepos\n", shm->samplepos);
     Con_Printf("%5d samplebits\n", shm->samplebits);
@@ -280,6 +279,17 @@ S_Init(void)
 void
 S_ClearOverflow()
 {
+    S_StopAllSounds(true);
+    struct known_sfx *known = known_sfx->overflow;
+
+    while (known) {
+        for (int i = 0; i < known->num_sfx; i++) {
+            if (known->sfx[i].cache.data)
+                Cache_Free(&known->sfx[i].cache);
+        }
+        known = known->overflow;
+    }
+
     known_sfx->overflow = NULL;
 }
 
