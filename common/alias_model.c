@@ -510,10 +510,12 @@ static struct {
     model_t overflow;
 } mcache;
 
+#define MCACHE_MAX   512 /* TODO: cvar controlled */
+#define MCACHE_CHUNK  64
+
 void
 Mod_InitAliasCache(void)
 {
-#define MAX_MCACHE 512 /* TODO: cvar controlled */
     int i;
     model_t *model;
 
@@ -522,10 +524,10 @@ Mod_InitAliasCache(void)
      * level loads. If it fills up, put extras on the overflow list...
      */
     mcache.used.next = mcache.overflow.next = NULL;
-    mcache.free.next = Hunk_AllocName(MAX_MCACHE * sizeof(model_t), "mcache");
+    mcache.free.next = Hunk_AllocName(MCACHE_MAX * sizeof(model_t), "mcache");
 
     model = mcache.free.next;
-    for (i = 0; i < MAX_MCACHE - 1; i++, model++)
+    for (i = 0; i < MCACHE_MAX - 1; i++, model++)
 	model->next = model + 1;
     model->next = NULL;
 }
@@ -549,19 +551,36 @@ Mod_FindAliasName(const char *name)
 model_t *
 Mod_NewAliasModel(void)
 {
-    model_t *model;
+    if (!mcache.free.next) {
+        /* Allocate a chunk of overflow cache entries that will only persist for the current map */
+        model_t *model = mcache.free.next = Hunk_AllocName(MCACHE_CHUNK * sizeof(*model), "mcache+");
+        for (int i = 0; i < MCACHE_CHUNK - 1; i++, model++)
+            model->next = model + 1;
+        model->next = NULL;
 
-    model = mcache.free.next;
-    if (model) {
-	mcache.free.next = model->next;
-	model->next = mcache.used.next;
-	mcache.used.next = model;
-    } else {
-	/* TODO: warn on overflow; maybe automatically resize somehow? */
-	model = Hunk_AllocName(sizeof(*model), "mcache+");
-	model->next = mcache.overflow.next;
-	mcache.overflow.next = model;
+        /* Handle the first overflow explicitly */
+        if (!mcache.overflow.next) {
+            model = mcache.overflow.next = mcache.free.next;
+            mcache.free.next = model->next;
+            model->next = NULL;
+
+            assert(!model->cache.data);
+
+            return model;
+        }
     }
+
+    model_t *model = mcache.free.next;
+    mcache.free.next = model->next;
+    if (mcache.overflow.next) {
+        model->next = mcache.overflow.next;
+        mcache.overflow.next = model;
+    } else {
+        model->next = mcache.used.next;
+        mcache.used.next = model;
+    }
+
+    assert(!model->cache.data);
 
     return model;
 }
@@ -575,11 +594,14 @@ Mod_ClearAlias(void)
      * For now, only need to worry about overflow above the host
      * hunklevel which will disappear.
      */
-    for (model = mcache.overflow.next; model; model = model->next) {
-	if (model->cache.data)
-	    Cache_Free(&model->cache);
+    if (mcache.overflow.next) {
+        for (model = mcache.overflow.next; model; model = model->next) {
+            if (model->cache.data)
+                Cache_Free(&model->cache);
+        }
+        mcache.overflow.next = NULL;
+        mcache.free.next = NULL;
     }
-    mcache.overflow.next = NULL;
 }
 
 const model_t *
