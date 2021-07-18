@@ -1303,7 +1303,7 @@ This is called at the start of each level
 ================
 */
 void
-SV_SpawnServer(char *server)
+SV_SpawnServer(const char *server)
 {
     model_t *model;
     client_t *client;

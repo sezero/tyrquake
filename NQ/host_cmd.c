@@ -373,18 +373,23 @@ Host_Loadgame_f
 static void
 Host_Loadgame_f(void)
 {
-    char name[MAX_OSPATH];
-    char mapname[MAX_QPATH];
+    char name[MAX_QPATH];
     FILE *f;
     float time, tfloat;
-    char str[32768];
-    char *lightstyle;
     const char *start;
     int i, r, length, err;
     edict_t *ent;
     int entnum;
     int version;
     float spawn_parms[NUM_SPAWN_PARMS];
+
+    /* Take care to not overflow the string buffer with sscanf */
+    char string_buffer[32768];
+    #define FREAD_STRING_LINE(_f) ({            \
+        fscanf(_f, "%32767s\n", string_buffer); \
+        string_buffer[32767] = 0;               \
+        string_buffer;                          \
+    })
 
     if (cmd_source != src_command)
 	return;
@@ -421,7 +426,7 @@ Host_Loadgame_f(void)
 		   SAVEGAME_VERSION);
 	return;
     }
-    fscanf(f, "%s\n", str);
+    FREAD_STRING_LINE(f);
     for (i = 0; i < NUM_SPAWN_PARMS; i++)
 	fscanf(f, "%f\n", &spawn_parms[i]);
 
@@ -433,7 +438,7 @@ Host_Loadgame_f(void)
     current_skill = (int)(tfloat + 0.1);
     Cvar_SetValue("skill", (float)current_skill);
 
-    fscanf(f, "%s\n", mapname);
+    const char *mapname = FREAD_STRING_LINE(f);
     fscanf(f, "%f\n", &time);
 
     CL_Disconnect_f();
@@ -450,38 +455,39 @@ Host_Loadgame_f(void)
 // load the light styles
 
     for (i = 0; i < MAX_LIGHTSTYLES; i++) {
-	fscanf(f, "%s\n", str);
-	lightstyle = Hunk_AllocName(strlen(str) + 1, "lightstyle");
-	strcpy(lightstyle, str);
-	sv.lightstyles[i] = lightstyle;
+        const char *lightstyle_value = FREAD_STRING_LINE(f);
+        char *lightstyle_buffer = Hunk_AllocName(strlen(lightstyle_value) + 1, "lightstyle");
+	strcpy(lightstyle_buffer, lightstyle_value);
+	sv.lightstyles[i] = lightstyle_buffer;
     }
 
 // load the edicts out of the savegame file
     entnum = -1;		// -1 is the globals
     while (!feof(f)) {
-	for (i = 0; i < sizeof(str) - 1; i++) {
+	for (i = 0; i < sizeof(string_buffer) - 1; i++) {
 	    r = fgetc(f);
 	    if (r == EOF || !r)
 		break;
-	    str[i] = r;
+	    string_buffer[i] = r;
 	    if (r == '}') {
 		i++;
 		break;
 	    }
 	}
-	if (i == sizeof(str) - 1)
+	if (i == sizeof(string_buffer) - 1)
 	    Sys_Error("Loadgame buffer overflow");
-	str[i] = 0;
-	start = COM_Parse(str);
+	string_buffer[i] = 0;
+	start = COM_Parse(string_buffer);
 	if (!com_token[0])
-	    break;		// end of file
+	    break; // end of file
 	if (strcmp(com_token, "{"))
 	    Sys_Error("First token isn't a brace");
 
-	if (entnum == -1) {	// parse the global vars
+	if (entnum == -1) {
+            // parse the global vars
 	    ED_ParseGlobals(start);
-	} else {		// parse an edict
-
+	} else {
+            // parse an edict
 	    ent = EDICT_NUM(entnum);
 	    memset(&ent->v, 0, progs->entityfields * 4);
 	    ent->free = false;
