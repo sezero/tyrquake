@@ -313,6 +313,33 @@ Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
 	Sys_Error("Protection change failed");
 #endif
 }
+
+/*
+================
+Sys_MakeCodeUnwriteable
+================
+*/
+void
+Sys_MakeCodeUnwriteable(void *start_addr, void *end_addr)
+{
+#ifdef USE_X86_ASM
+    void *addr;
+    size_t length;
+    intptr_t pagesize;
+    int result;
+
+    pagesize = getpagesize();
+    addr = (void *)((intptr_t)start_addr & ~(pagesize - 1));
+    length = ((byte *)end_addr - (byte *)addr) + pagesize - 1;
+    length &= ~(pagesize - 1);
+    result = mprotect(addr, length, PROT_READ | PROT_EXEC);
+    if (result < 0)
+	Sys_Error("Protection change failed");
+
+    __builtin___clear_cache(start_addr, end_addr);
+#endif
+}
+
 #endif /* !SERVERONLY */
 
 /*
