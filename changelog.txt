@@ -2,6 +2,16 @@
   CHANGELOG
 \-----------/
 
+v0.68
+=====
+- Fix compilation of x86 on unix variant when using ASM
+- Fix the assembly patch process for translucent alias models
+- Fix crash caused by missing flush of overflow sfx on level change
+- Fix crash caused by missing flush of overflow models on level change
+- Fix gl texture leak when alias models are pushed out of the cache due
+  to memory pressure.
+- Make the default zone size relative to the overall memory size
+
 v.067
 =====
 - Added (finally) loading new mods at runtime with the 'game' command.
