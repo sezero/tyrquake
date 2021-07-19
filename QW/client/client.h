@@ -323,6 +323,9 @@ extern cvar_t m_yaw;
 extern cvar_t m_forward;
 extern cvar_t m_side;
 
+extern cvar_t cl_maxpitch;
+extern cvar_t cl_minpitch;
+
 extern cvar_t m_freelook;
 
 extern cvar_t name;

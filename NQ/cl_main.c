@@ -53,8 +53,10 @@ cvar_t m_yaw = { "m_yaw", "0.022", CVAR_CONFIG };
 cvar_t m_forward = { "m_forward", "1", CVAR_CONFIG };
 cvar_t m_side = { "m_side", "0.8", CVAR_CONFIG };
 
-cvar_t m_freelook = { "m_freelook", "0", CVAR_CONFIG };
+cvar_t cl_maxpitch = {"cl_maxpitch", "90", CVAR_CONFIG };
+cvar_t cl_minpitch = {"cl_minpitch", "-90", CVAR_CONFIG };
 
+cvar_t m_freelook = { "m_freelook", "0", CVAR_CONFIG };
 
 client_static_t cls;
 client_state_t cl;
@@ -840,6 +842,9 @@ CL_RegisterVariables()
     Cvar_RegisterVariable(&m_yaw);
     Cvar_RegisterVariable(&m_forward);
     Cvar_RegisterVariable(&m_side);
+
+    Cvar_RegisterVariable(&cl_maxpitch);
+    Cvar_RegisterVariable(&cl_minpitch);
 
     Cvar_RegisterVariable(&m_freelook);
 
