@@ -383,7 +383,7 @@ Host_Loadgame_f(void)
     int version;
     float spawn_parms[NUM_SPAWN_PARMS];
 
-    /* Take care to not overflow the string buffer with sscanf */
+    /* Take care to not overflow the string buffer with fscanf */
     char string_buffer[32768];
     #define FREAD_STRING_LINE(_f) ({            \
         fscanf(_f, "%32767s\n", string_buffer); \
