@@ -19,8 +19,13 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // vid_null.c -- null video driver to aid porting efforts
 
-#include "quakedef.h"
+#include "common.h"
 #include "d_local.h"
+#include "quakedef.h"
+
+#ifdef NQ_HACK
+#include "host.h"
+#endif
 
 viddef_t vid;			// global video state
 
@@ -35,17 +40,26 @@ unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
 
 void
-VID_SetPalette(unsigned char *palette)
+VID_GetDesktopRect(vrect_t *rect)
+{
+    rect->x = 0;
+    rect->y = 0;
+    rect->width = 0;
+    rect->height = 0;
+}
+
+void
+VID_ShiftPalette(const byte *palette)
 {
 }
 
 void
-VID_ShiftPalette(unsigned char *palette)
+VID_SetPalette(const byte *palette)
 {
 }
 
 void
-VID_Init(unsigned char *palette)
+VID_Init(const byte *palette)
 {
     vid.width = vid.conwidth = BASEWIDTH;
     vid.height = vid.conheight = BASEHEIGHT;
@@ -58,6 +72,11 @@ VID_Init(unsigned char *palette)
 
     d_pzbuffer = zbuffer;
     D_InitCaches(surfcache, sizeof(surfcache));
+}
+
+void
+VID_InitColormap(const byte *palette)
+{
 }
 
 void
@@ -90,3 +109,63 @@ void
 D_EndDirectRect(int x, int y, int width, int height)
 {
 }
+
+qboolean
+VID_CheckAdequateMem(int width, int height)
+{
+    return true;
+}
+
+void
+VID_ProcessEvents()
+{
+}
+
+void
+VID_LockBuffer(void)
+{
+}
+
+void
+VID_UnlockBuffer(void)
+{
+}
+
+void
+VID_AddCommands()
+{
+}
+
+void
+VID_RegisterVariables()
+{
+}
+
+qboolean
+VID_SetMode(const qvidmode_t *mode, const byte *palette)
+{
+    return false;
+}
+
+void
+VID_SetDefaultMode()
+{
+}
+
+qboolean window_visible(void)
+{
+    return false;
+}
+
+#ifdef GLQUAKE
+float gldepthmin, gldepthmax;
+void *
+GL_GetProcAddress(const char *name)
+{
+    return NULL;
+}
+#endif
+
+#ifdef _WIN32
+qboolean DDActive;
+#endif

@@ -25,3 +25,4 @@ void SNDDMA_Shutdown(void) { }
 void SNDDMA_Submit(void) { }
 int SNDDMA_LockBuffer(void) { return 0; }
 void SNDDMA_UnlockBuffer(void) { }
+void S_BlockSound() {}

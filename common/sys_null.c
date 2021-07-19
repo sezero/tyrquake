@@ -134,6 +134,16 @@ Sys_LowFPPrecision(void)
 {
 }
 
+void
+Sys_MakeCodeWritable()
+{
+}
+
+void
+Sys_MakeCodeUnwriteable()
+{
+}
+
 //=============================================================================
 
 void

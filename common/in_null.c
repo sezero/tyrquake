@@ -21,6 +21,15 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 
+#ifdef NQ_HACK
+#include "client.h"
+#endif
+#ifdef QW_HACK
+#include "protocol.h"
+#endif
+
+cvar_t _windowed_mouse;
+
 void
 IN_Init(void)
 {
@@ -41,6 +50,10 @@ IN_Move(usercmd_t *cmd)
 {
 }
 
+void IN_Accumulate(void)
+{
+}
+
 /*
 ===========
 IN_ModeChanged
@@ -49,4 +62,11 @@ IN_ModeChanged
 void
 IN_ModeChanged(void)
 {
+}
+
+void IN_AddCommands() {}
+
+void IN_RegisterVariables()
+{
+    Cvar_RegisterVariable(&_windowed_mouse);
 }

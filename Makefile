@@ -955,6 +955,10 @@ GL_OBJS += vid_sgl.o sdl_common.o
 CL_CPPFLAGS += $(SDL_CFLAGS)
 CL_LFLAGS += $(SDL_LFLAGS)
 endif
+ifeq ($(VID_TARGET),null)
+SW_OBJS += vid_null.o
+GL_OBJS += vid_null.o
+endif
 
 # ----------------
 # 2. Input driver
@@ -974,6 +978,9 @@ CL_OBJS += in_win.o
 endif
 ifeq ($(IN_TARGET),sdl)
 CL_OBJS += in_sdl.o sdl_common.o
+endif
+ifeq ($(IN_TARGET),null)
+CL_OBJS += in_null.o
 endif
 
 # ----------------
