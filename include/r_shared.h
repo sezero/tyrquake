@@ -69,10 +69,11 @@ extern vec3_t vup, base_vup;
 extern vec3_t vpn, base_vpn;
 extern vec3_t vright, base_vright;
 
-// This marks the top of the hunk after map initialisation
-// Surfaces, etc. are allocated on top of this...
-extern int r_maphunkmark;
-
+/*
+ * Allocates space on the high hunk for surfaces/edges when the
+ * required space is too large to fit onto the stack.
+ */
+void R_AllocSurfEdges(qboolean nostack);
 
 /*
  * Min edges/surfaces are just a reasonable number to play the

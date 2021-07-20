@@ -326,6 +326,7 @@ VID_AllocBuffers(int width, int height)
         /* Deal with case where we get a bottom up DIBSection */
         r_warpbuffer += (height - 1) * width;
     }
+    R_AllocSurfEdges(false);
 
     return true;
 }

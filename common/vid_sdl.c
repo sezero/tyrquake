@@ -187,6 +187,12 @@ VID_AllocBuffers(int width, int height)
     vid_surfcache = (byte *)d_pzbuffer + width * height * sizeof(*d_pzbuffer);
     r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
 
+    // In-memory buffer which we upload via SDL texture
+    vid.buffer = vid.conbuffer = vid.direct = Hunk_HighAllocName(vid.width * vid.height, "vidbuf");
+    vid.rowbytes = vid.conrowbytes = vid.width;
+
+    R_AllocSurfEdges(false);
+
     return true;
 }
 
@@ -255,10 +261,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 
     VID_AllocBuffers(vid.width, vid.height);
 
-    // In-memory buffer which we upload via SDL texture
-    vid.buffer = vid.conbuffer = vid.direct = Hunk_HighAllocName(vid.width * vid.height, "vidbuf");
-    vid.rowbytes = vid.conrowbytes = vid.width;
-
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
     window_width = vid.width;
@@ -287,9 +289,6 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 }
 
 /* ------------------------------------------------------------------------- */
-
-byte *VGA_pagebase;
-int VGA_width, VGA_height, VGA_rowbytes, VGA_bufferrowbytes = 0;
 
 void
 VID_SetPalette(const byte *palette)

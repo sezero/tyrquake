@@ -32,7 +32,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 #include "view.h"
 
-int r_maphunkmark;
+static int r_maphighhunkmark;
 
 void *colormap;
 float r_time1;
@@ -296,7 +296,9 @@ R_PatchEdgeSortingCode()
 static void
 R_HunkAllocSurfaces()
 {
-    auxsurfaces = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "surfaces");
+    auxsurfaces = Hunk_HighAllocName(CACHE_PAD_ARRAY(r_numsurfaces, surf_t) * sizeof(surf_t), "surfaces");
+    auxsurfaces = CACHE_ALIGN_PTR(auxsurfaces);
+
     surfaces = auxsurfaces;
     surf_max = &surfaces[r_numsurfaces];
     surfaces--;
@@ -307,7 +309,8 @@ R_HunkAllocSurfaces()
 static void
 R_HunkAllocEdges()
 {
-    auxedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "edges");
+    auxedges = Hunk_HighAllocName(CACHE_PAD_ARRAY(r_numedges, edge_t) * sizeof(edge_t), "edges");
+    auxedges = CACHE_ALIGN_PTR(auxedges);
 }
 
 /*
@@ -343,19 +346,28 @@ R_NewMap(void)
 
     Alpha_NewMap();
 
-    r_maphunkmark = Hunk_LowMark();
+    Hunk_FreeToHighMark(r_maphighhunkmark);
+    R_AllocSurfEdges(false);
+}
+
+void
+R_AllocSurfEdges(qboolean nostack)
+{
+    r_maphighhunkmark = Hunk_HighMark();
 
     auxsurfaces = NULL;
-    if (r_numsurfaces > MAXSTACKSURFACES)
+    if (r_numsurfaces > MAXSTACKSURFACES || nostack)
         R_HunkAllocSurfaces();
 
     auxedges = NULL;
-    if (r_numedges > MAXSTACKEDGES)
+    if (r_numedges > MAXSTACKEDGES || nostack)
         R_HunkAllocEdges();
 
     /* extra space for saving surfs/edges for translucent surface rendering */
-    savesurfs = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "savesurf");
-    saveedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "saveedge");
+    savesurfs = Hunk_HighAllocName(CACHE_PAD_ARRAY(r_numsurfaces, surf_t) * sizeof(surf_t), "savesurf");
+    savesurfs = CACHE_ALIGN_PTR(savesurfs);
+    saveedges = Hunk_HighAllocName(CACHE_PAD_ARRAY(r_numedges, edge_t) * sizeof(edge_t), "saveedge");
+    saveedges = CACHE_ALIGN_PTR(saveedges);
 }
 
 
@@ -1157,21 +1169,10 @@ R_RenderView_(void)
         realloc = true;
     }
 
-    // Redo heap allocations it needed...
+    // Redo hunk allocations it needed...
     if (realloc) {
-        Hunk_FreeToLowMark(r_maphunkmark);
-
-        auxsurfaces = NULL;
-        if (r_numsurfaces > MAXSTACKSURFACES || nostack)
-            R_HunkAllocSurfaces();
-
-        auxedges = NULL;
-        if (r_numedges > MAXSTACKEDGES || nostack)
-            R_HunkAllocEdges();
-
-        /* surfs/edges for transparency */
-        savesurfs = Hunk_AllocName(r_numsurfaces * sizeof(surf_t), "savesurf");
-        saveedges = Hunk_AllocName(r_numedges * sizeof(edge_t), "saveedge");
+        Hunk_FreeToHighMark(r_maphighhunkmark);
+        R_AllocSurfEdges(nostack);
     }
 
     /* If we can fit edges/surfs on the stack, allocate them now */

@@ -361,6 +361,8 @@ ResetFrameBuffer(void)
     /* Make the warpbuffer match the X11 shared memory buffer */
     r_warpbuffer = Hunk_HighAllocName(framebuffer_bytes, "warpbuf");
 
+    R_AllocSurfEdges(false);
+
     vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
 }
@@ -437,6 +439,8 @@ ResetSharedFrameBuffers(void)
 
     /* Make the warpbuffer match the X11 shared memory buffer */
     r_warpbuffer = Hunk_HighAllocName(framebuffer_bytes, "warpbuf");
+
+    R_AllocSurfEdges(false);
 
     vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
