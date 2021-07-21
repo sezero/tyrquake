@@ -64,6 +64,11 @@ Sys_MakeCodeWriteable(void *start_addr, void *end_addr)
 }
 
 void
+Sys_MakeCodeUnwriteable(void *start_addr, void *end_addr)
+{
+}
+
+void
 Sys_DebugLog(const char *file, const char *fmt, ...)
 {
 }
@@ -131,16 +136,6 @@ Sys_HighFPPrecision(void)
 
 void
 Sys_LowFPPrecision(void)
-{
-}
-
-void
-Sys_MakeCodeWritable()
-{
-}
-
-void
-Sys_MakeCodeUnwriteable()
 {
 }
 
