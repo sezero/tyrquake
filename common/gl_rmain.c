@@ -157,6 +157,7 @@ GL_Init(void)
     GL_ExtensionCheck_GenerateMipmaps();
     GL_ExtensionCheck_MultiTexture();
     GL_ExtensionCheck_NPoT();
+    GL_ExtensionCheck_BufferObjects();
 
     glClearColor(0.5, 0.5, 0.5, 0);
     glFrontFace(GL_CW);

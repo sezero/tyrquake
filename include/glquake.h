@@ -270,14 +270,25 @@ extern lpClientStateFUNC qglClientActiveTexture;
 extern lpGenerateMipmapFUNC qglGenerateMipmap;
 extern void (*qglTexParameterGenerateMipmap)(GLboolean auto_mipmap);
 
+/* Buffer Objects */
+extern void (APIENTRY *qglBindBuffer)(GLenum target, GLuint buffer);
+extern void (APIENTRY *qglDeleteBuffers)(GLsizei n, const GLuint *buffers);
+extern void (APIENTRY *qglGenBuffers)(GLsizei n, GLuint *buffers);
+extern void (APIENTRY *qglBufferData)(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+extern void (APIENTRY *qglBufferSubData)(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
+extern void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
+extern GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
+
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;
+extern qboolean gl_buffer_objects_enabled;
 
 void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
 void GL_ExtensionCheck_NPoT(void);
 void GL_ExtensionCheck_MultiTexture(void);
 void GL_ExtensionCheck_GenerateMipmaps();
+void GL_ExtensionCheck_BufferObjects();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

@@ -94,6 +94,12 @@ static qboolean gl_version_es;
 static int gl_version_major;
 static int gl_version_minor;
 
+static inline qboolean
+GL_VersionMinimum(int major, int minor)
+{
+    return gl_version_major > major || (gl_version_major == major && gl_version_minor >= minor);
+}
+
 void
 GL_ParseVersionString(const char *version)
 {
@@ -156,10 +162,10 @@ GL_ExtensionCheck_GenerateMipmaps()
     qglGenerateMipmap = NULL;
     qglTexParameterGenerateMipmap = NULL;
 
-    if (gl_version_major >= 3 || GL_ExtensionCheck("GL_ARB_framebuffer_object")) {
+    if (GL_VersionMinimum(3, 0) || GL_ExtensionCheck("GL_ARB_framebuffer_object")) {
         /* New enough to use the recommended glGenerateMipmap function */
         qglGenerateMipmap = GL_GetProcAddress("glGenerateMipmap");
-    } else if ((gl_version_major == 1 && gl_version_minor >= 4) || gl_version_major > 1) {
+    } else if (GL_VersionMinimum(1, 4)) {
         /* Fall back to legacy GL_GENERATE_MIPMAP texture property */
         qglTexParameterGenerateMipmap = qglTexParameterGenerateMipmap_f;
     } else if (GL_ExtensionCheck("GL_SGIS_generate_mipmap")) {
@@ -179,4 +185,54 @@ GL_ExtensionCheck_GenerateMipmaps()
         qglGenerateMipmap = qglGenerateMipmap_null;
     if (!qglTexParameterGenerateMipmap)
         qglTexParameterGenerateMipmap = qglTexParameterGenerateMipmap_null;
+}
+
+
+qboolean gl_buffer_objects_enabled;
+
+void (APIENTRY *qglBindBuffer)(GLenum target, GLuint buffer);
+void (APIENTRY *qglDeleteBuffers)(GLsizei n, const GLuint *buffers);
+void (APIENTRY *qglGenBuffers)(GLsizei n, GLuint *buffers);
+void (APIENTRY *qglBufferData)(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+void (APIENTRY *qglBufferSubData)(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
+void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
+GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
+
+void
+GL_ExtensionCheck_BufferObjects()
+{
+    gl_buffer_objects_enabled = false;
+    if (COM_CheckParm("-noglbuffers"))
+        return;
+
+    if (GL_VersionMinimum(2, 1)) {
+        qglGenBuffers    = GL_GetProcAddress("glGenBuffers");
+        qglDeleteBuffers = GL_GetProcAddress("glDeleteBuffers");
+        qglBindBuffer    = GL_GetProcAddress("glBindBuffer");
+        qglBufferData    = GL_GetProcAddress("glBufferData");
+        qglBufferSubData = GL_GetProcAddress("glBufferSubData");
+        qglMapBuffer     = GL_GetProcAddress("glMapBuffer");
+        qglUnmapBuffer   = GL_GetProcAddress("glUnmapBuffer");
+    } else if (GL_ExtensionCheck("GL_ARB_vertex_buffer_object")) {
+        qglGenBuffers    = GL_GetProcAddress("glGenBuffersARB");
+        qglDeleteBuffers = GL_GetProcAddress("glDeleteBuffersARB");
+        qglBindBuffer    = GL_GetProcAddress("glBindBufferARB");
+        qglBufferData    = GL_GetProcAddress("glBufferDataARB");
+        qglBufferSubData = GL_GetProcAddress("glBufferSubDataARB");
+        qglMapBuffer     = GL_GetProcAddress("glMapBufferARB");
+        qglUnmapBuffer   = GL_GetProcAddress("glUnmapBufferARB");
+    }
+
+    /* Enabled if we got all the function pointers */
+    gl_buffer_objects_enabled =
+        qglGenBuffers    &&
+        qglDeleteBuffers &&
+        qglBindBuffer    &&
+        qglBufferData    &&
+        qglBufferSubData &&
+        qglMapBuffer     &&
+        qglUnmapBuffer;
+
+    if (gl_buffer_objects_enabled)
+        Con_Printf("GL Buffer Objects Enabled!\n");
 }
