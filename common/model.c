@@ -2130,7 +2130,7 @@ Mod_Extradata
 Caches the data if needed
 ===============
 */
-void *
+aliashdr_t *
 Mod_Extradata(model_t *model)
 {
     void *buffer;

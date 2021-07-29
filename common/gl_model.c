@@ -131,6 +131,11 @@ GL_AliasModelCacheDestructor(cache_user_t *cache)
 {
     const model_t *model = container_of(cache, model_t, cache);
     GL_DisownTextures(model);
+
+    gl_aliashdr_t *glhdr = GL_Aliashdr(cache->data);
+    if (glhdr->buffers.all[0]) {
+        qglDeleteBuffers(ARRAY_SIZE(glhdr->buffers.all), glhdr->buffers.all);
+    }
 }
 
 static alias_loader_t GL_AliasModelLoader = {

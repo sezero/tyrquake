@@ -759,7 +759,14 @@ R_AliasDrawModel(entity_t *entity)
         }
     }
 
-    uint16_t *indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
+    uint16_t *indices;
+    if (gl_buffer_objects_enabled) {
+        indices = 0;
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.index);
+    } else {
+        indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
+    }
+
     float *texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
 
     /* Setup state for drawing */
@@ -902,6 +909,9 @@ R_AliasDrawModel(entity_t *entity)
 
     glPopMatrix();
 
+    if (gl_buffer_objects_enabled) {
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    }
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisable(GL_VERTEX_ARRAY);

@@ -394,7 +394,13 @@ typedef struct {
     int indices;             // Offset to indices for drawing
     int texcoords;           // Offset to texcoords
     int textures;            // Offset to GLuint texture handles
-    aliashdr_t ahdr;
+    union {
+        GLuint all[1];
+        struct {
+            GLuint index;
+        };
+    } buffers;
+    aliashdr_t ahdr; // Must be last, alias model data follows directly.
 } gl_aliashdr_t;
 
 static inline gl_aliashdr_t *
@@ -588,7 +594,7 @@ const model_t *Mod_AliasOverflow(void);
 #endif
 void Mod_ClearAll(void);
 model_t *Mod_ForName(const char *name, qboolean crash);
-void *Mod_Extradata(model_t *model);	// handles caching
+aliashdr_t *Mod_Extradata(model_t *model);	// handles caching
 void Mod_TouchModel(const char *name);
 void Mod_Print(void);
 

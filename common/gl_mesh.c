@@ -137,4 +137,20 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
     }
 
     hdr->numverts += num_seam_verts;
+
+    /*
+     * Setup GL buffer objects if enabled
+     * TODO: Set these up above and free the original data once static buffers have been uploaded
+     */
+    gl_aliashdr_t *glhdr = GL_Aliashdr(hdr);
+    if (gl_buffer_objects_enabled) {
+        qglGenBuffers(ARRAY_SIZE(glhdr->buffers.all), glhdr->buffers.all);
+
+        indices = (uint16_t *)((byte *)hdr + GL_Aliashdr(hdr)->indices);
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB, glhdr->buffers.index);
+        qglBufferData(GL_ELEMENT_ARRAY_BUFFER_ARB, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW_ARB);
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+    } else {
+        memset(glhdr->buffers.all, 0, sizeof(glhdr->buffers.all));
+    }
 }
