@@ -682,7 +682,6 @@ R_AliasDrawModel(entity_t *entity)
     aliashdr_t *aliashdr;
     alias_light_t light;
     lerpdata_t lerpdata;
-    float alpha;
 
     /* Calculate lerped position and cull if out of view */
     R_AliasSetupTransformLerp(entity, &lerpdata);
@@ -718,35 +717,35 @@ R_AliasDrawModel(entity_t *entity)
     /* Generate the vertex/color buffers */
     int numverts = aliashdr->numverts;
     vec_t *vertexbuf;
-    vec_t *colorbuf;
+    uint8_t *colorbuf;
     if (gl_buffer_objects_enabled) {
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
         qglBufferData(GL_ARRAY_BUFFER, numverts * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
         vertexbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
-        qglBufferData(GL_ARRAY_BUFFER, numverts * 4 * sizeof(float), NULL, GL_STREAM_DRAW);
+        qglBufferData(GL_ARRAY_BUFFER, numverts * 4 * sizeof(uint8_t), NULL, GL_STREAM_DRAW);
         colorbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
     } else {
         vertexbuf = alloca(numverts * sizeof(vec3_t));
-        colorbuf = alloca(numverts * 4 * sizeof(float));
+        colorbuf = alloca(numverts * 4 * sizeof(uint8_t));
     }
-    alpha = ENTALPHA_DECODE(entity->alpha);
+    uint8_t alpha = ENTALPHA_DECODE(entity->alpha) * 255.0f;
 
     if (lerpdata.blend == 1.0f) {
         const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
         const trivertx_t *src = posedata + lerpdata.pose1 * numverts;
         vec_t *dstvert = vertexbuf;
-        vec_t *dstcolor = colorbuf;
+        uint8_t *dstcolor = colorbuf;
         for (i = 0; i < numverts; i++, src++) {
             *dstvert++ = src->v[0];
             *dstvert++ = src->v[1];
             *dstvert++ = src->v[2];
 
-            float lightscale = light.shadedots[src->lightnormalindex];
-            *dstcolor++ = lightscale * light.shade[0];
-            *dstcolor++ = lightscale * light.shade[1];
-            *dstcolor++ = lightscale * light.shade[2];
+            float lightscale = light.shadedots[src->lightnormalindex] * 255.0f;
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
             *dstcolor++ = alpha;
         }
     } else {
@@ -754,7 +753,7 @@ R_AliasDrawModel(entity_t *entity)
         const trivertx_t *src0 = posedata + lerpdata.pose0 * numverts;
         const trivertx_t *src1 = posedata + lerpdata.pose1 * numverts;
         vec_t *dstvert = vertexbuf;
-        vec_t *dstcolor = colorbuf;
+        uint8_t *dstcolor = colorbuf;
         for (i = 0; i < numverts; i++, src0++, src1++) {
             *dstvert++ = src0->v[0] * (1.0f - lerpdata.blend) + src1->v[0] * lerpdata.blend;
             *dstvert++ = src0->v[1] * (1.0f - lerpdata.blend) + src1->v[1] * lerpdata.blend;
@@ -763,9 +762,10 @@ R_AliasDrawModel(entity_t *entity)
             float lightscale;
             lightscale  = light.shadedots[src0->lightnormalindex] * (1.0f - lerpdata.blend);
             lightscale += light.shadedots[src1->lightnormalindex] * lerpdata.blend;
-            *dstcolor++ = lightscale * light.shade[0];
-            *dstcolor++ = lightscale * light.shade[1];
-            *dstcolor++ = lightscale * light.shade[2];
+	    lightscale *= 255.0f;
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
             *dstcolor++ = alpha;
         }
     }
@@ -893,10 +893,10 @@ R_AliasDrawModel(entity_t *entity)
         glEnableClientState(GL_COLOR_ARRAY);
         if (gl_buffer_objects_enabled) {
             qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
-            glColorPointer(4, GL_FLOAT, 0, colorbuf);
+            glColorPointer(4, GL_UNSIGNED_BYTE, 0, colorbuf);
             qglBindBuffer(GL_ARRAY_BUFFER, 0);
         } else {
-            glColorPointer(4, GL_FLOAT, 0, colorbuf);
+            glColorPointer(4, GL_UNSIGNED_BYTE, 0, colorbuf);
         }
     }
 
