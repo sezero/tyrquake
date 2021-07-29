@@ -146,6 +146,7 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
     if (gl_buffer_objects_enabled) {
         qglGenBuffers(ARRAY_SIZE(glhdr->buffers.all), glhdr->buffers.all);
 
+        /* Upload the static data for indices and texcoords */
         indices = (uint16_t *)((byte *)hdr + glhdr->indices);
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glhdr->buffers.index);
         qglBufferData(GL_ELEMENT_ARRAY_BUFFER, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW);

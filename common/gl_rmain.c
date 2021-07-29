@@ -717,9 +717,20 @@ R_AliasDrawModel(entity_t *entity)
 
     /* Generate the vertex/color buffers */
     int numverts = aliashdr->numverts;
-    vec_t *vertexbuf = alloca(numverts * sizeof(vec3_t));
-    vec_t *colorbuf = alloca(numverts * 4 * sizeof(float));
-
+    vec_t *vertexbuf;
+    vec_t *colorbuf;
+    if (gl_buffer_objects_enabled) {
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
+        qglBufferData(GL_ARRAY_BUFFER, numverts * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
+        vertexbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
+        qglBufferData(GL_ARRAY_BUFFER, numverts * 4 * sizeof(float), NULL, GL_STREAM_DRAW);
+        colorbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else {
+        vertexbuf = alloca(numverts * sizeof(vec3_t));
+        colorbuf = alloca(numverts * 4 * sizeof(float));
+    }
     alpha = ENTALPHA_DECODE(entity->alpha);
 
     if (lerpdata.blend == 1.0f) {
@@ -762,6 +773,14 @@ R_AliasDrawModel(entity_t *entity)
     uint16_t *indices;
     float *texcoords;
     if (gl_buffer_objects_enabled) {
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
+        qglUnmapBuffer(GL_ARRAY_BUFFER);
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
+        qglUnmapBuffer(GL_ARRAY_BUFFER);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+        vertexbuf = 0;
+        colorbuf = 0;
+
         indices = 0;
         texcoords = 0;
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.index);
@@ -851,7 +870,13 @@ R_AliasDrawModel(entity_t *entity)
 
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
+    if (gl_buffer_objects_enabled) {
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
+        glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else {
+        glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
+    }
 
     // TODO: wrap this up somwhere
     if (gl_buffer_objects_enabled) {
@@ -866,7 +891,13 @@ R_AliasDrawModel(entity_t *entity)
         glColor3f(1.0f, 1.0f, 1.0f);
     } else {
         glEnableClientState(GL_COLOR_ARRAY);
-        glColorPointer(4, GL_FLOAT, 0, colorbuf);
+        if (gl_buffer_objects_enabled) {
+            qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
+            glColorPointer(4, GL_FLOAT, 0, colorbuf);
+            qglBindBuffer(GL_ARRAY_BUFFER, 0);
+        } else {
+            glColorPointer(4, GL_FLOAT, 0, colorbuf);
+        }
     }
 
     if (gl_mtexable && fullbright && gl_fullbrights.value) {

@@ -395,10 +395,12 @@ typedef struct {
     int texcoords;           // Offset to texcoords
     int textures;            // Offset to GLuint texture handles
     union {
-        GLuint all[2];
+        GLuint all[4];
         struct {
             GLuint index;
             GLuint texcoord;
+            GLuint vertex;
+            GLuint color;
         };
     } buffers;
     aliashdr_t ahdr; // Must be last, alias model data follows directly.
