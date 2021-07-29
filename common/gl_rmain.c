@@ -760,14 +760,16 @@ R_AliasDrawModel(entity_t *entity)
     }
 
     uint16_t *indices;
+    float *texcoords;
     if (gl_buffer_objects_enabled) {
         indices = 0;
+        texcoords = 0;
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.index);
     } else {
         indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
+        texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
     }
 
-    float *texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
 
     /* Setup state for drawing */
     VectorCopy(lerpdata.origin, r_entorigin);
@@ -850,7 +852,16 @@ R_AliasDrawModel(entity_t *entity)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
-    glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+
+    // TODO: wrap this up somwhere
+    if (gl_buffer_objects_enabled) {
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.texcoord);
+        glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else {
+        glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+    }
+
     if (r_fullbright.value) {
         glColor3f(1.0f, 1.0f, 1.0f);
     } else {
@@ -863,7 +874,15 @@ R_AliasDrawModel(entity_t *entity)
         GL_Bind(skin->fullbright);
         qglClientActiveTexture(GL_TEXTURE1);
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-        glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+
+        // TODO: wrap this up somwhere
+        if (gl_buffer_objects_enabled) {
+            qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.texcoord);
+            glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+            qglBindBuffer(GL_ARRAY_BUFFER, 0);
+        } else {
+            glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
+        }
 
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
     }
@@ -911,6 +930,7 @@ R_AliasDrawModel(entity_t *entity)
 
     if (gl_buffer_objects_enabled) {
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
     }
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
