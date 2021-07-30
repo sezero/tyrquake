@@ -158,6 +158,10 @@ GL_Init(void)
     GL_ExtensionCheck_MultiTexture();
     GL_ExtensionCheck_NPoT();
     GL_ExtensionCheck_BufferObjects();
+    GL_ExtensionCheck_VertexProgram();
+
+    GL_InitVBOs();
+    GL_InitVertexPrograms();
 
     glClearColor(0.5, 0.5, 0.5, 0);
     glFrontFace(GL_CW);
@@ -668,9 +672,6 @@ R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angle
 }
 
 
-// TODO: Collect global resources like this together
-static GLuint alias_model_streaming_vertex_buffer;
-
 /*
 =================
 R_AliasDrawModel
@@ -718,32 +719,85 @@ R_AliasDrawModel(entity_t *entity)
     aliashdr = Mod_Extradata(entity->model);
     R_AliasSetupAnimationLerp(entity, aliashdr, &lerpdata);
 
-    /* Generate the vertex/color buffers */
-    int numverts = aliashdr->numverts;
-    vec_t *vertexbuf;
+    const float weight0 = 1.0f - lerpdata.blend;
+    const float weight1 = lerpdata.blend;
+    const qboolean do_lerp = (lerpdata.blend != 1.0f);
+    const qboolean gpu_lerp = (gl_buffer_objects_enabled && gl_vertex_program_enabled && do_lerp);
+    const qboolean cpu_lerp = (!gpu_lerp && do_lerp);
+
+    const int numverts = aliashdr->numverts;
+
+    /* Generate the vertex buffers */
+    float *vertexbuf0;
+    float *vertexbuf1;
+    if (gpu_lerp) {
+        glEnable(GL_VERTEX_PROGRAM_ARB);
+        /* Buffer pointers are an offset into the GPU buffer */
+        vertexbuf0 = (float *)((intptr_t)lerpdata.pose0 * numverts * 3 * sizeof(float));
+        vertexbuf1 = (float *)((intptr_t)lerpdata.pose1 * numverts * 3 * sizeof(float));
+    } else if (cpu_lerp) {
+        /* Set up a GPU buffer or local memory buffer */
+        if (gl_buffer_objects_enabled) {
+            qglBindBuffer(GL_ARRAY_BUFFER, vbo.alias_vertex_stream);
+            qglBufferData(GL_ARRAY_BUFFER, numverts * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
+            vertexbuf0 = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+        } else {
+            vertexbuf0 = alloca(numverts * 3 * sizeof(float));
+        }
+
+        /* Do the blend */
+        const float *posedata = (float *)((byte *)aliashdr + aliashdr->posedata);
+        const float *vert0 = posedata + lerpdata.pose0 * numverts * 3;
+        const float *vert1 = posedata + lerpdata.pose1 * numverts * 3;
+        float *dstvert = vertexbuf0;
+        for (i = 0; i < numverts; i++) {
+            *dstvert++ = *vert0++ * weight0 + *vert1++ * weight1;
+            *dstvert++ = *vert0++ * weight0 + *vert1++ * weight1;
+            *dstvert++ = *vert0++ * weight0 + *vert1++ * weight1;
+        }
+
+        /* Unmap the GPU buffer and set the buffer pointer */
+        if (gl_buffer_objects_enabled) {
+            qglBindBuffer(GL_ARRAY_BUFFER, vbo.alias_vertex_stream);
+            qglUnmapBuffer(GL_ARRAY_BUFFER);
+            vertexbuf0 = 0;
+        }
+    } else if (gl_buffer_objects_enabled) {
+        /* Setup the offset into the static GPU buffer */
+        vertexbuf0 = (float *)((intptr_t)lerpdata.pose1 * numverts * 3 * sizeof(float));
+    } else {
+        float *posedata = (float *)((byte *)aliashdr + aliashdr->posedata);
+        vertexbuf0 = posedata + lerpdata.pose1 * numverts * 3;
+    }
+
+    /* Generate the color buffer */
     uint8_t *colorbuf;
     if (gl_buffer_objects_enabled) {
-        if (lerpdata.blend == 1.0f) {
-            // vertexbuf becomes the byte offset into the static vertex buffer
-            vertexbuf = (vec_t *)((intptr_t)lerpdata.pose1 * numverts * 3 * sizeof(float));
-        } else {
-            if (!qglIsBuffer(alias_model_streaming_vertex_buffer))
-                qglGenBuffers(1, &alias_model_streaming_vertex_buffer);
-            qglBindBuffer(GL_ARRAY_BUFFER, alias_model_streaming_vertex_buffer);
-            qglBufferData(GL_ARRAY_BUFFER, numverts * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
-            vertexbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-        }
-        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
+        qglBindBuffer(GL_ARRAY_BUFFER, vbo.alias_color_stream);
         qglBufferData(GL_ARRAY_BUFFER, numverts * 4 * sizeof(uint8_t), NULL, GL_STREAM_DRAW);
         colorbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
     } else {
-        vertexbuf = alloca(numverts * sizeof(vec3_t));
         colorbuf = alloca(numverts * 4 * sizeof(uint8_t));
     }
-    uint8_t alpha = ENTALPHA_DECODE(entity->alpha) * 255.0f;
-
-    if (lerpdata.blend == 1.0f) {
+    const uint8_t alpha = ENTALPHA_DECODE(entity->alpha) * 255.0f;
+    const qboolean alpha_blend = (alpha < 255);
+    if (do_lerp) {
+        const uint8_t *lightnormalindices = (byte *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
+        const uint8_t *lightnormalindex0 = lightnormalindices + lerpdata.pose0 * numverts;
+        const uint8_t *lightnormalindex1 = lightnormalindices + lerpdata.pose1 * numverts;
+        uint8_t *dstcolor = colorbuf;
+        for (i = 0; i < numverts; i++) {
+            float lightscale;
+            lightscale  = light.shadedots[*lightnormalindex0++] * weight0;
+            lightscale += light.shadedots[*lightnormalindex1++] * weight1;
+	    lightscale *= 255.0f;
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
+            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
+            *dstcolor++ = alpha;
+        }
+    } else {
         const uint8_t *lightnormalindex = (const uint8_t *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
         lightnormalindex += lerpdata.pose1 * numverts;
         uint8_t *dstcolor = colorbuf;
@@ -754,49 +808,18 @@ R_AliasDrawModel(entity_t *entity)
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
             *dstcolor++ = alpha;
         }
-        if (!gl_buffer_objects_enabled) {
-            vertexbuf = (float *)((byte *)aliashdr + aliashdr->posedata) + lerpdata.pose1 * numverts * 3;
-        }
-    } else {
-        const float *vertices = (float *)((byte *)aliashdr + aliashdr->posedata);
-        const float *vert0 = vertices + lerpdata.pose0 * numverts * 3;
-        const float *vert1 = vertices + lerpdata.pose1 * numverts * 3;
-        vec_t *dstvert = vertexbuf;
-        for (i = 0; i < numverts; i++) {
-            *dstvert++ = *vert0++ * (1.0f - lerpdata.blend) + *vert1++ * lerpdata.blend;
-            *dstvert++ = *vert0++ * (1.0f - lerpdata.blend) + *vert1++ * lerpdata.blend;
-            *dstvert++ = *vert0++ * (1.0f - lerpdata.blend) + *vert1++ * lerpdata.blend;
-        }
-
-        const uint8_t *lightnormalindices = (byte *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
-        const uint8_t *lightnormalindex0 = lightnormalindices + lerpdata.pose0 * numverts;
-        const uint8_t *lightnormalindex1 = lightnormalindices + lerpdata.pose1 * numverts;
-        uint8_t *dstcolor = colorbuf;
-        for (i = 0; i < numverts; i++) {
-            float lightscale;
-            lightscale  = light.shadedots[*lightnormalindex0++] * (1.0f - lerpdata.blend);
-            lightscale += light.shadedots[*lightnormalindex1++] * lerpdata.blend;
-	    lightscale *= 255.0f;
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
-            *dstcolor++ = alpha;
-        }
     }
-
-    uint16_t *indices;
-    float *texcoords;
     if (gl_buffer_objects_enabled) {
-        if (lerpdata.blend != 1.0f) {
-            qglBindBuffer(GL_ARRAY_BUFFER, alias_model_streaming_vertex_buffer);
-            qglUnmapBuffer(GL_ARRAY_BUFFER);
-            vertexbuf = 0;
-        }
-        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
+        qglBindBuffer(GL_ARRAY_BUFFER, vbo.alias_color_stream);
         qglUnmapBuffer(GL_ARRAY_BUFFER);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
         colorbuf = 0;
+    }
 
+    /* Indices and texture coordinates are static buffers or raw model data */
+    uint16_t *indices;
+    float *texcoords;
+    if (gl_buffer_objects_enabled) {
         indices = 0;
         texcoords = 0;
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.index);
@@ -804,7 +827,6 @@ R_AliasDrawModel(entity_t *entity)
         indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
         texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
     }
-
 
     /* Setup state for drawing */
     VectorCopy(lerpdata.origin, r_entorigin);
@@ -831,7 +853,7 @@ R_AliasDrawModel(entity_t *entity)
     }
 
     const qgltexture_t *skin = R_AliasSetupSkin(entity, aliashdr);
-    qboolean fullbright = !!skin->fullbright;
+    qboolean skin_has_fullbrights = !!skin->fullbright;
     GL_Bind(skin->base);
 
     /*
@@ -842,7 +864,7 @@ R_AliasDrawModel(entity_t *entity)
     if (entity->colormap != vid.colormap && !gl_nocolors.value) {
 	const int playernum = CL_PlayerEntity(entity);
 	if (playernum) {
-	    fullbright = playertextures[playernum - 1].fullbright;
+	    skin_has_fullbrights = playertextures[playernum - 1].fullbright;
 	    skin = &playertextures[playernum - 1].texture;
             assert(skin->base);
 	    GL_Bind(skin->base);
@@ -857,7 +879,7 @@ R_AliasDrawModel(entity_t *entity)
 	    R_TranslatePlayerSkin(playernum);
 	}
 	if (playernum >= 0 && playernum < MAX_CLIENTS) {
-	    fullbright = playertextures[playernum].fullbright;
+	    skin_has_fullbrights = playertextures[playernum].fullbright;
 	    skin = &playertextures[playernum].texture;
             assert(skin->base);
 	    GL_Bind(skin->base);
@@ -870,7 +892,7 @@ R_AliasDrawModel(entity_t *entity)
     if (gl_affinemodels.value)
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
 
-    if (alpha < 1.0f) {
+    if (alpha_blend) {
 	glEnable(GL_BLEND);
         glDepthMask(GL_FALSE);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -878,27 +900,39 @@ R_AliasDrawModel(entity_t *entity)
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
+    /* Select the appropriate vertex program */
+    const qboolean fullbright_pass = skin_has_fullbrights && gl_fullbrights.value && !r_fullbright.value;
+    if (gpu_lerp) {
+        GLuint vertex_program = (gl_mtexable && fullbright_pass) ? vp.alias_lerp_full : vp.alias_lerp_base;
+        qglBindProgram(GL_VERTEX_PROGRAM_ARB, vertex_program);
+        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 0, weight0, weight0, weight0, weight0);
+        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 1, weight1, weight1, weight1, weight1);
+    }
+
     /* Draw */
     glEnable(GL_VERTEX_ARRAY);
-
     if (gl_mtexable)
         qglClientActiveTexture(GL_TEXTURE0);
 
+    /* Bind vertices */
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    if (gl_buffer_objects_enabled) {
-        if (lerpdata.blend == 1.0f) {
-            qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
-        } else {
-            qglBindBuffer(GL_ARRAY_BUFFER, alias_model_streaming_vertex_buffer);
-        }
-        glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
+    if (gpu_lerp) {
+        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
+        glVertexPointer(3, GL_FLOAT, 0, vertexbuf0);
+        qglEnableVertexAttribArray(1);
+        qglVertexAttribPointer(1, 3, GL_FLOAT, false, 0, vertexbuf1);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else if (gl_buffer_objects_enabled) {
+        GLuint vertex_buffer = cpu_lerp ? vbo.alias_vertex_stream : GL_Aliashdr(aliashdr)->buffers.vertex;
+        qglBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
+        glVertexPointer(3, GL_FLOAT, 0, vertexbuf0);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
     } else {
-        glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
+        glVertexPointer(3, GL_FLOAT, 0, vertexbuf0);
     }
 
-    // TODO: wrap this up somwhere
+    /* Bind texture coordinates */
     if (gl_buffer_objects_enabled) {
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.texcoord);
         glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
@@ -907,12 +941,13 @@ R_AliasDrawModel(entity_t *entity)
         glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
     }
 
+    /* Bind color buffer */
     if (r_fullbright.value) {
         glColor3f(1.0f, 1.0f, 1.0f);
     } else {
         glEnableClientState(GL_COLOR_ARRAY);
         if (gl_buffer_objects_enabled) {
-            qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
+            qglBindBuffer(GL_ARRAY_BUFFER, vbo.alias_color_stream);
             glColorPointer(4, GL_UNSIGNED_BYTE, 0, colorbuf);
             qglBindBuffer(GL_ARRAY_BUFFER, 0);
         } else {
@@ -920,13 +955,13 @@ R_AliasDrawModel(entity_t *entity)
         }
     }
 
-    if (gl_mtexable && fullbright && gl_fullbrights.value) {
+    /* If rendering fullbright mask with multitexture, bind the second texture and coordinates */
+    if (gl_mtexable && fullbright_pass) {
         GL_EnableMultitexture();
         GL_Bind(skin->fullbright);
         qglClientActiveTexture(GL_TEXTURE1);
         glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 
-        // TODO: wrap this up somwhere
         if (gl_buffer_objects_enabled) {
             qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.texcoord);
             glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
@@ -943,16 +978,23 @@ R_AliasDrawModel(entity_t *entity)
     gl_verts_submitted += numverts;
     gl_indices_submitted += aliashdr->numtris * 3;
 
-    if (gl_mtexable && fullbright && gl_fullbrights.value) {
+    /* Disable second texture if we enabled it */
+    if (gl_mtexable && fullbright_pass) {
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         qglClientActiveTexture(GL_TEXTURE0);
         GL_DisableMultitexture();
     }
 
+    /* Disable color buffer */
     glDisableClientState(GL_COLOR_ARRAY);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-    if (!gl_mtexable && fullbright && gl_fullbrights.value && alpha == 1.0f) {
+    /* If we are doing fullbrights on the second pass, do that now */
+    if (!gl_mtexable && fullbright_pass && !alpha_blend) {
+        qglBindProgram(GL_VERTEX_PROGRAM_ARB, vp.alias_lerp_base);
+        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 0, weight0, weight0, weight0, weight0);
+        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 1, weight1, weight1, weight1, weight1);
+
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -967,7 +1009,7 @@ R_AliasDrawModel(entity_t *entity)
         glDepthMask(GL_TRUE);
     }
 
-    if (alpha < 1.0f) {
+    if (alpha_blend) {
 	glColor4f(1, 1, 1, 1);
         glDepthMask(GL_TRUE);
 	glDisable(GL_BLEND);
@@ -979,10 +1021,16 @@ R_AliasDrawModel(entity_t *entity)
 
     glPopMatrix();
 
-    if (gl_buffer_objects_enabled) {
+    /* Unbind the index buffer */
+    if (gl_buffer_objects_enabled)
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    /* Disable the vertex program if we enabled it */
+    if (gpu_lerp) {
+        qglDisableVertexAttribArray(1);
+        glDisable(GL_VERTEX_PROGRAM_ARB);
     }
+
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisable(GL_VERTEX_ARRAY);

@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 */
 
+#include <assert.h>
 #include <string.h>
 
 #include "console.h"
@@ -237,5 +238,190 @@ GL_ExtensionCheck_BufferObjects()
         qglIsBuffer;
 
     if (gl_buffer_objects_enabled)
-        Con_Printf("GL Buffer Objects Enabled!\n");
+        Con_Printf("***** GL Buffer Objects Enabled!\n");
+}
+
+struct vertex_buffers vbo;
+
+void
+GL_InitVBOs()
+{
+    assert(sizeof(vbo.handles) == sizeof(vbo));
+
+    if (!gl_buffer_objects_enabled) {
+        memset(&vbo, 0, sizeof(vbo));
+        return;
+    }
+    qglGenBuffers(ARRAY_SIZE(vbo.handles), vbo.handles);
+}
+
+
+qboolean gl_vertex_program_enabled;
+
+void (APIENTRY *qglProgramString)(GLenum target, GLenum format, GLsizei len, const void *string);
+void (APIENTRY *qglBindProgram)(GLenum target, GLuint program);
+void (APIENTRY *qglDeletePrograms)(GLsizei n, const GLuint *programs);
+void (APIENTRY *qglGenPrograms)(GLsizei n, GLuint *programs);
+void (APIENTRY *qglProgramEnvParameter4f)(GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+void (APIENTRY *qglProgramEnvParameter4fv)(GLenum target, GLuint index, const GLfloat *params);
+void (APIENTRY *qglProgramLocalParameter4f)(GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+void (APIENTRY *qglProgramLocalParameter4fv)(GLenum target, GLuint index, const GLfloat *params);
+void (APIENTRY *qglGetProgramiv)(GLenum target, GLenum pname, GLint *params);
+void (APIENTRY *qglGetProgramString)(GLenum target, GLenum pname, void *string);
+void (APIENTRY *qglEnableVertexAttribArray)(GLuint index);
+void (APIENTRY *qglDisableVertexAttribArray)(GLuint index);
+void (APIENTRY *qglVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+GLboolean (APIENTRY *qglIsProgram)(GLuint program);
+
+void
+GL_ExtensionCheck_VertexProgram()
+{
+    gl_vertex_program_enabled = false;
+    if (COM_CheckParm("-noglvertexprogram"))
+        return;
+
+    // TODO: Is this available as a non-extension?
+    if (GL_ExtensionCheck("GL_ARB_vertex_program")) {
+        qglProgramString            = GL_GetProcAddress("glProgramStringARB");
+        qglBindProgram              = GL_GetProcAddress("glBindProgramARB");
+        qglDeletePrograms           = GL_GetProcAddress("glDeleteProgramsARB");
+        qglGenPrograms              = GL_GetProcAddress("glGenProgramsARB");
+        qglProgramLocalParameter4f  = GL_GetProcAddress("glProgramLocalParameter4fARB");
+        qglProgramLocalParameter4fv = GL_GetProcAddress("glProgramLocalParameter4fvARB");
+        qglProgramEnvParameter4f    = GL_GetProcAddress("glProgramEnvParameter4fARB");
+        qglProgramEnvParameter4fv   = GL_GetProcAddress("glProgramEnvParameter4fvARB");
+        qglEnableVertexAttribArray  = GL_GetProcAddress("glEnableVertexAttribArrayARB");
+        qglDisableVertexAttribArray = GL_GetProcAddress("glDisableVertexAttribArrayARB");
+        qglVertexAttribPointer      = GL_GetProcAddress("glVertexAttribPointerARB");
+        qglIsProgram                = GL_GetProcAddress("glIsProgramARB");
+    }
+
+    gl_vertex_program_enabled =
+        qglProgramString            &&
+        qglBindProgram              &&
+        qglDeletePrograms           &&
+        qglGenPrograms              &&
+        qglProgramLocalParameter4f  &&
+        qglProgramLocalParameter4fv &&
+        qglProgramEnvParameter4f    &&
+        qglProgramEnvParameter4fv   &&
+        qglEnableVertexAttribArray  &&
+        qglDisableVertexAttribArray &&
+        qglVertexAttribPointer      &&
+        qglIsProgram;
+
+    if (gl_vertex_program_enabled)
+        Con_Printf("***** GL Vertex Program Enabled!\n");
+}
+
+// Need to track these program/shader resources and re-init if context goes away
+struct vertex_programs vp;
+
+/* Full pass - base texture with color plus fullbright mask texture overlay */
+static const char *alias_lerp_full_vp_text =
+    "!!ARBvp1.0\n"
+    "\n"
+    "ATTRIB pos0 = vertex.position;\n"
+    "ATTRIB pos1 = vertex.attrib[1];\n"
+    "PARAM  mat[4] = { state.matrix.mvp };\n"
+    "PARAM  lerp0 = program.local[0];\n"
+    "PARAM  lerp1 = program.local[1];\n"
+    "TEMP   lerpPos;\n"
+    "\n"
+    "# Interpolate the vertex positions 0 and 1\n"
+    "MUL    lerpPos, pos0, lerp0;\n"
+    "MAD    lerpPos, pos1, lerp1, lerpPos;\n"
+    "\n"
+    "# Transform by concatenation of the MODELVIEW and PROJECTION matrices.\n"
+    "TEMP   pos;\n"
+    "DP4    pos.x, mat[0], lerpPos;\n"
+    "DP4    pos.y, mat[1], lerpPos;\n"
+    "DP4    pos.z, mat[2], lerpPos;\n"
+    "DP4    pos.w, mat[3], lerpPos;\n"
+    "MOV    result.position, pos;\n"
+    "MOV    result.fogcoord, pos.z;\n"
+    "\n"
+    "# Pass two layers of texcoords and primary color unchanged.\n"
+    "MOV    result.texcoord, vertex.texcoord;\n"
+    "MOV    result.texcoord[1], vertex.texcoord[1];\n"
+    "MOV    result.color, vertex.color;\n"
+    "END\n";
+
+/* Single texture and color/light */
+static const char *alias_lerp_base_vp_text =
+    "!!ARBvp1.0\n"
+    "\n"
+    "ATTRIB pos0 = vertex.position;\n"
+    "ATTRIB pos1 = vertex.attrib[1];\n"
+    "PARAM  mat[4] = { state.matrix.mvp };\n"
+    "PARAM  lerp0 = program.local[0];\n"
+    "PARAM  lerp1 = program.local[1];\n"
+    "TEMP   lerpPos;\n"
+    "\n"
+    "# Interpolate the vertex positions 0 and 1\n"
+    "MUL    lerpPos, pos0, lerp0;\n"
+    "MAD    lerpPos, pos1, lerp1, lerpPos;\n"
+    "\n"
+    "# Transform by concatenation of the MODELVIEW and PROJECTION matrices.\n"
+    "TEMP   pos;\n"
+    "DP4    pos.x, mat[0], lerpPos;\n"
+    "DP4    pos.y, mat[1], lerpPos;\n"
+    "DP4    pos.z, mat[2], lerpPos;\n"
+    "DP4    pos.w, mat[3], lerpPos;\n"
+    "MOV    result.position, pos;\n"
+    "MOV    result.fogcoord, pos.z;\n"
+    "\n"
+    "# Pass the texcoords and color unchanged.\n"
+    "MOV    result.texcoord, vertex.texcoord;\n"
+    "MOV    result.color, vertex.color;\n"
+    "END\n";
+
+#include "sys.h"
+
+static qboolean
+GL_CompileVertexProgram(GLuint handle, const char *text)
+{
+    qglBindProgram(GL_VERTEX_PROGRAM_ARB, handle);
+    qglProgramString(GL_VERTEX_PROGRAM_ARB, GL_PROGRAM_FORMAT_ASCII_ARB, strlen(text), text);
+    qglBindProgram(GL_VERTEX_PROGRAM_ARB, 0);
+
+    GLuint error = glGetError();
+    if (!error) {
+        Con_DPrintf("-----------------> Vertex Program Compiled!\n");
+        return true;
+    }
+
+    Con_DPrintf("Vertex Program Error Code %d (0x%x)\n", error, error);
+    const char *error_message = (const char *)glGetString(GL_PROGRAM_ERROR_STRING_ARB);
+    int error_position;
+    glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &error_position);
+
+    Con_DPrintf("Error Message: %s\n", error_message);
+    Con_DPrintf("Error Position: %d\n", error_position);
+    Con_DPrintf("Text near error: %.20s\n", text + error_position);
+
+    return false;
+}
+
+void
+GL_InitVertexPrograms()
+{
+    if (!gl_vertex_program_enabled)
+        return;
+
+    qglGenPrograms(ARRAY_SIZE(vp.handles), vp.handles);
+
+    qboolean success = true;
+    success &= GL_CompileVertexProgram(vp.alias_lerp_full, alias_lerp_full_vp_text);
+    success &= GL_CompileVertexProgram(vp.alias_lerp_base, alias_lerp_base_vp_text);
+
+    /* If some vertex programs failed to compile, disable the feature */
+    if (!success) {
+        Con_Printf(
+            "WARNING: Some vertex programs failed to compile.\n"
+            "         Vertex programs will be disabled.\n"
+            "         Enable developer mode for further info.\n"
+        );
+        gl_vertex_program_enabled = false;
+    }
 }

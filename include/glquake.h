@@ -279,9 +279,51 @@ extern void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
 extern GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
 extern GLboolean (APIENTRY *qglIsBuffer)(GLuint buffer);
 
+struct vertex_buffers {
+    union {
+        GLuint handles[2];
+        struct {
+            GLuint alias_vertex_stream;
+            GLuint alias_color_stream;
+        };
+    };
+};
+extern struct vertex_buffers vbo;
+extern void GL_InitVBOs();
+
+/* Vertex Programs */
+extern void (APIENTRY *qglProgramString)(GLenum target, GLenum format, GLsizei len, const void *string);
+extern void (APIENTRY *qglBindProgram)(GLenum target, GLuint program);
+extern void (APIENTRY *qglDeletePrograms)(GLsizei n, const GLuint *programs);
+extern void (APIENTRY *qglGenPrograms)(GLsizei n, GLuint *programs);
+extern void (APIENTRY *qglProgramEnvParameter4f)(GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+extern void (APIENTRY *qglProgramEnvParameter4fv)(GLenum target, GLuint index, const GLfloat *params);
+extern void (APIENTRY *qglProgramLocalParameter4f)(GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w);
+extern void (APIENTRY *qglProgramLocalParameter4fv)(GLenum target, GLuint index, const GLfloat *params);
+extern void (APIENTRY *qglGetProgramiv)(GLenum target, GLenum pname, GLint *params);
+extern void (APIENTRY *qglGetProgramString)(GLenum target, GLenum pname, void *string);
+extern void (APIENTRY *qglEnableVertexAttribArray)(GLuint index);
+extern void (APIENTRY *qglDisableVertexAttribArray)(GLuint index);
+extern void (APIENTRY *qglVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+extern GLboolean (APIENTRY *qglIsProgram)(GLuint program);
+
+/* TEMPORARY HACK */
+struct vertex_programs {
+    union {
+        GLuint handles[2];
+        struct {
+            GLuint alias_lerp_full;        // Base + fullbright masks in single pass
+            GLuint alias_lerp_base;        // Single texture per pass
+        };
+    };
+};
+extern struct vertex_programs vp;
+extern void GL_InitVertexPrograms();
+
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;
 extern qboolean gl_buffer_objects_enabled;
+extern qboolean gl_vertex_program_enabled;
 
 void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
@@ -289,6 +331,7 @@ void GL_ExtensionCheck_NPoT(void);
 void GL_ExtensionCheck_MultiTexture(void);
 void GL_ExtensionCheck_GenerateMipmaps();
 void GL_ExtensionCheck_BufferObjects();
+void GL_ExtensionCheck_VertexProgram();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

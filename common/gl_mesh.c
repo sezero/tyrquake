@@ -179,7 +179,7 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glhdr->buffers.index);
         qglBufferData(GL_ELEMENT_ARRAY_BUFFER, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW);
 
-        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
     } else {
         memset(glhdr->buffers.all, 0, sizeof(glhdr->buffers.all));

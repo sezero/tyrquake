@@ -396,12 +396,11 @@ typedef struct {
     int textures;            // Offset to GLuint texture handles
     int lightnormalindex;    // Offset to lightnormalindex data
     union {
-        GLuint all[4];
+        GLuint all[3];
         struct {
             GLuint index;
             GLuint texcoord;
             GLuint vertex;
-            GLuint color;
         };
     } buffers;
     aliashdr_t ahdr; // Must be last, alias model data follows directly.
