@@ -278,6 +278,7 @@ extern void (APIENTRY *qglBufferData)(GLenum target, GLsizeiptr size, const void
 extern void (APIENTRY *qglBufferSubData)(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
 extern void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
 extern GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
+extern GLboolean (APIENTRY *qglIsBuffer)(GLuint buffer);
 
 extern qboolean gl_mtexable;
 extern qboolean gl_npotable;

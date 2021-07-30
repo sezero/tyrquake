@@ -667,6 +667,10 @@ R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angle
     VectorScale(light->shade, 1.0f / 200.0f, light->shade);
 }
 
+
+// TODO: Collect global resources like this together
+static GLuint alias_model_streaming_vertex_buffer;
+
 /*
 =================
 R_AliasDrawModel
@@ -719,9 +723,16 @@ R_AliasDrawModel(entity_t *entity)
     vec_t *vertexbuf;
     uint8_t *colorbuf;
     if (gl_buffer_objects_enabled) {
-        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
-        qglBufferData(GL_ARRAY_BUFFER, numverts * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
-        vertexbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+        if (lerpdata.blend == 1.0f) {
+            // vertexbuf becomes the byte offset into the static vertex buffer
+            vertexbuf = (vec_t *)((intptr_t)lerpdata.pose1 * numverts * 3 * sizeof(float));
+        } else {
+            if (!qglIsBuffer(alias_model_streaming_vertex_buffer))
+                qglGenBuffers(1, &alias_model_streaming_vertex_buffer);
+            qglBindBuffer(GL_ARRAY_BUFFER, alias_model_streaming_vertex_buffer);
+            qglBufferData(GL_ARRAY_BUFFER, numverts * 3 * sizeof(float), NULL, GL_STREAM_DRAW);
+            vertexbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+        }
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
         qglBufferData(GL_ARRAY_BUFFER, numverts * 4 * sizeof(uint8_t), NULL, GL_STREAM_DRAW);
         colorbuf = qglMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
@@ -733,35 +744,38 @@ R_AliasDrawModel(entity_t *entity)
     uint8_t alpha = ENTALPHA_DECODE(entity->alpha) * 255.0f;
 
     if (lerpdata.blend == 1.0f) {
-        const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
-        const trivertx_t *src = posedata + lerpdata.pose1 * numverts;
-        vec_t *dstvert = vertexbuf;
+        const uint8_t *lightnormalindex = (const uint8_t *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
+        lightnormalindex += lerpdata.pose1 * numverts;
         uint8_t *dstcolor = colorbuf;
-        for (i = 0; i < numverts; i++, src++) {
-            *dstvert++ = src->v[0];
-            *dstvert++ = src->v[1];
-            *dstvert++ = src->v[2];
-
-            float lightscale = light.shadedots[src->lightnormalindex] * 255.0f;
+        for (i = 0; i < numverts; i++) {
+            float lightscale = light.shadedots[*lightnormalindex++] * 255.0f;
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
             *dstcolor++ = alpha;
         }
+        if (!gl_buffer_objects_enabled) {
+            vertexbuf = (float *)((byte *)aliashdr + aliashdr->posedata) + lerpdata.pose1 * numverts * 3;
+        }
     } else {
-        const trivertx_t *posedata = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
-        const trivertx_t *src0 = posedata + lerpdata.pose0 * numverts;
-        const trivertx_t *src1 = posedata + lerpdata.pose1 * numverts;
+        const float *vertices = (float *)((byte *)aliashdr + aliashdr->posedata);
+        const float *vert0 = vertices + lerpdata.pose0 * numverts * 3;
+        const float *vert1 = vertices + lerpdata.pose1 * numverts * 3;
         vec_t *dstvert = vertexbuf;
-        uint8_t *dstcolor = colorbuf;
-        for (i = 0; i < numverts; i++, src0++, src1++) {
-            *dstvert++ = src0->v[0] * (1.0f - lerpdata.blend) + src1->v[0] * lerpdata.blend;
-            *dstvert++ = src0->v[1] * (1.0f - lerpdata.blend) + src1->v[1] * lerpdata.blend;
-            *dstvert++ = src0->v[2] * (1.0f - lerpdata.blend) + src1->v[2] * lerpdata.blend;
+        for (i = 0; i < numverts; i++) {
+            *dstvert++ = *vert0++ * (1.0f - lerpdata.blend) + *vert1++ * lerpdata.blend;
+            *dstvert++ = *vert0++ * (1.0f - lerpdata.blend) + *vert1++ * lerpdata.blend;
+            *dstvert++ = *vert0++ * (1.0f - lerpdata.blend) + *vert1++ * lerpdata.blend;
+        }
 
+        const uint8_t *lightnormalindices = (byte *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
+        const uint8_t *lightnormalindex0 = lightnormalindices + lerpdata.pose0 * numverts;
+        const uint8_t *lightnormalindex1 = lightnormalindices + lerpdata.pose1 * numverts;
+        uint8_t *dstcolor = colorbuf;
+        for (i = 0; i < numverts; i++) {
             float lightscale;
-            lightscale  = light.shadedots[src0->lightnormalindex] * (1.0f - lerpdata.blend);
-            lightscale += light.shadedots[src1->lightnormalindex] * lerpdata.blend;
+            lightscale  = light.shadedots[*lightnormalindex0++] * (1.0f - lerpdata.blend);
+            lightscale += light.shadedots[*lightnormalindex1++] * lerpdata.blend;
 	    lightscale *= 255.0f;
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
@@ -773,12 +787,14 @@ R_AliasDrawModel(entity_t *entity)
     uint16_t *indices;
     float *texcoords;
     if (gl_buffer_objects_enabled) {
-        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
-        qglUnmapBuffer(GL_ARRAY_BUFFER);
+        if (lerpdata.blend != 1.0f) {
+            qglBindBuffer(GL_ARRAY_BUFFER, alias_model_streaming_vertex_buffer);
+            qglUnmapBuffer(GL_ARRAY_BUFFER);
+            vertexbuf = 0;
+        }
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.color);
         qglUnmapBuffer(GL_ARRAY_BUFFER);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
-        vertexbuf = 0;
         colorbuf = 0;
 
         indices = 0;
@@ -871,7 +887,11 @@ R_AliasDrawModel(entity_t *entity)
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     if (gl_buffer_objects_enabled) {
-        qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
+        if (lerpdata.blend == 1.0f) {
+            qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
+        } else {
+            qglBindBuffer(GL_ARRAY_BUFFER, alias_model_streaming_vertex_buffer);
+        }
         glVertexPointer(3, GL_FLOAT, 0, vertexbuf);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
     } else {

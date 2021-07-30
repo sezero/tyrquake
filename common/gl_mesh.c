@@ -117,22 +117,42 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
     }
 
     /*
-     * Allocate the pose data
+     * Allocate the pose data (vertices)
      */
     int numverts = hdr->numverts + num_seam_verts;
-    trivertx_t *vertex = Hunk_AllocName(hdr->numposes * numverts * sizeof(trivertx_t), "trimesh");
+    float *vertex = Hunk_AllocName(hdr->numposes * numverts * 3 * sizeof(float), "meshtris");
     hdr->posedata = (byte *)vertex - (byte *)hdr;
 
     /* Each pose has unique vertices and a normal which is used to generate a color for shading */
     int posenum;
     for (posenum = 0; posenum < hdr->numposes; posenum++) {
         for (i = 0; i < hdr->numverts; i++) {
-	    *vertex++ = posedata->verts[posenum][i];
+	    *vertex++ = posedata->verts[posenum][i].v[0];
+	    *vertex++ = posedata->verts[posenum][i].v[1];
+	    *vertex++ = posedata->verts[posenum][i].v[2];
         }
         for (i = 0; i < hdr->numverts; i++) {
             if (!seam_vertex_map[i])
                 continue;
-            *vertex++ = posedata->verts[posenum][i];
+            *vertex++ = posedata->verts[posenum][i].v[0];
+            *vertex++ = posedata->verts[posenum][i].v[1];
+            *vertex++ = posedata->verts[posenum][i].v[2];
+        }
+    }
+
+    /*
+     * Allocate the pose normal data
+     */
+    uint8_t *lightnormalindex = Hunk_AllocName(hdr->numposes * numverts * sizeof(uint8_t), "meshnorm");
+    GL_Aliashdr(hdr)->lightnormalindex = (byte *)lightnormalindex - (byte *)hdr;
+    for (posenum = 0; posenum < hdr->numposes; posenum++) {
+        for (i = 0; i < hdr->numverts; i++) {
+	    *lightnormalindex++ = posedata->verts[posenum][i].lightnormalindex;
+        }
+        for (i = 0; i < hdr->numverts; i++) {
+            if (!seam_vertex_map[i])
+                continue;
+            *lightnormalindex++ = posedata->verts[posenum][i].lightnormalindex;
         }
     }
 
@@ -146,14 +166,18 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
     if (gl_buffer_objects_enabled) {
         qglGenBuffers(ARRAY_SIZE(glhdr->buffers.all), glhdr->buffers.all);
 
-        /* Upload the static data for indices and texcoords */
-        indices = (uint16_t *)((byte *)hdr + glhdr->indices);
-        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glhdr->buffers.index);
-        qglBufferData(GL_ELEMENT_ARRAY_BUFFER, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW);
+        /* Upload the static data for vertices, indices and texcoords */
+        vertex = (float *)((byte *)hdr + hdr->posedata);
+        qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.vertex);
+        qglBufferData(GL_ARRAY_BUFFER, hdr->numposes * hdr->numverts * 3 * sizeof(float), vertex, GL_STATIC_DRAW);
 
         texcoord = (texcoord_t *)((byte *)hdr + glhdr->texcoords);
         qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.texcoord);
         qglBufferData(GL_ARRAY_BUFFER, hdr->numverts * sizeof(texcoord_t), texcoord, GL_STATIC_DRAW);
+
+        indices = (uint16_t *)((byte *)hdr + glhdr->indices);
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glhdr->buffers.index);
+        qglBufferData(GL_ELEMENT_ARRAY_BUFFER, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW);
 
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER_ARB, 0);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);

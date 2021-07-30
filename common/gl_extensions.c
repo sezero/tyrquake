@@ -197,6 +197,7 @@ void (APIENTRY *qglBufferData)(GLenum target, GLsizeiptr size, const void *data,
 void (APIENTRY *qglBufferSubData)(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
 void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
 GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
+GLboolean (APIENTRY *qglIsBuffer)(GLuint buffer);
 
 void
 GL_ExtensionCheck_BufferObjects()
@@ -213,6 +214,7 @@ GL_ExtensionCheck_BufferObjects()
         qglBufferSubData = GL_GetProcAddress("glBufferSubData");
         qglMapBuffer     = GL_GetProcAddress("glMapBuffer");
         qglUnmapBuffer   = GL_GetProcAddress("glUnmapBuffer");
+        qglIsBuffer      = GL_GetProcAddress("glIsBuffer");
     } else if (GL_ExtensionCheck("GL_ARB_vertex_buffer_object")) {
         qglGenBuffers    = GL_GetProcAddress("glGenBuffersARB");
         qglDeleteBuffers = GL_GetProcAddress("glDeleteBuffersARB");
@@ -221,6 +223,7 @@ GL_ExtensionCheck_BufferObjects()
         qglBufferSubData = GL_GetProcAddress("glBufferSubDataARB");
         qglMapBuffer     = GL_GetProcAddress("glMapBufferARB");
         qglUnmapBuffer   = GL_GetProcAddress("glUnmapBufferARB");
+        qglIsBuffer      = GL_GetProcAddress("glIsBufferARB");
     }
 
     /* Enabled if we got all the function pointers */
@@ -231,7 +234,8 @@ GL_ExtensionCheck_BufferObjects()
         qglBufferData    &&
         qglBufferSubData &&
         qglMapBuffer     &&
-        qglUnmapBuffer;
+        qglUnmapBuffer   &&
+        qglIsBuffer;
 
     if (gl_buffer_objects_enabled)
         Con_Printf("GL Buffer Objects Enabled!\n");
