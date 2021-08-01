@@ -174,7 +174,6 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
 =============================================================
 */
 
-lpMultiTexFUNC qglMultiTexCoord2fARB;
 lpActiveTextureFUNC qglActiveTextureARB;
 lpClientStateFUNC qglClientActiveTexture;
 

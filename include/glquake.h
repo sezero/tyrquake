@@ -264,7 +264,6 @@ typedef void (APIENTRY *lpClientStateFUNC) (GLenum);
 typedef void (APIENTRY *lpGenerateMipmapFUNC) (GLenum);
 typedef void (APIENTRY *lpBooleanFUNC) (GLboolean);
 
-extern lpMultiTexFUNC qglMultiTexCoord2fARB;
 extern lpActiveTextureFUNC qglActiveTextureARB;
 extern lpClientStateFUNC qglClientActiveTexture;
 extern lpGenerateMipmapFUNC qglGenerateMipmap;

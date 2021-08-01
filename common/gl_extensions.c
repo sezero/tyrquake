@@ -75,11 +75,10 @@ GL_ExtensionCheck_MultiTexture()
     }
 
     /* Retrieve function pointers for multitexture methods */
-    qglMultiTexCoord2fARB = (lpMultiTexFUNC)GL_GetProcAddress("glMultiTexCoord2fARB");
     qglActiveTextureARB = (lpActiveTextureFUNC)GL_GetProcAddress("glActiveTextureARB");
     qglClientActiveTexture = (lpClientStateFUNC)GL_GetProcAddress("glClientActiveTexture");
 
-    if (!qglMultiTexCoord2fARB || !qglActiveTextureARB || !qglClientActiveTexture) {
+    if (!qglActiveTextureARB || !qglClientActiveTexture) {
         Con_Printf("ARB Multitexture symbols not found, disabled.\n");
         return;
     }
