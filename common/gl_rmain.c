@@ -388,7 +388,6 @@ R_DrawSpriteModel(const entity_t *entity)
     }
 
     alpha = ENTALPHA_DECODE(entity->alpha);
-    alpha = 1.0f;
     if (alpha < 1.0f) {
         glEnable(GL_BLEND);
         glDepthMask(GL_FALSE);
