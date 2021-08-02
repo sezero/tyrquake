@@ -482,7 +482,7 @@ GL_BuildMaterials()
 
         /* Save the texturechains for material allocation below */
         glbrushmodel = GLBrushModel(brushmodel);
-        glbrushmodel->materialchains = texturechains;
+        glbrushmodel->materialchains = (void *)texturechains;
     }
 
     /*
@@ -495,7 +495,7 @@ GL_BuildMaterials()
         glbrushmodel = GLBrushModel(brushmodel);
         glbrushmodel->nummaterials = 0;
         glbrushmodel->materials = Hunk_AllocName(0, "material");
-        texturechains = glbrushmodel->materialchains; /* saved earlier */
+        texturechains = (void *)glbrushmodel->materialchains; /* saved earlier */
 
         /* To group the materials by class we'll do multiple passes over the texture list */
         material_class = MATERIAL_START;
@@ -615,7 +615,7 @@ GL_BuildMaterials()
             glbrushmodel->numanimations = parent->numanimations;
             glbrushmodel->animations = parent->animations;
         }
-        glbrushmodel->materialchains = Hunk_AllocExtend(hunkbase, glbrushmodel->nummaterials * sizeof(msurface_t *));
+        glbrushmodel->materialchains = Hunk_AllocExtend(hunkbase, glbrushmodel->nummaterials * sizeof(materialchain_t));
         glbrushmodel->resources = resources;
 
         /* It's a bit verbose to print for all submodels, usually */

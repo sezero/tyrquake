@@ -1477,7 +1477,8 @@ void
 R_DrawTranslucency(void)
 {
     depthchain_t *entry, *next;
-    msurface_t *materialchain, *tail, *surf;
+    materialchain_t materialchain;
+    msurface_t *tail, *surf;
     int material;
     byte alpha;
     entity_t *entity;
@@ -1497,35 +1498,38 @@ R_DrawTranslucency(void)
                 break;
             case depthchain_bmodel_static:
                 /* Build a chain of consecutive materials with the same alpha */
-                materialchain = tail = DepthChain_Surf(entry);
-                material = materialchain->material;
+                tail = DepthChain_Surf(entry);
+                memset(&materialchain, 0, sizeof(materialchain));
+                MaterialChain_AddSurf(&materialchain, tail);
+                material = tail->material;
                 alpha = entry->alpha;
                 while (next->type == depthchain_bmodel_static) {
                     surf = DepthChain_Surf(next);
                     if (surf->material != material || next->alpha != alpha)
                         break;
-                    tail->chain = surf;
-                    tail = surf;
+                    MaterialChain_AddSurf_Tail(&materialchain, surf, &tail);
                     next = next->next;
                 }
                 tail->chain = NULL;
 
                 // DRAW
                 glLoadMatrixf(r_world_matrix);
-                R_DrawTranslucentChain(entry->entity, materialchain, ENTALPHA_DECODE(alpha));
+                R_DrawTranslucentChain(entry->entity, &materialchain, ENTALPHA_DECODE(alpha));
 
                 break;
             case depthchain_bmodel_transformed:
                 /* Build a chain of consecutive materials, from the same entity (transform) */
-                materialchain = tail = DepthChain_Surf(entry);
-                material = materialchain->material;
+                tail = DepthChain_Surf(entry);
+                memset(&materialchain, 0, sizeof(materialchain));
+                MaterialChain_AddSurf(&materialchain, tail);
+                material = tail->material;
                 entity = entry->entity;
+                alpha = entry->alpha;
                 while (next->type == depthchain_bmodel_transformed) {
                     surf = DepthChain_Surf(next);
-                    if (surf->material != material || next->entity != entity)
+                    if (surf->material != material || next->entity != entity || next->alpha != alpha)
                         break;
-                    tail->chain = surf;
-                    tail = surf;
+                    MaterialChain_AddSurf_Tail(&materialchain, surf, &tail);
                     next = next->next;
                 }
                 tail->chain = NULL;

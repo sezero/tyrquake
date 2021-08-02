@@ -395,7 +395,7 @@ void R_DrawDynamicBrushModel(entity_t *entity);
 void R_PrepareWorldMaterialChains();
 void R_DrawWorld(void);
 void R_DrawWorldHull(void); /* Quick hack for now... */
-void R_DrawTranslucentChain(entity_t *entity, msurface_t *materialchain, float alpha);
+void R_DrawTranslucentChain(entity_t *entity, materialchain_t *materialchain, float alpha);
 void R_DrawInstancedTranslucentBmodel(entity_t *entity);
 void GL_BuildLightmaps();
 void GL_UploadLightmaps(const model_t *model, const glbrushmodel_resource_t *resources);

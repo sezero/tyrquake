@@ -84,6 +84,32 @@ typedef struct {
 } glbrushmodel_resource_t;
 
 typedef struct {
+    msurface_t *surf;
+    uint32_t numverts;
+    uint32_t numindices;
+} materialchain_t;
+
+/* Add materials to the chain, while tracking the buffer sizes that will be required */
+static inline void
+MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
+{
+    surf->chain = materialchain->surf;
+    materialchain->surf = surf;
+    materialchain->numverts += surf->poly->numverts;
+    materialchain->numindices += (surf->poly->numverts - 2) * 3;
+}
+
+/* Helper for the add-to-tail case, caller provides the tail pointer */
+static inline void
+MaterialChain_AddSurf_Tail(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
+{
+    materialchain->numverts += surf->poly->numverts;
+    materialchain->numindices += (surf->poly->numverts - 2) * 3;
+    (*tail)->chain = surf;
+    *tail = surf;
+}
+
+typedef struct {
     // Shared resources for all brush models
     glbrushmodel_resource_t *resources;
 
@@ -105,7 +131,7 @@ typedef struct {
     // allow me to keep track of the transparent surface chains having
     // different transforms.  May be able to move this back on to the
     // material later.
-    msurface_t **materialchains;
+    materialchain_t *materialchains;
 
     // Note which turb textures each submodel contains (if any)
     int numturbtextures;
