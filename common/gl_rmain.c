@@ -1499,7 +1499,7 @@ R_DrawTranslucency(void)
             case depthchain_bmodel_static:
                 /* Build a chain of consecutive materials with the same alpha */
                 tail = DepthChain_Surf(entry);
-                memset(&materialchain, 0, sizeof(materialchain));
+                MaterialChains_Init_Reverse(&materialchain, 1);
                 MaterialChain_AddSurf(&materialchain, tail);
                 material = tail->material;
                 alpha = entry->alpha;
@@ -1510,7 +1510,6 @@ R_DrawTranslucency(void)
                     MaterialChain_AddSurf_Tail(&materialchain, surf, &tail);
                     next = next->next;
                 }
-                tail->chain = NULL;
 
                 // DRAW
                 glLoadMatrixf(r_world_matrix);
@@ -1520,7 +1519,7 @@ R_DrawTranslucency(void)
             case depthchain_bmodel_transformed:
                 /* Build a chain of consecutive materials, from the same entity (transform) */
                 tail = DepthChain_Surf(entry);
-                memset(&materialchain, 0, sizeof(materialchain));
+                MaterialChains_Init_Reverse(&materialchain, 1);
                 MaterialChain_AddSurf(&materialchain, tail);
                 material = tail->material;
                 entity = entry->entity;
@@ -1532,7 +1531,6 @@ R_DrawTranslucency(void)
                     MaterialChain_AddSurf_Tail(&materialchain, surf, &tail);
                     next = next->next;
                 }
-                tail->chain = NULL;
 
                 // DRAW
 

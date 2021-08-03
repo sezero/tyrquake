@@ -725,3 +725,23 @@ R_BrushModelLoader()
     return &GL_BrushModelLoader;
 }
 
+void
+MaterialChain_HandleOverflow(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
+{
+    materialchain_t *overflow = Z_Malloc(mainzone, sizeof(materialchain_t));
+    *overflow = *materialchain;
+    materialchain->numverts = 0;
+    materialchain->numindices = 0;
+    materialchain->surf = surf;
+    surf->chain = NULL;
+
+    if (tail) {
+        *tail = surf;
+        overflow->overflow = materialchain->overflow_tail;
+        overflow->overflow_tail = NULL;
+        materialchain->overflow_tail = overflow;
+    } else {
+        materialchain->overflow = overflow;
+        materialchain->overflow_tail = NULL;
+    }
+}

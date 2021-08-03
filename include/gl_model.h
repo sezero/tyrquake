@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define GL_MODEL_H
 
 #include <assert.h>
+#include <string.h>
 
 #include "model.h"
 
@@ -83,30 +84,84 @@ typedef struct {
     lm_block_t *blocks;
 } glbrushmodel_resource_t;
 
-typedef struct {
-    msurface_t *surf;
+/*
+ * TODO: We can go all the way to 65536 once we have dynamic buffers.
+ *       For now keep it to a smaller limit while we still have the
+ *       stack allocated triangle buffer. Go even smaller for stress
+ *       testing! :)
+ */
+#define MATERIALCHAIN_MAX_VERTS 4096
+
+typedef struct materialchain_s {
     uint32_t numverts;
     uint32_t numindices;
+    msurface_t *surf;
+    struct materialchain_s *overflow;      // Z_Malloc'd when (rarely?) exceeding max verts
+    struct materialchain_s *overflow_tail; // Reverse order of batches for the transparency case
 } materialchain_t;
+
+static inline void
+MaterialChains_Init(materialchain_t *materialchains, int count)
+{
+    memset(materialchains, 0, count * sizeof(*materialchains));
+}
+
+static inline void
+MaterialChains_Init_Reverse(materialchain_t *materialchains, int count)
+{
+    memset(materialchains, 0, count * sizeof(*materialchains));
+    for (int i = 0; i < count; i++)
+        materialchains[i].overflow_tail = &materialchains[i];
+}
+
+/*
+ * Iterate over materialchains, freeing overflow blocks as they are processed.
+ * Automatically handles the reversed chain order used by transparency passes.
+ */
+#define ForEach_MaterialChain(_materialchain) \
+    for (materialchain_t *_head = ({                                                                          \
+             materialchain_t *orig = _materialchain;                                                          \
+             _materialchain = _materialchain->overflow_tail ? _materialchain->overflow_tail : _materialchain; \
+             orig; });                                                                                        \
+        _materialchain;                                                                                       \
+        ({  materialchain_t *next = _materialchain->overflow;                                                 \
+            if (_materialchain != _head) Z_Free(mainzone, _materialchain);                                    \
+            _materialchain = next; }))
+
+
+void MaterialChain_HandleOverflow(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail);
 
 /* Add materials to the chain, while tracking the buffer sizes that will be required */
 static inline void
 MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
 {
-    surf->chain = materialchain->surf;
-    materialchain->surf = surf;
-    materialchain->numverts += surf->poly->numverts;
-    materialchain->numindices += (surf->poly->numverts - 2) * 3;
+    if (surf->poly) {
+        if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
+            MaterialChain_HandleOverflow(materialchain, surf, NULL);
+        } else {
+            surf->chain = materialchain->surf;
+            materialchain->surf = surf;
+        }
+        materialchain->numverts += surf->numedges;
+        materialchain->numindices += (surf->numedges - 2) * 3;
+    }
 }
 
 /* Helper for the add-to-tail case, caller provides the tail pointer */
 static inline void
 MaterialChain_AddSurf_Tail(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
 {
-    materialchain->numverts += surf->poly->numverts;
-    materialchain->numindices += (surf->poly->numverts - 2) * 3;
-    (*tail)->chain = surf;
-    *tail = surf;
+    if (surf->poly) {
+        if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
+            MaterialChain_HandleOverflow(materialchain, surf, tail);
+        } else {
+            surf->chain = NULL;
+            (*tail)->chain = surf;
+            *tail = surf;
+        }
+        materialchain->numverts += surf->numedges;
+        materialchain->numindices += (surf->numedges - 2) * 3;
+    }
 }
 
 typedef struct {

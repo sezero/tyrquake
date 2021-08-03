@@ -19,6 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 // gl_rsurf.c: surface-related refresh code
 
+#include <assert.h>
 #include <float.h>
 #include <math.h>
 
@@ -341,7 +342,7 @@ R_MirrorChain(msurface_t *surf)
  * we can never run out of indices and only need to check space for
  * vertices.
  */
-#define TRIBUF_MAX_VERTS 4096
+#define TRIBUF_MAX_VERTS MATERIALCHAIN_MAX_VERTS
 #define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 3)
 
 typedef struct {
@@ -408,6 +409,8 @@ TriBuf_AddFlatPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
     GLbyte color[3];
     int i;
 
+    assert(TriBuf_CheckSpacePoly(buffer, poly));
+
     srand((intptr_t)poly);
     color[0] = (byte)(rand() & 0xff);
     color[1] = (byte)(rand() & 0xff);
@@ -420,6 +423,20 @@ TriBuf_AddFlatPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
         *dst++ = color[2];
     }
     TriBuf_AddPoly(buffer, poly);
+}
+
+static void
+TriBuf_SimpleFlush(triangle_buffer_t *buffer)
+{
+    assert(buffer->numindices > 0);
+
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    gl_draw_calls++;
+    gl_verts_submitted += buffer->numverts;
+    gl_indices_submitted += buffer->numindices;
+
+    buffer->numverts = 0;
+    buffer->numindices = 0;
 }
 
 /*
@@ -449,10 +466,8 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 
     glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
     glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
-    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
-    gl_draw_calls++;
-    gl_verts_submitted += buffer->numverts;
-    gl_indices_submitted += buffer->numindices;
+
+    TriBuf_SimpleFlush(buffer);
 
     if (alpha < 1.0f) {
 	glColor4f(1, 1, 1, 1);
@@ -486,10 +501,8 @@ TriBuf_DrawFlat(triangle_buffer_t *buffer)
     glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
     glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, buffer->colors);
-    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
-    gl_draw_calls++;
-    gl_verts_submitted += buffer->numverts;
-    gl_indices_submitted += buffer->numindices;
+
+    TriBuf_SimpleFlush(buffer);
 
     glDisableClientState(GL_COLOR_ARRAY);
     glEnable(GL_TEXTURE_2D);
@@ -842,21 +855,6 @@ TransformPoly(const entity_t *entity, const transform_t *xfrm,
     }
 }
 
-static void
-TriBuf_SimpleFlush(triangle_buffer_t *buffer)
-{
-    if (!buffer->numindices)
-        return;
-
-    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
-    gl_draw_calls++;
-    gl_verts_submitted += buffer->numverts;
-    gl_indices_submitted += buffer->numindices;
-
-    buffer->numverts = 0;
-    buffer->numindices = 0;
-}
-
 /*
  * Check for a sky material on the brushmodel.
  * Return the material number, or -1 if none exists.
@@ -878,16 +876,18 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     transform_t xfrm;
     vec3_t polymins, polymaxs;
     glbrushmodel_t *glbrushmodel;
-    msurface_t *surf;
 
-    for (surf = materialchain->surf ; surf; surf = surf->chain) {
-        if (!surf->poly)
-            continue;
-        if (mins)
-            Sky_AddPolyToSkyboxBounds(surf->poly, mins, maxs);
-        if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
-            TriBuf_SimpleFlush(buffer);
-        TriBuf_AddPoly(buffer, surf->poly);
+    ForEach_MaterialChain(materialchain) {
+        if (mins) {
+            for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
+                Sky_AddPolyToSkyboxBounds(surf->poly, mins, maxs);
+                TriBuf_AddPoly(buffer, surf->poly);
+            }
+        } else {
+            for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
+                TriBuf_AddPoly(buffer, surf->poly);
+        }
+        TriBuf_SimpleFlush(buffer);
     }
 
     /* If there are (dynamic) submodels with sky surfaces, draw them now */
@@ -909,14 +909,12 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
             skymaterial = SkyMaterialNum(glbrushmodel);
             if (skymaterial < 0)
                 continue;
-            surf = glbrushmodel->materialchains[skymaterial].surf;
+            msurface_t *surf = glbrushmodel->materialchains[skymaterial].surf;
             if (!surf)
                 continue;
 
             SetupEntityTransform(entity, &xfrm);
             for ( ; surf; surf = surf->chain) {
-                if (!surf->poly)
-                    continue;
                 float dot = DotProduct(xfrm.origin, surf->plane->normal) - surf->plane->dist;
                 if ((surf->flags & SURF_PLANEBACK) && dot > BACKFACE_EPSILON)
                     continue;
@@ -933,7 +931,8 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
             }
         }
     }
-    TriBuf_SimpleFlush(buffer);
+    if (buffer->numverts)
+        TriBuf_SimpleFlush(buffer);
 }
 
 static void
@@ -1128,7 +1127,14 @@ TriBuf_AddSkyVert(triangle_buffer_t *buffer, const vec3_t vert, float speed1, fl
 /* DEBUG_SKY is helpful to see how well the skybox culling is working */
 #define DEBUG_SKY 0
 #define SKYCLIP_EPSILON 0.0001f
-#define MAX_SKY_QUALITY (TRIBUF_MAX_INDICES / 6)
+
+/*
+ * Because we set up the vertices in rows rather than one triangle at
+ * a time, we need to be able to fix at least one row of sky triangles
+ * into the buffer.  This should never be a problem, unless
+ * artificially restricting the size for debugging purposes.
+ */
+#define MAX_SKY_QUALITY (TRIBUF_MAX_INDICES / 6 < 64 ? TRIBUF_MAX_INDICES / 6 : 64)
 
 static void
 DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture_t *texture)
@@ -1343,43 +1349,21 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
     else if (surf->flags & SURF_DRAWTELE)
         alpha *= map_telealpha;
 
-    for ( ; surf; surf = surf->chain) {
-        if (!surf->poly)
-            continue;
-        if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
-            goto drawBuffer;
-    addPoly:
-        TriBuf_AddPoly(buffer, surf->poly);
-    }
- drawBuffer:
-    if (buffer->numindices) {
-	TriBuf_DrawTurb(buffer, texture, alpha);
-	buffer->numverts = 0;
-	buffer->numindices = 0;
-	if (surf && surf->poly)
-	    goto addPoly;
+    ForEach_MaterialChain(materialchain) {
+        for (surf = materialchain->surf; surf; surf = surf->chain)
+            TriBuf_AddPoly(buffer, surf->poly);
+        TriBuf_DrawTurb(buffer, texture, alpha);
     }
 }
 
 static void
 DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
-    msurface_t *surf;
-    for (surf = materialchain->surf ; surf; surf = surf->chain) {
-        if (!surf->poly)
-            continue;
-        if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
-            goto drawBuffer;
-    addPoly:
-        TriBuf_AddFlatPoly(buffer, surf->poly);
-    }
- drawBuffer:
-    if (buffer->numindices) {
-	TriBuf_DrawFlat(buffer);
-	buffer->numverts = 0;
-	buffer->numindices = 0;
-	if (surf && surf->poly)
-	    goto addPoly;
+    ForEach_MaterialChain(materialchain) {
+        for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
+            TriBuf_AddFlatPoly(buffer, surf->poly);
+        if (buffer->numindices)
+            TriBuf_DrawFlat(buffer);
     }
 }
 
@@ -1388,27 +1372,19 @@ DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrus
 {
     texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
     lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
-    msurface_t *surf = materialchain->surf;
-    int flags = surf->flags;
-    for ( ; surf; surf = surf->chain) {
-	if (!surf->poly)
-	    continue;
-	if (!TriBuf_CheckSpacePoly(buffer, surf->poly))
-	    goto drawBuffer;
-    addPoly:
-	R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
-	TriBuf_AddPoly(buffer, surf->poly);
-    }
- drawBuffer:
-    if (buffer->numindices) {
+    int flags = materialchain->surf->flags;
+
+    ForEach_MaterialChain(materialchain) {
+        for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
+            R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+            TriBuf_AddPoly(buffer, surf->poly);
+        }
         if (flags & SURF_DRAWTILED)
             TriBuf_DrawFullbrightSolid(buffer, texture);
         else
             TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
-	buffer->numverts = 0;
-	buffer->numindices = 0;
-	if (surf && surf->poly)
-	    goto addPoly;
+        buffer->numverts = 0;
+        buffer->numindices = 0;
     }
 }
 
@@ -1647,7 +1623,7 @@ R_SetupDynamicBrushModelMaterialChains(entity_t *entity, const vec3_t modelorg)
     glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
     materialchain_t *materialchains = glbrushmodel->materialchains;
 
-    memset(materialchains, 0, glbrushmodel->nummaterials * sizeof(materialchain_t));
+    MaterialChains_Init(materialchains, glbrushmodel->nummaterials);
 
     R_AddBrushModelToMaterialChains(entity, modelorg, materialchains, depthchain_bmodel_transformed);
     R_SwapAltAnimationChains(entity, materialchains);
@@ -1921,7 +1897,7 @@ R_PrepareWorldMaterialChains()
     glbrushmodel_t *glbrushmodel;
 
     glbrushmodel = GLBrushModel(cl.worldmodel);
-    memset(glbrushmodel->materialchains, 0, glbrushmodel->nummaterials * sizeof(materialchain_t));
+    MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->nummaterials);
     R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
 }
 
