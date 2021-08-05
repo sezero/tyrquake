@@ -85,16 +85,16 @@ typedef struct {
 } glbrushmodel_resource_t;
 
 /*
- * TODO: We can go all the way to 65536 once we have dynamic buffers.
- *       For now keep it to a smaller limit while we still have the
- *       stack allocated triangle buffer. Go even smaller for stress
- *       testing! :)
+ * We can go all the way to 65536 now that we have dynamic buffers.
+ * This can be set nice and small when we want to debug chaining of
+ * buffers for huge numbers of material triangles.
  */
-#define MATERIALCHAIN_MAX_VERTS 4096
+//#define MATERIALCHAIN_MAX_VERTS 64
+#define MATERIALCHAIN_MAX_VERTS 65536
 
 typedef struct materialchain_s {
-    uint32_t numverts;
-    uint32_t numindices;
+    int32_t numverts;
+    int32_t numindices;
     msurface_t *surf;
     struct materialchain_s *overflow;      // Z_Malloc'd when (rarely?) exceeding max verts
     struct materialchain_s *overflow_tail; // Reverse order of batches for the transparency case

@@ -345,13 +345,88 @@ R_MirrorChain(msurface_t *surf)
 #define TRIBUF_MAX_VERTS MATERIALCHAIN_MAX_VERTS
 #define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 3)
 
+/*
+ * Define a reasonable minimum allocation to avoid lots of small
+ * re-allocs to grow the buffers.
+ */
+#define TRIBUF_MIN_VERTS qmin(TRIBUF_MAX_VERTS, 2048)
+#define TRIBUF_MIN_INDICES (TRIBUF_MIN_VERTS * 3)
+
 typedef struct {
-    int numverts;
-    int numindices;
-    float verts[TRIBUF_MAX_VERTS][VERTEXSIZE];
-    byte colors[TRIBUF_MAX_VERTS * 3];
-    uint16_t indices[TRIBUF_MAX_INDICES];
+    int32_t numverts;
+    int32_t numindices;
+    vec7_t *verts;
+    uint16_t *indices;
+    byte *colors; // Only used for r_drawflat
+
+    uint32_t numverts_allocated;
+    uint32_t numindices_allocated;
+    int hunk_mark;
 } triangle_buffer_t;
+
+/*
+ * Reset the triangle buffer and ensure enough space has been
+ * allocated for the incoming materialchain.
+ */
+static void
+TriBuf_Prepare(triangle_buffer_t *buffer, materialchain_t *materialchain)
+{
+    assert(TRIBUF_MIN_VERTS <= TRIBUF_MAX_VERTS);
+
+    int32_t numverts = 0;
+    int32_t numindices = 0;
+    materialchain = materialchain->overflow_tail ? materialchain->overflow_tail : materialchain;
+    while (materialchain) {
+        if (materialchain->overflow)
+            gl_full_buffers++;
+        numverts = qmax(numverts, materialchain->numverts);
+        numindices = qmax(numindices, materialchain->numindices);
+        materialchain = materialchain->overflow;
+    }
+
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+
+    if (gl_buffer_objects_enabled) {
+        // TODO! - size and map the buffer objects
+    }
+
+    if (buffer->numverts_allocated >= numverts && buffer->numindices_allocated >= numindices)
+        return;
+    if (buffer->hunk_mark)
+        Hunk_FreeToLowMark(buffer->hunk_mark);
+
+    buffer->hunk_mark = Hunk_LowMark();
+    buffer->numverts_allocated = qmax(numverts, TRIBUF_MIN_VERTS);
+    buffer->numindices_allocated = qmax(numindices, TRIBUF_MIN_INDICES);
+    buffer->verts = Hunk_AllocName_Raw(buffer->numverts_allocated * sizeof(vec7_t), "vertbuf");
+    buffer->indices = Hunk_AllocName_Raw(buffer->numindices_allocated * sizeof(uint16_t), "indexbuf");
+    buffer->colors = r_drawflat.value
+        ? Hunk_AllocName_Raw(buffer->numverts_allocated * 3 * sizeof(byte), "colorbuf")
+        : NULL;
+}
+
+/*
+ * Mark the buffer and finalised, indicating no further changes will be made.
+ * Required to mark the 'unmap' point when using GL buffer objects.
+ */
+static void
+TriBuf_Finalise(triangle_buffer_t *buffer)
+{
+    if (gl_buffer_objects_enabled) {
+        // TODO! - Unmap the buffer objects
+    }
+}
+
+/*
+ * Mark the allocations as no longer needed.
+ */
+static void
+TriBuf_Release(triangle_buffer_t *buffer)
+{
+    if (buffer->hunk_mark)
+        Hunk_FreeToLowMark(buffer->hunk_mark);
+}
 
 int gl_draw_calls;
 int gl_verts_submitted;
@@ -361,7 +436,11 @@ int gl_full_buffers;
 static inline qboolean
 TriBuf_CheckSpacePoly(const triangle_buffer_t *buffer, const glpoly_t *poly)
 {
-    if (buffer->numverts + poly->numverts > TRIBUF_MAX_VERTS) {
+    if (buffer->numverts + poly->numverts > buffer->numverts_allocated) {
+	gl_full_buffers++;
+	return false;
+    }
+    if (buffer->numindices + poly->numverts > buffer->numindices_allocated) {
 	gl_full_buffers++;
 	return false;
     }
@@ -1472,9 +1551,12 @@ DrawMaterialChains(const entity_t *entity)
 
         // Skip transparent liquid surfaces for drawing last
         int flags = materialchain->surf->flags;
-        if (flags & r_surfalpha_flags)
+        if (flags & r_surfalpha_flags) {
+            TriBuf_Release(&buffer);
             return;
+        }
 
+        TriBuf_Prepare(&buffer, materialchain);
         DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
     }
 
@@ -1489,27 +1571,30 @@ DrawMaterialChains(const entity_t *entity)
         if (!(flags & SURF_DRAWSKY))
             continue;
 	texture_t *texture = brushmodel->textures[material->texturenum];
+        TriBuf_Prepare(&buffer, materialchain);
         DrawSkyChain(&buffer, materialchain, texture);
         break;
     }
 #endif
 
+    TriBuf_Release(&buffer);
     GL_EndMaterialChains();
 }
 
 void
 R_DrawTranslucentChain(entity_t *entity, materialchain_t *materialchain, float alpha)
 {
-    triangle_buffer_t buffer;
+    triangle_buffer_t buffer = {0};
     brushmodel_t *brushmodel = BrushModel(entity->model);
     glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
     surface_material_t *material = &glbrushmodel->materials[materialchain->surf->material];
 
     GL_BeginMaterialChains();
 
-    buffer.numverts = 0;
-    buffer.numindices = 0;
+    // TODO: lift the buffer out so we don't re-alloc for each translucent render
+    TriBuf_Prepare(&buffer, materialchain);
     DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
+    TriBuf_Release(&buffer);
 
     GL_EndMaterialChains();
 }

@@ -107,6 +107,7 @@ char *Z_StrDup(memzone_t *zone, const char *string);
 char *Z_StrnDup(memzone_t *zone, const char *string, size_t size);
 
 #define HUNK_NAMELEN 8
+void *Hunk_AllocName_Raw(int size, const char *name);
 void *Hunk_AllocName(int size, const char *name);
 void *Hunk_AllocExtend(const void *base, int size);
 

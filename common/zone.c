@@ -554,11 +554,12 @@ Hunk_UpdatePeakUsage()
 
 /*
  * ===================
- * Hunk_AllocName
+ * Hunk_AllocName_Raw
+ *  (Allocate uninitialised memory)
  * ===================
  */
 void *
-Hunk_AllocName(int size, const char *name)
+Hunk_AllocName_Raw(int size, const char *name)
 {
     hunk_t *hunk;
     size_t freebytes;
@@ -594,9 +595,9 @@ Hunk_AllocName(int size, const char *name)
 
     Cache_FreeLow(hunkstate.lowbytes);
 
-    memset(hunk, 0, size);
     hunk->size = size;
     hunk->sentinal = HUNK_SENTINAL;
+    memset(hunk->name, 0, HUNK_NAMELEN);
     memcpy(hunk->name, name, qmin((int)strlen(name), HUNK_NAMELEN));
 
     /* Save a copy of the allocated address */
@@ -605,6 +606,21 @@ Hunk_AllocName(int size, const char *name)
     Hunk_UpdatePeakUsage();
 
     return hunkstate.lowbase;
+}
+
+/*
+ * ===================
+ * Hunk_AllocName
+ *  (Allocate and zero)
+ * ===================
+ */
+void *
+Hunk_AllocName(int size, const char *name)
+{
+    void *result = Hunk_AllocName_Raw(size, name);
+    memset(result, 0, size);
+
+    return result;
 }
 
 /*
