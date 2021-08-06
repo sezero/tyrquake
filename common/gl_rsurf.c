@@ -362,6 +362,8 @@ typedef struct {
     uint32_t numverts_allocated;
     uint32_t numindices_allocated;
     int hunk_mark;
+
+    qboolean finalised;
 } triangle_buffer_t;
 
 /*
@@ -384,9 +386,6 @@ TriBuf_Prepare(triangle_buffer_t *buffer, materialchain_t *materialchain)
         materialchain = materialchain->overflow;
     }
 
-    buffer->numverts = 0;
-    buffer->numindices = 0;
-
     if (gl_buffer_objects_enabled) {
         // TODO! - size and map the buffer objects
     }
@@ -404,6 +403,11 @@ TriBuf_Prepare(triangle_buffer_t *buffer, materialchain_t *materialchain)
     buffer->colors = r_drawflat.value
         ? Hunk_AllocName_Raw(buffer->numverts_allocated * 3 * sizeof(byte), "colorbuf")
         : NULL;
+
+    /* Reset to empty buffer state */
+    buffer->numverts = 0;
+    buffer->numindices = 0;
+    buffer->finalised = false;
 }
 
 /*
@@ -416,6 +420,8 @@ TriBuf_Finalise(triangle_buffer_t *buffer)
     if (gl_buffer_objects_enabled) {
         // TODO! - Unmap the buffer objects
     }
+
+    buffer->finalised = true;
 }
 
 /*
@@ -424,6 +430,8 @@ TriBuf_Finalise(triangle_buffer_t *buffer)
 static void
 TriBuf_Release(triangle_buffer_t *buffer)
 {
+    assert(buffer->finalised);
+
     if (buffer->hunk_mark)
         Hunk_FreeToLowMark(buffer->hunk_mark);
 }
@@ -507,6 +515,7 @@ TriBuf_AddFlatPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
 static void
 TriBuf_SimpleFlush(triangle_buffer_t *buffer)
 {
+    assert(buffer->finalised);
     assert(buffer->numindices > 0);
 
     glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
@@ -957,6 +966,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     glbrushmodel_t *glbrushmodel;
 
     ForEach_MaterialChain(materialchain) {
+        TriBuf_Prepare(buffer, materialchain);
         if (mins) {
             for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
                 Sky_AddPolyToSkyboxBounds(surf->poly, mins, maxs);
@@ -966,6 +976,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
             for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
                 TriBuf_AddPoly(buffer, surf->poly);
         }
+        TriBuf_Finalise(buffer);
         TriBuf_SimpleFlush(buffer);
     }
 
@@ -1429,8 +1440,10 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
         alpha *= map_telealpha;
 
     ForEach_MaterialChain(materialchain) {
+        TriBuf_Prepare(buffer, materialchain);
         for (surf = materialchain->surf; surf; surf = surf->chain)
             TriBuf_AddPoly(buffer, surf->poly);
+        TriBuf_Finalise(buffer);
         TriBuf_DrawTurb(buffer, texture, alpha);
     }
 }
@@ -1439,10 +1452,11 @@ static void
 DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
     ForEach_MaterialChain(materialchain) {
+        TriBuf_Prepare(buffer, materialchain);
         for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
             TriBuf_AddFlatPoly(buffer, surf->poly);
-        if (buffer->numindices)
-            TriBuf_DrawFlat(buffer);
+        TriBuf_Finalise(buffer);
+        TriBuf_DrawFlat(buffer);
     }
 }
 
@@ -1454,10 +1468,12 @@ DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrus
     int flags = materialchain->surf->flags;
 
     ForEach_MaterialChain(materialchain) {
+        TriBuf_Prepare(buffer, materialchain);
         for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
             R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
             TriBuf_AddPoly(buffer, surf->poly);
         }
+        TriBuf_Finalise(buffer);
         if (flags & SURF_DRAWTILED)
             TriBuf_DrawFullbrightSolid(buffer, texture);
         else
