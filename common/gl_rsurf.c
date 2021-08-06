@@ -430,11 +430,19 @@ TriBuf_Finalise(triangle_buffer_t *buffer)
 static void
 TriBuf_Release(triangle_buffer_t *buffer)
 {
-    assert(buffer->finalised);
+    if (!buffer->finalised)
+        TriBuf_Finalise(buffer);
 
     if (buffer->hunk_mark)
         Hunk_FreeToLowMark(buffer->hunk_mark);
 }
+
+static void
+TriBuf_DrawElements(triangle_buffer_t *buffer)
+{
+    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+}
+
 
 int gl_draw_calls;
 int gl_verts_submitted;
@@ -518,7 +526,7 @@ TriBuf_SimpleFlush(triangle_buffer_t *buffer)
     assert(buffer->finalised);
     assert(buffer->numindices > 0);
 
-    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    TriBuf_DrawElements(buffer);
     gl_draw_calls++;
     gl_verts_submitted += buffer->numverts;
     gl_indices_submitted += buffer->numindices;
@@ -619,7 +627,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 	qglClientActiveTexture(GL_TEXTURE1);
 	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
 
-	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	TriBuf_DrawElements(buffer);
 	gl_draw_calls++;
 	gl_verts_submitted += buffer->numverts;
 	gl_indices_submitted += buffer->numindices;
@@ -629,7 +637,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 
 	glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
 	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
-	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	TriBuf_DrawElements(buffer);
 
 	glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
@@ -639,7 +647,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 
         glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
-        glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+        TriBuf_DrawElements(buffer);
 
         glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
@@ -657,7 +665,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
         const float *color = Fog_GetColor();
         glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
-	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	TriBuf_DrawElements(buffer);
 	gl_draw_calls++;
 	gl_verts_submitted += buffer->numverts;
 	gl_indices_submitted += buffer->numindices;
@@ -684,7 +692,7 @@ TriBuf_DrawFullbrightSolid(triangle_buffer_t *buffer, const texture_t *texture)
     glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
     glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
 
-    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    TriBuf_DrawElements(buffer);
     gl_draw_calls++;
     gl_verts_submitted += buffer->numverts;
     gl_indices_submitted += buffer->numindices;
@@ -737,7 +745,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
         }
 
-	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	TriBuf_DrawElements(buffer);
 	gl_draw_calls++;
 	gl_verts_submitted += buffer->numverts;
 	gl_indices_submitted += buffer->numindices;
@@ -754,7 +762,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 
 	glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
 	glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
-	glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+	TriBuf_DrawElements(buffer);
 
         gl_draw_calls++;
         gl_verts_submitted += buffer->numverts;
@@ -775,7 +783,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 
         glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][5]);
-        glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+        TriBuf_DrawElements(buffer);
 
         gl_draw_calls++;
         gl_verts_submitted += buffer->numverts;
@@ -790,7 +798,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             GL_Bind(texture->gl_texturenum);
             glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
             glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
-            glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+            TriBuf_DrawElements(buffer);
             glColor3f(1, 1, 1);
 
             gl_draw_calls++;
@@ -816,7 +824,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 
         GL_Bind(texture->gl_texturenum_fullbright);
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
-        glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+        TriBuf_DrawElements(buffer);
 
         gl_draw_calls++;
         gl_verts_submitted += buffer->numverts;
@@ -1156,7 +1164,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
         GL_Bind(skytextures[facenum].gl_texturenum);
         glVertexPointer(3, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][0]);
         glTexCoordPointer(2, GL_FLOAT, VERTEXSIZE * sizeof(float), &buffer->verts[0][3]);
-        glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+        TriBuf_DrawElements(buffer);
         gl_draw_calls++;
         gl_verts_submitted += buffer->numverts;
         gl_indices_submitted += buffer->numindices;
@@ -1168,7 +1176,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
             const float *color = Fog_GetColor();
             glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
-            glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+            TriBuf_DrawElements(buffer);
             gl_draw_calls++;
             gl_verts_submitted += buffer->numverts;
             gl_indices_submitted += buffer->numindices;
