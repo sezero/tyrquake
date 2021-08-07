@@ -427,12 +427,8 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
     assert(TRIBUF_MIN_VERTS <= TRIBUF_MAX_VERTS);
 
     if (buffer->state == TRIBUF_STATE_PREPARED) {
-        //Sys_Printf("Already prepared previously at %s:%d\n", buffer->file, buffer->line);
-        //assert(buffer->state != TRIBUF_STATE_PREPARED);
-    }
-
-    if (buffer->state == TRIBUF_STATE_PREPARED) {
-        TriBuf_Finalise(buffer);
+        Sys_Printf("Already prepared previously at %s:%d\n", buffer->file, buffer->line);
+        assert(buffer->state != TRIBUF_STATE_PREPARED);
     }
 
     /* Reset to empty buffer state */
@@ -440,16 +436,8 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
     buffer->numindices = 0;
     TriBuf_SetState(buffer, TRIBUF_STATE_PREPARED);
 
-    int32_t numverts = 0;
-    int32_t numindices = 0;
-    materialchain = materialchain->overflow_tail ? materialchain->overflow_tail : materialchain;
-    while (materialchain) {
-        if (materialchain->overflow)
-            gl_full_buffers++;
-        numverts = qmax(numverts, materialchain->numverts);
-        numindices = qmax(numindices, materialchain->numindices);
-        materialchain = materialchain->overflow;
-    }
+    int32_t numverts = materialchain->numverts;
+    int32_t numindices = materialchain->numindices;
 
     if (gl_buffer_objects_enabled) {
         // TODO! - size and map the buffer objects
@@ -476,8 +464,10 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
 static void
 TriBuf_Release_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
 {
-    if (buffer->state == TRIBUF_STATE_PREPARED)
+    if (buffer->state == TRIBUF_STATE_PREPARED) {
+        Sys_Printf("Warning, releasing a prepared buffer! (from %s::%d)\n", file, line);
         TriBuf_Finalise(buffer);
+    }
 
     if (buffer->hunk_mark)
         Hunk_FreeToLowMark(buffer->hunk_mark);
@@ -513,6 +503,69 @@ TriBuf_ColorPointer(triangle_buffer_t *buffer)
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, buffer->colors);
 }
 
+/*
+ * Vertex Buffer State - Encapsulate all we need to make sure the
+ * correct array buffers are active and pointing at the correct
+ * offset.  Probably want a better name for this.  Later.
+ */
+#define VBO_MAX_TEXCOORDS 3
+struct buffer_state {
+    qboolean color; // true if active
+    struct {
+        qboolean active; // True or false.  Always interleaved with vertices.
+        uint8_t slot;    // 0 or 1 for the two sets of texcoords interleaved in the vbo
+    } texcoords[VBO_MAX_TEXCOORDS];
+};
+
+/*
+ * Set array object pointers for vertices, texcoords and colors
+ * according to a given set of desired VBO bindings.
+ *
+ * TODO: avoid API calls if state hasn't changed
+ */
+static void
+TriBuf_SetBufferState(triangle_buffer_t *buffer, const struct buffer_state *state)
+{
+    assert(buffer->state >= TRIBUF_STATE_PREPARED); // Finalised?
+
+    if (gl_buffer_objects_enabled) {
+
+        // This may not need to be a separate path...
+        assert(false);
+
+    } else {
+        /* Always set the vertex pointer */
+        TriBuf_VertexPointer(buffer);
+
+        /* Set the color pointer, if enabled */
+        if (state->color) {
+            glEnableClientState(GL_COLOR_ARRAY);
+            TriBuf_ColorPointer(buffer);
+        } else {
+            glDisableClientState(GL_COLOR_ARRAY);
+        }
+
+        /* Set texcoord state for each tmu */
+        if (gl_mtexable) {
+            for (int i = 0; i < VBO_MAX_TEXCOORDS; i++) {
+                qglClientActiveTexture(GL_TEXTURE0 + i);
+                if (!state->texcoords[i].active) {
+                    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+                    continue;
+                }
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                TriBuf_TexCoordPointer(buffer, state->texcoords[i].slot);
+            }
+        } else {
+            if (!state->texcoords[0].active) {
+                glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+            } else {
+                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+                TriBuf_TexCoordPointer(buffer, state->texcoords[0].slot);
+            }
+        }
+    }
+}
 
 int gl_draw_calls;
 int gl_verts_submitted;
@@ -520,8 +573,12 @@ int gl_indices_submitted;
 int gl_full_buffers;
 
 static void
-TriBuf_DrawElements(triangle_buffer_t *buffer)
+TriBuf_DrawElements(triangle_buffer_t *buffer, const struct buffer_state *state)
 {
+    assert(buffer->state == TRIBUF_STATE_FINALISED);
+    assert(buffer->numindices > 0);
+
+    TriBuf_SetBufferState(buffer, state);
     glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
     gl_draw_calls++;
@@ -596,15 +653,6 @@ TriBuf_AddFlatPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
     TriBuf_AddPoly(buffer, poly);
 }
 
-static void
-TriBuf_SimpleFlush(triangle_buffer_t *buffer)
-{
-    assert(buffer->state == TRIBUF_STATE_FINALISED);
-    assert(buffer->numindices > 0);
-
-    TriBuf_DrawElements(buffer);
-}
-
 /*
  * Water/Slime/Lava/Tele are fullbright (no lightmap)
  * May be blended, depending on r_wateralpha setting
@@ -614,9 +662,6 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 {
     if (gl_mtexable) {
 	GL_DisableMultitexture();
-	qglClientActiveTexture(GL_TEXTURE1);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	qglClientActiveTexture(GL_TEXTURE0);
 	GL_SelectTexture(GL_TEXTURE0_ARB);
     }
 
@@ -630,9 +675,10 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
     GL_Bind(texture->gl_warpimage);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    TriBuf_VertexPointer(buffer);
-    TriBuf_TexCoordPointer(buffer, 0);
-    TriBuf_SimpleFlush(buffer);
+    const struct buffer_state state = {
+        .texcoords = { [0] = { .active = true, .slot = 0 } },
+    };
+    TriBuf_DrawElements(buffer, &state);
 
     if (alpha < 1.0f) {
 	glColor4f(1, 1, 1, 1);
@@ -642,8 +688,6 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 
     if (gl_mtexable) {
 	GL_EnableMultitexture();
-	qglClientActiveTexture(GL_TEXTURE1);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 }
 
@@ -652,29 +696,18 @@ TriBuf_DrawFlat(triangle_buffer_t *buffer)
 {
     if (gl_mtexable) {
 	GL_DisableMultitexture();
-	qglClientActiveTexture(GL_TEXTURE1);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	qglClientActiveTexture(GL_TEXTURE0);
-	GL_SelectTexture(GL_TEXTURE0_ARB);
     }
 
-    glEnableClientState(GL_COLOR_ARRAY);
     glDisable(GL_TEXTURE_2D);
-
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    TriBuf_VertexPointer(buffer);
-    TriBuf_TexCoordPointer(buffer, 0); // FIXME: texcoords for drawflat?
-    TriBuf_ColorPointer(buffer);
-    TriBuf_SimpleFlush(buffer);
+    const struct buffer_state state = { .color = true };
+    TriBuf_DrawElements(buffer, &state);
 
-    glDisableClientState(GL_COLOR_ARRAY);
     glEnable(GL_TEXTURE_2D);
 
     if (gl_mtexable) {
 	GL_EnableMultitexture();
-	qglClientActiveTexture(GL_TEXTURE1);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 }
 
@@ -689,20 +722,21 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
         GL_Bind(texture->gl_texturenum_alpha);
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 
-	TriBuf_VertexPointer(buffer);
-	qglClientActiveTexture(GL_TEXTURE0);
-        TriBuf_TexCoordPointer(buffer, 0);
-	qglClientActiveTexture(GL_TEXTURE1);
-        TriBuf_TexCoordPointer(buffer, 1);
-
-	TriBuf_DrawElements(buffer);
+        const struct buffer_state state = {
+            .texcoords = {
+                [0] = { .active = true, .slot = 0 },
+                [1] = { .active = true, .slot = 1 },
+            }
+        };
+	TriBuf_DrawElements(buffer, &state);
     } else {
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	GL_Bind(texture->gl_texturenum);
 
-	TriBuf_VertexPointer(buffer);
-	TriBuf_TexCoordPointer(buffer, 0);
-	TriBuf_DrawElements(buffer);
+        const struct buffer_state state = {
+            .texcoords = { [0] = { .active = true, .slot = 1 } }
+        };
+	TriBuf_DrawElements(buffer, &state);
 
 	glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
@@ -710,9 +744,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
         GL_Bind(texture->gl_texturenum_alpha);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        TriBuf_VertexPointer(buffer);
-        TriBuf_TexCoordPointer(buffer, 1);
-        TriBuf_DrawElements(buffer);
+        TriBuf_DrawElements(buffer, &state);
 
         glDisable(GL_BLEND);
 	glDepthMask(GL_TRUE);
@@ -726,7 +758,8 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
         const float *color = Fog_GetColor();
         glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
-	TriBuf_DrawElements(buffer);
+        const struct buffer_state state = {0};
+	TriBuf_DrawElements(buffer, &state);
 
         glColor4f(1, 1, 1, 1);
         glDisable(GL_BLEND);
@@ -739,18 +772,16 @@ static void
 TriBuf_DrawFullbrightSolid(triangle_buffer_t *buffer, const texture_t *texture)
 {
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_DisableMultitexture();
-        qglClientActiveTexture(GL_TEXTURE0);
     }
 
     GL_Bind(texture->gl_texturenum);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    TriBuf_VertexPointer(buffer);
-    TriBuf_TexCoordPointer(buffer, 0);
-    TriBuf_DrawElements(buffer);
+    const struct buffer_state state = {
+        .texcoords = { [0] = { .active = true, .slot = 0 } },
+    };
+    TriBuf_DrawElements(buffer, &state);
 
     if (gl_mtexable) {
         qglClientActiveTexture(GL_TEXTURE1);
@@ -784,37 +815,35 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         if (block->modified)
             R_UploadLMBlockUpdate(block);
 
-	TriBuf_VertexPointer(buffer);
-	qglClientActiveTexture(GL_TEXTURE0);
-	TriBuf_TexCoordPointer(buffer, 0);
-	qglClientActiveTexture(GL_TEXTURE1);
-	TriBuf_TexCoordPointer(buffer, 1);
-
+        struct buffer_state state = {
+            .texcoords = {
+                [0] = { .active = true, .slot = 0 },
+                [1] = { .active = true, .slot = 1 },
+            }
+        };
         if (gl_num_texture_units > 2 && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
             GL_SelectTexture(GL_TEXTURE2);
             glEnable(GL_TEXTURE_2D);
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
             GL_Bind(texture->gl_texturenum_fullbright);
-            qglClientActiveTexture(GL_TEXTURE2);
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-            TriBuf_TexCoordPointer(buffer, 0);
+            state.texcoords[2].active = true;
+            state.texcoords[2].slot = 0;
         }
 
-	TriBuf_DrawElements(buffer);
+	TriBuf_DrawElements(buffer, &state);
 
         if (gl_num_texture_units > 2 && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
             glDisable(GL_TEXTURE_2D);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
             GL_SelectTexture(GL_TEXTURE1);
-            qglClientActiveTexture(GL_TEXTURE1);
         }
     } else {
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
 
-	TriBuf_VertexPointer(buffer);
-	TriBuf_TexCoordPointer(buffer, 0);
-	TriBuf_DrawElements(buffer);
+        struct buffer_state state = {
+            .texcoords = { [0] = { .active = true, .slot = 0 } }
+        };
+	TriBuf_DrawElements(buffer, &state);
 
         /*
          * By using the depth equal test, we automatically mask the
@@ -829,9 +858,8 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         if (block->modified)
             R_UploadLMBlockUpdate(block);
 
-        TriBuf_VertexPointer(buffer);
-        TriBuf_TexCoordPointer(buffer, 1);
-        TriBuf_DrawElements(buffer);
+        state.texcoords[0].slot = 1;
+        TriBuf_DrawElements(buffer, &state);
 
         Fog_StopBlend();
 
@@ -841,9 +869,8 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             glColor3f(0, 0, 0);
             GL_Bind(texture->gl_texturenum);
 
-            TriBuf_VertexPointer(buffer);
-            TriBuf_TexCoordPointer(buffer, 0);
-            TriBuf_DrawElements(buffer);
+            state.texcoords[0].slot = 0;
+            TriBuf_DrawElements(buffer, &state);
 
             glColor3f(1, 1, 1);
         }
@@ -852,11 +879,10 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         glDepthFunc(GL_LEQUAL);
     }
 
+    /* Extra pass for fullbrights */
     if ((!gl_mtexable || gl_num_texture_units < 3) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
         if (gl_mtexable) {
             GL_DisableMultitexture();
-            qglClientActiveTexture(GL_TEXTURE1);
-            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
             GL_SelectTexture(GL_TEXTURE0_ARB);
         }
 
@@ -865,16 +891,17 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
         GL_Bind(texture->gl_texturenum_fullbright);
-        TriBuf_TexCoordPointer(buffer, 0);
-        TriBuf_DrawElements(buffer);
+
+        const struct buffer_state state = {
+            .texcoords[0] = { .active = true, .slot = 0 },
+        };
+        TriBuf_DrawElements(buffer, &state);
 
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
 
         if (gl_mtexable) {
             GL_EnableMultitexture();
-            qglClientActiveTexture(GL_TEXTURE1);
-            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         }
     }
 
@@ -1003,7 +1030,7 @@ SkyMaterialNum(const glbrushmodel_t *glbrushmodel)
 }
 
 static void
-DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *materialchain, float mins[6][2], float maxs[6][2])
+DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *materialchain, const struct buffer_state *state, float mins[6][2], float maxs[6][2])
 {
     int i, maxverts, skymaterial;
     glpoly_t *poly;
@@ -1023,7 +1050,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
                 TriBuf_AddPoly(buffer, surf->poly);
         }
         TriBuf_Finalise(buffer);
-        TriBuf_SimpleFlush(buffer);
+        TriBuf_DrawElements(buffer, state);
     }
 
     /* If there are (dynamic) submodels with sky surfaces, draw them now */
@@ -1068,7 +1095,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
                 if (mins)
                     Sky_AddPolyToSkyboxBounds(poly, mins, maxs);
                 if (!TriBuf_CheckSpacePoly(buffer, poly)) {
-                    TriBuf_SimpleFlush(buffer);
+                    TriBuf_DrawElements(buffer, state);
                     TriBuf_Prepare(buffer, &dummy);
                 }
                 TriBuf_AddPoly(buffer, poly);
@@ -1076,7 +1103,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
         }
     }
     if (buffer->numverts)
-        TriBuf_SimpleFlush(buffer);
+        TriBuf_DrawElements(buffer, state);
 }
 
 static void
@@ -1084,27 +1111,18 @@ DrawSkyChain_MarkDepthAndBounds(triangle_buffer_t *buffer, materialchain_t *mate
 {
     Sky_InitBounds(mins, maxs);
 
-    /* Render the bsp polys to the z-buffer only */
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_DisableMultitexture();
-        qglClientActiveTexture(GL_TEXTURE0);
     }
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisable(GL_TEXTURE_2D);
 
-    TriBuf_VertexPointer(buffer);
-
     /* Render to the depth buffer and accumulate bounds */
-    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, mins, maxs);
+    const struct buffer_state state = {0};
+    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, &state, mins, maxs);
 
     glEnable(GL_TEXTURE_2D);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_EnableMultitexture();
     }
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
@@ -1115,26 +1133,19 @@ DrawSkyFast(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
     /* Render simple flat shaded polys */
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_DisableMultitexture();
-        qglClientActiveTexture(GL_TEXTURE0);
     }
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisable(GL_TEXTURE_2D);
 
     glColor3fv(skyflatcolor);
-    TriBuf_VertexPointer(buffer);
 
     /* Simply render the sky brush polys, no bounds checking needed */
-    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, NULL, NULL);
+    const struct buffer_state state = {0};
+    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, &state, NULL, NULL);
 
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnable(GL_TEXTURE_2D);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_EnableMultitexture();
     }
 }
@@ -1157,26 +1168,21 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
     glDepthFunc(GL_GEQUAL);
 
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_DisableMultitexture();
-        qglClientActiveTexture(GL_TEXTURE0);
     }
 
-    float scale = gl_farclip.value / sqrtf(3.0f);
+    const float scale = gl_farclip.value / sqrtf(3.0f);
+    const struct buffer_state state = {
+        .texcoords = { [0] = { .active = true, .slot = 0 } }
+    };
 
+    vec7_t verts[6];
     for (facenum = 0; facenum < 6; facenum++) {
         /* Cull skybox faces covered by geometry */
         if (mins[facenum][0] >= maxs[facenum][0] || mins[facenum][1] >= maxs[facenum][1])
             continue;
 
-        materialchain_t dummy = {
-            .numverts = 4,
-            .numindices = 6,
-        };
-        TriBuf_Prepare(buffer, &dummy);
-
-        float *vert = buffer->verts[0];
+        float *vert = verts[0];
 
         VectorMA(r_origin, scale, skyfaces[facenum][0], vert);
         vert[3] = 0;
@@ -1199,8 +1205,15 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
         vert += VERTEXSIZE;
 
         /* Cull skybox faces outside the view frustum */
-        if (R_CullBox(buffer->verts[skyfacebounds[facenum][0]], buffer->verts[skyfacebounds[facenum][1]]))
+        if (R_CullBox(verts[skyfacebounds[facenum][0]], verts[skyfacebounds[facenum][1]]))
             continue;
+
+        materialchain_t dummy = {
+            .numverts = 4,
+            .numindices = 6,
+        };
+        TriBuf_Prepare(buffer, &dummy);
+        memcpy(buffer->verts, verts, sizeof(vec7_t) * 6);
 
         unsigned short *indices = &buffer->indices[0];
         indices[0] = 0;
@@ -1216,9 +1229,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
         TriBuf_Finalise(buffer);
 
         GL_Bind(skytextures[facenum].gl_texturenum);
-        TriBuf_VertexPointer(buffer);
-        TriBuf_TexCoordPointer(buffer, 0);
-        TriBuf_DrawElements(buffer);
+        TriBuf_DrawElements(buffer, &state);
 
         // TODO: Use single pass with a skyfog texture of the right color/alpha
         if (Fog_GetDensity() > 0 && map_skyfog > 0) {
@@ -1227,7 +1238,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
             const float *color = Fog_GetColor();
             glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
-            TriBuf_DrawElements(buffer);
+            TriBuf_DrawElements(buffer, &state);
 
             glColor4f(1, 1, 1, 1);
             glDisable(GL_BLEND);
@@ -1236,8 +1247,6 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
     }
 
     if (gl_mtexable) {
-        qglClientActiveTexture(GL_TEXTURE1);
-        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
         GL_EnableMultitexture();
     }
 
@@ -1439,8 +1448,8 @@ DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
                 *index++ = buffer->numverts - 1 - (s_end - s_start); // previous row, right
 #if !DEBUG_SKY
                 *index++ = buffer->numverts - 1 - (s_end - s_start); // previous row, right
-                *index++ = buffer->numverts - 2;               // this row, left
-                *index++ = buffer->numverts - 1;               // this row, right
+                *index++ = buffer->numverts - 2;                     // this row, left
+                *index++ = buffer->numverts - 1;                     // this row, right
 #endif
             }
             buffer->numindices = index - buffer->indices;
@@ -1465,6 +1474,9 @@ DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
             TriBuf_Prepare(buffer, &dummy);
             goto nextFace;
         }
+    } else {
+        /* Must unmap again.  Should be relatively rare that we draw nothing though. */
+        TriBuf_Finalise(buffer);
     }
 
     glDepthFunc(GL_LEQUAL);
@@ -1631,7 +1643,6 @@ DrawMaterialChains(const entity_t *entity)
             return;
         }
 
-        TriBuf_Prepare(&buffer, materialchain);
         DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
     }
 
@@ -1667,7 +1678,6 @@ R_DrawTranslucentChain(entity_t *entity, materialchain_t *materialchain, float a
     GL_BeginMaterialChains();
 
     // TODO: lift the buffer out so we don't re-alloc for each translucent render
-    TriBuf_Prepare(&buffer, materialchain);
     DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
     TriBuf_Release(&buffer);
 
