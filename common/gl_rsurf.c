@@ -430,9 +430,7 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
     assert(TRIBUF_MIN_VERTS <= TRIBUF_MAX_VERTS);
 
     if (buffer->state == TRIBUF_STATE_PREPARED) {
-#ifdef DEBUG
-        Sys_Printf("Already prepared previously at %s:%d\n", buffer->file, buffer->line);
-#endif
+        Debug_Printf("Already prepared previously at %s:%d\n", buffer->file, buffer->line);
         assert(buffer->state != TRIBUF_STATE_PREPARED);
     }
 
@@ -482,10 +480,7 @@ static void
 TriBuf_Release_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
 {
     if (buffer->state == TRIBUF_STATE_PREPARED) {
-#ifdef DEBUG
-        Sys_Printf("Warning, releasing a prepared buffer! (from %s::%d)\n", file, line);
-#endif
-        TriBuf_Discard(buffer);
+        Debug_Printf("Warning, releasing a prepared buffer! (from %s::%d)\n", file, line);
     }
 
     if (buffer->hunk_mark)

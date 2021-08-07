@@ -54,10 +54,14 @@ void Sys_MakeCodeUnwriteable(void *start_addr, void *end_addr);
 #define MAX_PRINTMSG 4096
 
 void Sys_Printf(const char *fmt, ...) __attribute__((format(printf,1,2)));
-void Sys_DebugLog(const char *file, const char *fmt, ...)
-    __attribute__((format(printf,2,3)));
-void Sys_Error(const char *error, ...)
-    __attribute__((format(printf,1,2), noreturn));
+void Sys_DebugLog(const char *file, const char *fmt, ...) __attribute__((format(printf,2,3)));
+void Sys_Error(const char *error, ...) __attribute__((format(printf,1,2), noreturn));
+
+#ifdef DEBUG
+#define Debug_Printf(format, ...) Sys_Printf(format, ##__VA_ARGS__)
+#else
+#define Debug_Printf(format, ...) do {} while (0)
+#endif
 
 // send text to the console
 // an error will cause the entire program to exit
