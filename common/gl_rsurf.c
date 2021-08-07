@@ -413,10 +413,6 @@ TriBuf_Finalise_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
     assert(buffer->state == TRIBUF_STATE_PREPARED);
     assert(buffer->numverts > 0); // Should discard if unused
 
-    if (gl_buffer_objects_enabled) {
-        // TODO! - Unmap the buffer objects
-    }
-
     TriBuf_SetState(buffer, TRIBUF_STATE_FINALISED);
 }
 
@@ -441,10 +437,6 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
 
     int32_t numverts = materialchain->numverts;
     int32_t numindices = materialchain->numindices;
-
-    if (gl_buffer_objects_enabled) {
-        // TODO! - size and map the buffer objects
-    }
 
     if (buffer->numverts_allocated >= numverts && buffer->numindices_allocated >= numindices)
         return;
@@ -539,41 +531,34 @@ TriBuf_SetBufferState(triangle_buffer_t *buffer, const struct buffer_state *stat
 {
     assert(buffer->state == TRIBUF_STATE_FINALISED);
 
-    if (gl_buffer_objects_enabled) {
+    /* Always set the vertex pointer */
+    TriBuf_VertexPointer(buffer);
 
-        // This may not need to be a separate path...
-        assert(false);
-
+    /* Set the color pointer, if enabled */
+    if (state->color) {
+        glEnableClientState(GL_COLOR_ARRAY);
+        TriBuf_ColorPointer(buffer);
     } else {
-        /* Always set the vertex pointer */
-        TriBuf_VertexPointer(buffer);
+        glDisableClientState(GL_COLOR_ARRAY);
+    }
 
-        /* Set the color pointer, if enabled */
-        if (state->color) {
-            glEnableClientState(GL_COLOR_ARRAY);
-            TriBuf_ColorPointer(buffer);
-        } else {
-            glDisableClientState(GL_COLOR_ARRAY);
-        }
-
-        /* Set texcoord state for each tmu */
-        if (gl_mtexable) {
-            for (int i = 0; i < VBO_MAX_TEXCOORDS; i++) {
-                qglClientActiveTexture(GL_TEXTURE0 + i);
-                if (!state->texcoords[i].active) {
-                    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-                    continue;
-                }
-                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-                TriBuf_TexCoordPointer(buffer, state->texcoords[i].slot);
-            }
-        } else {
-            if (!state->texcoords[0].active) {
+    /* Set texcoord state for each tmu */
+    if (gl_mtexable) {
+        for (int i = 0; i < VBO_MAX_TEXCOORDS; i++) {
+            qglClientActiveTexture(GL_TEXTURE0 + i);
+            if (!state->texcoords[i].active) {
                 glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-            } else {
-                glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-                TriBuf_TexCoordPointer(buffer, state->texcoords[0].slot);
+                continue;
             }
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            TriBuf_TexCoordPointer(buffer, state->texcoords[i].slot);
+        }
+    } else {
+        if (!state->texcoords[0].active) {
+            glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        } else {
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+            TriBuf_TexCoordPointer(buffer, state->texcoords[0].slot);
         }
     }
 }
