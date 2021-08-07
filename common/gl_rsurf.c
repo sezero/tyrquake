@@ -390,6 +390,7 @@ typedef struct {
 } while (0)
 #define TriBuf_Prepare(_buffer, _materialchain) TriBuf_Prepare_(_buffer, _materialchain, __FILE__, __LINE__)
 #define TriBuf_Finalise(_buffer) TriBuf_Finalise_(_buffer, __FILE__, __LINE__)
+#define TriBuf_Discard(_buffer) TriBuf_Discard_(_buffer, __FILE__, __LINE__)
 #define TriBuf_Release(_buffer) TriBuf_Release_(_buffer, __FILE__, __LINE__)
 #else
 #define TB_DEBUG_ARGS
@@ -398,6 +399,7 @@ typedef struct {
 } while (0)
 #define TriBuf_Prepare(_buffer, _materialchain) TriBuf_Prepare_(_buffer, _materialchain)
 #define TriBuf_Finalise(_buffer) TriBuf_Finalise_(_buffer)
+#define TriBuf_Discard(_buffer) TriBuf_Discard_(_buffer)
 #define TriBuf_Release(_buffer) TriBuf_Release_(_buffer)
 #endif
 
@@ -409,6 +411,7 @@ static void
 TriBuf_Finalise_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
 {
     assert(buffer->state == TRIBUF_STATE_PREPARED);
+    assert(buffer->numverts > 0); // Should discard if unused
 
     if (gl_buffer_objects_enabled) {
         // TODO! - Unmap the buffer objects
@@ -427,7 +430,9 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
     assert(TRIBUF_MIN_VERTS <= TRIBUF_MAX_VERTS);
 
     if (buffer->state == TRIBUF_STATE_PREPARED) {
+#ifdef DEBUG
         Sys_Printf("Already prepared previously at %s:%d\n", buffer->file, buffer->line);
+#endif
         assert(buffer->state != TRIBUF_STATE_PREPARED);
     }
 
@@ -459,20 +464,34 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
 }
 
 /*
- * Mark the allocations as no longer needed.
+ * Mark the contents of a prepared buffer as not required.  Avoids
+ * sync with the GPU when using buffer objects, but allows the
+ * allocated memory to be reused in the non-vbo case.
+ */
+static void
+TriBuf_Discard_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
+{
+    TriBuf_SetState(buffer, TRIBUF_STATE_UNINITIALISED);
+}
+
+/*
+ * Final free of resources from the buffer.
+ * Call this only once when the buffer will no longer be reused.
  */
 static void
 TriBuf_Release_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
 {
     if (buffer->state == TRIBUF_STATE_PREPARED) {
+#ifdef DEBUG
         Sys_Printf("Warning, releasing a prepared buffer! (from %s::%d)\n", file, line);
-        TriBuf_Finalise(buffer);
+#endif
+        TriBuf_Discard(buffer);
     }
 
     if (buffer->hunk_mark)
         Hunk_FreeToLowMark(buffer->hunk_mark);
 
-    TriBuf_SetState(buffer, TRIBUF_STATE_UNINITIALISED);
+    TriBuf_Discard(buffer);
 }
 
 /*
@@ -481,16 +500,14 @@ TriBuf_Release_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
 static inline void
 TriBuf_VertexPointer(triangle_buffer_t *buffer)
 {
-    // TODO: must be finalised to be able to use the buffer pointers for both cases
-    assert(buffer->state >= TRIBUF_STATE_PREPARED);
+    assert(buffer->state == TRIBUF_STATE_FINALISED);
     glVertexPointer(3, GL_FLOAT, sizeof(buffer->verts[0]), buffer->verts);
 }
 
 static inline void
 TriBuf_TexCoordPointer(triangle_buffer_t *buffer, uint8_t texcoord_index)
 {
-    // TODO: must be finalised to be able to use the buffer pointers for both cases
-    assert(buffer->state >= TRIBUF_STATE_PREPARED);
+    assert(buffer->state == TRIBUF_STATE_FINALISED);
     assert(texcoord_index < 2);
     glTexCoordPointer(2, GL_FLOAT, sizeof(buffer->verts[0]), &buffer->verts[0][3 + 2 * texcoord_index]);
 }
@@ -498,8 +515,7 @@ TriBuf_TexCoordPointer(triangle_buffer_t *buffer, uint8_t texcoord_index)
 static inline void
 TriBuf_ColorPointer(triangle_buffer_t *buffer)
 {
-    // TODO: must be finalised to be able to use the pointer for the VBO case
-    assert(buffer->state >= TRIBUF_STATE_PREPARED);
+    assert(buffer->state == TRIBUF_STATE_FINALISED);
     glColorPointer(3, GL_UNSIGNED_BYTE, 0, buffer->colors);
 }
 
@@ -526,7 +542,7 @@ struct buffer_state {
 static void
 TriBuf_SetBufferState(triangle_buffer_t *buffer, const struct buffer_state *state)
 {
-    assert(buffer->state >= TRIBUF_STATE_PREPARED); // Finalised?
+    assert(buffer->state == TRIBUF_STATE_FINALISED);
 
     if (gl_buffer_objects_enabled) {
 
@@ -1053,7 +1069,10 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
         TriBuf_DrawElements(buffer, state);
     }
 
-    /* If there are (dynamic) submodels with sky surfaces, draw them now */
+    /*
+     * If there are (dynamic) submodels with sky surfaces, draw them now
+     * TODO: Speed up accounting frustum culled visedicts and so forth in one place
+     */
     maxverts = GLBrushModel(cl.worldmodel)->resources->max_submodel_skypoly_verts;
     if (maxverts && r_drawentities.value) {
         materialchain_t dummy = {
@@ -1104,6 +1123,8 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     }
     if (buffer->numverts)
         TriBuf_DrawElements(buffer, state);
+    else
+        TriBuf_Discard(buffer);
 }
 
 static void
@@ -1176,7 +1197,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
         .texcoords = { [0] = { .active = true, .slot = 0 } }
     };
 
-    vec7_t verts[6];
+    vec7_t verts[4];
     for (facenum = 0; facenum < 6; facenum++) {
         /* Cull skybox faces covered by geometry */
         if (mins[facenum][0] >= maxs[facenum][0] || mins[facenum][1] >= maxs[facenum][1])
@@ -1213,7 +1234,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
             .numindices = 6,
         };
         TriBuf_Prepare(buffer, &dummy);
-        memcpy(buffer->verts, verts, sizeof(vec7_t) * 6);
+        memcpy(buffer->verts, verts, sizeof(verts));
 
         unsigned short *indices = &buffer->indices[0];
         indices[0] = 0;
@@ -1475,8 +1496,7 @@ DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
             goto nextFace;
         }
     } else {
-        /* Must unmap again.  Should be relatively rare that we draw nothing though. */
-        TriBuf_Finalise(buffer);
+        TriBuf_Discard(buffer);
     }
 
     glDepthFunc(GL_LEQUAL);
