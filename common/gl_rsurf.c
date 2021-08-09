@@ -2168,20 +2168,12 @@ R_DrawWorld(void)
 }
 
 /*
-=============================================================================
-
-  LIGHTMAP ALLOCATION
-
-=============================================================================
-*/
-
-/*
 ================
-BuildSurfaceDisplayList
+BuildSurfaceGLPoly
 ================
 */
 static void
-BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkbase)
+BuildSurfaceGLPoly(brushmodel_t *brushmodel, msurface_t *surf, void *hunkbase)
 {
     const mtexinfo_t *const texinfo = surf->texinfo;
     const float *vertex;
@@ -2313,7 +2305,7 @@ GL_BuildLightmaps()
                 base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * gl_lightmap_bytes;
                 R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
             }
-	    BuildSurfaceDisplayList(brushmodel, surf, hunkbase);
+	    BuildSurfaceGLPoly(brushmodel, surf, hunkbase);
 	}
 
 	/* upload all lightmaps that were filled */
@@ -2321,18 +2313,20 @@ GL_BuildLightmaps()
     }
 
     /* TODO - rename or separate out the things that are not building lightmaps */
+
+    /* Count the number of verts on submodel surfs with a sky texture */
     brushmodel = loaded_brushmodels;
     for ( ; brushmodel ; brushmodel = brushmodel->next) {
         if (!brushmodel->parent)
             continue;
         surf = brushmodel->surfaces + brushmodel->firstmodelsurface;
         for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
-            if (!(surf->flags & SURF_DRAWSKY) || !surf->poly)
+            if (!(surf->flags & SURF_DRAWSKY) || !surf->numedges)
                 continue;
             GLBrushModel(brushmodel)->drawsky = true;
             glbrushmodel_resource_t *resources = GLBrushModel(brushmodel)->resources;
-            if (surf->poly->numverts > resources->max_submodel_skypoly_verts)
-                resources->max_submodel_skypoly_verts = surf->poly->numverts;
+            if (surf->numedges > resources->max_submodel_skypoly_verts)
+                resources->max_submodel_skypoly_verts = surf->numedges;
         }
     }
 }

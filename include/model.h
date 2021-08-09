@@ -177,13 +177,17 @@ typedef struct msurface_s {
     int numedges;	// are backwards edges
 
 #ifdef GLQUAKE
+    // TODO: optimise data type sizes here
     int light_s;	// gl lightmap coordinates
     int light_t;
     int lightmapblock;
     int material;
+    int buffer_offset;
+
     int cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
     qboolean cached_dlight;     // true if dynamic light in cache
     glpoly_t *poly;
+
     struct msurface_s *chain;   // Material chain for drawing
     depthchain_t depthchain;    // Depth chain for translucent surface sorting
 #else

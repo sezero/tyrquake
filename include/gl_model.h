@@ -64,6 +64,19 @@ enum material_class {
 typedef struct surface_material {
     int texturenum;
     int lightmapblock;
+
+    /*
+     * The verts will be stored in a VBO if available, otherwise a
+     * plain data array.  Each msurface_t has an offset into the buffer.
+     */
+    uint32_t numverts;
+    union {
+        GLuint vbo;
+        float *buffer;
+    };
+
+    // TODO (maybe?)
+    //   overflow if > MAX_VERTS?
 } surface_material_t;
 
 typedef struct material_animation {
@@ -135,33 +148,29 @@ void MaterialChain_HandleOverflow(materialchain_t *materialchain, msurface_t *su
 static inline void
 MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
 {
-    if (surf->poly) {
-        if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
-            MaterialChain_HandleOverflow(materialchain, surf, NULL);
-        } else {
-            surf->chain = materialchain->surf;
-            materialchain->surf = surf;
-        }
-        materialchain->numverts += surf->numedges;
-        materialchain->numindices += (surf->numedges - 2) * 3;
+    if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
+        MaterialChain_HandleOverflow(materialchain, surf, NULL);
+    } else {
+        surf->chain = materialchain->surf;
+        materialchain->surf = surf;
     }
+    materialchain->numverts += surf->numedges;
+    materialchain->numindices += (surf->numedges - 2) * 3;
 }
 
 /* Helper for the add-to-tail case, caller provides the tail pointer */
 static inline void
 MaterialChain_AddSurf_Tail(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
 {
-    if (surf->poly) {
-        if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
-            MaterialChain_HandleOverflow(materialchain, surf, tail);
-        } else {
-            surf->chain = NULL;
-            (*tail)->chain = surf;
-            *tail = surf;
-        }
-        materialchain->numverts += surf->numedges;
-        materialchain->numindices += (surf->numedges - 2) * 3;
+    if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
+        MaterialChain_HandleOverflow(materialchain, surf, tail);
+    } else {
+        surf->chain = NULL;
+        (*tail)->chain = surf;
+        *tail = surf;
     }
+    materialchain->numverts += surf->numedges;
+    materialchain->numindices += (surf->numedges - 2) * 3;
 }
 
 typedef struct {

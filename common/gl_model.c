@@ -418,6 +418,56 @@ GL_AllocateMaterial(glbrushmodel_t *glbrushmodel, msurface_t *texturechain, int 
     }
 }
 
+static void
+AddSurfaceVertices(brushmodel_t *brushmodel, msurface_t *surf, vec7_t *verts)
+{
+    for (int i = 0; i < surf->numedges; i++) {
+        const float *bspvertex;
+	const int edgenum = brushmodel->surfedges[surf->firstedge + i];
+	if (edgenum >= 0) {
+	    const medge_t *const edge = &brushmodel->edges[edgenum];
+	    bspvertex = brushmodel->vertexes[edge->v[0]].position;
+	} else {
+	    const medge_t *const edge = &brushmodel->edges[-edgenum];
+	    bspvertex = brushmodel->vertexes[edge->v[1]].position;
+	}
+	VectorCopy(bspvertex, verts[i]);
+        if (surf->flags & SURF_DRAWSKY)
+            continue;
+
+	/* Texture coordinates */
+        const mtexinfo_t *const texinfo = surf->texinfo;
+	float s = DotProduct(bspvertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
+	float t = DotProduct(bspvertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
+        if (surf->flags & SURF_DRAWTURB) {
+            s /= 128.0f;
+            t /= 128.0f;
+        } else {
+            s /= texinfo->texture->width;
+            t /= texinfo->texture->height;
+        }
+
+	verts[i][3] = s;
+	verts[i][4] = t;
+
+	/* Lightmap texture coordinates */
+	s = DotProduct(bspvertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
+	s -= surf->texturemins[0];
+	s += surf->light_s * 16;
+	s += 8;
+	s /= BLOCK_WIDTH * 16;	/* texinfo->texture->width */
+
+	t = DotProduct(bspvertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
+	t -= surf->texturemins[1];
+	t += surf->light_t * 16;
+	t += 8;
+	t /= BLOCK_HEIGHT * 16;	/* texinfo->texture->height */
+
+	verts[i][5] = s;
+	verts[i][6] = t;
+    }
+}
+
 void
 GL_BuildMaterials()
 {
@@ -656,6 +706,66 @@ GL_BuildMaterials()
                 texture->mark = 0;
                 turbcount--;
             }
+        }
+    }
+
+    /*
+     * Build up the materials list across all models starting with the
+     * world.  The materialchains will count up the number of
+     * vertices.
+     */
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        if (brushmodel->parent)
+            continue;
+        glbrushmodel = GLBrushModel(brushmodel);
+        MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->nummaterials);
+        surf = brushmodel->surfaces;
+        for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++) {
+            MaterialChain_AddSurf(&glbrushmodel->materialchains[surf->material], surf);
+        }
+    }
+
+    /* Allocate vertex buffer space for each chain and fill out vertex info */
+    int modelnum = 0;
+    int total_allocation = 0;
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next, modelnum++) {
+        if (brushmodel->parent)
+            continue;
+        glbrushmodel = GLBrushModel(brushmodel);
+        for (int i = 0; i < glbrushmodel->nummaterials; i++) {
+            materialchain_t *materialchain = &glbrushmodel->materialchains[i];
+            surface_material_t *materials = glbrushmodel->materials;
+            ForEach_MaterialChain(materialchain) {
+                /* TODO: pack materials into shared buffers */
+                const int buffersize = materialchain->numverts * sizeof(vec7_t);
+                total_allocation += buffersize;
+                materials[i].buffer = Hunk_AllocName(buffersize, va("m%d/%03d", modelnum, i));
+                vec7_t *buffer = (vec7_t *)materials[i].buffer;
+                for (surf = materialchain->surf; surf; surf = surf->chain) {
+                    /* Record the offset and create the vertex data */
+                    surf->buffer_offset = buffer - (vec7_t *)materials[i].buffer;
+                    AddSurfaceVertices(brushmodel, surf, buffer);
+                    buffer += surf->numedges;
+                }
+                assert((byte *)buffer - (byte *)materials[i].buffer == buffersize);
+                Debug_Printf("Material %d, %d vertices, %d bytes\n", i, materialchain->numverts, (int)(materialchain->numverts * sizeof(vec7_t)));
+            }
+        }
+    }
+    Debug_Printf("Material vertex arrays, total allocation is %d\n", total_allocation);
+
+    /* Copy the vertex buffer for each animated material into all frames */
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next, modelnum++) {
+        if (brushmodel->parent)
+            continue;
+        glbrushmodel = GLBrushModel(brushmodel);
+        for (int animationnum = 0; animationnum < glbrushmodel->numanimations; animationnum++) {
+            material_animation_t *animation = &glbrushmodel->animations[animationnum];
+            float *buffer = glbrushmodel->materials[animation->material].buffer;
+            for (int i = 0; i < animation->numframes; i++)
+                glbrushmodel->materials[animation->frames[i]].buffer = buffer;
+            for (int i = 0; i < animation->numalt; i++)
+                glbrushmodel->materials[animation->alt[i]].buffer = buffer;
         }
     }
 }
