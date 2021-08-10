@@ -1303,7 +1303,7 @@ DrawSkyLayers(triangle_buffer_t *buffer, msurface_t *surf, texture_t *texture)
             t_start = t;
             goto rowStart;
         }
-        if (facenum < 6) {
+        if (facenum < 5) {
             facenum++;
             goto nextFace;
         }
