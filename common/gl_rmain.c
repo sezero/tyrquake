@@ -1482,6 +1482,7 @@ R_DrawTranslucency(void)
     int material;
     byte alpha;
     entity_t *entity;
+    glbrushmodel_t *glbrushmodel;
 
     entry = r_depthchain.next;
     while (entry != &r_depthchain) {
@@ -1499,9 +1500,10 @@ R_DrawTranslucency(void)
             case depthchain_bmodel_static:
                 /* Build a chain of consecutive materials with the same alpha */
                 tail = DepthChain_Surf(entry);
-                MaterialChains_Init_Reverse(&materialchain, 1);
-                MaterialChain_AddSurf(&materialchain, tail);
                 material = tail->material;
+                glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
+                MaterialChains_Init_Reverse(&materialchain, &glbrushmodel->materials[material], 1);
+                MaterialChain_AddSurf(&materialchain, tail);
                 alpha = entry->alpha;
                 while (next->type == depthchain_bmodel_static) {
                     surf = DepthChain_Surf(next);
@@ -1519,9 +1521,10 @@ R_DrawTranslucency(void)
             case depthchain_bmodel_transformed:
                 /* Build a chain of consecutive materials, from the same entity (transform) */
                 tail = DepthChain_Surf(entry);
-                MaterialChains_Init_Reverse(&materialchain, 1);
-                MaterialChain_AddSurf(&materialchain, tail);
                 material = tail->material;
+                glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
+                MaterialChains_Init_Reverse(&materialchain, &glbrushmodel->materials[material], 1);
+                MaterialChain_AddSurf(&materialchain, tail);
                 entity = entry->entity;
                 alpha = entry->alpha;
                 while (next->type == depthchain_bmodel_transformed) {

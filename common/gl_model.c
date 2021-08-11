@@ -718,7 +718,7 @@ GL_BuildMaterials()
         if (brushmodel->parent)
             continue;
         glbrushmodel = GLBrushModel(brushmodel);
-        MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->nummaterials);
+        MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->materials, glbrushmodel->nummaterials);
         surf = brushmodel->surfaces;
         for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++) {
             MaterialChain_AddSurf(&glbrushmodel->materialchains[surf->material], surf);

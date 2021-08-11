@@ -1046,7 +1046,7 @@ SkyMaterialNum(const glbrushmodel_t *glbrushmodel)
 }
 
 static void
-DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *materialchain, const surface_material_t *material, const struct buffer_state *state, float mins[6][2], float maxs[6][2])
+DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *materialchain, const struct buffer_state *state, float mins[6][2], float maxs[6][2])
 {
     int i, maxverts, skymaterial;
     glpoly_t *poly;
@@ -1055,7 +1055,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     glbrushmodel_t *glbrushmodel;
 
     ForEach_MaterialChain(materialchain) {
-        buffer->new_verts = (vec7_t *)material->buffer;
+        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         TriBuf_Prepare(buffer, materialchain);
         if (mins) {
             for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
@@ -1133,7 +1133,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
 }
 
 static void
-DrawSkyChain_MarkDepthAndBounds(triangle_buffer_t *buffer, materialchain_t *materialchain, const surface_material_t *material, float mins[6][2], float maxs[6][2])
+DrawSkyChain_MarkDepthAndBounds(triangle_buffer_t *buffer, materialchain_t *materialchain, float mins[6][2], float maxs[6][2])
 {
     Sky_InitBounds(mins, maxs);
 
@@ -1145,7 +1145,7 @@ DrawSkyChain_MarkDepthAndBounds(triangle_buffer_t *buffer, materialchain_t *mate
 
     /* Render to the depth buffer and accumulate bounds */
     const struct buffer_state state = {0};
-    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, material, &state, mins, maxs);
+    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, &state, mins, maxs);
 
     glEnable(GL_TEXTURE_2D);
     if (gl_mtexable) {
@@ -1155,7 +1155,7 @@ DrawSkyChain_MarkDepthAndBounds(triangle_buffer_t *buffer, materialchain_t *mate
 }
 
 static void
-DrawSkyFast(triangle_buffer_t *buffer, materialchain_t *materialchain, const surface_material_t *material)
+DrawSkyFast(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
     /* Render simple flat shaded polys */
     if (gl_mtexable) {
@@ -1167,7 +1167,7 @@ DrawSkyFast(triangle_buffer_t *buffer, materialchain_t *materialchain, const sur
 
     /* Simply render the sky brush polys, no bounds checking needed */
     const struct buffer_state state = {0};
-    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, material, &state, NULL, NULL);
+    DrawSkyChain_RenderSkyBrushPolys(buffer, materialchain, &state, NULL, NULL);
 
     glColor3f(1.0f, 1.0f, 1.0f);
     glEnable(GL_TEXTURE_2D);
@@ -1177,7 +1177,7 @@ DrawSkyFast(triangle_buffer_t *buffer, materialchain_t *materialchain, const sur
 }
 
 static void
-DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain, const surface_material_t *material)
+DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
     int facenum;
     float mins[6][2];
@@ -1187,7 +1187,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain, const surf
      * Write depth values for the actual sky polys.
      * Calculate bounds information at the same time.
      */
-    DrawSkyChain_MarkDepthAndBounds(buffer, materialchain, material, mins, maxs);
+    DrawSkyChain_MarkDepthAndBounds(buffer, materialchain, mins, maxs);
 
     /* Render the sky box only where we have written depth values */
     glDepthMask(GL_FALSE);
@@ -1315,7 +1315,7 @@ TriBuf_AddSkyVert(triangle_buffer_t *buffer, const vec3_t vert, float speed1, fl
 #define MAX_SKY_QUALITY (TRIBUF_MAX_INDICES / 6 < 64 ? TRIBUF_MAX_INDICES / 6 : 64)
 
 static void
-DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, const surface_material_t *material, texture_t *texture)
+DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture_t *texture)
 {
     int facenum, subdivisions;
     int s, s_start, s_end, t, t_start, t_end;
@@ -1335,7 +1335,7 @@ DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, const s
      * Write depth values for the actual sky polys.
      * Calculate bounds information at the same time.
      */
-    DrawSkyChain_MarkDepthAndBounds(buffer, materialchain, material, mins, maxs);
+    DrawSkyChain_MarkDepthAndBounds(buffer, materialchain, mins, maxs);
 
     /* Render the sky box only where we have written depth values */
     glDepthMask(GL_FALSE);
@@ -1509,16 +1509,16 @@ DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, const s
 }
 
 static void
-DrawSkyChain(triangle_buffer_t *buffer, materialchain_t *materialchain, const surface_material_t *material, texture_t *texture)
+DrawSkyChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture_t *texture)
 {
     Fog_DisableGlobalFog();
 
     if (r_fastsky.value)
-        DrawSkyFast(buffer, materialchain, material);
+        DrawSkyFast(buffer, materialchain);
     else if (map_skyboxname[0])
-        DrawSkyBox(buffer, materialchain, material);
+        DrawSkyBox(buffer, materialchain);
     else
-        DrawSkyLayers(buffer, materialchain, material, texture);
+        DrawSkyLayers(buffer, materialchain, texture);
 
     Fog_EnableGlobalFog();
 }
@@ -1551,11 +1551,11 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
 }
 
 static void
-DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain, surface_material_t *material)
+DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
     ForEach_MaterialChain(materialchain) {
         TriBuf_Prepare(buffer, materialchain);
-        buffer->new_verts = (vec7_t *)material->buffer;
+        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
             TriBuf_AddFlatSurf(buffer, surf);
         assert(buffer->numverts == materialchain->numverts);
@@ -1569,15 +1569,15 @@ DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain, surface
 }
 
 static void
-DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrushmodel_t *glbrushmodel, surface_material_t *material, float alpha)
+DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrushmodel_t *glbrushmodel, float alpha)
 {
-    texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
-    lm_block_t *block = &glbrushmodel->resources->blocks[material->lightmapblock];
+    texture_t *texture = glbrushmodel->brushmodel.textures[materialchain->material->texturenum];
+    lm_block_t *block = &glbrushmodel->resources->blocks[materialchain->material->lightmapblock];
     int flags = materialchain->surf->flags;
 
     ForEach_MaterialChain(materialchain) {
         TriBuf_Prepare(buffer, materialchain);
-        buffer->new_verts = (vec7_t *)material->buffer;
+        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
             R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
             TriBuf_AddSurf(buffer, surf);
@@ -1629,13 +1629,13 @@ GL_EndMaterialChains()
 }
 
 static void
-DrawMaterialChain(triangle_buffer_t *buffer, glbrushmodel_t *glbrushmodel, materialchain_t *materialchain, surface_material_t *material, float alpha)
+DrawMaterialChain(triangle_buffer_t *buffer, glbrushmodel_t *glbrushmodel, materialchain_t *materialchain, float alpha)
 {
     int flags = materialchain->surf->flags;
 
     // If drawflat enabled, all surfs go through the same path
     if (r_drawflat.value) {
-        DrawFlatChain(buffer, materialchain, material);
+        DrawFlatChain(buffer, materialchain);
         return;
     }
 
@@ -1645,15 +1645,15 @@ DrawMaterialChain(triangle_buffer_t *buffer, glbrushmodel_t *glbrushmodel, mater
         return;
 #endif
     if (flags & SURF_DRAWSKY) {
-        texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
-        DrawSkyChain(buffer, materialchain, material, texture);
+        texture_t *texture = glbrushmodel->brushmodel.textures[materialchain->material->texturenum];
+        DrawSkyChain(buffer, materialchain, texture);
     } else if (flags & SURF_DRAWTURB) {
-        texture_t *texture = glbrushmodel->brushmodel.textures[material->texturenum];
-        buffer->new_verts = (vec7_t *)material->buffer;
+        texture_t *texture = glbrushmodel->brushmodel.textures[materialchain->material->texturenum];
+        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         DrawTurbChain(buffer, materialchain, texture, alpha);
         buffer->new_verts = NULL;
     } else {
-        DrawSolidChain(buffer, materialchain, glbrushmodel, material, alpha);
+        DrawSolidChain(buffer, materialchain, glbrushmodel, alpha);
     }
 }
 
@@ -1687,7 +1687,7 @@ DrawMaterialChains(const entity_t *entity)
             return;
         }
 
-        DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
+        DrawMaterialChain(&buffer, glbrushmodel, materialchain, alpha);
     }
 
 #if DEBUG_SKY
@@ -1717,12 +1717,11 @@ R_DrawTranslucentChain(entity_t *entity, materialchain_t *materialchain, float a
     triangle_buffer_t buffer = {0};
     brushmodel_t *brushmodel = BrushModel(entity->model);
     glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
-    surface_material_t *material = &glbrushmodel->materials[materialchain->surf->material];
 
     GL_BeginMaterialChains();
 
     // TODO: lift the buffer out so we don't re-alloc for each translucent render
-    DrawMaterialChain(&buffer, glbrushmodel, materialchain, material, alpha);
+    DrawMaterialChain(&buffer, glbrushmodel, materialchain, alpha);
     TriBuf_Release(&buffer);
 
     GL_EndMaterialChains();
@@ -1837,7 +1836,7 @@ R_SetupDynamicBrushModelMaterialChains(entity_t *entity, const vec3_t modelorg)
     glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
     materialchain_t *materialchains = glbrushmodel->materialchains;
 
-    MaterialChains_Init(materialchains, glbrushmodel->nummaterials);
+    MaterialChains_Init(materialchains, glbrushmodel->materials, glbrushmodel->nummaterials);
 
     R_AddBrushModelToMaterialChains(entity, modelorg, materialchains, depthchain_bmodel_transformed);
     R_SwapAltAnimationChains(entity, materialchains);
@@ -2111,7 +2110,7 @@ R_PrepareWorldMaterialChains()
     glbrushmodel_t *glbrushmodel;
 
     glbrushmodel = GLBrushModel(cl.worldmodel);
-    MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->nummaterials);
+    MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->materials, glbrushmodel->nummaterials);
     R_RecursiveWorldNode(r_refdef.vieworg, cl.worldmodel->nodes);
 }
 

@@ -108,23 +108,28 @@ typedef struct {
 typedef struct materialchain_s {
     int32_t numverts;
     int32_t numindices;
+    const surface_material_t *material;
     msurface_t *surf;
     struct materialchain_s *overflow;      // Z_Malloc'd when (rarely?) exceeding max verts
     struct materialchain_s *overflow_tail; // Reverse order of batches for the transparency case
 } materialchain_t;
 
 static inline void
-MaterialChains_Init(materialchain_t *materialchains, int count)
-{
-    memset(materialchains, 0, count * sizeof(*materialchains));
-}
-
-static inline void
-MaterialChains_Init_Reverse(materialchain_t *materialchains, int count)
+MaterialChains_Init(materialchain_t *materialchains, const surface_material_t *materials, int count)
 {
     memset(materialchains, 0, count * sizeof(*materialchains));
     for (int i = 0; i < count; i++)
+        materialchains[i].material = &materials[i];
+}
+
+static inline void
+MaterialChains_Init_Reverse(materialchain_t *materialchains, const surface_material_t *materials, int count)
+{
+    memset(materialchains, 0, count * sizeof(*materialchains));
+    for (int i = 0; i < count; i++) {
+        materialchains[i].material = &materials[i];
         materialchains[i].overflow_tail = &materialchains[i];
+    }
 }
 
 /*
