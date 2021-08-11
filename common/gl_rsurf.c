@@ -2098,7 +2098,7 @@ BuildSurfaceDisplayList(brushmodel_t *brushmodel, msurface_t *surf, void *hunkba
  * Upload modified lightmap blocks
  * Return the number of uploads that were required/done
  */
-static void
+void
 GL_UploadLightmaps(const model_t *model, const glbrushmodel_resource_t *resources)
 {
     int i;
@@ -2189,15 +2189,4 @@ GL_BuildLightmaps()
                 resources->max_submodel_skypoly_verts = surf->poly->numverts;
         }
     }
-}
-
-void
-GL_ReloadLightmapTextures(const model_t *model, const glbrushmodel_resource_t *resources)
-{
-    int i;
-
-    for (i = 0; i < resources->numblocks; i++)
-        resources->blocks[i].texture = 0;
-
-    GL_UploadLightmaps(model, resources);
 }

@@ -2213,11 +2213,17 @@ Mod_ReloadTextures()
     }
 
     /* Brush models */
-    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
-        if (brushmodel->parent)
-            continue;
-        GL_LoadBrushModelTextures(brushmodel);
-        GL_ReloadLightmapTextures(&brushmodel->model, GLBrushModel(brushmodel)->resources);
+    brushmodel = loaded_brushmodels;
+    if (brushmodel) {
+        glbrushmodel_resource_t *resources = GLBrushModel(brushmodel)->resources;
+        for (int i = 0; i < resources->numblocks; i++)
+            resources->blocks[i].texture = 0;
+        for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+            if (brushmodel->parent)
+                continue;
+            GL_LoadBrushModelTextures(brushmodel);
+            GL_UploadLightmaps(&brushmodel->model, GLBrushModel(brushmodel)->resources);
+        }
     }
 }
 #endif
