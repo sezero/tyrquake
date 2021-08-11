@@ -2197,12 +2197,14 @@ Mod_ReloadTextures()
     const model_t *model;
     brushmodel_t *brushmodel;
 
-    /* Alias models */
+    /* Alias models (textures and vertex buffers) */
     for (model = Mod_AliasCache(); model; model = model->next) {
         GL_LoadAliasSkinTextures(model, NULL);
+        GL_UploadAliasMeshData(Cache_Check(&model->cache));
     }
     for (model = Mod_AliasOverflow(); model; model = model->next) {
         GL_LoadAliasSkinTextures(model, NULL);
+        GL_UploadAliasMeshData(Cache_Check(&model->cache));
     }
 
     /* Sprites */

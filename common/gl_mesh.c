@@ -35,6 +35,41 @@ ALIAS MODEL DISPLAY LIST GENERATION
 */
 
 void
+GL_UploadAliasMeshData(aliashdr_t *hdr)
+{
+    /* Handle uncached models if called to reload meshes on GL context re-init. */
+    if (!hdr)
+        return;
+
+    /*
+     * Setup GL buffer objects if enabled
+     * TODO: Set these up above and free the original data once static buffers have been uploaded
+     */
+    gl_aliashdr_t *glhdr = GL_Aliashdr(hdr);
+    if (gl_buffer_objects_enabled) {
+        qglGenBuffers(ARRAY_SIZE(glhdr->buffers.all), glhdr->buffers.all);
+
+        /* Upload the static data for vertices, indices and texcoords */
+        float *vertex = (float *)((byte *)hdr + hdr->posedata);
+        qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.vertex);
+        qglBufferData(GL_ARRAY_BUFFER, hdr->numposes * hdr->numverts * 3 * sizeof(float), vertex, GL_STATIC_DRAW);
+
+        texcoord_t *texcoord = (texcoord_t *)((byte *)hdr + glhdr->texcoords);
+        qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.texcoord);
+        qglBufferData(GL_ARRAY_BUFFER, hdr->numverts * sizeof(texcoord_t), texcoord, GL_STATIC_DRAW);
+
+        uint16_t *indices = (uint16_t *)((byte *)hdr + glhdr->indices);
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glhdr->buffers.index);
+        qglBufferData(GL_ELEMENT_ARRAY_BUFFER, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW);
+
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else {
+        memset(glhdr->buffers.all, 0, sizeof(glhdr->buffers.all));
+    }
+}
+
+void
 GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
 		     const alias_meshdata_t *meshdata,
 		     const alias_posedata_t *posedata)
@@ -158,30 +193,6 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
 
     hdr->numverts += num_seam_verts;
 
-    /*
-     * Setup GL buffer objects if enabled
-     * TODO: Set these up above and free the original data once static buffers have been uploaded
-     */
-    gl_aliashdr_t *glhdr = GL_Aliashdr(hdr);
-    if (gl_buffer_objects_enabled) {
-        qglGenBuffers(ARRAY_SIZE(glhdr->buffers.all), glhdr->buffers.all);
-
-        /* Upload the static data for vertices, indices and texcoords */
-        vertex = (float *)((byte *)hdr + hdr->posedata);
-        qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.vertex);
-        qglBufferData(GL_ARRAY_BUFFER, hdr->numposes * hdr->numverts * 3 * sizeof(float), vertex, GL_STATIC_DRAW);
-
-        texcoord = (texcoord_t *)((byte *)hdr + glhdr->texcoords);
-        qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.texcoord);
-        qglBufferData(GL_ARRAY_BUFFER, hdr->numverts * sizeof(texcoord_t), texcoord, GL_STATIC_DRAW);
-
-        indices = (uint16_t *)((byte *)hdr + glhdr->indices);
-        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, glhdr->buffers.index);
-        qglBufferData(GL_ELEMENT_ARRAY_BUFFER, hdr->numtris * 3 * sizeof(uint16_t), indices, GL_STATIC_DRAW);
-
-        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        qglBindBuffer(GL_ARRAY_BUFFER, 0);
-    } else {
-        memset(glhdr->buffers.all, 0, sizeof(glhdr->buffers.all));
-    }
+    /* Upload the mesh data to GPU buffers (if enabled) */
+    GL_UploadAliasMeshData(hdr);
 }

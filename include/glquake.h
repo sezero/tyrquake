@@ -392,6 +392,7 @@ void GL_LoadAliasMeshData(const model_t *m, aliashdr_t *hdr,
 			  const alias_meshdata_t *meshdata,
 			  const alias_posedata_t *posedata);
 void GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr);
+void GL_UploadAliasMeshData(aliashdr_t *hdr);
 
 //
 // gl_rmisc.c
