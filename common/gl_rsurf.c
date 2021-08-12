@@ -1018,25 +1018,24 @@ BoundsAddPoint(const vec3_t point, vec3_t mins, vec3_t maxs)
  */
 static void
 TransformPoly(const entity_t *entity, const transform_t *xfrm,
-              const glpoly_t *inpoly, glpoly_t *outpoly, vec3_t mins, vec3_t maxs)
+              const vec7_t *inverts, vec7_t *outverts, int numverts, vec3_t mins, vec3_t maxs)
 {
-    const float *in = inpoly->verts[0];
-    float *out = outpoly->verts[0];
     int i;
 
     BoundsInit(mins, maxs);
-    outpoly->numverts = inpoly->numverts;
     if (xfrm->rotated) {
-        for (i = 0; i < inpoly->numverts; i++, in += VERTEXSIZE, out += VERTEXSIZE) {
+        for (i = 0; i < numverts; i++) {
+            const vec_t *in = inverts[i];
+            vec_t *out = outverts[i];
             out[0] = entity->origin[0] + in[0] * xfrm->forward[0] - in[1] * xfrm->right[0] + in[2] * xfrm->up[0];
             out[1] = entity->origin[1] + in[0] * xfrm->forward[1] - in[1] * xfrm->right[1] + in[2] * xfrm->up[1];
             out[2] = entity->origin[2] + in[0] * xfrm->forward[2] - in[1] * xfrm->right[2] + in[2] * xfrm->up[2];
             BoundsAddPoint(out, mins, maxs);
         }
     } else {
-        for (i = 0; i < inpoly->numverts; i++, in += VERTEXSIZE, out += VERTEXSIZE) {
-            VectorAdd(in, entity->origin, out);
-            BoundsAddPoint(out, mins, maxs);
+        for (i = 0; i < numverts; i++) {
+            VectorAdd(inverts[i], entity->origin, outverts[i]);
+            BoundsAddPoint(outverts[i], mins, maxs);
         }
     }
 }
@@ -1066,8 +1065,9 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     ForEach_MaterialChain(materialchain) {
         TriBuf_Prepare(buffer, materialchain);
         if (mins) {
+            vec7_t *vertbuf = (vec7_t *)materialchain->material->buffer;
             for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
-                Sky_AddPolyToSkyboxBounds(surf->poly, mins, maxs);
+                Sky_AddPolyToSkyboxBounds(&vertbuf[surf->buffer_offset], surf->numedges, mins, maxs);
                 TriBuf_AddSurf(buffer, surf);
             }
         } else {
@@ -1117,11 +1117,13 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
                     continue;
                 if (!(surf->flags & SURF_PLANEBACK) && dot < -BACKFACE_EPSILON)
                     continue;
-                TransformPoly(entity, &xfrm, surf->poly, poly, polymins, polymaxs);
+                const vec7_t *inverts = (vec7_t *)GLBrushModel(BrushModel(entity->model))->materials[surf->material].buffer + surf->buffer_offset;
+                TransformPoly(entity, &xfrm, inverts, poly->verts, surf->numedges, polymins, polymaxs);
                 if (R_CullBox(polymins, polymaxs))
                     continue;
+                poly->numverts = surf->numedges;
                 if (mins)
-                    Sky_AddPolyToSkyboxBounds(poly, mins, maxs);
+                    Sky_AddPolyToSkyboxBounds(poly->verts, poly->numverts, mins, maxs);
                 if (!TriBuf_CheckSpacePoly(buffer, poly)) {
                     TriBuf_DrawElements(buffer, state);
                     TriBuf_Prepare(buffer, &dummy);
@@ -2197,71 +2199,6 @@ R_DrawWorld(void)
 }
 
 /*
-================
-BuildSurfaceGLPoly
-================
-*/
-static void
-BuildSurfaceGLPoly(brushmodel_t *brushmodel, msurface_t *surf, void *hunkbase)
-{
-    const mtexinfo_t *const texinfo = surf->texinfo;
-    const float *vertex;
-    glpoly_t *poly;
-    float s, t;
-    int i, memsize;
-
-    /* reconstruct the polygon */
-    memsize = sizeof(*poly) + surf->numedges * sizeof(poly->verts[0]);
-    poly = Hunk_AllocExtend(hunkbase, memsize);
-    surf->poly = poly;
-    poly->numverts = surf->numedges;
-
-    for (i = 0; i < surf->numedges; i++) {
-	const int edgenum = brushmodel->surfedges[surf->firstedge + i];
-	if (edgenum >= 0) {
-	    const medge_t *const edge = &brushmodel->edges[edgenum];
-	    vertex = brushmodel->vertexes[edge->v[0]].position;
-	} else {
-	    const medge_t *const edge = &brushmodel->edges[-edgenum];
-	    vertex = brushmodel->vertexes[edge->v[1]].position;
-	}
-	VectorCopy(vertex, poly->verts[i]);
-        if (surf->flags & SURF_DRAWSKY)
-            continue;
-
-	/* Texture coordinates */
-	s = DotProduct(vertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
-	t = DotProduct(vertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
-        if (surf->flags & SURF_DRAWTURB) {
-            s /= 128.0f;
-            t /= 128.0f;
-        } else {
-            s /= texinfo->texture->width;
-            t /= texinfo->texture->height;
-        }
-
-	poly->verts[i][3] = s;
-	poly->verts[i][4] = t;
-
-	/* Lightmap texture coordinates */
-	s = DotProduct(vertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
-	s -= surf->texturemins[0];
-	s += surf->light_s * 16;
-	s += 8;
-	s /= BLOCK_WIDTH * 16;	/* texinfo->texture->width */
-
-	t = DotProduct(vertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
-	t -= surf->texturemins[1];
-	t += surf->light_t * 16;
-	t += 8;
-	t /= BLOCK_HEIGHT * 16;	/* texinfo->texture->height */
-
-	poly->verts[i][5] = s;
-	poly->verts[i][6] = t;
-    }
-}
-
-/*
  * Upload modified lightmap blocks
  * Return the number of uploads that were required/done
  */
@@ -2314,7 +2251,6 @@ GL_BuildLightmaps()
     brushmodel_t *brushmodel;
     glbrushmodel_resource_t *resources;
     msurface_t *surf;
-    void *hunkbase = Hunk_AllocName(0, "glpolys");
 
     for (i = 1; i < MAX_MODELS; i++) {
 	model = cl.model_precache[i];
@@ -2334,7 +2270,6 @@ GL_BuildLightmaps()
                 base += (surf->light_t * BLOCK_WIDTH + surf->light_s) * gl_lightmap_bytes;
                 R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
             }
-	    BuildSurfaceGLPoly(brushmodel, surf, hunkbase);
 	}
 
 	/* upload all lightmaps that were filled */

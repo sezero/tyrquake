@@ -414,7 +414,7 @@ void Sky_NewMap();
 void Sky_AddCommands();
 void Sky_RegisterVariables();
 void Sky_InitBounds(float mins[6][2], float maxs[6][2]);
-void Sky_AddPolyToSkyboxBounds(const glpoly_t *poly, float mins[6][2], float maxs[6][2]);
+void Sky_AddPolyToSkyboxBounds(const vec7_t *verts, int numverts, float mins[6][2], float maxs[6][2]);
 qboolean Sky_LoadSkyboxTextures(const char *skyboxname);
 
 //

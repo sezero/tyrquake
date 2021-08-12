@@ -378,16 +378,16 @@ Sky_ClipPolyForBounds(clippoly_t *skypoly, float mins[6][2], float maxs[6][2], i
  * project onto from the current viewpoint.
  */
 void
-Sky_AddPolyToSkyboxBounds(const glpoly_t *poly, float mins[6][2], float maxs[6][2])
+Sky_AddPolyToSkyboxBounds(const vec7_t *verts, int numverts, float mins[6][2], float maxs[6][2])
 {
     int i;
     clippoly_t *skypoly;
 
     /* Translate the poly into viewspace */
-    skypoly = alloca(offsetof(clippoly_t, verts[poly->numverts]));
-    skypoly->numverts = poly->numverts;
-    for (i = 0; i < poly->numverts; i++)
-        VectorSubtract(poly->verts[i], r_origin, skypoly->verts[i]);
+    skypoly = alloca(offsetof(clippoly_t, verts[numverts]));
+    skypoly->numverts = numverts;
+    for (i = 0; i < numverts; i++)
+        VectorSubtract(verts[i], r_origin, skypoly->verts[i]);
 
     Sky_ClipPolyForBounds(skypoly, mins, maxs, 0);
 }

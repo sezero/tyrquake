@@ -186,7 +186,6 @@ typedef struct msurface_s {
 
     int cached_light[MAXLIGHTMAPS];	// values currently used in lightmap
     qboolean cached_dlight;     // true if dynamic light in cache
-    glpoly_t *poly;
 
     struct msurface_s *chain;   // Material chain for drawing
     depthchain_t depthchain;    // Depth chain for translucent surface sorting
