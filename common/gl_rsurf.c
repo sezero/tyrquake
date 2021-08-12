@@ -338,8 +338,8 @@ R_MirrorChain(msurface_t *surf)
 
 /*
  * The triangle buffer is either allocated directly as an OpenGL
- * buffer or else on the hunk where buffers are not available.  We
- * allow up to the full uint16_t max vertices per draw call.
+ * buffer or else on the hunk when buffers are not available.  We
+ * can allow up to the full uint16_t max vertices per draw call.
  */
 #define TRIBUF_MAX_VERTS MATERIALCHAIN_MAX_VERTS
 #define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 3)
@@ -366,13 +366,12 @@ const char *tribuf_state_names[] = {
 typedef struct {
     int32_t numverts;
     int32_t numindices;
-    vec7_t *verts;
     uint16_t *indices;
     byte *colors; // Only used for r_drawflat
+    vec7_t *verts;
+    vec7_t *final_verts;
 
-    // TEMP hack for new method...
-    vec7_t *new_verts;
-
+    const surface_material_t *material;
     uint32_t numverts_allocated;
     uint32_t numindices_allocated;
     int hunk_mark;
@@ -416,6 +415,8 @@ TriBuf_Finalise_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
     assert(buffer->state == TRIBUF_STATE_PREPARED);
     assert(buffer->numverts > 0); // Should discard if unused
 
+    buffer->final_verts = buffer->material ? (vec7_t *)buffer->material->buffer : buffer->verts;
+
     TriBuf_SetState(buffer, TRIBUF_STATE_FINALISED);
 }
 
@@ -433,24 +434,29 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
         assert(buffer->state != TRIBUF_STATE_PREPARED);
     }
 
-    /* Reset to empty buffer state */
+    /* Reset buffer state */
     buffer->numverts = 0;
     buffer->numindices = 0;
+    buffer->material = materialchain->material;
     TriBuf_SetState(buffer, TRIBUF_STATE_PREPARED);
 
-    int32_t numverts = materialchain->numverts;
     int32_t numindices = materialchain->numindices;
+    int32_t numverts = materialchain->numverts;
 
+    /* Common case should be no re-allocation */
+    if (buffer->material && buffer->numindices_allocated >= numindices && !r_drawflat.value)
+        return;
     if (buffer->numverts_allocated >= numverts && buffer->numindices_allocated >= numindices)
         return;
+
     if (buffer->hunk_mark)
         Hunk_FreeToLowMark(buffer->hunk_mark);
 
     buffer->hunk_mark = Hunk_LowMark();
     buffer->numverts_allocated = qmax(numverts, TRIBUF_MIN_VERTS);
     buffer->numindices_allocated = qmax(numindices, TRIBUF_MIN_INDICES);
-    buffer->verts = Hunk_AllocName_Raw(buffer->numverts_allocated * sizeof(vec7_t), "vertbuf");
     buffer->indices = Hunk_AllocName_Raw(buffer->numindices_allocated * sizeof(uint16_t), "indexbuf");
+    buffer->verts = Hunk_AllocName_Raw(buffer->numverts_allocated * sizeof(vec7_t), "vertbuf");
     buffer->colors = r_drawflat.value
         ? Hunk_AllocName_Raw(buffer->numverts_allocated * 3 * sizeof(byte), "colorbuf")
         : NULL;
@@ -491,7 +497,7 @@ static inline void
 TriBuf_VertexPointer(triangle_buffer_t *buffer)
 {
     assert(buffer->state == TRIBUF_STATE_FINALISED);
-    glVertexPointer(3, GL_FLOAT, sizeof(buffer->verts[0]), buffer->verts);
+    glVertexPointer(3, GL_FLOAT, sizeof(buffer->final_verts[0]), buffer->final_verts);
 }
 
 static inline void
@@ -499,7 +505,7 @@ TriBuf_TexCoordPointer(triangle_buffer_t *buffer, uint8_t texcoord_index)
 {
     assert(buffer->state == TRIBUF_STATE_FINALISED);
     assert(texcoord_index < 2);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(buffer->verts[0]), &buffer->verts[0][3 + 2 * texcoord_index]);
+    glTexCoordPointer(2, GL_FLOAT, sizeof(buffer->final_verts[0]), &buffer->final_verts[0][3 + 2 * texcoord_index]);
 }
 
 static inline void
@@ -635,7 +641,8 @@ TriBuf_AddPoly(triangle_buffer_t *buffer, const glpoly_t *poly)
 static inline void
 TriBuf_AddSurf(triangle_buffer_t *buffer, const msurface_t *surf)
 {
-    assert(buffer->new_verts);
+    assert(buffer->material);
+
     uint16_t *index = &buffer->indices[buffer->numindices];
     const int offset = surf->buffer_offset;
     /* TODO: strip order instead of fan? */
@@ -654,6 +661,8 @@ TriBuf_AddFlatSurf(triangle_buffer_t *buffer, const msurface_t *surf)
 {
     GLbyte color[3];
     int i;
+
+    assert(buffer->material);
 
     srand((intptr_t)surf);
     color[0] = (byte)(rand() & 0xff);
@@ -1055,7 +1064,6 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     glbrushmodel_t *glbrushmodel;
 
     ForEach_MaterialChain(materialchain) {
-        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         TriBuf_Prepare(buffer, materialchain);
         if (mins) {
             for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
@@ -1067,11 +1075,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
                 TriBuf_AddSurf(buffer, surf);
         }
         TriBuf_Finalise(buffer);
-        vec7_t *saved_verts = buffer->verts;
-        buffer->verts = buffer->new_verts;
         TriBuf_DrawElements(buffer, state);
-        buffer->verts = saved_verts;
-        buffer->new_verts = NULL;
     }
 
     /*
@@ -1542,11 +1546,7 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
         for (surf = materialchain->surf; surf; surf = surf->chain)
             TriBuf_AddSurf(buffer, surf);
         TriBuf_Finalise(buffer);
-        vec7_t *saved_verts = buffer->verts;
-        buffer->verts = buffer->new_verts;
         TriBuf_DrawTurb(buffer, texture, alpha);
-        buffer->verts = saved_verts;
-        buffer->new_verts = NULL;
     }
 }
 
@@ -1555,16 +1555,10 @@ DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
     ForEach_MaterialChain(materialchain) {
         TriBuf_Prepare(buffer, materialchain);
-        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
             TriBuf_AddFlatSurf(buffer, surf);
-        assert(buffer->numverts == materialchain->numverts);
         TriBuf_Finalise(buffer);
-        vec7_t *saved_verts = buffer->verts;
-        buffer->verts = buffer->new_verts;
         TriBuf_DrawFlat(buffer);
-        buffer->verts = saved_verts;
-        buffer->new_verts = NULL;
     }
 }
 
@@ -1577,22 +1571,16 @@ DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrus
 
     ForEach_MaterialChain(materialchain) {
         TriBuf_Prepare(buffer, materialchain);
-        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
             R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
             TriBuf_AddSurf(buffer, surf);
         }
         TriBuf_Finalise(buffer);
-        vec7_t *saved_verts = buffer->verts;
-        buffer->verts = buffer->new_verts;
         if (flags & SURF_DRAWTILED) {
             TriBuf_DrawFullbrightSolid(buffer, texture);
         } else {
             TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
         }
-        buffer->verts = saved_verts;
-
-        buffer->new_verts = NULL;
     }
 }
 
@@ -1649,9 +1637,7 @@ DrawMaterialChain(triangle_buffer_t *buffer, glbrushmodel_t *glbrushmodel, mater
         DrawSkyChain(buffer, materialchain, texture);
     } else if (flags & SURF_DRAWTURB) {
         texture_t *texture = glbrushmodel->brushmodel.textures[materialchain->material->texturenum];
-        buffer->new_verts = (vec7_t *)materialchain->material->buffer;
         DrawTurbChain(buffer, materialchain, texture, alpha);
-        buffer->new_verts = NULL;
     } else {
         DrawSolidChain(buffer, materialchain, glbrushmodel, alpha);
     }
