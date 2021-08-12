@@ -1767,8 +1767,18 @@ SwapChains(int material1, int material2, materialchain_t *materialchains)
 {
     if (material1 != material2) {
         materialchain_t tmp = materialchains[material1];
+#if 0
         materialchains[material1] = materialchains[material2];
         materialchains[material2] = tmp;
+#else
+        /* UGLY - we really need to fix this!  Get rid of overflow AND watch out for material changes... */
+        materialchains[material1].numverts = materialchains[material2].numverts;
+        materialchains[material1].numindices = materialchains[material2].numindices;
+        materialchains[material1].surf = materialchains[material2].surf;
+        materialchains[material2].numverts = tmp.numverts;
+        materialchains[material2].numindices = tmp.numindices;
+        materialchains[material2].surf = tmp.surf;
+#endif
     }
 }
 
