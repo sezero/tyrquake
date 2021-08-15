@@ -61,9 +61,11 @@ enum material_class {
 };
 
 // Material - combination of gl textures required to render the surface
+#define MATERIAL_MAX_VERTS 65536
 typedef struct surface_material {
     int texturenum;
     int lightmapblock;
+    int animation_base_material; /* For animation frames */
 
     /*
      * The verts will be stored in a VBO if available, otherwise a
@@ -103,8 +105,8 @@ typedef struct {
  * buffers for huge numbers of material triangles.
  */
 //#define MATERIALCHAIN_MAX_VERTS 64
-#define MATERIALCHAIN_MAX_VERTS 65536
-
+//#define MATERIALCHAIN_MAX_VERTS 65536
+#define MATERIALCHAIN_MAX_VERTS MATERIAL_MAX_VERTS
 typedef struct materialchain_s {
     int32_t numverts;
     int32_t numindices;
@@ -159,6 +161,15 @@ MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
         surf->chain = materialchain->surf;
         materialchain->surf = surf;
     }
+    materialchain->numverts += surf->numedges;
+    materialchain->numindices += (surf->numedges - 2) * 3;
+}
+
+static inline void
+MaterialChain_AddSurf_NoOverflow(materialchain_t *materialchain, msurface_t *surf)
+{
+    surf->chain = materialchain->surf;
+    materialchain->surf = surf;
     materialchain->numverts += surf->numedges;
     materialchain->numindices += (surf->numedges - 2) * 3;
 }

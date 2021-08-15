@@ -1775,6 +1775,7 @@ SwapChains(int material1, int material2, materialchain_t *materialchains)
         materialchains[material1].numverts = materialchains[material2].numverts;
         materialchains[material1].numindices = materialchains[material2].numindices;
         materialchains[material1].surf = materialchains[material2].surf;
+
         materialchains[material2].numverts = tmp.numverts;
         materialchains[material2].numindices = tmp.numindices;
         materialchains[material2].surf = tmp.surf;

@@ -212,11 +212,30 @@ GL_AllocLightmapBlock(glbrushmodel_resource_t *resources, msurface_t *surf)
 }
 
 /*
+ * Materials are divided into classes to minimise rendering state changes.
+ * Probably worth checking if this make much of a difference for the complication...
+ */
+static enum material_class
+GL_GetTextureMaterialClass(texture_t *texture)
+{
+    if (texture->name[0] == '*')
+        return MATERIAL_LIQUID;
+    if (texture->name[0] == '{')
+        return (texture->gl_texturenum_fullbright) ? MATERIAL_FENCE_FULLBRIGHT : MATERIAL_FENCE;
+    if (!strncmp(texture->name, "sky", 3))
+        return MATERIAL_SKY;
+    if (texture->gl_texturenum_fullbright)
+        return MATERIAL_FULLBRIGHT;
+
+    return MATERIAL_BASE;
+}
+
+/*
  * Given an animating texture, return the texture corresponding to the first
  * frame in the animation sequence.
  */
 static texture_t *
-GL_GetAnimBaseTexture(brushmodel_t *brushmodel, texture_t *texture)
+GL_GetAnimationBaseTexture(texture_t *texture)
 {
     assert(texture->anim_total);
     assert(texture->name[0] == '+');
@@ -230,6 +249,51 @@ GL_GetAnimBaseTexture(brushmodel_t *brushmodel, texture_t *texture)
     } while (frame != texture);
 
     Sys_Error("%s: Unable to find base texture for %s", __func__, texture->name);
+}
+
+/*
+ * This 'primary' texture is just finding the first texture in the full animation sequence including
+ * alternate animations that will be registered as a material.  This will be the one with the lower
+ * material class and if there are multiple within the same class, then the one with the lower
+ * texture number.
+ */
+static texture_t *
+GL_GetAnimationPrimaryTexture(texture_t *texture)
+{
+    assert(texture->anim_total);
+
+    enum material_class primary_class = GL_GetTextureMaterialClass(texture);
+    texture_t *primary_texture = texture;
+
+    /* Check animations */
+    texture_t *frame = texture;
+    do {
+        enum material_class frame_class = GL_GetTextureMaterialClass(frame);
+        if (frame_class < primary_class) {
+            primary_class = frame_class;
+            primary_texture = frame;
+        } else if (frame_class == primary_class && frame->texturenum < primary_texture->texturenum) {
+            primary_texture = frame;
+        }
+        frame = frame->anim_next;
+    } while (frame != texture);
+
+    /* Check alternate animations */
+    if (texture->alternate_anims) {
+        frame = texture = texture->alternate_anims;
+        do {
+            enum material_class frame_class = GL_GetTextureMaterialClass(frame);
+            if (frame_class < primary_class) {
+                primary_class = frame_class;
+                primary_texture = frame;
+            } else if (frame_class == primary_class && frame->texturenum < primary_texture->texturenum) {
+                primary_texture = frame;
+            }
+            frame = frame->anim_next;
+        } while (frame != texture);
+    }
+
+    return primary_texture;
 }
 
 static void
@@ -247,7 +311,7 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
     texinfo = brushmodel->texinfo;
     for (i = 0; i < brushmodel->numtexinfo; i++, texinfo++) {
         if (texinfo->texture->anim_total) {
-            texture_t *basetexture = GL_GetAnimBaseTexture(brushmodel, texinfo->texture);
+            texture_t *basetexture = GL_GetAnimationBaseTexture(texinfo->texture);
             if (texinfo->texture != basetexture)
                 texinfo->texture = basetexture;
         }
@@ -271,21 +335,6 @@ GL_BrushModelPostProcess(brushmodel_t *brushmodel)
                 texinfo->texture = skytexture;
         }
     }
-}
-
-static enum material_class
-GL_GetTextureMaterialClass(texture_t *texture)
-{
-    if (texture->name[0] == '*')
-        return MATERIAL_LIQUID;
-    if (texture->name[0] == '{')
-        return (texture->gl_texturenum_fullbright) ? MATERIAL_FENCE_FULLBRIGHT : MATERIAL_FENCE;
-    if (!strncmp(texture->name, "sky", 3))
-        return MATERIAL_SKY;
-    if (texture->gl_texturenum_fullbright)
-        return MATERIAL_FULLBRIGHT;
-
-    return MATERIAL_BASE;
 }
 
 #ifdef DEBUG
@@ -342,9 +391,9 @@ Debug_PrintMaterials(glbrushmodel_t *glbrushmodel)
                    animation->numalt);
         int j;
         for (j = 0; j < animation->numframes; j++)
-            Sys_Printf("   frame %d: material %d\n", j, animation->frames[j]);
+            Sys_Printf("   frame %d: material %d (%s)\n", j, animation->frames[j], brushmodel->textures[glbrushmodel->materials[animation->frames[j]].texturenum]->name);
         for (j = 0; j < animation->numalt; j++)
-            Sys_Printf("   alt   %d: material %d\n", j, animation->alt[j]);
+            Sys_Printf("   alt   %d: material %d (%s)\n", j, animation->alt[j], brushmodel->textures[glbrushmodel->materials[animation->alt[j]].texturenum]->name);
     }
 }
 #else
@@ -355,7 +404,7 @@ static inline void Debug_PrintMaterials(glbrushmodel_t *glbrushmodel) { }
  * Find a material that we know should exist already
  */
 static int
-GL_FindMaterial(glbrushmodel_t *glbrushmodel, int texturenum, int lightmapblock)
+GL_FindAnimationMaterial(glbrushmodel_t *glbrushmodel, int texturenum, int base_material)
 {
     int materialnum;
     surface_material_t *material;
@@ -364,7 +413,7 @@ GL_FindMaterial(glbrushmodel_t *glbrushmodel, int texturenum, int lightmapblock)
     for (materialnum = 0; materialnum < glbrushmodel->nummaterials; materialnum++, material++) {
         if (material->texturenum != texturenum)
             continue;
-        if (material->lightmapblock != lightmapblock)
+        if (materialnum != base_material && material->animation_base_material != base_material)
             continue;
         break;
     }
@@ -383,23 +432,19 @@ GL_AllocateMaterial(glbrushmodel_t *glbrushmodel, msurface_t *texturechain, int 
     for (surf = texturechain; surf; surf = surf->chain) {
         int lightmapblock = surf->lightmapblock;
         int materialnum = material_start;
-        qboolean found = false;
         for ( ; materialnum < glbrushmodel->nummaterials; materialnum++) {
             material = &glbrushmodel->materials[materialnum];
             if (material->texturenum != texturenum)
                 continue;
             if (material->lightmapblock != lightmapblock)
                 continue;
-            found = true;
+            if (material->numverts + surf->numedges > MATERIAL_MAX_VERTS)
+                continue;
             break;
         }
-        if (found) {
-            /*
-             * Only assign the material if this is the base texture
-             * animation frame for the surface.
-             */
-            if (surf->texinfo->texture->texturenum == texturenum)
-                surf->material = materialnum;
+        surf->material = materialnum;
+        if (materialnum < glbrushmodel->nummaterials) {
+            material->numverts += surf->numedges;
             continue;
         }
 
@@ -408,13 +453,54 @@ GL_AllocateMaterial(glbrushmodel_t *glbrushmodel, msurface_t *texturechain, int 
          * 16 bytes, which might waste some space over the entire
          * material list.  Make a better alloc helper for this case?
          */
-        if (surf->texinfo->texture->texturenum == texturenum) {
-            surf->material = glbrushmodel->nummaterials;
-        }
         Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
         material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
         material->texturenum = texturenum;
         material->lightmapblock = surf->lightmapblock;
+        material->animation_base_material = -1;
+        material->numverts = surf->numedges;
+    }
+}
+
+static void
+GL_CopyMaterialsForAnimationFrame(glbrushmodel_t *glbrushmodel, msurface_t *texturechain, texture_t *src, texture_t *dst)
+{
+    if (src == dst)
+        return;
+
+    int nummaterials = glbrushmodel->nummaterials;
+    for (int materialnum = 0; materialnum < nummaterials; materialnum++) {
+        surface_material_t *src_material = &glbrushmodel->materials[materialnum];
+        if (src_material->texturenum != src->texturenum)
+            continue;
+
+        assert(src_material->animation_base_material == -1);
+        Hunk_AllocExtend(glbrushmodel->materials, sizeof(surface_material_t));
+        surface_material_t *dst_material = &glbrushmodel->materials[glbrushmodel->nummaterials++];
+
+        *dst_material = *src_material;
+        dst_material->texturenum = dst->texturenum;
+        dst_material->animation_base_material = materialnum;
+
+        Debug_Printf("Made a copy of material %d (%s/%d) for alt texture '%s' (%d)\n",
+                     materialnum, src->name, src_material->lightmapblock, dst->name, (int)(dst_material - glbrushmodel->materials));
+    }
+}
+
+static void
+GL_CopyBufferPointerForAnimationFrames(glbrushmodel_t *glbrushmodel, int materialnum)
+{
+    assert(materialnum >= 0);
+
+    float *buffer = glbrushmodel->materials[materialnum].buffer;
+    surface_material_t *material = glbrushmodel->materials;
+    for (int i = 0; i < glbrushmodel->nummaterials; i++, material++) {
+        if (material->animation_base_material == materialnum) {
+            Debug_Printf("Copying buffer pointer for material %d (%s) to %d (%s)\n",
+                         materialnum, glbrushmodel->brushmodel.textures[glbrushmodel->materials[materialnum].texturenum]->name,
+                         i, glbrushmodel->brushmodel.textures[material->texturenum]->name);
+            material->buffer = buffer;
+        }
     }
 }
 
@@ -499,11 +585,6 @@ GL_BuildMaterials()
          * the texturechain until every brushmodel has had it's lightmaps
          * allocated.  We'll also initialise the surface material to -1 here
          * to signify no material yet allocated.
-         *
-         * It is possible to assign the non-base animating texture to a
-         * surface, we'll ensure we treat all textures in the sequence as the
-         * sequence base texture when allocating materials.  The alternate
-         * animation will generate an extra material.
          */
         texturechains = Hunk_TempAllocExtend(brushmodel->numtextures * sizeof(msurface_t *));
         surf = brushmodel->surfaces;
@@ -512,10 +593,17 @@ GL_BuildMaterials()
             texture = surf->texinfo->texture;
             if (!texture)
                 continue;
-            if (texture->anim_total)
-                texture = GL_GetAnimBaseTexture(brushmodel, texture);
-            surf->chain = texturechains[texture->texturenum];
-            texturechains[texture->texturenum] = surf;
+
+            /*
+             * For animated materials we place the surfaces on the 'primary' texture's chain.
+             */
+            if (texture->anim_total) {
+                texturenum = GL_GetAnimationPrimaryTexture(texture)->texturenum;
+            } else {
+                texturenum = texture->texturenum;
+            }
+            surf->chain = texturechains[texturenum];
+            texturechains[texturenum] = surf;
         }
 
         /* Allocate lightmap blocks in texture order */
@@ -558,43 +646,50 @@ GL_BuildMaterials()
                     continue;
 
                 /*
-                 * For animating textures, we need to register materials for
-                 * all frames and alternates that would match the current
-                 * class
+                 * For animating textures, we need to register materials for all frames and
+                 * alternates that would match the current class.  The 'primary' texture in the
+                 * animation will be the first one allocated and holds the vertex data.  All other
+                 * textures in the animation create copies of the primary material(s) which will
+                 * then point to the same vertex data (eventually - see below).
                  */
                 if (texture->anim_total) {
+                    texture_t *primary = GL_GetAnimationPrimaryTexture(texture);
+                    if (texture != primary)
+                        continue;
+
+                    if (GL_GetTextureMaterialClass(texture) == material_class) {
+                        int index = glbrushmodel->material_index[material_class];
+                        GL_AllocateMaterial(glbrushmodel, texturechains[texturenum], texture->texturenum, index);
+                    }
+
                     /* Animation frames */
                     texture_t *frame = texture;
                     do {
-                        if (GL_GetTextureMaterialClass(frame) == material_class) {
-                            int index = glbrushmodel->material_index[material_class];
-                            GL_AllocateMaterial(glbrushmodel, texturechains[texturenum], frame->texturenum, index);
-                        }
+                        if (GL_GetTextureMaterialClass(frame) == material_class)
+                            GL_CopyMaterialsForAnimationFrame(glbrushmodel, texturechains[texturenum], primary, frame);
                         frame = frame->anim_next;
                     } while (frame != texture);
 
                     /* Alt-animation frames */
                     if (!texture->alternate_anims)
                         continue;
+
                     frame = texture = texture->alternate_anims;
                     do {
                         if (GL_GetTextureMaterialClass(frame) == material_class) {
-                            int index = glbrushmodel->material_index[material_class];
-                            GL_AllocateMaterial(glbrushmodel, texturechains[texturenum], frame->texturenum, index);
+                            GL_CopyMaterialsForAnimationFrame(glbrushmodel, texturechains[texturenum], primary, frame);
                         }
                         frame = frame->anim_next;
                     } while (frame != texture);
 
-                    /* Done with this texture */
+                    /* Done with this animating texture */
                     continue;
                 }
 
-                /* Skip past textures not in the current material class */
-                if (GL_GetTextureMaterialClass(texture) != material_class)
-                    continue;
-
-                int index = glbrushmodel->material_index[material_class];
-                GL_AllocateMaterial(glbrushmodel, texturechains[texturenum], texturenum, index);
+                if (GL_GetTextureMaterialClass(texture) == material_class) {
+                    int index = glbrushmodel->material_index[material_class];
+                    GL_AllocateMaterial(glbrushmodel, texturechains[texturenum], texturenum, index);
+                }
             }
         }
         glbrushmodel->material_index[MATERIAL_END] = glbrushmodel->nummaterials;
@@ -608,17 +703,11 @@ GL_BuildMaterials()
         surface_material_t *material = glbrushmodel->materials;
         for (materialnum = 0; materialnum < glbrushmodel->nummaterials; materialnum++, material++) {
             texture = brushmodel->textures[material->texturenum];
-            if (texture->name[0] != '+')
+            if (!texture->anim_total)
                 continue;
-            char index = texture->name[1];
-            if (index != '0' && index != 'a' && index != 'A')
+            if (texture != GL_GetAnimationBaseTexture(texture))
                 continue;
-
-            /*
-             * If the texture has alternate animations, we store the
-             * info on the base (digit) material side
-             */
-            if (texture->alternate_anims && index != '0')
+            if (texture->alternate_anims && texture->alternate_anims->name[1] == '0')
                 continue;
 
             /* Allocate and add the base frame */
@@ -627,11 +716,15 @@ GL_BuildMaterials()
             animation->material = materialnum;
             animation->frames[animation->numframes++] = materialnum;
 
+            int base_materialnum = (material->animation_base_material >= 0)
+                ? material->animation_base_material
+                : materialnum;
+
             /* Add all the animation frames */
             texture_t *frame = texture->anim_next;
             while (frame != texture) {
-                int frameMaterial = GL_FindMaterial(glbrushmodel, frame->texturenum, material->lightmapblock);
-                animation->frames[animation->numframes++] = frameMaterial;
+                int frame_material = GL_FindAnimationMaterial(glbrushmodel, frame->texturenum, base_materialnum);
+                animation->frames[animation->numframes++] = frame_material;
                 frame = frame->anim_next;
             }
 
@@ -640,8 +733,8 @@ GL_BuildMaterials()
                 continue;
             frame = texture = texture->alternate_anims;
             do {
-                int frameMaterial = GL_FindMaterial(glbrushmodel, frame->texturenum, material->lightmapblock);
-                animation->alt[animation->numalt++] = frameMaterial;
+                int frame_material = GL_FindAnimationMaterial(glbrushmodel, frame->texturenum, base_materialnum);
+                animation->alt[animation->numalt++] = frame_material;
                 frame = frame->anim_next;
             } while (frame != texture);
         }
@@ -652,7 +745,7 @@ GL_BuildMaterials()
      * submodels).  Submodels share the material list with their parent.  All
      * share the common resources struct.
      */
-    void *hunkbase = Hunk_AllocName(0, "material");
+    void *hunkbase = Hunk_AllocName(0, "matchain");
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
         glbrushmodel = GLBrushModel(brushmodel);
         if (brushmodel->parent) {
@@ -710,9 +803,7 @@ GL_BuildMaterials()
     }
 
     /*
-     * Build up the materials list across all models starting with the
-     * world.  The materialchains will count up the number of
-     * vertices.
+     * Build up the material chains across all models in preparation for storing vertex data.
      */
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
         if (brushmodel->parent)
@@ -720,9 +811,8 @@ GL_BuildMaterials()
         glbrushmodel = GLBrushModel(brushmodel);
         MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->materials, glbrushmodel->nummaterials);
         surf = brushmodel->surfaces;
-        for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++) {
-            MaterialChain_AddSurf(&glbrushmodel->materialchains[surf->material], surf);
-        }
+        for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++)
+            MaterialChain_AddSurf_NoOverflow(&glbrushmodel->materialchains[surf->material], surf);
     }
 
     /* Allocate vertex buffer space for each chain and fill out vertex info */
@@ -732,42 +822,46 @@ GL_BuildMaterials()
         if (brushmodel->parent)
             continue;
         glbrushmodel = GLBrushModel(brushmodel);
-        for (int i = 0; i < glbrushmodel->nummaterials; i++) {
-            materialchain_t *materialchain = &glbrushmodel->materialchains[i];
-            surface_material_t *materials = glbrushmodel->materials;
+        surface_material_t *material = glbrushmodel->materials;
+        for (int materialnum = 0; materialnum < glbrushmodel->nummaterials; materialnum++, material++) {
+            materialchain_t *materialchain = &glbrushmodel->materialchains[materialnum];
             ForEach_MaterialChain(materialchain) {
+                if (!materialchain->surf)
+                    continue;
+
                 /* TODO: pack materials into shared buffers */
                 const int buffersize = materialchain->numverts * sizeof(vec7_t);
                 total_allocation += buffersize;
-                materials[i].buffer = Hunk_AllocName(buffersize, va("m%d/%03d", modelnum, i));
-                vec7_t *buffer = (vec7_t *)materials[i].buffer;
+                material->buffer = Hunk_AllocName(buffersize, va("m%d/%03d", modelnum, materialnum));
+                material->numverts = materialchain->numverts;
+
+                /* Copy buffer pointer for animation frames */
+                texture_t *texture = brushmodel->textures[material->texturenum];
+                if (texture->anim_total) {
+                    GL_CopyBufferPointerForAnimationFrames(glbrushmodel, materialnum);
+                }
+
+                vec7_t *buffer = (vec7_t *)material->buffer;
                 for (surf = materialchain->surf; surf; surf = surf->chain) {
                     /* Record the offset and create the vertex data */
-                    surf->buffer_offset = buffer - (vec7_t *)materials[i].buffer;
+                    surf->buffer_offset = buffer - (vec7_t *)material->buffer;
                     AddSurfaceVertices(brushmodel, surf, buffer);
                     buffer += surf->numedges;
+
+                    /* Fixup animated surface materials */
+                    texture_t *texture = surf->texinfo->texture;
+                    if (texture->anim_total && texture->texturenum != material->texturenum) {
+                        surf->material = GL_FindAnimationMaterial(glbrushmodel, texture->texturenum, materialnum);
+                        Debug_Printf("Fixing up surf material from %d (%s) -> %d (%s)\n",
+                                     materialnum, brushmodel->textures[material->texturenum]->name,
+                                     surf->material, brushmodel->textures[glbrushmodel->materials[surf->material].texturenum]->name);
+                    }
                 }
-                assert((byte *)buffer - (byte *)materials[i].buffer == buffersize);
-                Debug_Printf("Material %d, %d vertices, %d bytes\n", i, materialchain->numverts, (int)(materialchain->numverts * sizeof(vec7_t)));
+                assert((byte *)buffer - (byte *)material->buffer == buffersize);
             }
         }
     }
-    Debug_Printf("Material vertex arrays, total allocation is %d\n", total_allocation);
-
-    /* Copy the vertex buffer for each animated material into all frames */
-    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next, modelnum++) {
-        if (brushmodel->parent)
-            continue;
-        glbrushmodel = GLBrushModel(brushmodel);
-        for (int animationnum = 0; animationnum < glbrushmodel->numanimations; animationnum++) {
-            material_animation_t *animation = &glbrushmodel->animations[animationnum];
-            float *buffer = glbrushmodel->materials[animation->material].buffer;
-            for (int i = 0; i < animation->numframes; i++)
-                glbrushmodel->materials[animation->frames[i]].buffer = buffer;
-            for (int i = 0; i < animation->numalt; i++)
-                glbrushmodel->materials[animation->alt[i]].buffer = buffer;
-        }
-    }
+    Debug_Printf("Material vertex arrays, total allocation is %d bytes\n", total_allocation);
 }
 
 static void
@@ -838,6 +932,8 @@ R_BrushModelLoader()
 void
 MaterialChain_HandleOverflow(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
 {
+    assert(false); // Shouldn't ever hit this now...
+
     materialchain_t *overflow = Z_Malloc(mainzone, sizeof(materialchain_t));
     *overflow = *materialchain;
     materialchain->numverts = 0;
