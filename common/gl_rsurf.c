@@ -2059,11 +2059,11 @@ R_RecursiveWorldNode(const vec3_t modelorg, mnode_t *node)
 	    if (mirror && surf->texinfo->texture == cl.worldmodel->textures[mirrortexturenum])
 		continue;
 
-            /* Flag turb textures that need to be updated */
-            if (surf->flags & SURF_DRAWTURB)
-                surf->texinfo->texture->mark = 1;
-
             if (surf->flags & r_surfalpha_flags) {
+                /* Flag transparent turb textures to update - not in the material chains */
+                if (surf->flags & SURF_DRAWTURB)
+                    surf->texinfo->texture->mark = 1;
+
                 // Sort alpha surfaces into the depth chain for blending
                 DepthChain_AddSurf(&r_depthchain, &r_worldentity, surf, depthchain_bmodel_static);
             } else {

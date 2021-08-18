@@ -1584,8 +1584,6 @@ r_refdef must be set before the first call
 static void
 R_RenderScene(void)
 {
-    int i, j;
-
     gl_draw_calls = 0;
     gl_verts_submitted = 0;
     gl_indices_submitted = 0;
@@ -1598,14 +1596,23 @@ R_RenderScene(void)
 
     R_PrepareWorldMaterialChains(); // Also marks visible world warp surfaces for updating
 
+    glbrushmodel_t *glbrushmodel = GLBrushModel(cl.worldmodel);
+    ForEach_MaterialOfClass(glbrushmodel, MATERIAL_LIQUID) {
+        materialchain_t *materialchain = &glbrushmodel->materialchains[materialnum];
+        if (materialchain->surf)
+            glbrushmodel->brushmodel.textures[materialchain->material->texturenum]->mark = 1;
+    }
+
+
+    /* Mark turb textures that need updating */
     // TODO: try combine this with other visedicts passes?
     // TODO: is it worth frustum culling here?
-    for (i = 0; i < cl_numvisedicts; i++) {
+    for (int i = 0; i < cl_numvisedicts; i++) {
         entity_t *entity = cl_visedicts[i];
         if (entity->model->type != mod_brush)
             continue;
         glbrushmodel_t *glbrushmodel = GLBrushModel(BrushModel(entity->model));
-        for (j = 0; j < glbrushmodel->numturbtextures; j++)
+        for (int j = 0; j < glbrushmodel->numturbtextures; j++)
             glbrushmodel->turbtextures[j]->mark = 1;
     }
 
