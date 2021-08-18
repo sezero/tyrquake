@@ -81,6 +81,15 @@ typedef struct surface_material {
     //   overflow if > MAX_VERTS?
 } surface_material_t;
 
+/*
+ * Iterate through each material of a given type.
+ * materialnum variable is provided inside the loop.
+ */
+#define ForEach_MaterialOfClass(glbrushmodel_, class_)             \
+    for (int materialnum = glbrushmodel_->material_index[class_];  \
+         materialnum < glbrushmodel_->material_index[class_ + 1];  \
+         materialnum++)
+
 typedef struct material_animation {
     int material;
     short numframes;

@@ -1040,23 +1040,10 @@ TransformPoly(const entity_t *entity, const transform_t *xfrm,
     }
 }
 
-/*
- * Check for a sky material on the brushmodel.
- * Return the material number, or -1 if none exists.
- */
-static inline int
-SkyMaterialNum(const glbrushmodel_t *glbrushmodel)
-{
-    int materialnum = glbrushmodel->material_index[MATERIAL_SKY];
-    if (materialnum == glbrushmodel->material_index[MATERIAL_SKY + 1])
-        materialnum = -1;
-    return materialnum;
-}
-
 static void
 DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *materialchain, const struct buffer_state *state, float mins[6][2], float maxs[6][2])
 {
-    int i, maxverts, skymaterial;
+    int i, maxverts;
     glpoly_t *poly;
     transform_t xfrm;
     vec3_t polymins, polymaxs;
@@ -1101,32 +1088,31 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
             if (!R_EntityIsTranslated(entity) && !R_EntityIsRotated(entity))
                 continue;
 
-            skymaterial = SkyMaterialNum(glbrushmodel);
-            if (skymaterial < 0)
-                continue;
-            msurface_t *surf = glbrushmodel->materialchains[skymaterial].surf;
-            if (!surf)
-                continue;
+            ForEach_MaterialOfClass(glbrushmodel, MATERIAL_SKY) {
+                msurface_t *surf = glbrushmodel->materialchains[materialnum].surf;
+                if (!surf)
+                    continue;
 
-            SetupEntityTransform(entity, &xfrm);
-            for ( ; surf; surf = surf->chain) {
-                float dot = DotProduct(xfrm.origin, surf->plane->normal) - surf->plane->dist;
-                if ((surf->flags & SURF_PLANEBACK) && dot > BACKFACE_EPSILON)
-                    continue;
-                if (!(surf->flags & SURF_PLANEBACK) && dot < -BACKFACE_EPSILON)
-                    continue;
-                const vec7_t *inverts = (vec7_t *)GLBrushModel(BrushModel(entity->model))->materials[surf->material].buffer + surf->buffer_offset;
-                TransformPoly(entity, &xfrm, inverts, poly->verts, surf->numedges, polymins, polymaxs);
-                if (R_CullBox(polymins, polymaxs))
-                    continue;
-                poly->numverts = surf->numedges;
-                if (mins)
-                    Sky_AddPolyToSkyboxBounds(poly->verts, poly->numverts, mins, maxs);
-                if (!TriBuf_CheckSpacePoly(buffer, poly)) {
-                    TriBuf_DrawElements(buffer, state);
-                    TriBuf_Prepare(buffer, &dummy);
+                SetupEntityTransform(entity, &xfrm);
+                for ( ; surf; surf = surf->chain) {
+                    float dot = DotProduct(xfrm.origin, surf->plane->normal) - surf->plane->dist;
+                    if ((surf->flags & SURF_PLANEBACK) && dot > BACKFACE_EPSILON)
+                        continue;
+                    if (!(surf->flags & SURF_PLANEBACK) && dot < -BACKFACE_EPSILON)
+                        continue;
+                    const vec7_t *inverts = (vec7_t *)GLBrushModel(BrushModel(entity->model))->materials[surf->material].buffer + surf->buffer_offset;
+                    TransformPoly(entity, &xfrm, inverts, poly->verts, surf->numedges, polymins, polymaxs);
+                    if (R_CullBox(polymins, polymaxs))
+                        continue;
+                    poly->numverts = surf->numedges;
+                    if (mins)
+                        Sky_AddPolyToSkyboxBounds(poly->verts, poly->numverts, mins, maxs);
+                    if (!TriBuf_CheckSpacePoly(buffer, poly)) {
+                        TriBuf_DrawElements(buffer, state);
+                        TriBuf_Prepare(buffer, &dummy);
+                    }
+                    TriBuf_AddPoly(buffer, poly);
                 }
-                TriBuf_AddPoly(buffer, poly);
             }
         }
     }
@@ -1834,9 +1820,8 @@ R_SetupDynamicBrushModelMaterialChains(entity_t *entity, const vec3_t modelorg)
     R_SwapAnimationChains(glbrushmodel, materialchains);
 
     /* Sky is handled separately */
-    int skymaterial = SkyMaterialNum(glbrushmodel);
-    if (skymaterial >= 0)
-        materialchains[skymaterial].surf = NULL;
+    ForEach_MaterialOfClass(glbrushmodel, MATERIAL_SKY)
+        materialchains[materialnum].surf = NULL;
 }
 
 static void
@@ -2166,21 +2151,14 @@ R_DrawWorld(void)
                 glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
                 if (!glbrushmodel->drawsky)
                     continue;
-                int skymaterial = SkyMaterialNum(glbrushmodel);
-                if (skymaterial < 0)
-                    continue;
                 materialchain_t *materialchains = glbrushmodel->materialchains;
                 msurface_t *surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
-                int i;
-                materialchains[skymaterial].surf = NULL;
-                for (i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+                ForEach_MaterialOfClass(glbrushmodel, MATERIAL_SKY)
+                    materialchains[materialnum].surf = NULL;
+                for (int i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
                     if (!(surf->flags & SURF_DRAWSKY))
                         continue;
-                    MaterialChain_AddSurf(&materialchains[skymaterial], surf);
-
-                    /* Flag turb textures that need to be updated */
-                    if (surf->flags & SURF_DRAWTURB)
-                        surf->texinfo->texture->mark = 1;
+                    MaterialChain_AddSurf(&materialchains[surf->material], surf);
                 }
                 continue;
             }
