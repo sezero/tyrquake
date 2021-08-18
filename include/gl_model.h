@@ -112,8 +112,6 @@ typedef struct materialchain_s {
     int32_t numindices;
     const surface_material_t *material;
     msurface_t *surf;
-    struct materialchain_s *overflow;      // Z_Malloc'd when (rarely?) exceeding max verts
-    struct materialchain_s *overflow_tail; // Reverse order of batches for the transparency case
 } materialchain_t;
 
 static inline void
@@ -124,50 +122,12 @@ MaterialChains_Init(materialchain_t *materialchains, const surface_material_t *m
         materialchains[i].material = &materials[i];
 }
 
-static inline void
-MaterialChains_Init_Reverse(materialchain_t *materialchains, const surface_material_t *materials, int count)
-{
-    memset(materialchains, 0, count * sizeof(*materialchains));
-    for (int i = 0; i < count; i++) {
-        materialchains[i].material = &materials[i];
-        materialchains[i].overflow_tail = &materialchains[i];
-    }
-}
-
-/*
- * Iterate over materialchains, freeing overflow blocks as they are processed.
- * Automatically handles the reversed chain order used by transparency passes.
- */
-#define ForEach_MaterialChain(_materialchain) \
-    for (materialchain_t *_head = ({                                                                          \
-             materialchain_t *orig = _materialchain;                                                          \
-             _materialchain = _materialchain->overflow_tail ? _materialchain->overflow_tail : _materialchain; \
-             orig; });                                                                                        \
-        _materialchain;                                                                                       \
-        ({  materialchain_t *next = _materialchain->overflow;                                                 \
-            if (_materialchain != _head) Z_Free(mainzone, _materialchain);                                    \
-            _materialchain = next; }))
-
-
-void MaterialChain_HandleOverflow(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail);
-
 /* Add materials to the chain, while tracking the buffer sizes that will be required */
 static inline void
 MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
 {
-    if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
-        MaterialChain_HandleOverflow(materialchain, surf, NULL);
-    } else {
-        surf->chain = materialchain->surf;
-        materialchain->surf = surf;
-    }
-    materialchain->numverts += surf->numedges;
-    materialchain->numindices += (surf->numedges - 2) * 3;
-}
+    assert(materialchain->numverts + surf->numedges <= MATERIALCHAIN_MAX_VERTS);
 
-static inline void
-MaterialChain_AddSurf_NoOverflow(materialchain_t *materialchain, msurface_t *surf)
-{
     surf->chain = materialchain->surf;
     materialchain->surf = surf;
     materialchain->numverts += surf->numedges;
@@ -178,13 +138,11 @@ MaterialChain_AddSurf_NoOverflow(materialchain_t *materialchain, msurface_t *sur
 static inline void
 MaterialChain_AddSurf_Tail(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
 {
-    if (materialchain->numverts + surf->numedges >= MATERIALCHAIN_MAX_VERTS) {
-        MaterialChain_HandleOverflow(materialchain, surf, tail);
-    } else {
-        surf->chain = NULL;
-        (*tail)->chain = surf;
-        *tail = surf;
-    }
+    assert(materialchain->numverts + surf->numedges <= MATERIALCHAIN_MAX_VERTS);
+
+    surf->chain = NULL;
+    (*tail)->chain = surf;
+    *tail = surf;
     materialchain->numverts += surf->numedges;
     materialchain->numindices += (surf->numedges - 2) * 3;
 }

@@ -1502,7 +1502,7 @@ R_DrawTranslucency(void)
                 tail = DepthChain_Surf(entry);
                 material = tail->material;
                 glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
-                MaterialChains_Init_Reverse(&materialchain, &glbrushmodel->materials[material], 1);
+                MaterialChains_Init(&materialchain, &glbrushmodel->materials[material], 1);
                 MaterialChain_AddSurf(&materialchain, tail);
                 alpha = entry->alpha;
                 while (next->type == depthchain_bmodel_static) {
@@ -1523,7 +1523,7 @@ R_DrawTranslucency(void)
                 tail = DepthChain_Surf(entry);
                 material = tail->material;
                 glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
-                MaterialChains_Init_Reverse(&materialchain, &glbrushmodel->materials[material], 1);
+                MaterialChains_Init(&materialchain, &glbrushmodel->materials[material], 1);
                 MaterialChain_AddSurf(&materialchain, tail);
                 entity = entry->entity;
                 alpha = entry->alpha;

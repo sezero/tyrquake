@@ -1062,21 +1062,19 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     vec3_t polymins, polymaxs;
     glbrushmodel_t *glbrushmodel;
 
-    ForEach_MaterialChain(materialchain) {
-        TriBuf_Prepare(buffer, materialchain);
-        if (mins) {
-            vec7_t *vertbuf = (vec7_t *)materialchain->material->buffer;
-            for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
-                Sky_AddPolyToSkyboxBounds(&vertbuf[surf->buffer_offset], surf->numedges, mins, maxs);
-                TriBuf_AddSurf(buffer, surf);
-            }
-        } else {
-            for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
-                TriBuf_AddSurf(buffer, surf);
+    TriBuf_Prepare(buffer, materialchain);
+    if (mins) {
+        vec7_t *vertbuf = (vec7_t *)materialchain->material->buffer;
+        for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
+            Sky_AddPolyToSkyboxBounds(&vertbuf[surf->buffer_offset], surf->numedges, mins, maxs);
+            TriBuf_AddSurf(buffer, surf);
         }
-        TriBuf_Finalise(buffer);
-        TriBuf_DrawElements(buffer, state);
+    } else {
+        for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
+            TriBuf_AddSurf(buffer, surf);
     }
+    TriBuf_Finalise(buffer);
+    TriBuf_DrawElements(buffer, state);
 
     /*
      * If there are (dynamic) submodels with sky surfaces, draw them now
@@ -1543,25 +1541,21 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
     else if (surf->flags & SURF_DRAWTELE)
         alpha *= map_telealpha;
 
-    ForEach_MaterialChain(materialchain) {
-        TriBuf_Prepare(buffer, materialchain);
-        for (surf = materialchain->surf; surf; surf = surf->chain)
-            TriBuf_AddSurf(buffer, surf);
-        TriBuf_Finalise(buffer);
-        TriBuf_DrawTurb(buffer, texture, alpha);
-    }
+    TriBuf_Prepare(buffer, materialchain);
+    for (surf = materialchain->surf; surf; surf = surf->chain)
+        TriBuf_AddSurf(buffer, surf);
+    TriBuf_Finalise(buffer);
+    TriBuf_DrawTurb(buffer, texture, alpha);
 }
 
 static void
 DrawFlatChain(triangle_buffer_t *buffer, materialchain_t *materialchain)
 {
-    ForEach_MaterialChain(materialchain) {
-        TriBuf_Prepare(buffer, materialchain);
-        for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
-            TriBuf_AddFlatSurf(buffer, surf);
-        TriBuf_Finalise(buffer);
-        TriBuf_DrawFlat(buffer);
-    }
+    TriBuf_Prepare(buffer, materialchain);
+    for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain)
+        TriBuf_AddFlatSurf(buffer, surf);
+    TriBuf_Finalise(buffer);
+    TriBuf_DrawFlat(buffer);
 }
 
 static void
@@ -1571,18 +1565,16 @@ DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrus
     lm_block_t *block = &glbrushmodel->resources->blocks[materialchain->material->lightmapblock];
     int flags = materialchain->surf->flags;
 
-    ForEach_MaterialChain(materialchain) {
-        TriBuf_Prepare(buffer, materialchain);
-        for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
-            R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
-            TriBuf_AddSurf(buffer, surf);
-        }
-        TriBuf_Finalise(buffer);
-        if (flags & SURF_DRAWTILED) {
-            TriBuf_DrawFullbrightSolid(buffer, texture);
-        } else {
-            TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
-        }
+    TriBuf_Prepare(buffer, materialchain);
+    for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
+        R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+        TriBuf_AddSurf(buffer, surf);
+    }
+    TriBuf_Finalise(buffer);
+    if (flags & SURF_DRAWTILED) {
+        TriBuf_DrawFullbrightSolid(buffer, texture);
+    } else {
+        TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
     }
 }
 

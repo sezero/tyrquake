@@ -812,7 +812,7 @@ GL_BuildMaterials()
         MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->materials, glbrushmodel->nummaterials);
         surf = brushmodel->surfaces;
         for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++)
-            MaterialChain_AddSurf_NoOverflow(&glbrushmodel->materialchains[surf->material], surf);
+            MaterialChain_AddSurf(&glbrushmodel->materialchains[surf->material], surf);
     }
 
     /* Allocate vertex buffer space for each chain and fill out vertex info */
@@ -825,40 +825,38 @@ GL_BuildMaterials()
         surface_material_t *material = glbrushmodel->materials;
         for (int materialnum = 0; materialnum < glbrushmodel->nummaterials; materialnum++, material++) {
             materialchain_t *materialchain = &glbrushmodel->materialchains[materialnum];
-            ForEach_MaterialChain(materialchain) {
-                if (!materialchain->surf)
-                    continue;
+            if (!materialchain->surf)
+                continue;
 
-                /* TODO: pack materials into shared buffers */
-                const int buffersize = materialchain->numverts * sizeof(vec7_t);
-                total_allocation += buffersize;
-                material->buffer = Hunk_AllocName(buffersize, va("m%d/%03d", modelnum, materialnum));
-                material->numverts = materialchain->numverts;
+            /* TODO: pack materials into shared buffers */
+            const int buffersize = materialchain->numverts * sizeof(vec7_t);
+            total_allocation += buffersize;
+            material->buffer = Hunk_AllocName(buffersize, va("m%d/%03d", modelnum, materialnum));
+            material->numverts = materialchain->numverts;
 
-                /* Copy buffer pointer for animation frames */
-                texture_t *texture = brushmodel->textures[material->texturenum];
-                if (texture->anim_total) {
-                    GL_CopyBufferPointerForAnimationFrames(glbrushmodel, materialnum);
-                }
-
-                vec7_t *buffer = (vec7_t *)material->buffer;
-                for (surf = materialchain->surf; surf; surf = surf->chain) {
-                    /* Record the offset and create the vertex data */
-                    surf->buffer_offset = buffer - (vec7_t *)material->buffer;
-                    AddSurfaceVertices(brushmodel, surf, buffer);
-                    buffer += surf->numedges;
-
-                    /* Fixup animated surface materials */
-                    texture_t *texture = surf->texinfo->texture;
-                    if (texture->anim_total && texture->texturenum != material->texturenum) {
-                        surf->material = GL_FindAnimationMaterial(glbrushmodel, texture->texturenum, materialnum);
-                        Debug_Printf("Fixing up surf material from %d (%s) -> %d (%s)\n",
-                                     materialnum, brushmodel->textures[material->texturenum]->name,
-                                     surf->material, brushmodel->textures[glbrushmodel->materials[surf->material].texturenum]->name);
-                    }
-                }
-                assert((byte *)buffer - (byte *)material->buffer == buffersize);
+            /* Copy buffer pointer for animation frames */
+            texture_t *texture = brushmodel->textures[material->texturenum];
+            if (texture->anim_total) {
+                GL_CopyBufferPointerForAnimationFrames(glbrushmodel, materialnum);
             }
+
+            vec7_t *buffer = (vec7_t *)material->buffer;
+            for (surf = materialchain->surf; surf; surf = surf->chain) {
+                /* Record the offset and create the vertex data */
+                surf->buffer_offset = buffer - (vec7_t *)material->buffer;
+                AddSurfaceVertices(brushmodel, surf, buffer);
+                buffer += surf->numedges;
+
+                /* Fixup animated surface materials */
+                texture_t *texture = surf->texinfo->texture;
+                if (texture->anim_total && texture->texturenum != material->texturenum) {
+                    surf->material = GL_FindAnimationMaterial(glbrushmodel, texture->texturenum, materialnum);
+                    Debug_Printf("Fixing up surf material from %d (%s) -> %d (%s)\n",
+                                 materialnum, brushmodel->textures[material->texturenum]->name,
+                                 surf->material, brushmodel->textures[glbrushmodel->materials[surf->material].texturenum]->name);
+                }
+            }
+            assert((byte *)buffer - (byte *)material->buffer == buffersize);
         }
     }
     Debug_Printf("Material vertex arrays, total allocation is %d bytes\n", total_allocation);
@@ -927,27 +925,4 @@ const brush_loader_t *
 R_BrushModelLoader()
 {
     return &GL_BrushModelLoader;
-}
-
-void
-MaterialChain_HandleOverflow(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
-{
-    assert(false); // Shouldn't ever hit this now...
-
-    materialchain_t *overflow = Z_Malloc(mainzone, sizeof(materialchain_t));
-    *overflow = *materialchain;
-    materialchain->numverts = 0;
-    materialchain->numindices = 0;
-    materialchain->surf = surf;
-    surf->chain = NULL;
-
-    if (tail) {
-        *tail = surf;
-        overflow->overflow = materialchain->overflow_tail;
-        overflow->overflow_tail = NULL;
-        materialchain->overflow_tail = overflow;
-    } else {
-        materialchain->overflow = overflow;
-        materialchain->overflow_tail = NULL;
-    }
 }
