@@ -241,21 +241,6 @@ GL_ExtensionCheck_BufferObjects()
         Con_Printf("***** GL Buffer Objects Enabled!\n");
 }
 
-struct vertex_buffers vbo;
-
-void
-GL_InitVBOs()
-{
-    assert(sizeof(vbo.handles) == sizeof(vbo));
-
-    if (!gl_buffer_objects_enabled) {
-        memset(&vbo, 0, sizeof(vbo));
-        return;
-    }
-    qglGenBuffers(ARRAY_SIZE(vbo.handles), vbo.handles);
-}
-
-
 qboolean gl_vertex_program_enabled;
 
 void (APIENTRY *qglProgramString)(GLenum target, GLenum format, GLsizei len, const void *string);

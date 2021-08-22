@@ -279,18 +279,6 @@ extern void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
 extern GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
 extern GLboolean (APIENTRY *qglIsBuffer)(GLuint buffer);
 
-struct vertex_buffers {
-    union {
-        GLuint handles[2];
-        struct {
-            GLuint alias_vertex_stream;
-            GLuint alias_color_stream;
-        };
-    };
-};
-extern struct vertex_buffers vbo;
-extern void GL_InitVBOs();
-
 /* Vertex Programs */
 extern void (APIENTRY *qglProgramString)(GLenum target, GLenum format, GLsizei len, const void *string);
 extern void (APIENTRY *qglBindProgram)(GLenum target, GLuint program);
