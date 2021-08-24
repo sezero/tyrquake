@@ -226,36 +226,42 @@ GL_EnableMultitexture(void)
  * Re-uploads the modified region of the given lightmap number
  */
 static void
-R_UploadLMBlockUpdate(lm_block_t *block)
+R_UploadLightmapBlockUpdates(glbrushmodel_t *glbrushmodel)
 {
-    glRect_t *rect;
-    byte *pixels;
-    unsigned offset;
-
-    rect = &block->rectchange;
-    offset = (BLOCK_WIDTH * rect->t + rect->l) * gl_lightmap_bytes;
-    pixels = block->data + offset;
+    int numblocks = glbrushmodel->resources->numblocks;
+    lm_block_t *block = glbrushmodel->resources->blocks;
 
     /* set unpacking width to BLOCK_WIDTH, reset after */
     glPixelStorei(GL_UNPACK_ROW_LENGTH, BLOCK_WIDTH);
-    glTexSubImage2D(GL_TEXTURE_2D,
-		    0,
-		    rect->l, /* x-offset */
-		    rect->t, /* y-offset */
-		    rect->w,
-		    rect->h,
-		    gl_lightmap_format,
-		    GL_UNSIGNED_BYTE,
-		    pixels);
+
+    for (int i = 0; i < numblocks; i++, block++) {
+        if (!block->modified)
+            continue;
+
+        glRect_t *rect = &block->rectchange;
+        unsigned offset = (BLOCK_WIDTH * rect->t + rect->l) * gl_lightmap_bytes;
+        byte *pixels = block->data + offset;
+
+        GL_Bind(block->texture);
+        glTexSubImage2D(GL_TEXTURE_2D,
+                        0,
+                        rect->l, /* x-offset */
+                        rect->t, /* y-offset */
+                        rect->w,
+                        rect->h,
+                        gl_lightmap_format,
+                        GL_UNSIGNED_BYTE,
+                        pixels);
+
+        rect->l = BLOCK_WIDTH;
+        rect->t = BLOCK_HEIGHT;
+        rect->h = 0;
+        rect->w = 0;
+        block->modified = false;
+        c_lightmaps_uploaded++;
+    }
+
     glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-
-    rect->l = BLOCK_WIDTH;
-    rect->t = BLOCK_HEIGHT;
-    rect->h = 0;
-    rect->w = 0;
-    block->modified = false;
-
-    c_lightmaps_uploaded++;
 }
 
 /*
@@ -281,8 +287,8 @@ R_UpdateLightmapBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
 	    goto dynamic;
 
     /*
-     * 	surf->dlightframe == r_framecount	=> dynamic this frame
-     *  surf->cached_dlight		=> dynamic previously
+     * surf->dlightframe == r_framecount  => dynamic this frame
+     * surf->cached_dlight                => dynamic previously
      */
     if (surf->dlightframe == r_framecount || surf->cached_dlight) {
     dynamic:
@@ -837,8 +843,6 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 	GL_SelectTexture(GL_TEXTURE1_ARB);
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         GL_Bind(block->texture);
-        if (block->modified)
-            R_UploadLMBlockUpdate(block);
 
         struct buffer_state state = {
             .texcoords = {
@@ -880,8 +884,6 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         glBlendFunc(GL_ZERO, GL_SRC_COLOR);
         Fog_StartBlend();
         GL_Bind(block->texture);
-        if (block->modified)
-            R_UploadLMBlockUpdate(block);
 
         state.texcoords[0].slot = 1;
         TriBuf_DrawElements(buffer, &state);
@@ -1552,16 +1554,14 @@ DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrus
     int flags = materialchain->surf->flags;
 
     TriBuf_Prepare(buffer, materialchain);
-    for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain) {
-        R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+    for (msurface_t *surf = materialchain->surf; surf; surf = surf->chain)
         TriBuf_AddSurf(buffer, surf);
-    }
+
     TriBuf_Finalise(buffer);
-    if (flags & SURF_DRAWTILED) {
+    if (flags & SURF_DRAWTILED)
         TriBuf_DrawFullbrightSolid(buffer, texture);
-    } else {
+    else
         TriBuf_DrawSolid(buffer, texture, block, flags, alpha);
-    }
 }
 
 static void
@@ -2098,7 +2098,6 @@ R_DrawWorld
 void
 R_DrawWorld(void)
 {
-    int i;
     entity_t worldentity;
     glbrushmodel_t *glbrushmodel;
 
@@ -2138,19 +2137,41 @@ R_DrawWorld(void)
      *       both this and for R_DrawEntitiesOnList
      */
     if (r_drawentities.value) {
-        for (i = 0; i < cl_numvisedicts; i++) {
-            entity_t *entity = cl_visedicts[i];
+        for (int edictnum = 0; edictnum < cl_numvisedicts; edictnum++) {
+            entity_t *entity = cl_visedicts[edictnum];
             if (entity->model->type != mod_brush)
                 continue;
             if (!BrushModel(entity->model)->parent)
                 continue;
 
             /* Setup sky materialchains on transformed bmodels */
-            if (R_EntityIsTranslated(entity) || R_EntityIsRotated(entity)) {
+            qboolean rotated = R_EntityIsRotated(entity);
+            if (R_EntityIsTranslated(entity) || rotated) {
                 brushmodel_t *brushmodel = BrushModel(entity->model);
                 glbrushmodel_t *glbrushmodel = GLBrushModel(brushmodel);
+
+                /* Update lightmaps for translated/rotated entities here */
+                vec3_t mins, maxs;
+                if (rotated) {
+                    for (int i = 0; i < 3; i++) {
+                        mins[i] = entity->origin[i] - entity->model->radius;
+                        maxs[i] = entity->origin[i] + entity->model->radius;
+                    }
+                } else {
+                    VectorAdd(entity->origin, entity->model->mins, mins);
+                    VectorAdd(entity->origin, entity->model->maxs, maxs);
+                }
+                if (!R_CullBox(mins, maxs)) {
+                    msurface_t *surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
+                    for (int i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
+                        if (!(surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB)))
+                            R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+                    }
+                }
+
                 if (!glbrushmodel->drawsky)
                     continue;
+
                 materialchain_t *materialchains = glbrushmodel->materialchains;
                 msurface_t *surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
                 ForEach_MaterialOfClass(glbrushmodel, MATERIAL_SKY)
@@ -2174,6 +2195,18 @@ R_DrawWorld(void)
         }
     }
     R_SwapAnimationChains(glbrushmodel, glbrushmodel->materialchains);
+
+    /*
+     * Update lightmaps on all world surfs (dynamic bmodels updated above)
+     * then upload all lightmap updates for this frame.
+     */
+    int material_start = glbrushmodel->material_index[MATERIAL_BASE];
+    int material_end = glbrushmodel->material_index[MATERIAL_LIQUID];
+    for (int i = material_start; i < material_end; i++) {
+        for (msurface_t *surf = glbrushmodel->materialchains[i].surf; surf; surf = surf->chain)
+            R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+    }
+    R_UploadLightmapBlockUpdates(glbrushmodel);
 
     /* Draw! */
     DrawMaterialChains(&worldentity);
