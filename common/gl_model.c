@@ -870,6 +870,7 @@ GL_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
     litheader_t *litheader;
     size_t filesize;
     char litfilename[MAX_QPATH];
+    byte *in, *out;
 
     /* Attempt to load a .lit file for colored lighting */
     int mark = Hunk_LowMark();
@@ -888,6 +889,18 @@ GL_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
         goto fallback;
     }
 
+    /* Expand to RGBA format */
+    Hunk_AllocExtend(litheader, sizeof(litheader_t) + headerlump->filelen * 4);
+    out = (byte *)(litheader + 1);
+    in = out + headerlump->filelen;
+    memmove(in, out, headerlump->filelen * 3);
+    for (int i = 0; i < headerlump->filelen; i++) {
+        *out++ = *in++;
+        *out++ = *in++;
+        *out++ = *in++;
+        *out++ = 255;
+    }
+
     brushmodel->lightdata = (byte *)(litheader + 1);
     return;
 
@@ -902,15 +915,15 @@ GL_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)
         return;
     }
 
-    /* Expand to RGB format */
-    brushmodel->lightdata = Mod_AllocName(headerlump->filelen * 3, model->name);
-    const byte *in = (byte *)header + headerlump->fileofs;
-    byte *out = brushmodel->lightdata;
-    int i;
-    for (i = 0; i < headerlump->filelen; i++, in++) {
+    /* Expand to RGBA format */
+    brushmodel->lightdata = Mod_AllocName(headerlump->filelen * gl_lightmap_bytes, model->name);
+    in = (byte *)header + headerlump->fileofs;
+    out = brushmodel->lightdata;
+    for (int i = 0; i < headerlump->filelen; i++, in++) {
         *out++ = *in;
         *out++ = *in;
         *out++ = *in;
+        *out++ = 255;
     }
 }
 

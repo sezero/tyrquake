@@ -97,6 +97,7 @@ R_AddDynamicLights(const msurface_t *surf, unsigned *blocklights)
 		    *dest++ += dl->color[0] * scale;
 		    *dest++ += dl->color[1] * scale;
 		    *dest++ += dl->color[2] * scale;
+                    dest++;
                 }
 	    }
 	}
@@ -147,6 +148,7 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
                 *block++ += *lightmap++ * scale;
                 *block++ += *lightmap++ * scale;
                 *block++ += *lightmap++ * scale;
+                block++, lightmap++;
             }
 	}
     }
@@ -158,11 +160,13 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
     /* bound, invert, and shift */
   store:
     block = blocklights;
-    for (i = 0; i < tmax; i++, dest += stride - (smax * 3)) {
+    for (i = 0; i < tmax; i++, dest += stride - (smax * gl_lightmap_bytes)) {
         for (j = 0; j < smax; j++) {
             *dest++ = qmin(*block++ >> 7, 255u);
             *dest++ = qmin(*block++ >> 7, 255u);
             *dest++ = qmin(*block++ >> 7, 255u);
+            *dest++ = 255;
+            block++;
         }
     }
 }

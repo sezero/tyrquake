@@ -65,8 +65,8 @@ extern float gldepthmin, gldepthmax;
 
 #define gl_solid_format GL_RGB
 #define gl_alpha_format GL_RGBA
-#define gl_lightmap_format GL_RGB
-#define gl_lightmap_bytes 3
+#define gl_lightmap_format GL_RGBA
+#define gl_lightmap_bytes 4
 
 typedef struct {
     GLuint base;            // The base texture

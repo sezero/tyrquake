@@ -584,17 +584,17 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
         samples[0][0][1] += row0[1] * scale;
         samples[0][0][2] += row0[2] * scale;
 
-        samples[0][1][0] += row0[3] * scale;
-        samples[0][1][1] += row0[4] * scale;
-        samples[0][1][2] += row0[5] * scale;
+        samples[0][1][0] += row0[4] * scale;
+        samples[0][1][1] += row0[5] * scale;
+        samples[0][1][2] += row0[6] * scale;
 
         samples[1][0][0] += row1[0] * scale;
         samples[1][0][1] += row1[1] * scale;
         samples[1][0][2] += row1[2] * scale;
 
-        samples[1][1][0] += row1[3] * scale;
-        samples[1][1][1] += row1[4] * scale;
-        samples[1][1][2] += row1[5] * scale;
+        samples[1][1][0] += row1[4] * scale;
+        samples[1][1][1] += row1[5] * scale;
+        samples[1][1][2] += row1[6] * scale;
 
         row0 += surfbytes;
         row1 += surfbytes;
