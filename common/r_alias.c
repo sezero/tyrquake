@@ -78,7 +78,7 @@ float r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
 
-static void R_AliasSetUpTransform(entity_t *e, aliashdr_t *pahdr, lerpdata_t *lerpdata, int trivial_accept);
+static void R_AliasSetUpTransform(entity_t *e, aliashdr_t *pahdr, lerpdata_t *lerpdata);
 static void R_AliasTransformVector(const vec3_t in, vec3_t out);
 static void R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av,
 				      trivertx_t *pverts, stvert_t *pstverts);
@@ -341,8 +341,7 @@ General clipped case
 ================
 */
 static void
-R_AliasPreparePoints(aliashdr_t *pahdr, finalvert_t *pfinalverts,
-		     auxvert_t *pauxverts)
+R_AliasPreparePoints(aliashdr_t *pahdr, finalvert_t *pfinalverts, auxvert_t *pauxverts)
 {
     int i;
     stvert_t *pstverts;
@@ -405,7 +404,7 @@ R_AliasSetUpTransform
 ================
 */
 static void
-R_AliasSetUpTransform(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata, int trivial_accept)
+R_AliasSetUpTransform(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata)
 {
     int i;
     float rotationmatrix[3][4], t2matrix[3][4];
@@ -458,22 +457,6 @@ R_AliasSetUpTransform(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpda
 //      viewmatrix[2][3] = 0;
 
     R_ConcatTransforms(viewmatrix, rotationmatrix, aliastransform);
-
-// do the scaling up of x and y to screen coordinates as part of the transform
-// for the unclipped case (it would mess up clipping in the clipped case).
-// Also scale down z, so 1/z is scaled 31 bits for free, and scale down x and y
-// correspondingly so the projected x and y come out right
-// FIXME: make this work for clipped case too?
-    if (trivial_accept) {
-	for (i = 0; i < 4; i++) {
-	    aliastransform[0][i] *= aliasxscale *
-		(1.0 / ((float)0x8000 * 0x10000));
-	    aliastransform[1][i] *= aliasyscale *
-		(1.0 / ((float)0x8000 * 0x10000));
-	    aliastransform[2][i] *= 1.0 / ((float)0x8000 * 0x10000);
-
-	}
-    }
 }
 
 
@@ -611,8 +594,7 @@ R_AliasPrepareUnclippedPoints(aliashdr_t *pahdr, finalvert_t *pfinalverts)
         }
     }
     r_affinetridesc.pfinalverts = pfinalverts;
-    r_affinetridesc.ptriangles = (mtriangle_t *)((byte *)pahdr +
-						 SW_Aliashdr(pahdr)->triangles);
+    r_affinetridesc.ptriangles = (mtriangle_t *)((byte *)pahdr + SW_Aliashdr(pahdr)->triangles);
     r_affinetridesc.numtriangles = pahdr->numtris;
 
     D_PolysetDraw();
@@ -820,9 +802,22 @@ R_AliasDrawModel(entity_t *entity)
     lerpdata_t lerpdata;
 
     aliashdr = Mod_Extradata(entity->model);
-    R_AliasSetUpTransform(entity, aliashdr, &lerpdata, entity->trivial_accept);
+    R_AliasSetUpTransform(entity, aliashdr, &lerpdata);
     if (!R_AliasCheckBBox(entity, aliashdr))
         return;
+
+    // do the scaling up of x and y to screen coordinates as part of the transform
+    // for the unclipped case (it would mess up clipping in the clipped case).
+    // Also scale down z, so 1/z is scaled 31 bits for free, and scale down x and y
+    // correspondingly so the projected x and y come out right
+    // FIXME: make this work for clipped case too?
+    if (entity->trivial_accept) {
+	for (int i = 0; i < 4; i++) {
+	    aliastransform[0][i] *= aliasxscale * (1.0 / ((float)0x8000 * 0x10000));
+	    aliastransform[1][i] *= aliasyscale * (1.0 / ((float)0x8000 * 0x10000));
+	    aliastransform[2][i] *=                1.0 / ((float)0x8000 * 0x10000);
+	}
+    }
 
     if (entity->alpha == ENTALPHA_ZERO)
         return;
