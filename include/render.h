@@ -133,6 +133,10 @@ typedef struct entity_s {
             short current;
             short previous;
         } pose;
+        struct {
+            short current;
+            short previous;
+        } frame;
     } lerp;
 } entity_t;
 

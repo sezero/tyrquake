@@ -108,27 +108,29 @@ R_AliasSetupAnimationLerp(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *le
     if (entity->lerp.flags & LERP_RESETANIM) {
         /* Reset */
         entity->lerp.pose.start = 0.0f;
-        entity->lerp.pose.previous = pose;
-        entity->lerp.pose.current = pose;
+        entity->lerp.pose.previous = entity->lerp.pose.current = pose;
+        entity->lerp.frame.previous = entity->lerp.frame.current = frame;
         entity->lerp.flags &= ~LERP_RESETANIM;
     } else if (entity->lerp.pose.current != pose) {
         /* Pose changed, start new lerp */
         if (entity->lerp.flags & LERP_RESETANIM2) {
             /* Defer lerping one more time */
             entity->lerp.pose.start = 0.0f;
-            entity->lerp.pose.previous = pose;
-            entity->lerp.pose.current = pose;
+            entity->lerp.pose.previous = entity->lerp.pose.current = pose;
+            entity->lerp.frame.previous = entity->lerp.frame.current = frame;
             entity->lerp.flags &= ~LERP_RESETANIM2;
 	} else if (entity->lerp.flags & LERP_RESETANIM3) {
             /* Defer lerping one more time */
             entity->lerp.pose.start = 0.0f;
-            entity->lerp.pose.previous = pose;
-            entity->lerp.pose.current = pose;
+            entity->lerp.pose.previous = entity->lerp.pose.current = pose;
+            entity->lerp.frame.previous = entity->lerp.frame.current = frame;
             entity->lerp.flags &= ~LERP_RESETANIM3;
         } else {
             entity->lerp.pose.start = cl.time;
             entity->lerp.pose.previous = entity->lerp.pose.current;
             entity->lerp.pose.current = pose;
+            entity->lerp.frame.previous = entity->lerp.frame.current;
+            entity->lerp.frame.current = frame;
         }
     }
 

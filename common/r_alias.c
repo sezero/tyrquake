@@ -45,7 +45,6 @@ vec3_t r_plightvec;
 int r_ambientlight;
 float r_shadelight;
 static float ziscale;
-static model_t *pmodel;
 
 static vec3_t alias_forward, alias_right, alias_up;
 
@@ -171,6 +170,32 @@ R_AliasModelLoader(void)
 }
 
 /*
+ * Fill out the mins/maxs of the bbox.  When lerping, sometimes we
+ * lerp between poses that are in two different frames, so in those
+ * cases the bbox needs to be expanded to enclose both frames.
+ */
+static void
+R_AliasGetBBox(const entity_t *entity, const aliashdr_t *aliashdr, vec3_t mins, vec3_t maxs)
+{
+    if (!r_lerpmodels.value || entity->lerp.frame.previous == entity->lerp.frame.current) {
+        /* Trivial no interpolation case, just promoting to floats */
+        const maliasframedesc_t *frame = &aliashdr->frames[entity->frame];
+        for (int i = 0; i < 3; i++) {
+            mins[i] = frame->bboxmin.v[i];
+            maxs[i] = frame->bboxmax.v[i];
+        }
+    } else {
+        /* Interpolated frames, expand the bbox to enclose both frames */
+        const maliasframedesc_t *frame0 = &aliashdr->frames[entity->lerp.frame.previous];
+        const maliasframedesc_t *frame1 = &aliashdr->frames[entity->lerp.frame.current];
+        for (int i = 0; i < 3; i++) {
+            mins[i] = qmin(frame0->bboxmin.v[i], frame1->bboxmin.v[i]);
+            maxs[i] = qmax(frame0->bboxmax.v[i], frame1->bboxmax.v[i]);
+        }
+    }
+}
+
+/*
 ================
 R_AliasCheckBBox
 
@@ -179,46 +204,36 @@ FIXME: switch over to radius-based culling like glquake?
 ================
 */
 static qboolean
-R_AliasCheckBBox(entity_t *entity, aliashdr_t *aliashdr)
+R_AliasCheckBBox(entity_t *entity, const aliashdr_t *aliashdr)
 {
-    int i, flags, frame, numv;
-    float zi, basepts[8][3], v0, v1, frac;
+    int i, flags, numv;
+    vec3_t mins, maxs, basepts[8];
+    float zi, v0, v1, frac;
     finalvert_t *pv0, *pv1, viewpts[16];
     auxvert_t *pa0, *pa1, viewaux[16];
-    maliasframedesc_t *pframedesc;
     qboolean zclipped, zfullyclipped;
     unsigned anyclip, allclip;
     int minz;
 
+    R_AliasGetBBox(entity, aliashdr, mins, maxs);
+
 // expand, rotate, and translate points into worldspace
 
-    entity->trivial_accept = 0;
-    pmodel = entity->model;
-
-// construct the base bounding box for this frame
-    frame = entity->frame;
-// TODO: don't repeat this check when drawing?
-    if ((frame >= aliashdr->numframes) || (frame < 0)) {
-	Con_DPrintf("No such frame %d %s\n", frame, pmodel->name);
-	frame = 0;
-    }
-
-    pframedesc = &aliashdr->frames[frame];
-
 // x worldspace coordinates
-    basepts[0][0] = basepts[1][0] = basepts[2][0] = basepts[3][0] = (float)pframedesc->bboxmin.v[0];
-    basepts[4][0] = basepts[5][0] = basepts[6][0] = basepts[7][0] = (float)pframedesc->bboxmax.v[0];
+    basepts[0][0] = basepts[1][0] = basepts[2][0] = basepts[3][0] = mins[0];
+    basepts[4][0] = basepts[5][0] = basepts[6][0] = basepts[7][0] = maxs[0];
 
 // y worldspace coordinates
-    basepts[0][1] = basepts[3][1] = basepts[5][1] = basepts[6][1] = (float)pframedesc->bboxmin.v[1];
-    basepts[1][1] = basepts[2][1] = basepts[4][1] = basepts[7][1] = (float)pframedesc->bboxmax.v[1];
+    basepts[0][1] = basepts[3][1] = basepts[5][1] = basepts[6][1] = mins[1];
+    basepts[1][1] = basepts[2][1] = basepts[4][1] = basepts[7][1] = maxs[1];
 
 // z worldspace coordinates
-    basepts[0][2] = basepts[1][2] = basepts[4][2] = basepts[5][2] = (float)pframedesc->bboxmin.v[2];
-    basepts[2][2] = basepts[3][2] = basepts[6][2] = basepts[7][2] = (float)pframedesc->bboxmax.v[2];
+    basepts[0][2] = basepts[1][2] = basepts[4][2] = basepts[5][2] = mins[2];
+    basepts[2][2] = basepts[3][2] = basepts[6][2] = basepts[7][2] = maxs[2];
 
     zclipped = false;
     zfullyclipped = true;
+    entity->trivial_accept = 0;
 
     minz = 9999;
     for (i = 0; i < 8; i++) {
@@ -300,13 +315,6 @@ R_AliasCheckBBox(entity_t *entity, aliashdr_t *aliashdr)
 
     if (allclip)
 	return false;		// trivial reject off one side
-
-    /*
-     * FIXME - Trivial accept not safe while lerping unless we check
-     *         the bbox of both src and dst frames
-     */
-    if (r_lerpmodels.value)
-	return true;
 
     entity->trivial_accept = !anyclip & !zclipped;
     if (entity->trivial_accept) {
@@ -709,7 +717,6 @@ R_AliasSetupLighting(const entity_t *entity, const lerpdata_t *lerpdata)
     r_plightvec[1] = -DotProduct(lightvec, alias_right);
     r_plightvec[2] = DotProduct(lightvec, alias_up);
 }
-
 static trivertx_t *
 R_AliasBlendPoseVerts(const entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata)
 {
