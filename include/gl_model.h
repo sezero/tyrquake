@@ -70,7 +70,9 @@ typedef struct surface_material {
     /*
      * The verts will be stored in a VBO if available, otherwise a
      * plain data array.  Each msurface_t has an offset into the buffer.
+     * This offset and numverts could be used with RangeElements, etc.
      */
+    uint32_t offset;
     uint32_t numverts;
     union {
         GLuint vbo;

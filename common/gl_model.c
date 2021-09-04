@@ -554,6 +554,134 @@ AddSurfaceVertices(brushmodel_t *brushmodel, msurface_t *surf, vec7_t *verts)
     }
 }
 
+/* ---------------------------------------------------------------------------- */
+/*                         VERTEX BUFFER ALLOCATION                             */
+/* ---------------------------------------------------------------------------- */
+
+/*
+ * We ensure we allocate all vertices for the same material in the same vertex
+ * buffer.  Materials that have a smaller number of verties are packed
+ * together into a larger buffer so the gl driver doesn't have to track too
+ * many separately allocated buffers.
+ *
+ * The allocator keeps around a small number of buffers from which it can
+ * allocate.  We always allocate from the buffer with the least amount of free
+ * space that can satisfy the allocation.  When none of those buffers have
+ * enough space, we allocate a new buffer.  The allocator then stops tracking
+ * the buffer that currently has the least free space.
+ */
+
+struct vballoc_state {
+    vec7_t *buffer;
+    int count;
+    int free;
+};
+
+static int vertex_buffers_total_allocation;
+static int vertex_buffers_num_allocated;
+static int vertex_buffers_vertices_wasted;
+
+#define VBALLOC_NUM_BUFFERS 4
+static struct {
+    struct vballoc_state states[VBALLOC_NUM_BUFFERS];
+    uint32_t vertices_remaining;
+} vbufs;
+
+static void
+VBAlloc_Init(int total_verts)
+{
+    memset(&vbufs, 0, sizeof(vbufs));
+    vbufs.vertices_remaining = total_verts;
+}
+
+static void
+VBAlloc_Complete()
+{
+    for (int i = 0; i < VBALLOC_NUM_BUFFERS; i++)
+        vertex_buffers_vertices_wasted += vbufs.states[i].free;
+}
+
+/*
+ * When an allocation doesn't fit into any existing buffers, allocate a new
+ * vertex buffer to put them in.  Then evict the most full buffer from the
+ * buffer list (could be the new buffer, which means it just won't get added).
+ */
+static void
+VBAlloc_FromNew(int numverts, vec7_t **bufferptr, uint32_t *offset)
+{
+    struct vballoc_state newstate;
+
+    newstate.count = qmin((uint32_t)MATERIAL_MAX_VERTS, vbufs.vertices_remaining);
+    newstate.buffer = Hunk_AllocName(newstate.count * sizeof(vec7_t), "vbuf");
+    vertex_buffers_total_allocation += newstate.count * sizeof(vec7_t);
+    newstate.free = newstate.count - numverts;
+    vbufs.vertices_remaining -= numverts;
+
+    vertex_buffers_num_allocated++;
+    *bufferptr = newstate.buffer;
+    *offset = 0;
+
+    for (int i = VBALLOC_NUM_BUFFERS - 1; i >= 0; i--) {
+        if (newstate.free <= vbufs.states[i].free)
+            continue;
+
+        /* Track wasted space */
+        vertex_buffers_vertices_wasted += (i == 0) ? newstate.free : vbufs.states[0].free;
+
+        /* Move entries above to the left and insert here */
+        if (i > 0)
+            memmove(&vbufs.states[0], &vbufs.states[1], i * sizeof(struct vballoc_state));
+        vbufs.states[i] = newstate;
+        break;
+    }
+}
+
+/*
+ * Allocate the requested number of vertices from the buffer at the given index and then re-sort the
+ * buffers if necessary to maintain order from most allocated to least allocated.
+ */
+static void
+VBAlloc_FromIndex(int numverts, int index, vec7_t **bufferptr, uint32_t *offset)
+{
+    struct vballoc_state *state = &vbufs.states[index];
+    *bufferptr = state->buffer;
+    *offset = state->count - state->free;
+    state->free -= numverts;
+    vbufs.vertices_remaining -= numverts;
+
+    int new_index;
+    for (new_index = 0; new_index < index; new_index++) {
+        if (state->free < vbufs.states[new_index].free) {
+            /* Shuffle the other buffers down and insert here. */
+            struct vballoc_state tmp = *state;
+            memmove(&vbufs.states[new_index + 1], &vbufs.states[new_index], sizeof(struct vballoc_state) * (index - new_index));
+            vbufs.states[new_index] = tmp;
+            break;
+        }
+    }
+}
+
+/*
+ * Allocate vertex buffer space, return the pointer to the buffer and
+ * the offset within the buffer where vertices can be written.
+ */
+void
+VBAlloc_GetSpace(int numverts, vec7_t **bufferptr, uint32_t *offset)
+{
+    assert(numverts > 0);
+
+    struct vballoc_state *state = &vbufs.states[0];
+    for (int i = 0; i < VBALLOC_NUM_BUFFERS; i++, state++) {
+        if (state->free >= numverts) {
+            VBAlloc_FromIndex(numverts, i, bufferptr, offset);
+            return;
+        }
+    }
+    VBAlloc_FromNew(numverts, bufferptr, offset);
+}
+
+/* --------------------------------------------------------*/
+
 void
 GL_BuildMaterials()
 {
@@ -805,19 +933,22 @@ GL_BuildMaterials()
     /*
      * Build up the material chains across all models in preparation for storing vertex data.
      */
+    uint32_t total_vertices_to_allocate = 0;
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
         if (brushmodel->parent)
             continue;
         glbrushmodel = GLBrushModel(brushmodel);
         MaterialChains_Init(glbrushmodel->materialchains, glbrushmodel->materials, glbrushmodel->nummaterials);
         surf = brushmodel->surfaces;
-        for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++)
+        for (surfnum = 0; surfnum < brushmodel->numsurfaces; surfnum++, surf++) {
             MaterialChain_AddSurf(&glbrushmodel->materialchains[surf->material], surf);
+            total_vertices_to_allocate += surf->numedges;
+        }
     }
 
     /* Allocate vertex buffer space for each chain and fill out vertex info */
     int modelnum = 0;
-    int total_allocation = 0;
+    VBAlloc_Init(total_vertices_to_allocate);
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next, modelnum++) {
         if (brushmodel->parent)
             continue;
@@ -828,11 +959,9 @@ GL_BuildMaterials()
             if (!materialchain->surf)
                 continue;
 
-            /* TODO: pack materials into shared buffers */
-            const int buffersize = materialchain->numverts * sizeof(vec7_t);
-            total_allocation += buffersize;
-            material->buffer = Hunk_AllocName(buffersize, va("m%d/%03d", modelnum, materialnum));
+            /* Allocate buffer space */
             material->numverts = materialchain->numverts;
+            VBAlloc_GetSpace(material->numverts, (vec7_t **)&material->buffer, &material->offset);
 
             /* Copy buffer pointer for animation frames */
             texture_t *texture = brushmodel->textures[material->texturenum];
@@ -840,7 +969,7 @@ GL_BuildMaterials()
                 GL_CopyBufferPointerForAnimationFrames(glbrushmodel, materialnum);
             }
 
-            vec7_t *buffer = (vec7_t *)material->buffer;
+            vec7_t *buffer = (vec7_t *)material->buffer + material->offset;
             for (surf = materialchain->surf; surf; surf = surf->chain) {
                 /* Record the offset and create the vertex data */
                 surf->buffer_offset = buffer - (vec7_t *)material->buffer;
@@ -856,10 +985,13 @@ GL_BuildMaterials()
                                  surf->material, brushmodel->textures[glbrushmodel->materials[surf->material].texturenum]->name);
                 }
             }
-            assert((byte *)buffer - (byte *)material->buffer == buffersize);
         }
     }
-    Debug_Printf("Material vertex arrays, total allocation is %d bytes\n", total_allocation);
+    VBAlloc_Complete();
+
+    Debug_Printf("Material vertex arrays, total allocation is %d bytes\n", vertex_buffers_total_allocation);
+    Debug_Printf("Allocated %d buffers (%d bytes of wasted vertices)\n",
+                 vertex_buffers_num_allocated, vertex_buffers_vertices_wasted * (int)sizeof(vec7_t));
 }
 
 static void
