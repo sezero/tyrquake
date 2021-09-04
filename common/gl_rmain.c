@@ -1502,6 +1502,11 @@ R_DrawTranslucency(void)
                 tail = DepthChain_Surf(entry);
                 material = tail->material;
                 glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
+
+                texture_t *texture = BrushModel(entry->entity->model)->textures[glbrushmodel->materials[material].texturenum];
+                qboolean texture_has_alt = !!texture->alternate_anims;
+                qboolean alt_frame = !entry->entity->frame;
+
                 MaterialChains_Init(&materialchain, &glbrushmodel->materials[material], 1);
                 MaterialChain_AddSurf(&materialchain, tail);
                 alpha = entry->alpha;
@@ -1509,8 +1514,27 @@ R_DrawTranslucency(void)
                     surf = DepthChain_Surf(next);
                     if (surf->material != material || next->alpha != alpha)
                         break;
+                    if (texture_has_alt && alt_frame != !next->entity->frame)
+                        break;
                     MaterialChain_AddSurf_Tail(&materialchain, surf, &tail);
                     next = next->next;
+                }
+
+                /* Handle texture animation - TODO: speed! */
+                if (texture->anim_total) {
+                    const material_animation_t *animation = glbrushmodel->animations;
+                    for (int i = 0; i < glbrushmodel->numanimations; i++, animation++) {
+                        if (animation->material != material)
+                            continue;
+                        int frametick = (int)(cl.time * 5.0f);
+                        if (alt_frame && animation->numalt) {
+                            material = animation->alt[frametick % animation->numalt];
+                        } else {
+                            material = animation->frames[frametick % animation->numframes];
+                        }
+                        materialchain.material = &glbrushmodel->materials[material];
+                        break;
+                    }
                 }
 
                 // DRAW
