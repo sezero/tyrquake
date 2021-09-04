@@ -807,7 +807,7 @@ BGM_PlayCDTrack(byte track, qboolean looping)
         }
         if (bgm_type) {
             /* Try streaming audio files first, if enabled */
-            char trackname[8];
+            char trackname[16];
             qsnprintf(trackname, sizeof(trackname), "track%02d", (int)track);
             qboolean success = BGM_Play(trackname, looping);
             if (success)
