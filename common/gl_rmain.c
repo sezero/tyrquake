@@ -1483,6 +1483,9 @@ R_DrawTranslucency(void)
     byte alpha;
     entity_t *entity;
     glbrushmodel_t *glbrushmodel;
+    texture_t *texture;
+    qboolean texture_has_alt;
+    qboolean alt_frame;
 
     entry = r_depthchain.next;
     while (entry != &r_depthchain) {
@@ -1503,9 +1506,9 @@ R_DrawTranslucency(void)
                 material = tail->material;
                 glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
 
-                texture_t *texture = BrushModel(entry->entity->model)->textures[glbrushmodel->materials[material].texturenum];
-                qboolean texture_has_alt = !!texture->alternate_anims;
-                qboolean alt_frame = !entry->entity->frame;
+                texture = BrushModel(entry->entity->model)->textures[glbrushmodel->materials[material].texturenum];
+                texture_has_alt = !!texture->alternate_anims;
+                alt_frame = !entry->entity->frame;
 
                 MaterialChains_Init(&materialchain, &glbrushmodel->materials[material], 1);
                 MaterialChain_AddSurf(&materialchain, tail);
@@ -1547,6 +1550,11 @@ R_DrawTranslucency(void)
                 tail = DepthChain_Surf(entry);
                 material = tail->material;
                 glbrushmodel = GLBrushModel(BrushModel(entry->entity->model));
+
+                texture = BrushModel(entry->entity->model)->textures[glbrushmodel->materials[material].texturenum];
+                texture_has_alt = !!texture->alternate_anims;
+                alt_frame = !entry->entity->frame;
+
                 MaterialChains_Init(&materialchain, &glbrushmodel->materials[material], 1);
                 MaterialChain_AddSurf(&materialchain, tail);
                 entity = entry->entity;
@@ -1559,7 +1567,46 @@ R_DrawTranslucency(void)
                     next = next->next;
                 }
 
-                // DRAW
+                /* Handle texture animation - TODO: speed! */
+                if (texture->anim_total) {
+                    const material_animation_t *animation = glbrushmodel->animations;
+                    for (int i = 0; i < glbrushmodel->numanimations; i++, animation++) {
+                        if (animation->material != material)
+                            continue;
+                        int frametick = (int)(cl.time * 5.0f);
+                        if (alt_frame && animation->numalt) {
+                            material = animation->alt[frametick % animation->numalt];
+                        } else {
+                            material = animation->frames[frametick % animation->numframes];
+                        }
+                        materialchain.material = &glbrushmodel->materials[material];
+                        break;
+                    }
+                }
+
+                /* Setup for transform - TODO: cache this somewhere? */
+                vec3_t modelorg;
+                VectorSubtract(r_refdef.vieworg, entity->origin, modelorg);
+                if (R_EntityIsRotated(entity)) {
+                    vec3_t temp;
+                    vec3_t forward, right, up;
+
+                    VectorCopy(modelorg, temp);
+                    AngleVectors(entity->angles, forward, right, up);
+                    modelorg[0] = DotProduct(temp, forward);
+                    modelorg[1] = -DotProduct(temp, right);
+                    modelorg[2] = DotProduct(temp, up);
+                }
+                /* Stupid bug means pitch is reversed for entities */
+                vec3_t angles_bug;
+                VectorCopy(entity->angles, angles_bug);
+                angles_bug[PITCH] = -angles_bug[PITCH];
+
+                // DRAW - TODO: cache transform somewhere?
+                glPushMatrix();
+                R_RotateForEntity(entity->origin, angles_bug);
+                R_DrawTranslucentChain(entry->entity, &materialchain, ENTALPHA_DECODE(alpha));
+                glPopMatrix();
 
                 break;
             default:
