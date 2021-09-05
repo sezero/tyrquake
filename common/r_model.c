@@ -93,18 +93,18 @@ Alpha_Updated()
     r_surfalpha_flags = 0;
     if (map_wateralpha < 1.0f)
         r_surfalpha_flags |= SURF_DRAWWATER;
-    if (map_slimealpha < 1.0f)
+    if ((map_slimealpha == 0 && map_wateralpha < 1.0f) || (map_slimealpha > 0.0f && map_slimealpha < 1.0f))
         r_surfalpha_flags |= SURF_DRAWSLIME;
-    if (map_lavaalpha < 1.0f)
+    if ((map_lavaalpha  == 0 && map_wateralpha < 1.0f) || (map_lavaalpha  > 0.0f && map_lavaalpha  < 1.0f))
         r_surfalpha_flags |= SURF_DRAWLAVA;
-    if (map_telealpha < 1.0f)
+    if ((map_telealpha  == 0 && map_wateralpha < 1.0f) || (map_telealpha  > 0.0f && map_telealpha  < 1.0f))
         r_surfalpha_flags |= SURF_DRAWTELE;
 
 #ifndef GLQUAKE
     transtable_water = Alpha_Transtable(map_wateralpha);
-    transtable_slime = Alpha_Transtable(map_slimealpha);
-    transtable_lava  = Alpha_Transtable(map_lavaalpha);
-    transtable_tele  = Alpha_Transtable(map_telealpha);
+    transtable_slime = Alpha_Transtable((map_slimealpha > 0) ? map_slimealpha : map_wateralpha);
+    transtable_lava  = Alpha_Transtable((map_lavaalpha  > 0) ? map_lavaalpha  : map_wateralpha);
+    transtable_tele  = Alpha_Transtable((map_telealpha  > 0) ? map_telealpha  : map_wateralpha);
 #endif
 }
 
@@ -204,11 +204,11 @@ R_GetSurfAlpha(int flags)
     else if (flags & SURF_DRAWWATER)
         alpha = map_wateralpha;
     else if (flags & SURF_DRAWSLIME)
-        alpha = map_slimealpha;
+        alpha = (map_slimealpha > 0) ? map_slimealpha : map_wateralpha;
     else if (flags & SURF_DRAWLAVA)
-        alpha = map_lavaalpha;
+        alpha = (map_lavaalpha > 0) ? map_lavaalpha : map_wateralpha;
     else //if (flags & SURF_DRAWTELE)
-        alpha = map_telealpha;
+        alpha = (map_telealpha > 0) ? map_telealpha : map_wateralpha;
 
     return alpha;
 }

@@ -1527,11 +1527,11 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
     if (surf->flags & SURF_DRAWWATER)
         alpha *= map_wateralpha;
     else if (surf->flags & SURF_DRAWSLIME)
-        alpha *= map_slimealpha;
+        alpha *= (map_slimealpha > 0) ? map_slimealpha : map_wateralpha;
     else if (surf->flags & SURF_DRAWLAVA)
-        alpha *= map_lavaalpha;
+        alpha *= (map_lavaalpha  > 0) ? map_lavaalpha  : map_wateralpha;
     else if (surf->flags & SURF_DRAWTELE)
-        alpha *= map_telealpha;
+        alpha *= (map_telealpha  > 0) ? map_telealpha  : map_wateralpha;
 
     TriBuf_Prepare(buffer, materialchain);
     for (surf = materialchain->surf; surf; surf = surf->chain)
