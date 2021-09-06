@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "cvar.h"
 #include "glquake.h"
 #include "qtypes.h"
+#include "sys.h"
 
 qboolean gl_npotable;
 
@@ -57,10 +58,19 @@ GL_ExtensionCheck_NPoT(void)
     gl_npotable = true;
 }
 
+#ifdef DEBUG
+void APIENTRY errorActiveTextureFunc(GLenum unused) { Sys_Error("%s: called without multitexture support!", __func__); }
+#else
+#define errorActiveTextureFunc NULL
+#endif
+
 void
 GL_ExtensionCheck_MultiTexture()
 {
     gl_mtexable = false;
+    qglActiveTextureARB = errorActiveTextureFunc;
+    qglClientActiveTexture = errorActiveTextureFunc;
+
     if (COM_CheckParm("-nomtex"))
         return;
     if (!GL_ExtensionCheck("GL_ARB_multitexture"))
@@ -81,12 +91,12 @@ GL_ExtensionCheck_MultiTexture()
 
     if (!qglActiveTextureARB || !qglClientActiveTexture) {
         Con_Printf("ARB Multitexture symbols not found, disabled.\n");
+        qglActiveTextureARB = errorActiveTextureFunc;
+        qglClientActiveTexture = errorActiveTextureFunc;
         return;
     }
 
-    Con_Printf("Multitexture enabled.  %i texture units available.\n",
-	       gl_num_texture_units);
-
+    Con_Printf("Multitexture enabled.  %i texture units available.\n", gl_num_texture_units);
     gl_mtexable = true;
 }
 

@@ -113,11 +113,13 @@ R_UpdateWarpTextures()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    GL_DisableMultitexture();
+    if (gl_mtexable) {
+        GL_DisableMultitexture();
+        qglClientActiveTexture(GL_TEXTURE0);
+    }
     glEnable(GL_VERTEX_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_FLOAT, 4 * sizeof(float), vertices);
-    qglClientActiveTexture(GL_TEXTURE0);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glTexCoordPointer(2, GL_FLOAT, 4 * sizeof(float), vertices + 2);
 
