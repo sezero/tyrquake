@@ -219,6 +219,9 @@ extern cvar_t gl_subdivide_size;
 extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_picmip;
+extern cvar_t gl_overbright;
+extern cvar_t gl_overbright_models;
+void GL_Overbright_f(cvar_t *cvar);
 
 extern cvar_t _gl_allowgammafallback;
 extern cvar_t _gl_drawhull;
@@ -308,8 +311,9 @@ struct vertex_programs {
 extern struct vertex_programs vp;
 extern void GL_InitVertexPrograms();
 
-extern qboolean gl_mtexable;
 extern qboolean gl_npotable;
+extern qboolean gl_mtexable;
+extern qboolean gl_texture_env_combine;
 extern qboolean gl_buffer_objects_enabled;
 extern qboolean gl_vertex_program_enabled;
 
@@ -317,6 +321,7 @@ void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
 void GL_ExtensionCheck_NPoT(void);
 void GL_ExtensionCheck_MultiTexture(void);
+void GL_ExtensionCheck_Combine(void);
 void GL_ExtensionCheck_GenerateMipmaps();
 void GL_ExtensionCheck_BufferObjects();
 void GL_ExtensionCheck_VertexProgram();

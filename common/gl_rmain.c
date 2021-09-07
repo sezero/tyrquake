@@ -120,6 +120,8 @@ cvar_t gl_doubleeyes = { "gl_doubleeyes", "1" };
 #endif
 cvar_t gl_fullbrights = { "gl_fullbrights", "1", .flags = CVAR_CONFIG };
 cvar_t gl_farclip = { "gl_farclip", "16384", .flags = CVAR_CONFIG };
+cvar_t gl_overbright = { "gl_overbright", "1", .flags = CVAR_CONFIG, .callback = GL_Overbright_f };
+cvar_t gl_overbright_models = { "gl_overbright_models", "1", .flags = CVAR_CONFIG };
 
 cvar_t _gl_allowgammafallback = { "_gl_allowgammafallback", "1" };
 
@@ -156,6 +158,7 @@ GL_Init(void)
 
     GL_ExtensionCheck_GenerateMipmaps();
     GL_ExtensionCheck_MultiTexture();
+    GL_ExtensionCheck_Combine();
     GL_ExtensionCheck_NPoT();
     GL_ExtensionCheck_BufferObjects();
     GL_ExtensionCheck_VertexProgram();
@@ -442,6 +445,9 @@ R_DrawSpriteModel(const entity_t *entity)
 =============================================================
 */
 
+// Absolute minimum lighting level
+#define LIGHT_MIN 5
+
 #define NUMVERTEXNORMALS 162
 
 // quantized vertex normals for alias models
@@ -577,9 +583,11 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
     /* Calculate a 2x2 sample, adding the light styles together */
     memset(samples, 0, sizeof(samples));
 
+    /* Lightmap values need to be halved when model overbright is enabled */
+    const float samplescale = 1.0f / (!gl_overbright_models.value ? 128.0f : 256.0f);
     int maps;
     foreach_surf_lightstyle(surf, maps) {
-        const float scale = d_lightstylevalue[surf->styles[maps]] * (1.0f / 256.0f);
+        const float scale = d_lightstylevalue[surf->styles[maps]] * samplescale;
         samples[0][0][0] += row0[0] * scale;
         samples[0][0][1] += row0[1] * scale;
         samples[0][0][2] += row0[2] * scale;
@@ -618,10 +626,11 @@ R_LightPoint(const vec3_t point, alias_light_t *light)
     }
 
     /* Clamp to minimum ambient lighting */
-    if (light->ambient) {
-        light->shade[0] = qmax(light->shade[0], light->ambient);
-        light->shade[1] = qmax(light->shade[1], light->ambient);
-        light->shade[2] = qmax(light->shade[2], light->ambient);
+    float add = (light->ambient * 3.0f - (light->shade[0] + light->shade[1] + light->shade[2])) / 3.0f;
+    if (add > 0) {
+        light->shade[0] += add;
+        light->shade[1] += add;
+        light->shade[2] += add;
     }
 }
 
@@ -659,10 +668,10 @@ R_AliasCalcLight(const entity_t *entity, const vec3_t origin, const vec3_t angle
 	}
     }
 
-    // clamp lighting so it doesn't overbright as much
-    light->shade[0] = qmin(light->shade[0], 192.0f);
-    light->shade[1] = qmin(light->shade[1], 192.0f);
-    light->shade[2] = qmin(light->shade[2], 192.0f);
+    // clamp lighting so it doesn't overbright too much
+    float scale = 192.0f * 3.0f / (light->shade[0] + light->shade[1] + light->shade[2]);
+    if (scale < 1.0f)
+        VectorScale(light->shade, scale, light->shade);
 
     int shadequant = (int)(angles[1] * (SHADEDOT_QUANT / 360.0));
     light->shadedots = r_avertexnormal_dots[shadequant & (SHADEDOT_QUANT - 1)];
@@ -683,7 +692,6 @@ R_AliasDrawModel(entity_t *entity)
     int i;
     float radius;
     aliashdr_t *aliashdr;
-    alias_light_t light;
     lerpdata_t lerpdata;
 
     /* Calculate lerped position and cull if out of view */
@@ -710,7 +718,7 @@ R_AliasDrawModel(entity_t *entity)
 	return;
 
     /* Calculate lighting at the lerp origin */
-    memset(&light, 0, sizeof(light));
+    alias_light_t light = { .ambient = LIGHT_MIN };
     R_AliasCalcLight(entity, lerpdata.origin, lerpdata.angles, &light);
 
     /* locate/load the data in the model cache */
@@ -767,7 +775,7 @@ R_AliasDrawModel(entity_t *entity)
             float lightscale;
             lightscale  = light.shadedots[*lightnormalindex0++] * weight0;
             lightscale += light.shadedots[*lightnormalindex1++] * weight1;
-	    lightscale *= 255.0f;
+            lightscale *= 128.0f;
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
@@ -778,7 +786,7 @@ R_AliasDrawModel(entity_t *entity)
         lightnormalindex += lerpdata.pose1 * numverts;
         uint8_t *dstcolor = colorbuf;
         for (i = 0; i < numverts; i++) {
-            float lightscale = light.shadedots[*lightnormalindex++] * 255.0f;
+            float lightscale = light.shadedots[*lightnormalindex++] * 128.0f;
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
             *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
@@ -868,7 +876,15 @@ R_AliasDrawModel(entity_t *entity)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     }
 
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    if (gl_texture_env_combine && gl_overbright_models.value) {
+        glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+        glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
+        glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
+        glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR);
+        glTexEnvf(GL_TEXTURE_ENV, GL_RGB_SCALE, 2.0f);
+    } else {
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    }
 
     /* Select the appropriate vertex program */
     const qboolean fullbright_pass = skin_has_fullbrights && gl_fullbrights.value && !r_fullbright.value;
@@ -949,6 +965,12 @@ R_AliasDrawModel(entity_t *entity)
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         qglClientActiveTexture(GL_TEXTURE0);
         GL_DisableMultitexture();
+    }
+
+    /* Reset brightness scaling */
+    if (gl_overbright_models.value) {
+        glTexEnvf(GL_TEXTURE_ENV, GL_RGB_SCALE, 1.0f);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     }
 
     /* Disable color buffer */

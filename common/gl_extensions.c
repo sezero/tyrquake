@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 
 qboolean gl_npotable;
+qboolean gl_texture_env_combine;
 
 static qboolean
 GL_ExtensionCheck(const char *extension)
@@ -43,6 +44,46 @@ GL_ExtensionCheck(const char *extension)
     }
 
     return false;
+}
+
+static qboolean gl_version_es;
+static int gl_version_major;
+static int gl_version_minor;
+
+static inline qboolean
+GL_VersionMinimum(int major, int minor)
+{
+    return gl_version_major > major || (gl_version_major == major && gl_version_minor >= minor);
+}
+
+void
+GL_ParseVersionString(const char *version)
+{
+    char *gl_version, *token;
+
+    if (!version)
+        return;
+
+    /* Get a writeable copy we can parse */
+    gl_version = Z_StrDup(mainzone, version);
+
+    /* OpenGL ES has a specific prefix, if found strip it off */
+    if (!strncmp(gl_version, "OpenGL ES", 9)) {
+        gl_version_es = true;
+        token = strtok(gl_version, " .");
+        token = strtok(NULL, " .");
+        token = strtok(NULL, " .");
+        gl_version_major = atoi(token);
+        token = strtok(NULL, " .");
+        gl_version_minor = atoi(token);
+    } else {
+        token = strtok(gl_version, " .");
+        gl_version_major = atoi(token);
+        token = strtok(NULL, " .");
+        gl_version_minor = atoi(token);
+    }
+
+    Z_Free(mainzone, gl_version);
 }
 
 void
@@ -100,45 +141,20 @@ GL_ExtensionCheck_MultiTexture()
     gl_mtexable = true;
 }
 
-static qboolean gl_version_es;
-static int gl_version_major;
-static int gl_version_minor;
-
-static inline qboolean
-GL_VersionMinimum(int major, int minor)
-{
-    return gl_version_major > major || (gl_version_major == major && gl_version_minor >= minor);
-}
-
 void
-GL_ParseVersionString(const char *version)
+GL_ExtensionCheck_Combine()
 {
-    char *gl_version, *token;
-
-    if (!version)
+    gl_texture_env_combine = false;
+    if (COM_CheckParm("-nocombine"))
         return;
-
-    /* Get a writeable copy we can parse */
-    gl_version = Z_StrDup(mainzone, version);
-
-    /* OpenGL ES has a specific prefix, if found strip it off */
-    if (!strncmp(gl_version, "OpenGL ES", 9)) {
-        gl_version_es = true;
-        token = strtok(gl_version, " .");
-        token = strtok(NULL, " .");
-        token = strtok(NULL, " .");
-        gl_version_major = atoi(token);
-        token = strtok(NULL, " .");
-        gl_version_minor = atoi(token);
-    } else {
-        token = strtok(gl_version, " .");
-        gl_version_major = atoi(token);
-        token = strtok(NULL, " .");
-        gl_version_minor = atoi(token);
-    }
-
-    Z_Free(mainzone, gl_version);
+    if (GL_VersionMinimum(1, 3))
+        gl_texture_env_combine = true;
+    else if (GL_ExtensionCheck("GL_ARB_texture_env_combine"))
+        gl_texture_env_combine = true;
+    else if (GL_ExtensionCheck("GL_EXT_texture_env_combine"))
+        gl_texture_env_combine = true;
 }
+
 
 /*
  * Try to find a working version of automatic mipmap generation for

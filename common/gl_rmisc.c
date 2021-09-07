@@ -267,6 +267,8 @@ R_RegisterVariables()
     Cvar_RegisterVariable(&gl_polyblend);
     Cvar_RegisterVariable(&gl_nocolors);
     Cvar_RegisterVariable(&gl_zfix);
+    Cvar_RegisterVariable(&gl_overbright);
+    Cvar_RegisterVariable(&gl_overbright_models);
 
     Cvar_RegisterVariable(&gl_keeptjunctions);
     Cvar_RegisterVariable(&gl_reporttjunctions);

@@ -160,11 +160,12 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
     /* bound, invert, and shift */
   store:
     block = blocklights;
+    int shift = gl_overbright.value ? 8 : 7;
     for (i = 0; i < tmax; i++, dest += stride - (smax * gl_lightmap_bytes)) {
         for (j = 0; j < smax; j++) {
-            *dest++ = qmin(*block++ >> 7, 255u);
-            *dest++ = qmin(*block++ >> 7, 255u);
-            *dest++ = qmin(*block++ >> 7, 255u);
+            *dest++ = qmin(*block++ >> shift, 255u);
+            *dest++ = qmin(*block++ >> shift, 255u);
+            *dest++ = qmin(*block++ >> shift, 255u);
             *dest++ = 255;
             block++;
         }
@@ -226,7 +227,8 @@ GL_EnableMultitexture(void)
 }
 
 /*
- * R_UploadLightmapUpdate
+ * R_UploadLightmapBlockUpdates
+ *
  * Re-uploads the modified region of the given lightmap number
  */
 static void
@@ -272,58 +274,82 @@ R_UploadLightmapBlockUpdates(glbrushmodel_t *glbrushmodel)
  * R_UpdateLightmapBlockRect
  */
 static void
-R_UpdateLightmapBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
+R_LightmapUpdateBlockRect(glbrushmodel_resource_t *resources, msurface_t *surf)
 {
-    int map;
-    byte *base;
-    int smax, tmax;
-    lm_block_t *block;
-    glRect_t *rect;
+    /*
+     * Record that the lightmap block for this surface has been
+     * modified. If necessary, increase the modified rectangle to include
+     * this surface's allocatied sub-area.
+     */
+    lm_block_t *block = &resources->blocks[surf->lightmapblock];
+    glRect_t *rect = &block->rectchange;
+    block->modified = true;
+    if (surf->light_t < rect->t) {
+        if (rect->h)
+            rect->h += rect->t - surf->light_t;
+        rect->t = surf->light_t;
+    }
+    if (surf->light_s < rect->l) {
+        if (rect->w)
+            rect->w += rect->l - surf->light_s;
+        rect->l = surf->light_s;
+    }
+    int smax = (surf->extents[0] >> 4) + 1;
+    int tmax = (surf->extents[1] >> 4) + 1;
+    if ((rect->w + rect->l) < (surf->light_s + smax))
+        rect->w = (surf->light_s - rect->l) + smax;
+    if ((rect->h + rect->t) < (surf->light_t + tmax))
+        rect->h = (surf->light_t - rect->t) + tmax;
+    byte *base = block->data;
+    base += surf->light_t * BLOCK_WIDTH * gl_lightmap_bytes;
+    base += surf->light_s * gl_lightmap_bytes;
+    R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
+}
 
+static void
+R_LightmapCheckUpdate(glbrushmodel_resource_t *resources, msurface_t *surf)
+{
     if (!r_dynamic.value)
 	return;
     if (surf->flags & SURF_DRAWTILED)
         return;
-
-    /* Check if any of this surface's lightmaps changed */
-    foreach_surf_lightstyle(surf, map)
-	if (d_lightstylevalue[surf->styles[map]] != surf->cached_light[map])
-	    goto dynamic;
 
     /*
      * surf->dlightframe == r_framecount  => dynamic this frame
      * surf->cached_dlight                => dynamic previously
      */
     if (surf->dlightframe == r_framecount || surf->cached_dlight) {
-    dynamic:
-	/*
-	 * Record that the lightmap block for this surface has been
-	 * modified. If necessary, increase the modified rectangle to include
-	 * this surface's allocatied sub-area.
-	 */
-	block = &resources->blocks[surf->lightmapblock];
-	rect = &block->rectchange;
-	block->modified = true;
-	if (surf->light_t < rect->t) {
-	    if (rect->h)
-		rect->h += rect->t - surf->light_t;
-	    rect->t = surf->light_t;
-	}
-	if (surf->light_s < rect->l) {
-	    if (rect->w)
-		rect->w += rect->l - surf->light_s;
-	    rect->l = surf->light_s;
-	}
-	smax = (surf->extents[0] >> 4) + 1;
-	tmax = (surf->extents[1] >> 4) + 1;
-	if ((rect->w + rect->l) < (surf->light_s + smax))
-	    rect->w = (surf->light_s - rect->l) + smax;
-	if ((rect->h + rect->t) < (surf->light_t + tmax))
-	    rect->h = (surf->light_t - rect->t) + tmax;
-	base = block->data;
-	base += surf->light_t * BLOCK_WIDTH * gl_lightmap_bytes;
-	base += surf->light_s * gl_lightmap_bytes;
-	R_BuildLightMap(surf, base, BLOCK_WIDTH * gl_lightmap_bytes);
+        R_LightmapUpdateBlockRect(resources, surf);
+        return;
+    }
+
+    /* Check if any of this surface's lightmaps changed */
+    int map;
+    foreach_surf_lightstyle(surf, map) {
+        if (d_lightstylevalue[surf->styles[map]] != surf->cached_light[map]) {
+            R_LightmapUpdateBlockRect(resources, surf);
+            return;
+        }
+    }
+}
+
+void
+GL_Overbright_f(cvar_t *cvar)
+{
+    /*
+     * Regenerate lightmaps with brightness adjusted
+     */
+    brushmodel_t *brushmodel;
+    for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
+        if (brushmodel->parent)
+            continue;
+        glbrushmodel_resource_t *resources = GLBrushModel(brushmodel)->resources;
+        msurface_t *surf = brushmodel->surfaces;
+        for (int i = 0; i < brushmodel->numsurfaces; i++, surf++) {
+            if (surf->flags & SURF_DRAWTILED)
+                continue;
+            R_LightmapUpdateBlockRect(resources, surf);
+        }
     }
 }
 
@@ -775,9 +801,8 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 
 	glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
-
-        GL_Bind(texture->gl_texturenum_alpha);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        GL_Bind(texture->gl_texturenum_alpha);
 
         TriBuf_DrawElements(buffer, &state);
 
@@ -790,6 +815,7 @@ TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
         GL_DisableMultitexture();
         glDisable(GL_TEXTURE_2D);
         glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         const float *color = Fog_GetColor();
         glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
@@ -831,6 +857,7 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
     if (alpha < 1.0f) {
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         glColor4f(1, 1, 1, alpha);
     }
 
@@ -845,8 +872,17 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
 	GL_SelectTexture(GL_TEXTURE1_ARB);
-        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         GL_Bind(block->texture);
+
+        if (gl_texture_env_combine && gl_overbright.value) {
+            glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+            glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
+            glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PREVIOUS);
+            glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_TEXTURE);
+            glTexEnvf(GL_TEXTURE_ENV, GL_RGB_SCALE, 2.0f);
+        } else {
+            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        }
 
         struct buffer_state state = {
             .texcoords = {
@@ -869,6 +905,12 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
             glDisable(GL_TEXTURE_2D);
             GL_SelectTexture(GL_TEXTURE1);
         }
+
+        /* Reset brightness scaling */
+        if (gl_texture_env_combine && gl_overbright.value) {
+            glTexEnvf(GL_TEXTURE_ENV, GL_RGB_SCALE, 1.0f);
+            glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+        }
     } else {
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
@@ -885,7 +927,11 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
         glDepthFunc(GL_EQUAL);
 
         glEnable(GL_BLEND);
-        glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+        if (gl_texture_env_combine && gl_overbright.value) {
+            glBlendFunc(GL_DST_COLOR, GL_SRC_COLOR);
+        } else {
+            glBlendFunc(GL_ZERO, GL_SRC_COLOR);
+        }
         Fog_StartBlend();
         GL_Bind(block->texture);
 
@@ -1257,6 +1303,7 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
         if (Fog_GetDensity() > 0 && map_skyfog > 0) {
             glDisable(GL_TEXTURE_2D);
             glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
             const float *color = Fog_GetColor();
             glColor4f(color[0], color[1], color[2], qclamp(map_skyfog, 0.0f, 1.0f));
 
@@ -2169,7 +2216,7 @@ R_DrawWorld(void)
                     msurface_t *surf = &brushmodel->surfaces[brushmodel->firstmodelsurface];
                     for (int i = 0; i < brushmodel->nummodelsurfaces; i++, surf++) {
                         if (!(surf->flags & (SURF_DRAWSKY | SURF_DRAWTURB)))
-                            R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+                            R_LightmapCheckUpdate(glbrushmodel->resources, surf);
                     }
                 }
 
@@ -2208,7 +2255,7 @@ R_DrawWorld(void)
     int material_end = glbrushmodel->material_index[MATERIAL_LIQUID];
     for (int i = material_start; i < material_end; i++) {
         for (msurface_t *surf = glbrushmodel->materialchains[i].surf; surf; surf = surf->chain)
-            R_UpdateLightmapBlockRect(glbrushmodel->resources, surf);
+            R_LightmapCheckUpdate(glbrushmodel->resources, surf);
     }
     R_UploadLightmapBlockUpdates(glbrushmodel);
 
