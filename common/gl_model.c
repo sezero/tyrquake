@@ -488,18 +488,20 @@ GL_CopyMaterialsForAnimationFrame(glbrushmodel_t *glbrushmodel, msurface_t *text
 }
 
 static void
-GL_CopyBufferPointerForAnimationFrames(glbrushmodel_t *glbrushmodel, int materialnum)
+GL_CopyBufferInfoForAnimationFrames(glbrushmodel_t *glbrushmodel, int materialnum)
 {
     assert(materialnum >= 0);
 
-    float *buffer = glbrushmodel->materials[materialnum].buffer;
+    const surface_material_t *source_material = &glbrushmodel->materials[materialnum];
     surface_material_t *material = glbrushmodel->materials;
     for (int i = 0; i < glbrushmodel->nummaterials; i++, material++) {
         if (material->animation_base_material == materialnum) {
-            Debug_Printf("Copying buffer pointer for material %d (%s) to %d (%s)\n",
+            Debug_Printf("Copying buffer info for material %d (%s) to %d (%s)\n",
                          materialnum, glbrushmodel->brushmodel.textures[glbrushmodel->materials[materialnum].texturenum]->name,
                          i, glbrushmodel->brushmodel.textures[material->texturenum]->name);
-            material->buffer = buffer;
+            material->offset = source_material->offset;
+            material->numverts = source_material->numverts;
+            material->buffer_id = source_material->buffer_id;
         }
     }
 }
@@ -573,32 +575,43 @@ AddSurfaceVertices(brushmodel_t *brushmodel, msurface_t *surf, vec7_t *verts)
 
 struct vballoc_state {
     vec7_t *buffer;
+    int id;
     int count;
     int free;
 };
 
 static int vertex_buffers_total_allocation;
-static int vertex_buffers_num_allocated;
 static int vertex_buffers_vertices_wasted;
+
+struct vertex_buffer_info *gl_bmodel_vertex_buffers;
+int num_gl_bmodel_vertex_buffers;
 
 #define VBALLOC_NUM_BUFFERS 4
 static struct {
     struct vballoc_state states[VBALLOC_NUM_BUFFERS];
     uint32_t vertices_remaining;
-} vbufs;
+} vballoc;
 
 static void
-VBAlloc_Init(int total_verts)
+VBAlloc_Init(int total_verts, int max_buffers)
 {
-    memset(&vbufs, 0, sizeof(vbufs));
-    vbufs.vertices_remaining = total_verts;
+    memset(&vballoc, 0, sizeof(vballoc));
+    vballoc.vertices_remaining = total_verts;
+
+    /* We'll never need this many, but we'll trim it down after we're done */
+    gl_bmodel_vertex_buffers = Hunk_TempAllocExtend(max_buffers * sizeof(*gl_bmodel_vertex_buffers));
 }
 
 static void
 VBAlloc_Complete()
 {
     for (int i = 0; i < VBALLOC_NUM_BUFFERS; i++)
-        vertex_buffers_vertices_wasted += vbufs.states[i].free;
+        vertex_buffers_vertices_wasted += vballoc.states[i].free;
+
+    struct vertex_buffer_info *buffers = gl_bmodel_vertex_buffers;
+    size_t vbo_list_bytes = num_gl_bmodel_vertex_buffers * sizeof(*gl_bmodel_vertex_buffers);
+    gl_bmodel_vertex_buffers = Hunk_AllocName(vbo_list_bytes, "vertices");
+    memcpy(gl_bmodel_vertex_buffers, buffers, vbo_list_bytes);
 }
 
 /*
@@ -607,31 +620,35 @@ VBAlloc_Complete()
  * buffer list (could be the new buffer, which means it just won't get added).
  */
 static void
-VBAlloc_FromNew(int numverts, vec7_t **bufferptr, uint32_t *offset)
+VBAlloc_FromNew(int numverts, uint32_t *id, uint32_t *offset)
 {
     struct vballoc_state newstate;
 
-    newstate.count = qmin((uint32_t)MATERIAL_MAX_VERTS, vbufs.vertices_remaining);
-    newstate.buffer = Hunk_AllocName(newstate.count * sizeof(vec7_t), "vbuf");
+    newstate.count = qmin((uint32_t)MATERIAL_MAX_VERTS, vballoc.vertices_remaining);
+    newstate.buffer = Hunk_AllocName(newstate.count * sizeof(vec7_t), "vertices");
+    newstate.id = num_gl_bmodel_vertex_buffers;
     vertex_buffers_total_allocation += newstate.count * sizeof(vec7_t);
     newstate.free = newstate.count - numverts;
-    vbufs.vertices_remaining -= numverts;
+    vballoc.vertices_remaining -= numverts;
 
-    vertex_buffers_num_allocated++;
-    *bufferptr = newstate.buffer;
+    gl_bmodel_vertex_buffers[num_gl_bmodel_vertex_buffers].vertices = newstate.buffer;
+    gl_bmodel_vertex_buffers[num_gl_bmodel_vertex_buffers].numverts = newstate.count;
+    num_gl_bmodel_vertex_buffers++;
+
+    *id = newstate.id;
     *offset = 0;
 
     for (int i = VBALLOC_NUM_BUFFERS - 1; i >= 0; i--) {
-        if (newstate.free <= vbufs.states[i].free)
+        if (newstate.free <= vballoc.states[i].free)
             continue;
 
         /* Track wasted space */
-        vertex_buffers_vertices_wasted += (i == 0) ? newstate.free : vbufs.states[0].free;
+        vertex_buffers_vertices_wasted += (i == 0) ? newstate.free : vballoc.states[0].free;
 
         /* Move entries above to the left and insert here */
         if (i > 0)
-            memmove(&vbufs.states[0], &vbufs.states[1], i * sizeof(struct vballoc_state));
-        vbufs.states[i] = newstate;
+            memmove(&vballoc.states[0], &vballoc.states[1], i * sizeof(struct vballoc_state));
+        vballoc.states[i] = newstate;
         break;
     }
 }
@@ -641,21 +658,21 @@ VBAlloc_FromNew(int numverts, vec7_t **bufferptr, uint32_t *offset)
  * buffers if necessary to maintain order from most allocated to least allocated.
  */
 static void
-VBAlloc_FromIndex(int numverts, int index, vec7_t **bufferptr, uint32_t *offset)
+VBAlloc_FromIndex(int numverts, int index, uint32_t *id, uint32_t *offset)
 {
-    struct vballoc_state *state = &vbufs.states[index];
-    *bufferptr = state->buffer;
+    struct vballoc_state *state = &vballoc.states[index];
+    *id = state->id;
     *offset = state->count - state->free;
     state->free -= numverts;
-    vbufs.vertices_remaining -= numverts;
+    vballoc.vertices_remaining -= numverts;
 
     int new_index;
     for (new_index = 0; new_index < index; new_index++) {
-        if (state->free < vbufs.states[new_index].free) {
+        if (state->free < vballoc.states[new_index].free) {
             /* Shuffle the other buffers down and insert here. */
             struct vballoc_state tmp = *state;
-            memmove(&vbufs.states[new_index + 1], &vbufs.states[new_index], sizeof(struct vballoc_state) * (index - new_index));
-            vbufs.states[new_index] = tmp;
+            memmove(&vballoc.states[new_index + 1], &vballoc.states[new_index], sizeof(struct vballoc_state) * (index - new_index));
+            vballoc.states[new_index] = tmp;
             break;
         }
     }
@@ -666,18 +683,18 @@ VBAlloc_FromIndex(int numverts, int index, vec7_t **bufferptr, uint32_t *offset)
  * the offset within the buffer where vertices can be written.
  */
 void
-VBAlloc_GetSpace(int numverts, vec7_t **bufferptr, uint32_t *offset)
+VBAlloc_GetSpace(int numverts, uint32_t *id, uint32_t *offset)
 {
     assert(numverts > 0);
 
-    struct vballoc_state *state = &vbufs.states[0];
+    struct vballoc_state *state = &vballoc.states[0];
     for (int i = 0; i < VBALLOC_NUM_BUFFERS; i++, state++) {
         if (state->free >= numverts) {
-            VBAlloc_FromIndex(numverts, i, bufferptr, offset);
+            VBAlloc_FromIndex(numverts, i, id, offset);
             return;
         }
     }
-    VBAlloc_FromNew(numverts, bufferptr, offset);
+    VBAlloc_FromNew(numverts, id, offset);
 }
 
 /* --------------------------------------------------------*/
@@ -754,6 +771,7 @@ GL_BuildMaterials()
     /*
      * Next we allocate materials for each brushmodel
      */
+    int total_material_count = 0;
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
         if (brushmodel->parent)
             continue;
@@ -866,6 +884,8 @@ GL_BuildMaterials()
                 frame = frame->anim_next;
             } while (frame != texture);
         }
+
+        total_material_count += glbrushmodel->nummaterials;
     }
 
     /*
@@ -948,7 +968,7 @@ GL_BuildMaterials()
 
     /* Allocate vertex buffer space for each chain and fill out vertex info */
     int modelnum = 0;
-    VBAlloc_Init(total_vertices_to_allocate);
+    VBAlloc_Init(total_vertices_to_allocate, total_material_count);
     for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next, modelnum++) {
         if (brushmodel->parent)
             continue;
@@ -961,20 +981,21 @@ GL_BuildMaterials()
 
             /* Allocate buffer space */
             material->numverts = materialchain->numverts;
-            VBAlloc_GetSpace(material->numverts, (vec7_t **)&material->buffer, &material->offset);
+            VBAlloc_GetSpace(material->numverts, &material->buffer_id, &material->offset);
 
-            /* Copy buffer pointer for animation frames */
+            /* Copy buffer info for animation frames */
             texture_t *texture = brushmodel->textures[material->texturenum];
             if (texture->anim_total) {
-                GL_CopyBufferPointerForAnimationFrames(glbrushmodel, materialnum);
+                GL_CopyBufferInfoForAnimationFrames(glbrushmodel, materialnum);
             }
 
-            vec7_t *buffer = (vec7_t *)material->buffer + material->offset;
+            vec7_t *buffer = gl_bmodel_vertex_buffers[material->buffer_id].vertices;
+            vec7_t *dest = buffer + material->offset;
             for (surf = materialchain->surf; surf; surf = surf->chain) {
                 /* Record the offset and create the vertex data */
-                surf->buffer_offset = buffer - (vec7_t *)material->buffer;
-                AddSurfaceVertices(brushmodel, surf, buffer);
-                buffer += surf->numedges;
+                surf->buffer_offset = dest - buffer;
+                AddSurfaceVertices(brushmodel, surf, dest);
+                dest += surf->numedges;
 
                 /* Fixup animated surface materials */
                 texture_t *texture = surf->texinfo->texture;
@@ -988,11 +1009,41 @@ GL_BuildMaterials()
         }
     }
     VBAlloc_Complete();
+    GL_UploadBmodelVertexBuffers();
 
     Debug_Printf("Material vertex arrays, total allocation is %d bytes\n", vertex_buffers_total_allocation);
     Debug_Printf("Allocated %d buffers (%d bytes of wasted vertices)\n",
-                 vertex_buffers_num_allocated, vertex_buffers_vertices_wasted * (int)sizeof(vec7_t));
+                 num_gl_bmodel_vertex_buffers, vertex_buffers_vertices_wasted * (int)sizeof(vec7_t));
 }
+
+void
+GL_UploadBmodelVertexBuffers()
+{
+    if (!gl_buffer_objects_enabled)
+        return;
+
+    struct vertex_buffer_info *buffer = gl_bmodel_vertex_buffers;
+    for (int i = 0; i < num_gl_bmodel_vertex_buffers; i++, buffer++) {
+        qglGenBuffers(1, &buffer->vbo);
+        qglBindBuffer(GL_ARRAY_BUFFER, buffer->vbo);
+        qglBufferData(GL_ARRAY_BUFFER, buffer->numverts * sizeof(vec7_t), buffer->vertices, GL_STATIC_DRAW);
+    }
+    qglBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void
+GL_FreeBmodelVertexBuffers()
+{
+    if (!gl_buffer_objects_enabled)
+        return;
+
+    struct vertex_buffer_info *buffer = gl_bmodel_vertex_buffers;
+    for (int i = 0; i < num_gl_bmodel_vertex_buffers; i++, buffer++)
+        qglDeleteBuffers(1, &buffer->vbo);
+
+    num_gl_bmodel_vertex_buffers = 0;
+}
+
 
 static void
 GL_BrushModelLoadLighting(brushmodel_t *brushmodel, dheader_t *header)

@@ -74,10 +74,7 @@ typedef struct surface_material {
      */
     uint32_t offset;
     uint32_t numverts;
-    union {
-        GLuint vbo;
-        float *buffer;
-    };
+    uint32_t buffer_id; // Index into the global vertex buffers
 
     // TODO (maybe?)
     //   overflow if > MAX_VERTS?
@@ -100,6 +97,19 @@ typedef struct material_animation {
     int alt[10];    // Index of the material for each frame
 } material_animation_t;
 
+struct vertex_buffer_info {
+    vec7_t *vertices;
+    int numverts;
+    GLuint vbo;
+};
+
+// Global list of brush model vertex buffers
+extern struct vertex_buffer_info *gl_bmodel_vertex_buffers;
+extern int num_gl_bmodel_vertex_buffers;
+
+void GL_UploadBmodelVertexBuffers();
+void GL_FreeBmodelVertexBuffers();
+
 typedef struct {
     // Indicates the maximum number of verticies on any submodel sky poly
     // Used to more efficiently handle sky surfaces on submodels
@@ -108,6 +118,7 @@ typedef struct {
     // Lightmap blocks
     int numblocks;
     lm_block_t *blocks;
+
 } glbrushmodel_resource_t;
 
 /*

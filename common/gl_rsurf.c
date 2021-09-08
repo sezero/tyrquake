@@ -451,7 +451,11 @@ TriBuf_Finalise_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
     assert(buffer->state == TRIBUF_STATE_PREPARED);
     assert(buffer->numverts > 0); // Should discard if unused
 
-    buffer->final_verts = buffer->material ? (vec7_t *)buffer->material->buffer : buffer->verts;
+    if (buffer->material) {
+        buffer->final_verts = gl_bmodel_vertex_buffers[buffer->material->buffer_id].vertices;
+    } else {
+        buffer->final_verts = buffer->verts;
+    }
 
     TriBuf_SetState(buffer, TRIBUF_STATE_FINALISED);
 }
@@ -533,7 +537,13 @@ static inline void
 TriBuf_VertexPointer(triangle_buffer_t *buffer)
 {
     assert(buffer->state == TRIBUF_STATE_FINALISED);
-    glVertexPointer(3, GL_FLOAT, sizeof(buffer->final_verts[0]), buffer->final_verts);
+    if (gl_buffer_objects_enabled && buffer->material) {
+        qglBindBuffer(GL_ARRAY_BUFFER, gl_bmodel_vertex_buffers[buffer->material->buffer_id].vbo);
+        glVertexPointer(3, GL_FLOAT, sizeof(buffer->final_verts[0]), 0);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else {
+        glVertexPointer(3, GL_FLOAT, sizeof(buffer->final_verts[0]), buffer->final_verts);
+    }
 }
 
 static inline void
@@ -541,7 +551,13 @@ TriBuf_TexCoordPointer(triangle_buffer_t *buffer, uint8_t texcoord_index)
 {
     assert(buffer->state == TRIBUF_STATE_FINALISED);
     assert(texcoord_index < 2);
-    glTexCoordPointer(2, GL_FLOAT, sizeof(buffer->final_verts[0]), &buffer->final_verts[0][3 + 2 * texcoord_index]);
+    if (gl_buffer_objects_enabled && buffer->material) {
+        qglBindBuffer(GL_ARRAY_BUFFER, gl_bmodel_vertex_buffers[buffer->material->buffer_id].vbo);
+        glTexCoordPointer(2, GL_FLOAT, sizeof(buffer->final_verts[0]), &((vec7_t *)(0))[0][3 + 2 * texcoord_index]);
+        qglBindBuffer(GL_ARRAY_BUFFER, 0);
+    } else {
+        glTexCoordPointer(2, GL_FLOAT, sizeof(buffer->final_verts[0]), &buffer->final_verts[0][3 + 2 * texcoord_index]);
+    }
 }
 
 static inline void
@@ -1103,7 +1119,7 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
 
     TriBuf_Prepare(buffer, materialchain);
     if (mins) {
-        vec7_t *vertbuf = (vec7_t *)materialchain->material->buffer;
+        vec7_t *vertbuf = gl_bmodel_vertex_buffers[materialchain->material->buffer_id].vertices;
         for (msurface_t *surf = materialchain->surf ; surf; surf = surf->chain) {
             Sky_AddPolyToSkyboxBounds(&vertbuf[surf->buffer_offset], surf->numedges, mins, maxs);
             TriBuf_AddSurf(buffer, surf);
@@ -1152,7 +1168,8 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
                         continue;
                     if (!(surf->flags & SURF_PLANEBACK) && dot < -BACKFACE_EPSILON)
                         continue;
-                    const vec7_t *inverts = (vec7_t *)GLBrushModel(BrushModel(entity->model))->materials[surf->material].buffer + surf->buffer_offset;
+                    surface_material_t *material = &GLBrushModel(BrushModel(entity->model))->materials[surf->material];
+                    const vec7_t *inverts = gl_bmodel_vertex_buffers[material->buffer_id].vertices + surf->buffer_offset;
                     TransformPoly(entity, &xfrm, inverts, poly->verts, surf->numedges, polymins, polymaxs);
                     if (R_CullBox(polymins, polymaxs))
                         continue;

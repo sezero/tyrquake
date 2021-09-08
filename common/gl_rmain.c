@@ -211,6 +211,9 @@ GL_ReloadTextures()
 #ifdef QW_HACK
     R_ResetNetGraphTexture();
 #endif
+
+    /* Not a texture - maybe rename the reload stuff at some point */
+    GL_UploadBmodelVertexBuffers();
 }
 
 
@@ -1039,7 +1042,8 @@ R_ResetPlayerTextures()
 	if (texture->base) {
 	    texture->base = 0;
 	    texture->fullbright = 0;
-	    R_TranslatePlayerSkin(playernum);
+            if (cl.players)
+                R_TranslatePlayerSkin(playernum);
 	}
     }
 }

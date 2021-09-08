@@ -522,6 +522,8 @@ Mod_ClearAll(void)
     for (brushmodel_t *brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
         GL_DisownTextures(&brushmodel->model);
     }
+    GL_FreeBmodelVertexBuffers();
+
     for (model_t *sprite = loaded_sprites; sprite; sprite = sprite->next) {
         GL_DisownTextures(sprite);
     }
