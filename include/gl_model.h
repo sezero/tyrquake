@@ -61,7 +61,13 @@ enum material_class {
 };
 
 // Material - combination of gl textures required to render the surface
-#define MATERIAL_MAX_VERTS 65536
+#define MATERIAL_DEFAULT_MAX_VERTS   4096
+#define MATERIAL_ABSOLUTE_MAX_VERTS 65536
+extern int32_t material_max_verts;
+
+/* Set various limits for rendering batches based on driver limits */
+void GL_SetMaxVerts(int maxverts);
+
 typedef struct surface_material {
     int texturenum;
     int lightmapblock;
@@ -75,9 +81,6 @@ typedef struct surface_material {
     uint32_t offset;
     uint32_t numverts;
     uint32_t buffer_id; // Index into the global vertex buffers
-
-    // TODO (maybe?)
-    //   overflow if > MAX_VERTS?
 } surface_material_t;
 
 /*
@@ -122,13 +125,8 @@ typedef struct {
 } glbrushmodel_resource_t;
 
 /*
- * We can go all the way to 65536 now that we have dynamic buffers.
- * This can be set nice and small when we want to debug chaining of
- * buffers for huge numbers of material triangles.
+ * Chain of surfaces having the same material that will be drawn this frame.
  */
-//#define MATERIALCHAIN_MAX_VERTS 64
-//#define MATERIALCHAIN_MAX_VERTS 65536
-#define MATERIALCHAIN_MAX_VERTS MATERIAL_MAX_VERTS
 typedef struct materialchain_s {
     int32_t numverts;
     int32_t numindices;
@@ -148,7 +146,7 @@ MaterialChains_Init(materialchain_t *materialchains, const surface_material_t *m
 static inline void
 MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
 {
-    assert(materialchain->numverts + surf->numedges <= MATERIALCHAIN_MAX_VERTS);
+    assert(materialchain->numverts + surf->numedges <= material_max_verts);
 
     surf->chain = materialchain->surf;
     materialchain->surf = surf;
@@ -160,7 +158,7 @@ MaterialChain_AddSurf(materialchain_t *materialchain, msurface_t *surf)
 static inline void
 MaterialChain_AddSurf_Tail(materialchain_t *materialchain, msurface_t *surf, msurface_t **tail)
 {
-    assert(materialchain->numverts + surf->numedges <= MATERIALCHAIN_MAX_VERTS);
+    assert(materialchain->numverts + surf->numedges <= material_max_verts);
 
     surf->chain = NULL;
     (*tail)->chain = surf;

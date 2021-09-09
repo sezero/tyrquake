@@ -271,6 +271,7 @@ extern lpActiveTextureFUNC qglActiveTextureARB;
 extern lpClientStateFUNC qglClientActiveTexture;
 extern lpGenerateMipmapFUNC qglGenerateMipmap;
 extern void (*qglTexParameterGenerateMipmap)(GLboolean auto_mipmap);
+extern void (APIENTRY *qglDrawRangeElements)(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices);
 
 /* Buffer Objects */
 extern void (APIENTRY *qglBindBuffer)(GLenum target, GLuint buffer);
@@ -325,6 +326,7 @@ void GL_ExtensionCheck_Combine(void);
 void GL_ExtensionCheck_GenerateMipmaps();
 void GL_ExtensionCheck_BufferObjects();
 void GL_ExtensionCheck_VertexProgram();
+void GL_ExtensionCheck_RangeElements();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

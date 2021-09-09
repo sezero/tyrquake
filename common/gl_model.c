@@ -23,6 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "gl_model.h"
 #include "sys.h"
 
+int32_t material_max_verts;
+
 /*
  * Model Loader Functions
  */
@@ -438,7 +440,7 @@ GL_AllocateMaterial(glbrushmodel_t *glbrushmodel, msurface_t *texturechain, int 
                 continue;
             if (material->lightmapblock != lightmapblock)
                 continue;
-            if (material->numverts + surf->numedges > MATERIAL_MAX_VERTS)
+            if (material->numverts + surf->numedges > material_max_verts)
                 continue;
             break;
         }
@@ -589,7 +591,7 @@ int num_gl_bmodel_vertex_buffers;
 #define VBALLOC_NUM_BUFFERS 4
 static struct {
     struct vballoc_state states[VBALLOC_NUM_BUFFERS];
-    uint32_t vertices_remaining;
+    int32_t vertices_remaining;
 } vballoc;
 
 static void
@@ -624,7 +626,7 @@ VBAlloc_FromNew(int numverts, uint32_t *id, uint32_t *offset)
 {
     struct vballoc_state newstate;
 
-    newstate.count = qmin((uint32_t)MATERIAL_MAX_VERTS, vballoc.vertices_remaining);
+    newstate.count = qmin(material_max_verts, vballoc.vertices_remaining);
     newstate.buffer = Hunk_AllocName(newstate.count * sizeof(vec7_t), "vertices");
     newstate.id = num_gl_bmodel_vertex_buffers;
     vertex_buffers_total_allocation += newstate.count * sizeof(vec7_t);

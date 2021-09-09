@@ -222,6 +222,7 @@ void (APIENTRY *qglGenBuffers)(GLsizei n, GLuint *buffers);
 void (APIENTRY *qglBufferData)(GLenum target, GLsizeiptr size, const void *data, GLenum usage);
 void (APIENTRY *qglBufferSubData)(GLenum target, GLintptr offset, GLsizeiptr size, const void *data);
 void *(APIENTRY *qglMapBuffer)(GLenum target, GLenum access);
+
 GLboolean (APIENTRY *qglUnmapBuffer)(GLenum target);
 GLboolean (APIENTRY *qglIsBuffer)(GLuint buffer);
 
@@ -435,4 +436,59 @@ GL_InitVertexPrograms()
         );
         gl_vertex_program_enabled = false;
     }
+}
+
+
+
+/*
+ * Prefer glDrawRangeElements, but we can fall back to glDrawElements
+ */
+void (APIENTRY *qglDrawRangeElements)(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices);
+
+static void APIENTRY
+qglDrawRangeElements_Compat(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices)
+{
+    glDrawElements(mode, count, type, indices);
+}
+
+void
+GL_ExtensionCheck_RangeElements()
+{
+    qglDrawRangeElements = NULL;
+
+    if (GL_VersionMinimum(1, 2)) {
+        qglDrawRangeElements = GL_GetProcAddress("glDrawRangeElements");
+    } else if (GL_ExtensionCheck("GL_EXT_draw_range_elements")) {
+        qglDrawRangeElements = GL_GetProcAddress("glDrawRangeElementsEXT");
+    }
+
+    if (qglDrawRangeElements) {
+        GLint max_vertices;
+        GLint max_indices;
+
+        glGetIntegerv(GL_MAX_ELEMENTS_VERTICES, &max_vertices);
+        glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &max_indices);
+
+        /*
+         * Setup material_max_verts so we don't exceed the perfomant
+         * glDrawRangeElements maximums for the driver
+         */
+        int32_t driver_max_verts = qmin(MATERIAL_ABSOLUTE_MAX_VERTS, max_vertices);
+        driver_max_verts = qmin(driver_max_verts, max_indices / 3);
+        Con_DPrintf(" ** DrawRangeElements - max vertices: %d, max_indices %d\n", max_vertices, max_indices);
+        Con_DPrintf(" ** Driver Max Verts - %d\n", driver_max_verts);
+
+        /*
+         * If we end up with something really low, probably better to fall
+         * back to glDrawElements and let the driver sort out partitioning
+         */
+        if (driver_max_verts >= 256) {
+            GL_SetMaxVerts(driver_max_verts);
+            return;
+        }
+    }
+
+    /* Fall back to regular old glDrawElements */
+    GL_SetMaxVerts(MATERIAL_DEFAULT_MAX_VERTS);
+    qglDrawRangeElements = qglDrawRangeElements_Compat;
 }

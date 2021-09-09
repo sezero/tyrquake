@@ -377,15 +377,25 @@ R_MirrorChain(msurface_t *surf)
  * buffer or else on the hunk when buffers are not available.  We
  * can allow up to the full uint16_t max vertices per draw call.
  */
-#define TRIBUF_MAX_VERTS MATERIALCHAIN_MAX_VERTS
-#define TRIBUF_MAX_INDICES (TRIBUF_MAX_VERTS * 3)
+static int tribuf_max_verts;
+static int tribuf_max_indices;
 
 /*
  * Define a reasonable minimum allocation to avoid lots of small
  * re-allocs to grow the buffers.
  */
-#define TRIBUF_MIN_VERTS qmin(TRIBUF_MAX_VERTS, 2048)
-#define TRIBUF_MIN_INDICES (TRIBUF_MIN_VERTS * 3)
+static int tribuf_min_verts;
+static int tribuf_min_indices;
+
+
+void GL_SetMaxVerts(int32_t maxverts)
+{
+    material_max_verts = maxverts;
+    tribuf_min_verts   = qmin(material_max_verts, 2048);
+    tribuf_min_indices = tribuf_min_verts * 3;
+    tribuf_max_verts   = material_max_verts;
+    tribuf_max_indices = material_max_verts * 3;
+}
 
 enum tribuf_state {
     TRIBUF_STATE_UNINITIALISED,
@@ -411,6 +421,9 @@ typedef struct {
     uint32_t numverts_allocated;
     uint32_t numindices_allocated;
     int hunk_mark;
+
+    uint16_t min_index;
+    uint16_t max_index;
 
     enum tribuf_state state;
 #ifdef DEBUG
@@ -467,8 +480,6 @@ TriBuf_Finalise_(triangle_buffer_t *buffer TB_DEBUG_ARGS)
 static void
 TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEBUG_ARGS)
 {
-    assert(TRIBUF_MIN_VERTS <= TRIBUF_MAX_VERTS);
-
     if (buffer->state == TRIBUF_STATE_PREPARED) {
         Debug_Printf("Already prepared previously at %s:%d\n", buffer->file, buffer->line);
         assert(buffer->state != TRIBUF_STATE_PREPARED);
@@ -477,6 +488,8 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
     /* Reset buffer state */
     buffer->numverts = 0;
     buffer->numindices = 0;
+    buffer->min_index = UINT16_MAX;
+    buffer->max_index = 0;
     buffer->material = materialchain->material;
     TriBuf_SetState(buffer, TRIBUF_STATE_PREPARED);
 
@@ -493,8 +506,8 @@ TriBuf_Prepare_(triangle_buffer_t *buffer, materialchain_t *materialchain TB_DEB
         Hunk_FreeToLowMark(buffer->hunk_mark);
 
     buffer->hunk_mark = Hunk_LowMark();
-    buffer->numverts_allocated = qmax(numverts, TRIBUF_MIN_VERTS);
-    buffer->numindices_allocated = qmax(numindices, TRIBUF_MIN_INDICES);
+    buffer->numverts_allocated = qmax(numverts, tribuf_min_verts);
+    buffer->numindices_allocated = qmax(numindices, tribuf_min_indices);
     buffer->indices = Hunk_AllocName_Raw(buffer->numindices_allocated * sizeof(uint16_t), "indexbuf");
     buffer->verts = Hunk_AllocName_Raw(buffer->numverts_allocated * sizeof(vec7_t), "vertbuf");
     buffer->colors = r_drawflat.value
@@ -636,8 +649,14 @@ TriBuf_DrawElements(triangle_buffer_t *buffer, const struct buffer_state *state)
     assert(buffer->numindices > 0);
 
     TriBuf_SetBufferState(buffer, state);
-    glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
 
+    if (buffer->material) {
+        const int start = buffer->min_index;
+        const int end = buffer->max_index;
+        qglDrawRangeElements(GL_TRIANGLES, start, end, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    } else {
+        glDrawElements(GL_TRIANGLES, buffer->numindices, GL_UNSIGNED_SHORT, buffer->indices);
+    }
     gl_draw_calls++;
     gl_verts_submitted += buffer->numverts;
     gl_indices_submitted += buffer->numindices;
@@ -668,13 +687,17 @@ TriBuf_AddPolyIndices(triangle_buffer_t *buffer, const glpoly_t *poly)
 {
     int i;
     uint16_t *index = &buffer->indices[buffer->numindices];
+    const int offset = buffer->numverts;
     for (i = 1; i < poly->numverts - 1; i++) {
-	*index++ = buffer->numverts;
-	*index++ = buffer->numverts + i;
-	*index++ = buffer->numverts + i + 1;
+	*index++ = offset;
+	*index++ = offset + i;
+	*index++ = offset + i + 1;
     }
     buffer->numverts += poly->numverts;
     buffer->numindices += (poly->numverts - 2) * 3;
+
+    buffer->min_index = qmin((uint16_t)offset, buffer->min_index);
+    buffer->max_index = qmax(*(index - 1), buffer->max_index);
 
     c_brush_polys++;
 }
@@ -706,6 +729,11 @@ TriBuf_AddSurf(triangle_buffer_t *buffer, const msurface_t *surf)
 
     buffer->numverts += surf->numedges;
     buffer->numindices += (surf->numedges - 2) * 3;
+
+    buffer->min_index = qmin((uint16_t)offset, buffer->min_index);
+    buffer->max_index = qmax(*(index - 1), buffer->max_index);
+
+    c_brush_polys++;
 }
 
 static void
@@ -1138,8 +1166,8 @@ DrawSkyChain_RenderSkyBrushPolys(triangle_buffer_t *buffer, materialchain_t *mat
     maxverts = GLBrushModel(cl.worldmodel)->resources->max_submodel_skypoly_verts;
     if (maxverts && r_drawentities.value) {
         materialchain_t dummy = {
-            .numverts = TRIBUF_MIN_VERTS,
-            .numindices = TRIBUF_MIN_INDICES,
+            .numverts = tribuf_min_verts,
+            .numindices = tribuf_min_indices,
         };
         TriBuf_Prepare(buffer, &dummy);
 
@@ -1372,7 +1400,7 @@ TriBuf_AddSkyVert(triangle_buffer_t *buffer, const vec3_t vert, float speed1, fl
  * into the buffer.  This should never be a problem, unless
  * artificially restricting the size for debugging purposes.
  */
-#define MAX_SKY_QUALITY (TRIBUF_MAX_INDICES / 6 < 64 ? TRIBUF_MAX_INDICES / 6 : 64)
+#define MAX_SKY_QUALITY qmin(tribuf_max_indices / 6, 64)
 
 static void
 DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture_t *texture)
@@ -1413,8 +1441,8 @@ DrawSkyLayers(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
     vec3_t *baseverts = alloca((subdivisions + 1) * sizeof(vec3_t));
 
     materialchain_t dummy = {
-        .numverts = TRIBUF_MIN_VERTS,
-        .numindices = TRIBUF_MIN_INDICES,
+        .numverts = tribuf_min_verts,
+        .numindices = tribuf_min_indices,
     };
     TriBuf_Prepare(buffer, &dummy);
 

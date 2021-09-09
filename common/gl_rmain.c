@@ -162,6 +162,7 @@ GL_Init(void)
     GL_ExtensionCheck_NPoT();
     GL_ExtensionCheck_BufferObjects();
     GL_ExtensionCheck_VertexProgram();
+    GL_ExtensionCheck_RangeElements();
 
     GL_InitVertexPrograms();
 
@@ -958,7 +959,7 @@ R_AliasDrawModel(entity_t *entity)
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
     }
 
-    glDrawElements(GL_TRIANGLES, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
+    qglDrawRangeElements(GL_TRIANGLES, 0, aliashdr->numverts - 1, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
     gl_draw_calls++;
     gl_verts_submitted += numverts;
     gl_indices_submitted += aliashdr->numtris * 3;
@@ -991,7 +992,7 @@ R_AliasDrawModel(entity_t *entity)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL_Bind(skin->fullbright);
 
-        glDrawElements(GL_TRIANGLES, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
+        qglDrawRangeElements(GL_TRIANGLES, 0, aliashdr->numverts - 1, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
         gl_draw_calls++;
         gl_verts_submitted += numverts;
         gl_indices_submitted += aliashdr->numtris * 3;
