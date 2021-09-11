@@ -40,6 +40,8 @@ static cvar_t gl_max_size = { "gl_max_size", "1024" };
 static cvar_t gl_playermip = { "gl_playermip", "0" };
 static cvar_t gl_nobind = { "gl_nobind", "0" };
 static cvar_t gl_npot = { "gl_npot", "1" };
+static cvar_t gl_meminfo = { "gl_meminfo", "0" };
+
 cvar_t gl_picmip = { "gl_picmip", "0" };
 
 typedef struct {
@@ -47,6 +49,7 @@ typedef struct {
     const model_t *owner;
     GLuint texnum;
     int width, height;
+    int last_used_frame;
     enum texture_type type;
     unsigned short crc;		// CRC for texture cache matching
     char name[MAX_QPATH];
@@ -184,16 +187,44 @@ GL_EnableMultitexture(void)
 void
 GL_Bind(texture_id_t texture_id)
 {
-    GLuint texnum = IdToTexture(texture_id)->texnum;
-    if (gl_nobind.value)
-	texnum = IdToTexture(charset_texture)->texnum;
-    if (tmu_texture[current_tmu] == texnum)
-	return;
-    tmu_texture[current_tmu] = texnum;
+    gltexture_t *texture = IdToTexture(gl_nobind.value ? charset_texture : texture_id);
 
-    glBindTexture(GL_TEXTURE_2D, texnum);
+    /* For scene/frame texture usage stats */
+    texture->last_used_frame = r_framecount;
+
+    if (tmu_texture[current_tmu] == texture->texnum)
+	return;
+    tmu_texture[current_tmu] = texture->texnum;
+
+    glBindTexture(GL_TEXTURE_2D, texture->texnum);
 }
 
+static int
+GL_TextureMemoryUsage(const gltexture_t *texture)
+{
+    /* Assuming four bytes per pixel on every texture at this stage... */
+    return texture->width * texture->height * 4;
+}
+
+void
+GL_FrameMemoryStats()
+{
+    if (!gl_meminfo.value)
+        return;
+
+    int numtextures = 0;
+    int numbytes = 0;
+
+    gltexture_t *texture;
+    list_for_each_entry(texture, &manager.active, list) {
+        if (texture->last_used_frame == r_framecount) {
+            numtextures++;
+            numbytes += GL_TextureMemoryUsage(texture);
+        }
+    }
+
+    Con_Printf("Mem usage: %6.1fMB from %4d textures\n", numbytes / 1024.0f / 1024.0f, numtextures);
+}
 
 typedef struct {
     const char *name;
@@ -791,6 +822,7 @@ GL_Textures_RegisterVariables()
 {
     Cvar_RegisterVariable(&gl_nobind);
     Cvar_RegisterVariable(&gl_max_size);
+    Cvar_RegisterVariable(&gl_meminfo);
     Cvar_RegisterVariable(&gl_picmip);
     Cvar_RegisterVariable(&gl_playermip);
     Cvar_RegisterVariable(&gl_max_textures);

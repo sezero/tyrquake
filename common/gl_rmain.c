@@ -1741,6 +1741,8 @@ R_RenderScene(void)
                    gl_draw_calls, gl_indices_submitted / 3, gl_verts_submitted,
                    gl_full_buffers);
     }
+
+    GL_FrameMemoryStats();
 }
 
 

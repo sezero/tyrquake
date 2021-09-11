@@ -252,6 +252,8 @@ void GL_Textures_AddCommands();
 void GL_Textures_RegisterVariables();
 void GL_Textures_Init();
 
+void GL_FrameMemoryStats();
+
 void R_TranslatePlayerSkin(int playernum);
 void GL_Bind(texture_id_t texture_id);
 
