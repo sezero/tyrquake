@@ -937,7 +937,7 @@ Call before beginning any disc IO.
 void
 Draw_BeginDisc(void)
 {
-    if (!draw_disc)
+    if (!draw_disc || scr_block_drawing)
 	return;
     glDrawBuffer(GL_FRONT);
     Draw_Pic(vid.width - 24, 0, draw_disc);
