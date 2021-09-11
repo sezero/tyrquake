@@ -39,7 +39,7 @@ typedef struct lm_block_s {
     glRect_t rectchange;
     int allocated[BLOCK_WIDTH];
     byte data[BLOCK_WIDTH * BLOCK_HEIGHT * 4]; /* lightmaps */
-    GLuint texture;
+    texture_id_t texture;
 } lm_block_t;
 
 /*

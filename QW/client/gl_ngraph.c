@@ -28,12 +28,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #define NET_GRAPHHEIGHT 32
 static byte netgraph_pixels[NET_GRAPHHEIGHT][NET_TIMINGS];
-static GLuint netgraphtexture;
+static texture_id_t netgraphtexture;
 
 void
 R_ResetNetGraphTexture()
 {
-    netgraphtexture = 0;
+    netgraphtexture = invalid_texture_id;
 }
 
 static void
@@ -95,7 +95,7 @@ R_NetGraph(void)
         .height = NET_GRAPHHEIGHT,
         .pixels = &netgraph_pixels[0][0],
     };
-    if (!netgraphtexture) {
+    if (!TextureIsValid(netgraphtexture)) {
         netgraphtexture = GL_AllocTexture8(NULL, "@netgraph", &netgraph, TEXTURE_TYPE_HUD);
     }
     GL_Bind(netgraphtexture);

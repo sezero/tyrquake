@@ -257,7 +257,7 @@ R_RotateForEntity(const vec3_t origin, const vec3_t angles)
 */
 
 typedef struct {
-    GLuint texture;
+    texture_id_t texture;
     byte pixels[];
 } gl_spritedata_t;
 
@@ -510,7 +510,7 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
             pic.height  = aliashdr->skinheight;
             textures[i].fullbright = GL_LoadTexture8(model, va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
         } else {
-            textures[i].fullbright = 0;
+            textures[i].fullbright = invalid_texture_id;
         }
         pic.pixels += skinsize;
     }
@@ -835,7 +835,7 @@ R_AliasDrawModel(entity_t *entity)
     }
 
     const qgltexture_t *skin = R_AliasSetupSkin(entity, aliashdr);
-    qboolean skin_has_fullbrights = !!skin->fullbright;
+    qboolean skin_has_fullbrights = TextureIsValid(skin->fullbright);
     GL_Bind(skin->base);
 
     /*
@@ -848,7 +848,7 @@ R_AliasDrawModel(entity_t *entity)
 	if (playernum) {
 	    skin_has_fullbrights = playertextures[playernum - 1].fullbright;
 	    skin = &playertextures[playernum - 1].texture;
-            assert(skin->base);
+            assert(TextureIsValid(skin->base));
 	    GL_Bind(skin->base);
         }
     }
@@ -863,7 +863,7 @@ R_AliasDrawModel(entity_t *entity)
 	if (playernum >= 0 && playernum < MAX_CLIENTS) {
 	    skin_has_fullbrights = playertextures[playernum].fullbright;
 	    skin = &playertextures[playernum].texture;
-            assert(skin->base);
+            assert(TextureIsValid(skin->base));
 	    GL_Bind(skin->base);
         }
     }
@@ -1040,9 +1040,9 @@ R_ResetPlayerTextures()
 
     for (playernum = 0; playernum < MAX_CLIENTS; playernum++) {
 	qgltexture_t *texture = &playertextures[playernum].texture;
-	if (texture->base) {
-	    texture->base = 0;
-	    texture->fullbright = 0;
+	if (TextureIsValid(texture->base)) {
+	    texture->base = invalid_texture_id;
+	    texture->fullbright = invalid_texture_id;
             if (cl.players)
                 R_TranslatePlayerSkin(playernum);
 	}
@@ -1091,7 +1091,7 @@ R_MarkLeaves(void)
 
 typedef struct {
     entity_t *entity;
-    GLuint texture;
+    texture_id_t texture;
 } aliasskinchain_t;
 
 /*
@@ -1153,7 +1153,7 @@ R_DrawEntitiesOnList()
                 skin = R_AliasSetupSkin(entity, Mod_Extradata(entity->model));
                 for (j = 0; j < numaliasskins; j++) {
                     chain = &aliasskinchains[j];
-                    if (skin->base == chain->texture) {
+                    if (TexturesAreSame(skin->base, chain->texture)) {
                         entity->chain = chain->entity;
                         chain->entity = entity;
                         break;

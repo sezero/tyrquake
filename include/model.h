@@ -50,6 +50,14 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "bothdefs.h"
 #endif
 
+#ifdef GLQUAKE
+/* Embed in struct for stricter type checking of texture id usage */
+typedef struct texture_id { uint32_t id; } texture_id_t;
+#define invalid_texture_id ((texture_id_t){0})
+static inline qboolean TextureIsValid(texture_id_t texture) { return texture.id != 0; }
+static inline qboolean TexturesAreSame(texture_id_t t1, texture_id_t t2) { return t1.id == t2.id; }
+#endif
+
 typedef enum {
     depthchain_head,
     depthchain_alias,
@@ -107,12 +115,12 @@ typedef struct texture_s {
     unsigned width, height;
 #ifdef GLQUAKE
     int mark;
-    GLuint gl_texturenum;
+    texture_id_t gl_texturenum;
     union {
-        GLuint gl_texturenum_alpha;	 // for sky texture
-        GLuint gl_texturenum_fullbright; // mask texture for fullbrights
+        texture_id_t gl_texturenum_alpha;      // for sky texture
+        texture_id_t gl_texturenum_fullbright; // mask texture for fullbrights
         struct {
-            GLuint gl_warpimage;
+            texture_id_t gl_warpimage;
             int gl_warpimagesize;
         };
     };

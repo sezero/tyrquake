@@ -47,8 +47,8 @@ const byte *draw_chars; /* 8*8 graphic characters */
 const qpic8_t *draw_disc;
 const qpic8_t *draw_backtile;
 
-GLuint charset_texture;
-static GLuint crosshair_texture;
+texture_id_t charset_texture;
+static texture_id_t crosshair_texture;
 
 static const byte crosshair_data[64] = {
     0xff, 0xff, 0xff, 0xfe, 0xff, 0xff, 0xff, 0xff,
@@ -80,7 +80,7 @@ static glpic_t *conback;
 #define SCRAP_BYTES  (SCRAP_WIDTH * SCRAP_HEIGHT * 4)
 
 typedef struct {
-    GLuint glnum;
+    texture_id_t texture;
     qboolean dirty;
     int allocated[SCRAP_WIDTH];
     qpic8_t pic;
@@ -100,7 +100,7 @@ Scrap_InitGLTextures()
 	scrap->pic.width = scrap->pic.stride = SCRAP_WIDTH;
 	scrap->pic.height = SCRAP_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-        scrap->glnum = GL_LoadTexture8(NULL, va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
+        scrap->texture = GL_LoadTexture8(NULL, va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
     }
 }
 
@@ -168,15 +168,15 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
 
 
 static void
-Scrap_Flush(GLuint texnum)
+Scrap_Flush(texture_id_t texture)
 {
     int i;
     scrap_t *scrap;
 
     scrap = gl_scraps;
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
-	if (scrap->dirty && texnum == scrap->glnum) {
-	    GL_Bind(scrap->glnum);
+	if (scrap->dirty && TexturesAreSame(texture, scrap->texture)) {
+	    GL_Bind(scrap->texture);
 	    GL_Upload8(&scrap->pic, TEXTURE_TYPE_HUD);
 	    scrap->dirty = false;
 	    return;
@@ -227,7 +227,7 @@ Draw_ReloadPicTextures()
 
     for (i = 0; i < num_draw_glpics; i++) {
         drawpic = &draw_glpics[i];
-        drawpic->glpic->texnum = GL_LoadTexture8_GLPic(NULL, drawpic->name, drawpic->glpic);
+        drawpic->glpic->texture = GL_LoadTexture8_GLPic(NULL, drawpic->name, drawpic->glpic);
     }
 }
 
@@ -262,7 +262,7 @@ Draw_PicFromWad(const char *name)
 		scrap->texels[dst] = pic->pixels[src];
 	    }
 	}
-	glpic->texnum = scrap->glnum;
+	glpic->texture = scrap->texture;
 	glpic->sl = (x + 0.01) / (float)SCRAP_WIDTH;
 	glpic->sh = (x + pic->width - 0.01) / (float)SCRAP_WIDTH;
 	glpic->tl = (y + 0.01) / (float)SCRAP_WIDTH;
@@ -278,7 +278,7 @@ Draw_PicFromWad(const char *name)
     qstrncpy(drawpic->name, name, sizeof(drawpic->name));
     drawpic->glpic = glpic;
 
-    glpic->texnum = GL_LoadTexture8_GLPic(NULL, name, glpic);
+    glpic->texture = GL_LoadTexture8_GLPic(NULL, name, glpic);
 
     return pic;
 }
@@ -323,7 +323,7 @@ Draw_CachePic(const char *path)
     pic->height = dpic->height;
     pic->pixels = dpic->data;
 
-    cachepic->glpic.texnum = GL_LoadTexture8_GLPic(&cachepic_owner, path, &cachepic->glpic);
+    cachepic->glpic.texture = GL_LoadTexture8_GLPic(&cachepic_owner, path, &cachepic->glpic);
 
     Hunk_FreeToLowMark(mark);
 
@@ -450,7 +450,7 @@ Draw_InitGLTextures()
     crosshair_texture = GL_LoadTexture8(NULL, "crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
 
     /* Upload the console background texture */
-    conback->texnum = GL_LoadTexture8_GLPic(NULL, "conback", conback);
+    conback->texture = GL_LoadTexture8_GLPic(NULL, "conback", conback);
 
     /* create textures for scraps */
     Scrap_InitGLTextures();
@@ -626,10 +626,10 @@ Draw_Pic(int x, int y, const qpic8_t *pic)
     const glpic_t *glpic;
 
     glpic = const_container_of(pic, glpic_t, pic);
-    Scrap_Flush(glpic->texnum);
+    Scrap_Flush(glpic->texture);
 
     glColor4f(1, 1, 1, 1);
-    GL_Bind(glpic->texnum);
+    GL_Bind(glpic->texture);
     glBegin(GL_QUADS);
     glTexCoord2f(glpic->sl, glpic->tl);
     glVertex2f(rect.x, rect.y);
@@ -652,7 +652,7 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
     float oldglwidth, oldglheight;
 
     glpic = const_container_of(pic, glpic_t, pic);
-    Scrap_Flush(glpic->texnum);
+    Scrap_Flush(glpic->texture);
 
     oldglwidth = glpic->sh - glpic->sl;
     oldglheight = glpic->th - glpic->tl;
@@ -664,7 +664,7 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
     newth = newtl + (height * oldglheight) / pic->height;
 
     glColor4f(1, 1, 1, 1);
-    GL_Bind(glpic->texnum);
+    GL_Bind(glpic->texture);
     glBegin(GL_QUADS);
     glTexCoord2f(newsl, newtl);
     glVertex2f(rect.x, rect.y);
@@ -718,7 +718,7 @@ Only used for the player color selection menu
 void
 Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation)
 {
-    static GLuint translate_texture;
+    static texture_id_t translate_texture;
 
     struct drawrect rect = Draw_GetScaledRect(x, y, pic->width, pic->height);
     const byte *src;
@@ -744,7 +744,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation
     translated.stride = menupic->stride;
     translated.pixels = buffer;
 
-    if (!translate_texture) {
+    if (!TextureIsValid(translate_texture)) {
         translate_texture = GL_AllocTexture8(NULL, "@menuplyr_translate", pic, TEXTURE_TYPE_HUD);
     }
     GL_Bind(translate_texture);
@@ -775,12 +775,12 @@ Draw_ConsoleBackground
 static void
 Draw_ConsolePic(int lines, float offset, const glpic_t *glpic, float alpha)
 {
-    Scrap_Flush(glpic->texnum);
+    Scrap_Flush(glpic->texture);
 
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_BLEND);
     glColor4f(1, 1, 1, alpha);
-    GL_Bind(glpic->texnum);
+    GL_Bind(glpic->texture);
 
     glBegin (GL_QUADS);
     glTexCoord2f (glpic->sl, offset * glpic->th);
@@ -845,7 +845,7 @@ Draw_TileClear(int x, int y, int w, int h)
     const glpic_t *glpic = const_container_of(draw_backtile, glpic_t, pic);
 
     glColor3f(1, 1, 1);
-    GL_Bind(glpic->texnum);
+    GL_Bind(glpic->texture);
     glBegin(GL_QUADS);
     glTexCoord2f(x / 64.0, y / 64.0);
     glVertex2f(x, y);

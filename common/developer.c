@@ -222,7 +222,7 @@ DbgPanel_Draw(debug_panel_t *panel)
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    GL_Bind(glpic->texnum);
+    GL_Bind(glpic->texture);
     glEnable(GL_VERTEX_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);

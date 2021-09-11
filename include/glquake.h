@@ -48,7 +48,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 void GL_BeginRendering(int *x, int *y, int *width, int *height);
 void GL_EndRendering(void);
 
-/* ARB Multitexture compatibilty for old GL headers... remove this? */
+/* Multitexture compatibilty for old GL headers */
 #ifndef GL_VERSION_1_2
 #define GL_TEXTURE0_ARB 0x84C0
 #define GL_TEXTURE1_ARB 0x84C1
@@ -69,12 +69,12 @@ extern float gldepthmin, gldepthmax;
 #define gl_lightmap_bytes 4
 
 typedef struct {
-    GLuint base;            // The base texture
-    GLuint fullbright;      // Fullbright mask texture, or zero if none
+    texture_id_t base;            // The base texture
+    texture_id_t fullbright;      // Fullbright mask texture, or zero if none
 } qgltexture_t;
 
 typedef struct {
-    int texnum;
+    texture_id_t texture;
     float sl, tl, sh, th;
     qpic8_t pic;
 } glpic_t;
@@ -85,12 +85,13 @@ void GL_Upload8(qpic8_t *pic, enum texture_type type);
 void GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha);
 void GL_Upload32(qpic32_t *pic, enum texture_type type);
 void GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translation);
-int GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type);
-int GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
-int GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic);
-int GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type);
-int GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type);
-void GL_SelectTexture(GLenum);
+
+texture_id_t GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type);
+texture_id_t GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
+texture_id_t GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic);
+texture_id_t GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type);
+texture_id_t GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type);
+void GL_SelectTMU(GLenum);
 
 void GL_DisownTextures(const model_t *owner);
 
@@ -178,9 +179,8 @@ extern texture_t *r_notexture_mip;
 extern int d_lightstylevalue[256];	// 8.8 fraction of base light value
 
 extern qboolean envmap;
-extern GLuint currenttexture;
-extern GLuint particletexture;
-extern GLuint charset_texture;
+extern texture_id_t particletexture;
+extern texture_id_t charset_texture;
 
 /*
  * We'll be keeping the skin textures around for now, so flag whether
@@ -253,7 +253,7 @@ void GL_Textures_RegisterVariables();
 void GL_Textures_Init();
 
 void R_TranslatePlayerSkin(int playernum);
-void GL_Bind(int texnum);
+void GL_Bind(texture_id_t texture_id);
 
 /*
  * ARB multitexture function pointers

@@ -63,7 +63,7 @@ struct {
     struct list_node free;
     struct list_node active;
     struct list_node inactive;
-    gltexture_t *data;
+    gltexture_t *textures;
     int num_textures;
     int hunk_highmark;
 } manager = {
@@ -72,17 +72,31 @@ struct {
     .inactive = LIST_HEAD_INIT(manager.inactive),
 };
 
+static inline texture_id_t
+TextureToId(const gltexture_t *texture)
+{
+    /* Array position plus one, so that zero is not a valid id */
+    return (texture_id_t){texture - manager.textures + 1};
+}
+
+static inline gltexture_t *
+IdToTexture(texture_id_t texture_id)
+{
+    assert(texture_id.id);
+    return &manager.textures[texture_id.id - 1];
+}
+
 static void
 GL_InitTextureManager()
 {
-    if (manager.data) {
+    if (manager.textures) {
         Hunk_FreeToHighMark(manager.hunk_highmark);
-        manager.data = NULL;
+        manager.textures = NULL;
     }
 
     manager.num_textures = qmax((int)gl_max_textures.value, 512);
     manager.hunk_highmark = Hunk_HighMark();
-    manager.data = Hunk_HighAllocName(manager.num_textures * sizeof(gltexture_t), "texmgr");
+    manager.textures = Hunk_HighAllocName(manager.num_textures * sizeof(gltexture_t), "texmgr");
 
     list_head_init(&manager.free);
     list_head_init(&manager.active);
@@ -90,7 +104,7 @@ GL_InitTextureManager()
 
     /* Add all textures to the free list */
     for (int i = 0; i < manager.num_textures; i++)
-        list_add_tail(&manager.data[i].list, &manager.free);
+        list_add_tail(&manager.textures[i].list, &manager.free);
 }
 
 void
@@ -106,14 +120,76 @@ GL_FreeTextures()
     GL_InitTextureManager();
 }
 
+/*
+ * =================
+ *    Multitexture
+ * =================
+ */
+
+lpActiveTextureFUNC qglActiveTextureARB;
+lpClientStateFUNC qglClientActiveTexture;
+
+/* For now, we only ever need 3 textures at once */
+#define MAX_TMU 3
+static GLuint tmu_texture[MAX_TMU];
+static int current_tmu;
+
+/*
+ * Make the specified texture unit current
+ */
 void
-GL_Bind(int texnum)
+GL_SelectTMU(GLenum target)
 {
-    if (gl_nobind.value)
-	texnum = charset_texture;
-    if (currenttexture == texnum)
+    if (!gl_mtexable)
+        return;
+    if (target - GL_TEXTURE0 == current_tmu)
 	return;
-    currenttexture = texnum;
+
+    assert(target >= GL_TEXTURE0 && target < GL_TEXTURE0 + MAX_TMU);
+    assert(target - GL_TEXTURE0 < gl_num_texture_units);
+
+    qglActiveTextureARB(target);
+    current_tmu = target - GL_TEXTURE0;
+}
+
+/*
+ * TODO: replace this enable/disable interface with something that
+ * more directly specifies state.  Currently the 3rd TMU is just
+ * manually managed on top of this...
+ */
+static qboolean mtexenabled = false;
+
+void
+GL_DisableMultitexture(void)
+{
+    if (mtexenabled) {
+	glDisable(GL_TEXTURE_2D);
+	GL_SelectTMU(GL_TEXTURE0);
+	mtexenabled = false;
+        current_tmu = 0;
+    }
+}
+
+void
+GL_EnableMultitexture(void)
+{
+    if (gl_mtexable) {
+	GL_SelectTMU(GL_TEXTURE1);
+	glEnable(GL_TEXTURE_2D);
+	mtexenabled = true;
+        current_tmu = 1;
+    }
+}
+
+void
+GL_Bind(texture_id_t texture_id)
+{
+    GLuint texnum = IdToTexture(texture_id)->texnum;
+    if (gl_nobind.value)
+	texnum = IdToTexture(charset_texture)->texnum;
+    if (tmu_texture[current_tmu] == texnum)
+	return;
+    tmu_texture[current_tmu] = texnum;
 
     glBindTexture(GL_TEXTURE_2D, texnum);
 }
@@ -143,7 +219,7 @@ GL_UpdateTextureMode(const gltexture_t *texture, const glmode_t *mode)
         return; /* Lightmap filter is always GL_LINEAR */
     if (texture->type == TEXTURE_TYPE_NOTEXTURE)
         return; /* Notexture is always GL_NEAREST */
-    GL_Bind(texture->texnum);
+    GL_Bind(TextureToId(texture));
     if (texture_properties[texture->type].mipmap) {
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode->min_filter);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode->mag_filter);
@@ -453,7 +529,7 @@ one.
 */
 struct alloc_texture_result {
     qboolean exists;
-    int texnum;
+    texture_id_t texture;
 };
 
 static struct alloc_texture_result
@@ -519,7 +595,7 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
 
  GL_AllocTexture_out:
     texture->owner = owner;
-    result.texnum = texture->texnum;
+    result.texture = TextureToId(texture); // plus 1, so zero is not a valid texture
 
     return result;
 }
@@ -531,10 +607,10 @@ GL_AllocTexture8_Result(const model_t *owner, const char *name, const qpic8_t *p
     return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
 }
 
-int
+texture_id_t
 GL_AllocTexture8(const model_t *owner, const char *name, const qpic8_t *pic, enum texture_type type)
 {
-    return GL_AllocTexture8_Result(owner, name, pic, type).texnum;
+    return GL_AllocTexture8_Result(owner, name, pic, type).texture;
 }
 
 static struct alloc_texture_result
@@ -544,20 +620,20 @@ GL_AllocTexture32_Result(const model_t *owner, const char *name, const qpic32_t 
     return GL_AllocTexture(owner, name, crc, pic->width, pic->height, type);
 }
 
-int
+texture_id_t
 GL_AllocTexture32(const model_t *owner, const char *name, const qpic32_t *pic, enum texture_type type)
 {
-    return GL_AllocTexture32_Result(owner, name, pic, type).texnum;
+    return GL_AllocTexture32_Result(owner, name, pic, type).texture;
 }
 
-int
+texture_id_t
 GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha)
 {
     struct alloc_texture_result result = GL_AllocTexture8_Result(owner, name, pic, type);
 
     if (!isDedicated) {
         if (!result.exists) {
-            GL_Bind(result.texnum);
+            GL_Bind(result.texture);
             GL_Upload8_Alpha(pic, type, alpha);
         } else if (type == TEXTURE_TYPE_WARP_TARGET) {
             /*
@@ -573,26 +649,26 @@ GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum
         }
     }
 
-    return result.texnum;
+    return result.texture;
 }
 
-int
+texture_id_t
 GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type)
 {
     return GL_LoadTexture8_Alpha(owner, name, pic, type, 255);
 }
 
-int
+texture_id_t
 GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic)
 {
     struct alloc_texture_result result = GL_AllocTexture8_Result(owner, name, &glpic->pic, TEXTURE_TYPE_HUD);
 
     if (!isDedicated && !result.exists) {
-	GL_Bind(result.texnum);
+	GL_Bind(result.texture);
 	GL_Upload8_GLPic(glpic);
     }
 
-    return result.texnum;
+    return result.texture;
 }
 
 void

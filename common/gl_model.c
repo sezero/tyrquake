@@ -223,10 +223,10 @@ GL_GetTextureMaterialClass(texture_t *texture)
     if (texture->name[0] == '*')
         return MATERIAL_LIQUID;
     if (texture->name[0] == '{')
-        return (texture->gl_texturenum_fullbright) ? MATERIAL_FENCE_FULLBRIGHT : MATERIAL_FENCE;
+        return TextureIsValid(texture->gl_texturenum_fullbright) ? MATERIAL_FENCE_FULLBRIGHT : MATERIAL_FENCE;
     if (!strncmp(texture->name, "sky", 3))
         return MATERIAL_SKY;
-    if (texture->gl_texturenum_fullbright)
+    if (TextureIsValid(texture->gl_texturenum_fullbright))
         return MATERIAL_FULLBRIGHT;
 
     return MATERIAL_BASE;

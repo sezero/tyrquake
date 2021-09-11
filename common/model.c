@@ -720,7 +720,7 @@ GL_LoadBrushModelTexture(const model_t *model, texture_t *texture)
         pic.height = texture->height; // Possibly modified by picmip in previous upload
         texture->gl_texturenum_fullbright = GL_LoadTexture8(model, va("%s:fullbright", texture->name), &pic, type);
     } else {
-        texture->gl_texturenum_fullbright = 0;
+        texture->gl_texturenum_fullbright = invalid_texture_id;
     }
 }
 
@@ -2219,7 +2219,7 @@ Mod_ReloadTextures()
     if (brushmodel) {
         glbrushmodel_resource_t *resources = GLBrushModel(brushmodel)->resources;
         for (int i = 0; i < resources->numblocks; i++)
-            resources->blocks[i].texture = 0;
+            resources->blocks[i].texture = invalid_texture_id;
         for (brushmodel = loaded_brushmodels; brushmodel; brushmodel = brushmodel->next) {
             if (brushmodel->parent)
                 continue;

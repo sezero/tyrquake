@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "sys.h"
 
 // FIXME - should only be needed in r_part.c or here, not both.
-GLuint particletexture;
+texture_id_t particletexture;
 
 /*
 ==================
@@ -473,9 +473,9 @@ R_TranslatePlayerSkin(int playernum)
     };
     playertexture_t *playertexture = &playertextures[playernum];
     playertexture->fullbright = QPic_HasFullbrights(&playerpic, TEXTURE_TYPE_PLAYER_SKIN);
-    if (!playertexture->texture.base)
+    if (!TextureIsValid(playertexture->texture.base))
         playertexture->texture.base = GL_AllocTexture8(model, va("@player%02d", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN);
-    if (!playertexture->texture.fullbright)
+    if (!TextureIsValid(playertexture->texture.fullbright))
         playertexture->texture.fullbright = GL_AllocTexture8(model, va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
 
     GL_Bind(playertexture->texture.base);

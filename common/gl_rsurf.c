@@ -180,52 +180,6 @@ R_BuildLightMap(msurface_t *surf, byte *dest, int stride)
 =============================================================
 */
 
-lpActiveTextureFUNC qglActiveTextureARB;
-lpClientStateFUNC qglClientActiveTexture;
-
-static qboolean mtexenabled = false;
-static GLenum oldtarget = GL_TEXTURE0_ARB;
-static int cnttextures[3] = { -1, -1, -1 };	// cached
-
-/*
- * Makes the given texture unit active
- */
-void
-GL_SelectTexture(GLenum target)
-{
-    if (!gl_mtexable || target == oldtarget)
-	return;
-
-    /*
-     * Save the current texture unit's texture handle, select the new texture
-     * unit and update currenttexture
-     */
-    qglActiveTextureARB(target);
-    cnttextures[oldtarget - GL_TEXTURE0_ARB] = currenttexture;
-    currenttexture = cnttextures[target - GL_TEXTURE0_ARB];
-    oldtarget = target;
-}
-
-void
-GL_DisableMultitexture(void)
-{
-    if (mtexenabled) {
-	glDisable(GL_TEXTURE_2D);
-	GL_SelectTexture(GL_TEXTURE0_ARB);
-	mtexenabled = false;
-    }
-}
-
-void
-GL_EnableMultitexture(void)
-{
-    if (gl_mtexable) {
-	GL_SelectTexture(GL_TEXTURE1_ARB);
-	glEnable(GL_TEXTURE_2D);
-	mtexenabled = true;
-    }
-}
-
 /*
  * R_UploadLightmapBlockUpdates
  *
@@ -767,7 +721,7 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
 {
     if (gl_mtexable) {
 	GL_DisableMultitexture();
-	GL_SelectTexture(GL_TEXTURE0_ARB);
+	GL_SelectTMU(GL_TEXTURE0);
     }
 
     if (alpha < 1.0f) {
@@ -820,10 +774,10 @@ static void
 TriBuf_DrawSky(triangle_buffer_t *buffer, const texture_t *texture)
 {
     if (gl_mtexable) {
-	GL_SelectTexture(GL_TEXTURE0_ARB);
+	GL_SelectTMU(GL_TEXTURE0);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 	GL_Bind(texture->gl_texturenum);
-	GL_SelectTexture(GL_TEXTURE1_ARB);
+	GL_SelectTMU(GL_TEXTURE1);
         GL_Bind(texture->gl_texturenum_alpha);
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
 
@@ -912,10 +866,10 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
     }
 
     if (gl_mtexable) {
-	GL_SelectTexture(GL_TEXTURE0_ARB);
+	GL_SelectTMU(GL_TEXTURE0);
 	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	GL_Bind(texture->gl_texturenum);
-	GL_SelectTexture(GL_TEXTURE1_ARB);
+	GL_SelectTMU(GL_TEXTURE1);
         GL_Bind(block->texture);
 
         if (gl_texture_env_combine && gl_overbright.value) {
@@ -934,8 +888,8 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
                 [1] = { .active = true, .slot = 1 },
             }
         };
-        if (gl_num_texture_units > 2 && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
-            GL_SelectTexture(GL_TEXTURE2);
+        if (gl_num_texture_units > 2 && TextureIsValid(texture->gl_texturenum_fullbright) && gl_fullbrights.value) {
+            GL_SelectTMU(GL_TEXTURE2);
             glEnable(GL_TEXTURE_2D);
             glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
             GL_Bind(texture->gl_texturenum_fullbright);
@@ -945,9 +899,9 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
 
 	TriBuf_DrawElements(buffer, &state);
 
-        if (gl_num_texture_units > 2 && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
+        if (gl_num_texture_units > 2 && TextureIsValid(texture->gl_texturenum_fullbright) && gl_fullbrights.value) {
             glDisable(GL_TEXTURE_2D);
-            GL_SelectTexture(GL_TEXTURE1);
+            GL_SelectTMU(GL_TEXTURE1);
         }
 
         /* Reset brightness scaling */
@@ -1001,10 +955,10 @@ TriBuf_DrawSolid(triangle_buffer_t *buffer, const texture_t *texture, lm_block_t
     }
 
     /* Extra pass for fullbrights */
-    if ((!gl_mtexable || gl_num_texture_units < 3) && texture->gl_texturenum_fullbright && gl_fullbrights.value) {
+    if ((!gl_mtexable || gl_num_texture_units < 3) && TextureIsValid(texture->gl_texturenum_fullbright) && gl_fullbrights.value) {
         if (gl_mtexable) {
             GL_DisableMultitexture();
-            GL_SelectTexture(GL_TEXTURE0_ARB);
+            GL_SelectTMU(GL_TEXTURE0);
         }
 
         glDepthMask(GL_FALSE);
@@ -1986,8 +1940,6 @@ R_DrawDynamicBrushModel(entity_t *entity)
         return;
     }
 
-    currenttexture = -1;
-
     VectorSubtract(r_refdef.vieworg, entity->origin, modelorg);
     if (rotated) {
 	vec3_t temp;
@@ -2200,7 +2152,6 @@ R_DrawWorld(void)
     memset(&worldentity, 0, sizeof(worldentity));
     worldentity.model = &cl.worldmodel->model;
 
-    currenttexture = -1;
     glColor3f(1, 1, 1);
     glbrushmodel = GLBrushModel(cl.worldmodel);
 
@@ -2328,7 +2279,7 @@ GL_UploadLightmaps(const model_t *model, const glbrushmodel_resource_t *resource
 	block->rectchange.w = 0;
 	block->rectchange.h = 0;
 
-        if (!block->texture) {
+        if (!TextureIsValid(block->texture)) {
             pic.width = pic.stride = BLOCK_WIDTH;
             pic.height = BLOCK_HEIGHT;
             pic.pixels = block->data;
