@@ -48,8 +48,9 @@ typedef struct {
     struct list_node list;
     const model_t *owner;
     GLuint texnum;
-    int width, height;
+    int width, height, max_miplevel;
     int last_used_frame;
+    float compression_ratio;
     enum texture_type type;
     unsigned short crc;		// CRC for texture cache matching
     char name[MAX_QPATH];
@@ -197,13 +198,83 @@ GL_Bind(texture_id_t texture_id)
     tmu_texture[current_tmu] = texture->texnum;
 
     glBindTexture(GL_TEXTURE_2D, texture->texnum);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, texture->max_miplevel);
+}
+
+static GLint
+GL_GetTextureFormat(const gltexture_t *texture)
+{
+    if (texture->type == TEXTURE_TYPE_LIGHTMAP) {
+        return gl_lightmap_format;
+    } else if (texture_properties[texture->type].palette->alpha) {
+        if (gl_texture_compression_enabled) {
+            switch (texture->type) {
+                case TEXTURE_TYPE_WORLD_FULLBRIGHT:
+                case TEXTURE_TYPE_FENCE:
+                case TEXTURE_TYPE_FENCE_FULLBRIGHT:
+                case TEXTURE_TYPE_SKY_FOREGROUND:
+                case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+                case TEXTURE_TYPE_SPRITE:
+                    return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
+                default:
+                    break;
+            }
+        }
+        return gl_alpha_format;
+    } else if (gl_texture_compression_enabled) {
+        switch (texture->type) {
+            case TEXTURE_TYPE_WORLD:
+            case TEXTURE_TYPE_TURB:
+            case TEXTURE_TYPE_SKY_BACKGROUND:
+            case TEXTURE_TYPE_SKYBOX:
+            case TEXTURE_TYPE_ALIAS_SKIN:
+                return GL_COMPRESSED_RGB_S3TC_DXT1_EXT;
+            default:
+                break;
+        }
+    }
+
+    return gl_solid_format;
 }
 
 static int
-GL_TextureMemoryUsage(const gltexture_t *texture)
+GL_GetMipMemorySize(int width, int height, GLint format)
 {
-    /* Assuming four bytes per pixel on every texture at this stage... */
-    return texture->width * texture->height * 4;
+    int blocksize = 1;
+    int blockbytes = 4;
+    switch (format) {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+            blocksize = 4;
+            blockbytes = 8;
+            break;
+        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+            blocksize = 4;
+            blockbytes = 16;
+            break;
+    }
+
+    int blockwidth  = (width  + blocksize - 1) / blocksize;
+    int blockheight = (height + blocksize - 1) / blocksize;
+
+    return blockwidth * blockheight * blockbytes;
+}
+
+static int
+GL_GetTextureMemorySize(const gltexture_t *texture)
+{
+    GLint format = GL_GetTextureFormat(texture);
+    int width = texture->width;
+    int height = texture->height;
+    int memsize = 0;
+    for (int miplevel = 0; miplevel < texture->max_miplevel; miplevel++) {
+        memsize += GL_GetMipMemorySize(width, height, format);
+        width  = (width > 1)  ? width  >> 1 : 1;
+        height = (height > 1) ? height >> 1 : 1;
+    }
+
+    return memsize;
 }
 
 void
@@ -219,7 +290,7 @@ GL_FrameMemoryStats()
     list_for_each_entry(texture, &manager.active, list) {
         if (texture->last_used_frame == r_framecount) {
             numtextures++;
-            numbytes += GL_TextureMemoryUsage(texture);
+            numbytes += GL_GetTextureMemorySize(texture);
         }
     }
 
@@ -308,6 +379,69 @@ GL_TextureMode_Arg_f(struct stree_root *root, int argnum)
     }
 }
 
+static int
+GL_GetMaxMipLevel(qpic32_t *pic, GLint internal_format)
+{
+    int blocksize = 1;
+    switch (internal_format) {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+            blocksize = 4;
+    }
+
+    int max_level = 0;
+    int width = pic->width;
+    int height = pic->height;
+    while (width > blocksize || height > blocksize) {
+        max_level++;
+	width  = width  > 1 ? width  >> 1 : 1;
+	height = height > 1 ? height >> 1 : 1;
+    }
+
+    return max_level;
+}
+
+/*
+ * Some textures we handle padding them to different sizes to satisfy
+ * power-of-two or encoding block size requirements.  This is a bit
+ * kludgy and should probably just be a texture property.  Perhaps
+ * even the 'repeat' property, once that is all handled consistently.
+ */
+static qboolean
+GL_CanPadTexture(const gltexture_t *texture)
+{
+    switch (texture->type) {
+        case TEXTURE_TYPE_HUD:
+        case TEXTURE_TYPE_ALIAS_SKIN:
+        case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+        case TEXTURE_TYPE_PLAYER_SKIN:
+        case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static void QPic_CompressDxt1(const qpic32_t *pic, byte *dst);
+static void QPic_CompressDxt5(const qpic32_t *pic, byte *dst);
+
+static void
+GL_CompressMip(const qpic32_t *pic, GLint format, byte *dst)
+{
+    switch (format) {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+            QPic_CompressDxt1(pic, dst);
+            break;
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+            QPic_CompressDxt5(pic, dst);
+            break;
+        default:
+            assert(!"Unsupported compressed format");
+    }
+}
+
 /*
  * Uploads a 32-bit RGBA texture.  The original pixels are destroyed during
  * the scaling/mipmap process.  When done, the width and height the source pic
@@ -318,14 +452,16 @@ GL_TextureMode_Arg_f(struct stree_root *root, int argnum)
  * accordingly when drawing.
  */
 void
-GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type)
+GL_Upload32(texture_id_t texture_id, qpic32_t *pic)
 {
     GLint internal_format;
     qpic32_t *scaled;
-    int width, height, mark, miplevel, picmip;
+    int width, height, mark, picmip;
+    gltexture_t *texture = IdToTexture(texture_id);
+    const texture_properties_t *properties = &texture_properties[texture->type];
 
     /* This is not written for lightmaps! */
-    assert(type != TEXTURE_TYPE_LIGHTMAP);
+    assert(texture->type != TEXTURE_TYPE_LIGHTMAP);
 
     if (!gl_npotable || !gl_npot.value) {
 	/* find the next power-of-two size up */
@@ -335,6 +471,13 @@ GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type)
 	height = 1;
 	while (height < pic->height)
 	    height <<= 1;
+    } else if (gl_texture_compression_enabled && GL_CanPadTexture(texture)) {
+        /* Expand texture to block size */
+        width = (pic->width + 3) & ~3;
+        height = (pic->height + 3) & ~3;
+        if (width != pic->width || height != pic->height) {
+            Sys_Printf("Padded texture '%s' (%d x %d) -> (%d x %d)\n", texture->name, pic->width, pic->height, width, height);
+        }
     } else {
 	width = pic->width;
 	height = pic->height;
@@ -345,26 +488,19 @@ GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type)
     /* Begin by expanding the texture if needed */
     if (width != pic->width || height != pic->height) {
 	scaled = QPic32_Alloc(width, height);
-        switch (type) {
-            case TEXTURE_TYPE_HUD:
-            case TEXTURE_TYPE_ALIAS_SKIN:
-            case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
-            case TEXTURE_TYPE_PLAYER_SKIN:
-            case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
-		QPic32_Expand(pic, scaled);
-                break;
-            default:
-                QPic32_Stretch(pic, scaled);
-                break;
-	}
+        if (GL_CanPadTexture(texture)) {
+            QPic32_Expand(pic, scaled);
+        } else {
+            QPic32_Stretch(pic, scaled);
+        }
     } else {
 	scaled = pic;
     }
 
     /* Allow some textures to be crunched down by player preference */
-    if (texture_properties[type].playermip) {
+    if (properties->playermip) {
         picmip = qmax(0, (int)gl_playermip.value);
-    } else if (texture_properties[type].picmip) {
+    } else if (properties->picmip) {
         picmip = qmax(0, (int)gl_picmip.value);
     } else {
         picmip = 0;
@@ -374,50 +510,69 @@ GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type)
 	    break;
 	width = qmax(1, width >> 1);
 	height = qmax(1, height >> 1);
-	QPic32_MipMap(scaled, texture_properties[type].alpha_op);
+	QPic32_MipMap(scaled, properties->alpha_op);
 	picmip--;
     }
 
-    /* Set the internal format */
-    if (texture_properties[type].palette->alpha) {
-        internal_format = gl_alpha_format;
-    } else {
-        internal_format = gl_solid_format;
-    }
-
     /* Upload with or without mipmaps, depending on type */
-    GL_Bind(texture);
-    if (texture_properties[type].mipmap) {
-        miplevel = 0;
+    GL_Bind(texture_id);
+    internal_format = GL_GetTextureFormat(texture);
+    byte *compressed = NULL;
+    int mip_memory_size = GL_GetMipMemorySize(scaled->width, scaled->height, internal_format);
+    switch (internal_format) {
+        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
+        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+            compressed = alloca(mip_memory_size);
+            break;
+    }
+    if (properties->mipmap) {
+        int max_miplevel = GL_GetMaxMipLevel(scaled, internal_format);
+        int miplevel = 0;
         while (1) {
-            glTexImage2D(GL_TEXTURE_2D, miplevel, internal_format,
-                         scaled->width, scaled->height, 0,
-                         GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
-            if (scaled->width == 1 && scaled->height == 1)
+            if (compressed) {
+                GL_CompressMip(scaled, internal_format, compressed);
+                qglCompressedTexImage2D(GL_TEXTURE_2D, miplevel, internal_format,
+                                        scaled->width, scaled->height, 0,
+                                        mip_memory_size, compressed);
+            } else {
+                glTexImage2D(GL_TEXTURE_2D, miplevel, internal_format,
+                             scaled->width, scaled->height, 0,
+                             GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
+            }
+            if (miplevel == max_miplevel)
                 break;
-
-            QPic32_MipMap(scaled, texture_properties[type].alpha_op);
+            QPic32_MipMap(scaled, properties->alpha_op);
+            mip_memory_size = GL_GetMipMemorySize(scaled->width, scaled->height, internal_format);
             miplevel++;
         }
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
         glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+	texture->max_miplevel = max_miplevel;
     } else {
-        glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
-                     scaled->width, scaled->height, 0,
-                     GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
-        if (type == TEXTURE_TYPE_NOTEXTURE) {
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        if (compressed) {
+            GL_CompressMip(scaled, internal_format, compressed);
+            qglCompressedTexImage2D(GL_TEXTURE_2D, 0, internal_format,
+                                    scaled->width, scaled->height, 0,
+                                    mip_memory_size, compressed);
         } else {
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
-            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+            glTexImage2D(GL_TEXTURE_2D, 0, internal_format,
+                         scaled->width, scaled->height, 0,
+                         GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
         }
+        if (texture->type == TEXTURE_TYPE_NOTEXTURE) {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        } else {
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+        }
+	texture->max_miplevel = 0;
     }
 
     /* Set texture wrap mode */
-    GLenum wrap = texture_properties[type].repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+    GLenum wrap = properties->repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
     Hunk_FreeToLowMark(mark);
 
@@ -467,16 +622,17 @@ The alpha version will scale the texture alpha channel by a factor of (alpha / 2
 ===============
 */
 void
-GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, enum texture_type type, byte alpha)
+GL_Upload8_Alpha(texture_id_t texture_id, qpic8_t *pic, byte alpha)
 {
-    const qpalette32_t *palette = texture_properties[type].palette;
-    enum qpic_alpha_operation alpha_op = texture_properties[type].alpha_op;
+    gltexture_t *texture = IdToTexture(texture_id);
+    const qpalette32_t *palette = texture_properties[texture->type].palette;
+    enum qpic_alpha_operation alpha_op = texture_properties[texture->type].alpha_op;
     qpic32_t *pic32;
     int mark;
 
     mark = Hunk_LowMark();
 
-    if (type == TEXTURE_TYPE_WARP_TARGET) {
+    if (texture->type == TEXTURE_TYPE_WARP_TARGET) {
         int size = GL_GetWarpImageSize(pic);
         pic32 = QPic32_Alloc(size, size);
     } else {
@@ -485,7 +641,7 @@ GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, enum texture_type type, byt
         if (alpha != 255)
             QPic32_ScaleAlpha(pic32, alpha);
     }
-    GL_Upload32(texture, pic32, type);
+    GL_Upload32(texture_id, pic32);
 
     pic->width = pic32->width;
     pic->height = pic32->height;
@@ -494,13 +650,13 @@ GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, enum texture_type type, byt
 }
 
 void
-GL_Upload8(texture_id_t texture, qpic8_t *pic, enum texture_type type)
+GL_Upload8(texture_id_t texture, qpic8_t *pic)
 {
-    GL_Upload8_Alpha(texture, pic, type, 255);
+    GL_Upload8_Alpha(texture, pic, 255);
 }
 
 void
-GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, enum texture_type type, const byte *translation)
+GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, const byte *translation)
 {
     const byte *source;
     byte *pixels, *dest;
@@ -523,14 +679,16 @@ GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, enum texture_type type,
     translated_pic.stride = pic->width;
     translated_pic.pixels = pixels;
 
-    GL_Upload8(texture, &translated_pic, type);
+    GL_Upload8(texture, &translated_pic);
 
     Hunk_FreeToLowMark(mark);
 }
 
 static void
-GL_Upload8_GLPic(texture_id_t texture, glpic_t *glpic)
+GL_Upload8_GLPic(texture_id_t texture_id, glpic_t *glpic)
 {
+    assert(IdToTexture(texture_id)->type == TEXTURE_TYPE_HUD);
+
     const qpalette32_t *palette = texture_properties[TEXTURE_TYPE_HUD].palette;
     enum qpic_alpha_operation alpha_op = texture_properties[TEXTURE_TYPE_HUD].alpha_op;
     qpic32_t *pic32;
@@ -540,7 +698,7 @@ GL_Upload8_GLPic(texture_id_t texture, glpic_t *glpic)
 
     pic32 = QPic32_Alloc(glpic->pic.width, glpic->pic.height);
     QPic_8to32(&glpic->pic, pic32, palette, alpha_op);
-    GL_Upload32(texture, pic32, TEXTURE_TYPE_HUD);
+    GL_Upload32(texture_id, pic32);
 
     glpic->sl = 0;
     glpic->sh = qmin(1.0f, (float)glpic->pic.width / (float)pic32->width);
@@ -624,6 +782,7 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
     texture->width = width;
     texture->height = height;
     texture->type = type;
+    texture->compression_ratio = 1.0f;
 
  GL_AllocTexture_out:
     texture->owner = owner;
@@ -665,7 +824,7 @@ GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum
 
     if (!isDedicated) {
         if (!result.exists) {
-            GL_Upload8_Alpha(result.texture, pic, type, alpha);
+            GL_Upload8_Alpha(result.texture, pic, alpha);
         } else if (type == TEXTURE_TYPE_WARP_TARGET) {
             /*
              * TODO: Kind of a temporary fix for the terrible interface to handle textures that end
@@ -855,4 +1014,73 @@ GL_Textures_Init(void)
 
     GL_InitTextureManager();
     GL_LoadNoTexture();
+}
+
+
+#define STB_DXT_IMPLEMENTATION
+#include "stb_dxt.h"
+
+static void
+DXT_ExtractColorBlock(qpixel32_t dst[16], const qpic32_t *pic, int x, int y)
+{
+    assert(x % 4 == 0);
+    assert(y % 4 == 0);
+
+    const qpixel32_t *src = pic->pixels + y * pic->width + x;
+    if (pic->height - y >= 4 && pic->width - x >= 4) {
+        /* Fast path for a full block */
+        memcpy(dst +  0, src + pic->width * 0, 16);
+        memcpy(dst +  4, src + pic->width * 1, 16);
+        memcpy(dst +  8, src + pic->width * 2, 16);
+        memcpy(dst + 12, src + pic->width * 3, 16);
+    } else {
+        /* Partial block, pad with black */
+        const qpixel32_t black = { .c.red = 0, .c.green = 0, .c.blue = 0, .c.alpha = 1 };
+        const int width  = qmin(pic->width  - x, 4);
+        const int height = qmin(pic->height - y, 4);
+        int y = 0;
+        for ( ; y < height; y++) {
+            int x = 0;
+            for ( ; x < width; x++)
+                dst[y * 4 + x] = src[y * pic->width + x];
+            for ( ; x < 4; x++)
+                dst[y * 4 + x] = black;
+        }
+        for ( ; y < 4; y++) {
+            for (int x = 0; x < 4; x++)
+                dst[y * 4 + x] = black;
+        }
+    }
+}
+
+static void
+QPic_CompressDxt1(const qpic32_t *pic, byte *dst)
+{
+    qpixel32_t colorblock[16];
+    const int width = pic->width;
+    const int height = pic->height;
+
+    for (int y = 0; y < height; y += 4) {
+        for (int x = 0; x < width; x += 4) {
+            DXT_ExtractColorBlock(colorblock, pic, x, y);
+            stb_compress_dxt_block(dst, (byte *)colorblock, false, STB_DXT_HIGHQUAL);
+            dst += 8;
+        }
+    }
+}
+
+static void
+QPic_CompressDxt5(const qpic32_t *pic, byte *dst)
+{
+    qpixel32_t colorblock[16];
+    const int width = pic->width;
+    const int height = pic->height;
+
+    for (int y = 0; y < height; y += 4) {
+        for (int x = 0; x < width; x += 4) {
+            DXT_ExtractColorBlock(colorblock, pic, x, y);
+            stb_compress_dxt_block(dst, (byte *)colorblock, true, STB_DXT_HIGHQUAL);
+            dst += 16;
+        }
+    }
 }

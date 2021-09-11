@@ -479,13 +479,13 @@ R_TranslatePlayerSkin(int playernum)
         playertexture->texture.fullbright = GL_AllocTexture8(model, va("@player%02d:fullbright", playernum), &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
 
     translation = R_GetTranslationTable((int)player->topcolor, (int)player->bottomcolor);
-    GL_Upload8_Translate(playertexture->texture.base, &playerpic, TEXTURE_TYPE_PLAYER_SKIN, translation);
+    GL_Upload8_Translate(playertexture->texture.base, &playerpic, translation);
 
     if (playertexture->fullbright) {
 	/* Reset the width and height and upload as fullbright mask */
 	playerpic.width = inwidth;
 	playerpic.height = inheight;
-        GL_Upload8(playertexture->texture.fullbright, &playerpic, TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT);
+        GL_Upload8(playertexture->texture.fullbright, &playerpic);
     }
 
     Hunk_FreeToLowMark(mark);

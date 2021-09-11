@@ -163,6 +163,7 @@ GL_Init(void)
     GL_ExtensionCheck_BufferObjects();
     GL_ExtensionCheck_VertexProgram();
     GL_ExtensionCheck_RangeElements();
+    GL_ExtensionCheck_TextureCompression();
 
     GL_InitVertexPrograms();
 

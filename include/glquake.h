@@ -59,7 +59,17 @@ void GL_EndRendering(void);
 #define GL_TEXTURE0 GL_TEXTURE0_ARB
 #define GL_TEXTURE1 GL_TEXTURE1_ARB
 #define GL_TEXTURE2 GL_TEXTURE2_ARB
+#define GL_NUM_COMPRESSED_TEXTURE_FORMATS 0x86A2
+#define GL_COMPRESSED_TEXTURE_FORMATS     0x86A3
 #endif
+
+#ifndef GL_EXT_texture_compression_s3tc
+#define GL_EXT_texture_compression_s3tc 1
+#define GL_COMPRESSED_RGB_S3TC_DXT1_EXT   0x83F0
+#define GL_COMPRESSED_RGBA_S3TC_DXT1_EXT  0x83F1
+#define GL_COMPRESSED_RGBA_S3TC_DXT3_EXT  0x83F2
+#define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT  0x83F3
+#endif /* GL_EXT_texture_compression_s3tc */
 
 extern float gldepthmin, gldepthmax;
 
@@ -81,10 +91,10 @@ typedef struct {
 
 void GL_FreeTextures();
 
-void GL_Upload8(texture_id_t texture, qpic8_t *pic, enum texture_type type);
-void GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, enum texture_type type, byte alpha);
-void GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type);
-void GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, enum texture_type type, const byte *translation);
+void GL_Upload8(texture_id_t texture, qpic8_t *pic);
+void GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, byte alpha);
+void GL_Upload32(texture_id_t texture, qpic32_t *pic);
+void GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, const byte *translation);
 
 texture_id_t GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type);
 texture_id_t GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha);
@@ -275,6 +285,9 @@ extern lpGenerateMipmapFUNC qglGenerateMipmap;
 extern void (*qglTexParameterGenerateMipmap)(GLboolean auto_mipmap);
 extern void (APIENTRY *qglDrawRangeElements)(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices);
 
+/* Texture Compression */
+extern void (APIENTRY *qglCompressedTexImage2D)(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data);
+
 /* Buffer Objects */
 extern void (APIENTRY *qglBindBuffer)(GLenum target, GLuint buffer);
 extern void (APIENTRY *qglDeleteBuffers)(GLsizei n, const GLuint *buffers);
@@ -319,6 +332,7 @@ extern qboolean gl_mtexable;
 extern qboolean gl_texture_env_combine;
 extern qboolean gl_buffer_objects_enabled;
 extern qboolean gl_vertex_program_enabled;
+extern qboolean gl_texture_compression_enabled;
 
 void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
@@ -329,6 +343,7 @@ void GL_ExtensionCheck_GenerateMipmaps();
 void GL_ExtensionCheck_BufferObjects();
 void GL_ExtensionCheck_VertexProgram();
 void GL_ExtensionCheck_RangeElements();
+void GL_ExtensionCheck_TextureCompression();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

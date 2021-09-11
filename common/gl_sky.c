@@ -79,7 +79,7 @@ Sky_LoadSkyboxTextures(const char *skyboxname)
             texture->gl_texturenum = GL_AllocTexture32(&cl.worldmodel->model, texturename, skypic, TEXTURE_TYPE_SKYBOX);
             texture->width = skypic->width;
             texture->height = skypic->height;
-            GL_Upload32(texture->gl_texturenum, skypic, TEXTURE_TYPE_SKYBOX);
+            GL_Upload32(texture->gl_texturenum, skypic);
             found = true;
         } else {
             texture->gl_texturenum = r_notexture_mip->gl_texturenum;

@@ -492,3 +492,66 @@ GL_ExtensionCheck_RangeElements()
     GL_SetMaxVerts(MATERIAL_DEFAULT_MAX_VERTS);
     qglDrawRangeElements = qglDrawRangeElements_Compat;
 }
+
+qboolean gl_texture_compression_enabled;
+void (APIENTRY *qglCompressedTexImage2D)(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data);
+
+static void APIENTRY qglCompressedTexImage2D_null(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data) { assert(false); }
+
+void
+GL_ExtensionCheck_TextureCompression()
+{
+    gl_texture_compression_enabled = false;
+    qglCompressedTexImage2D = qglCompressedTexImage2D_null;
+
+    if (COM_CheckParm("-noglcompression"))
+        return;
+
+    qboolean api_available = false;
+    qboolean formats_available = false;
+
+    if (GL_VersionMinimum(1, 3) || GL_ExtensionCheck("GL_ARB_texture_compression")) {
+        /* Compressed API functions should be available */
+        api_available = true;
+    }
+    if (GL_ExtensionCheck("GL_EXT_texture_compression_s3tc")) {
+        /* S3TC Extension implies the API and Formats are available */
+        api_available = true;
+        formats_available = true;
+    }
+    if (!api_available)
+        return;
+
+    qglCompressedTexImage2D = GL_GetProcAddress("glCompressedTexImage2D");
+    if (!qglCompressedTexImage2D)
+        return;
+
+    if (!formats_available) {
+        /* Query for the available compression formats */
+        GLint num_formats = 0;
+        GLint *formats;
+
+        glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &num_formats);
+        if (!num_formats)
+            return;
+        formats = alloca(num_formats * sizeof(*formats));
+        glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, formats);
+
+        qboolean have_dxt1 = false;
+        qboolean have_dxt5 = false;
+        for (int i = 0; i < num_formats; i++) {
+            if (formats[i] == GL_COMPRESSED_RGB_S3TC_DXT1_EXT)
+                have_dxt1 = true;
+            if (formats[i] == GL_COMPRESSED_RGBA_S3TC_DXT5_EXT)
+                have_dxt5 = true;
+        }
+
+        if (have_dxt1 && have_dxt5)
+            formats_available = true;
+    }
+
+    if (formats_available) {
+        gl_texture_compression_enabled = true;
+        Con_Printf("Texture compression enabled (dxt1/5)\n");
+    }
+}

@@ -176,7 +176,7 @@ Scrap_Flush(texture_id_t texture)
     scrap = gl_scraps;
     for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
 	if (scrap->dirty && TexturesAreSame(texture, scrap->texture)) {
-	    GL_Upload8(scrap->texture, &scrap->pic, TEXTURE_TYPE_HUD);
+	    GL_Upload8(scrap->texture, &scrap->pic);
 	    scrap->dirty = false;
 	    return;
 	}
@@ -746,7 +746,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation
     if (!TextureIsValid(translate_texture)) {
         translate_texture = GL_AllocTexture8(NULL, "@menuplyr_translate", pic, TEXTURE_TYPE_HUD);
     }
-    GL_Upload8(translate_texture, &translated, TEXTURE_TYPE_HUD);
+    GL_Upload8(translate_texture, &translated);
 
     Hunk_FreeToLowMark(mark);
 

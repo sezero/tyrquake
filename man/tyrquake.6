@@ -65,6 +65,10 @@ Disable use of OpenGL Multitexture extenstions.
 .IP "\fB\-nonpot\fP"
 Disable use of OpenGL non-power-of-two textures.  Textures will be stretched
 or padded to power-of two sizes as needed.
+.IP "\fB\-noglcompression\fP"
+Disable the use of compressed textures.  There is a slight quality hit when
+compressed textures are enable, so use this parameter if higher quality at the
+expense of more memory usage is preferred.
 .IP "\fB\-gamma n\fP"
 Set the video gamma value. Default 1.0.
 .IP "\fB\-fullsbar\fP (tyr-glquake,tyr-glqwcl Windows only)"
