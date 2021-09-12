@@ -2289,7 +2289,7 @@ GL_UploadLightmaps(const model_t *model, const glbrushmodel_resource_t *resource
 	GL_Bind(block->texture);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, gl_lightmap_bytes, BLOCK_WIDTH,
+	glTexImage2D(GL_TEXTURE_2D, 0, gl_lightmap_format, BLOCK_WIDTH,
 		     BLOCK_HEIGHT, 0, gl_lightmap_format, GL_UNSIGNED_BYTE,
 		     block->data);
     }
