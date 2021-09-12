@@ -81,10 +81,10 @@ typedef struct {
 
 void GL_FreeTextures();
 
-void GL_Upload8(qpic8_t *pic, enum texture_type type);
-void GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha);
-void GL_Upload32(qpic32_t *pic, enum texture_type type);
-void GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translation);
+void GL_Upload8(texture_id_t texture, qpic8_t *pic, enum texture_type type);
+void GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, enum texture_type type, byte alpha);
+void GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type);
+void GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, enum texture_type type, const byte *translation);
 
 texture_id_t GL_LoadTexture8(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type);
 texture_id_t GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum texture_type type, byte alpha);

@@ -318,7 +318,7 @@ GL_TextureMode_Arg_f(struct stree_root *root, int argnum)
  * accordingly when drawing.
  */
 void
-GL_Upload32(qpic32_t *pic, enum texture_type type)
+GL_Upload32(texture_id_t texture, qpic32_t *pic, enum texture_type type)
 {
     GLint internal_format;
     qpic32_t *scaled;
@@ -386,6 +386,7 @@ GL_Upload32(qpic32_t *pic, enum texture_type type)
     }
 
     /* Upload with or without mipmaps, depending on type */
+    GL_Bind(texture);
     if (texture_properties[type].mipmap) {
         miplevel = 0;
         while (1) {
@@ -466,7 +467,7 @@ The alpha version will scale the texture alpha channel by a factor of (alpha / 2
 ===============
 */
 void
-GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha)
+GL_Upload8_Alpha(texture_id_t texture, qpic8_t *pic, enum texture_type type, byte alpha)
 {
     const qpalette32_t *palette = texture_properties[type].palette;
     enum qpic_alpha_operation alpha_op = texture_properties[type].alpha_op;
@@ -484,7 +485,7 @@ GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha)
         if (alpha != 255)
             QPic32_ScaleAlpha(pic32, alpha);
     }
-    GL_Upload32(pic32, type);
+    GL_Upload32(texture, pic32, type);
 
     pic->width = pic32->width;
     pic->height = pic32->height;
@@ -493,13 +494,13 @@ GL_Upload8_Alpha(qpic8_t *pic, enum texture_type type, byte alpha)
 }
 
 void
-GL_Upload8(qpic8_t *pic, enum texture_type type)
+GL_Upload8(texture_id_t texture, qpic8_t *pic, enum texture_type type)
 {
-    GL_Upload8_Alpha(pic, type, 255);
+    GL_Upload8_Alpha(texture, pic, type, 255);
 }
 
 void
-GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translation)
+GL_Upload8_Translate(texture_id_t texture, qpic8_t *pic, enum texture_type type, const byte *translation)
 {
     const byte *source;
     byte *pixels, *dest;
@@ -522,13 +523,13 @@ GL_Upload8_Translate(qpic8_t *pic, enum texture_type type, const byte *translati
     translated_pic.stride = pic->width;
     translated_pic.pixels = pixels;
 
-    GL_Upload8(&translated_pic, type);
+    GL_Upload8(texture, &translated_pic, type);
 
     Hunk_FreeToLowMark(mark);
 }
 
-void
-GL_Upload8_GLPic(glpic_t *glpic)
+static void
+GL_Upload8_GLPic(texture_id_t texture, glpic_t *glpic)
 {
     const qpalette32_t *palette = texture_properties[TEXTURE_TYPE_HUD].palette;
     enum qpic_alpha_operation alpha_op = texture_properties[TEXTURE_TYPE_HUD].alpha_op;
@@ -539,7 +540,7 @@ GL_Upload8_GLPic(glpic_t *glpic)
 
     pic32 = QPic32_Alloc(glpic->pic.width, glpic->pic.height);
     QPic_8to32(&glpic->pic, pic32, palette, alpha_op);
-    GL_Upload32(pic32, TEXTURE_TYPE_HUD);
+    GL_Upload32(texture, pic32, TEXTURE_TYPE_HUD);
 
     glpic->sl = 0;
     glpic->sh = qmin(1.0f, (float)glpic->pic.width / (float)pic32->width);
@@ -664,8 +665,7 @@ GL_LoadTexture8_Alpha(const model_t *owner, const char *name, qpic8_t *pic, enum
 
     if (!isDedicated) {
         if (!result.exists) {
-            GL_Bind(result.texture);
-            GL_Upload8_Alpha(pic, type, alpha);
+            GL_Upload8_Alpha(result.texture, pic, type, alpha);
         } else if (type == TEXTURE_TYPE_WARP_TARGET) {
             /*
              * TODO: Kind of a temporary fix for the terrible interface to handle textures that end
@@ -695,8 +695,7 @@ GL_LoadTexture8_GLPic(const model_t *owner, const char *name, glpic_t *glpic)
     struct alloc_texture_result result = GL_AllocTexture8_Result(owner, name, &glpic->pic, TEXTURE_TYPE_HUD);
 
     if (!isDedicated && !result.exists) {
-	GL_Bind(result.texture);
-	GL_Upload8_GLPic(glpic);
+	GL_Upload8_GLPic(result.texture, glpic);
     }
 
     return result.texture;
