@@ -83,8 +83,7 @@ is_power_of_two(int x)
 #define VectorAdd(a,b,c) do {c[0]=a[0]+b[0];c[1]=a[1]+b[1];c[2]=a[2]+b[2];} while (0)
 #define VectorCopy(a,b) do {b[0]=a[0];b[1]=a[1];b[2]=a[2];} while (0)
 
-void VectorMA(const vec3_t veca, const float scale, const vec3_t vecb,
-	      vec3_t vecc);
+void VectorMA(const vec3_t veca, const float scale, const vec3_t vecb, vec3_t vecc);
 
 vec_t _DotProduct(vec3_t v1, vec3_t v2);
 void _VectorSubtract(vec3_t veca, vec3_t vecb, vec3_t out);
