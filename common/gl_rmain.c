@@ -164,6 +164,7 @@ GL_Init(void)
     GL_ExtensionCheck_VertexProgram();
     GL_ExtensionCheck_RangeElements();
     GL_ExtensionCheck_TextureCompression();
+    GL_ExtensionCheck_Anisotropy();
 
     GL_InitVertexPrograms();
 

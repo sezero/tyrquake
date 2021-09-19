@@ -467,6 +467,12 @@ Default 2048.
 If 1, allow use of non-power-of-two sized textures in OpenGL (if the ARB
 extension is advertised).  Set to zero to force stretching/padding of textures
 to power-of-two sizes.  Default 1.
+.IP "\fBgl_texture_anisotropy\fP"
+Set the degree of anisotropic filtering applied to textures.  Higher
+numbers will give sharper detail to surfaces that are at sharper
+angles to the screen at the cost of some performance.  1 is the lower
+bound, which is effectively disabled.  Drivers/hardware determine the
+upper limit.  Default 1.0f.
 .IP "\fBr_lockpvs\fP"
 .IP "\fBr_lockfrustum\fP"
 .IP "\fBr_drawflat\fP"

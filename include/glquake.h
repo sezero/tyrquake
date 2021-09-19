@@ -71,6 +71,18 @@ void GL_EndRendering(void);
 #define GL_COMPRESSED_RGBA_S3TC_DXT5_EXT  0x83F3
 #endif /* GL_EXT_texture_compression_s3tc */
 
+
+#ifndef GL_EXT_texture_filter_anisotropic
+#define GL_EXT_texture_filter_anisotropic 1
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT     0x84FE
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#endif /* GL_EXT_texture_filter_anisotropic */
+
+#ifndef GL_VERSION_4_6
+#define GL_TEXTURE_MAX_ANISOTROPY     GL_TEXTURE_MAX_ANISOTROPY_EXT
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT
+#endif
+
 extern float gldepthmin, gldepthmax;
 
 #define gl_solid_format GL_RGB
@@ -333,6 +345,9 @@ extern qboolean gl_texture_env_combine;
 extern qboolean gl_buffer_objects_enabled;
 extern qboolean gl_vertex_program_enabled;
 extern qboolean gl_texture_compression_enabled;
+extern qboolean gl_anisotropy_enabled;
+
+extern float gl_anisotropy_max;
 
 void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
@@ -344,6 +359,7 @@ void GL_ExtensionCheck_BufferObjects();
 void GL_ExtensionCheck_VertexProgram();
 void GL_ExtensionCheck_RangeElements();
 void GL_ExtensionCheck_TextureCompression();
+void GL_ExtensionCheck_Anisotropy();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 

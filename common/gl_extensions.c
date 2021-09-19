@@ -555,3 +555,37 @@ GL_ExtensionCheck_TextureCompression()
         Con_Printf("Texture compression enabled (dxt1/5)\n");
     }
 }
+
+qboolean gl_anisotropy_enabled;
+float gl_anisotropy_max;
+
+void
+GL_ExtensionCheck_Anisotropy()
+{
+    gl_anisotropy_enabled = false;
+    gl_anisotropy_max = 1.0f;
+
+    if (!GL_ExtensionCheck("GL_EXT_texture_filter_anisotropic") && !GL_VersionMinimum(4, 6))
+        return;
+
+    /* Test to make sure we can set it */
+    float test1, test2;
+    GLuint texture;
+
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 1.0f);
+    glGetTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, &test1);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, 2.0f);
+    glGetTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, &test2);
+    glDeleteTextures(1, &texture);
+
+    gl_anisotropy_enabled = true;
+    glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY, &gl_anisotropy_max);
+
+    if (test1 == 1.0f && test2 == 2.0f) {
+        Con_Printf("Anisotropic filtering enabled\n");
+    } else {
+        Con_Printf("Anisotropic filtering locked by driver.  Current setting is %f\n", test2);
+    }
+}

@@ -303,7 +303,7 @@ typedef struct {
     GLenum mag_filter;
 } glmode_t;
 
-static glmode_t *glmode;
+static glmode_t *gl_texturemode_current;
 
 static glmode_t gl_texturemodes[] = {
     { "gl_nearest", GL_NEAREST, GL_NEAREST },
@@ -314,21 +314,44 @@ static glmode_t gl_texturemodes[] = {
     { "gl_linear_mipmap_linear", GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR }
 };
 
+static void GL_Texture_Anisotropy_f(cvar_t *cvar);
+static cvar_t gl_texture_anisotropy = { "gl_texture_anisotropy", "1", CVAR_CONFIG, .callback = GL_Texture_Anisotropy_f };
+
 static void
-GL_UpdateTextureMode(const gltexture_t *texture, const glmode_t *mode)
+GL_SetTextureMode(const gltexture_t *texture)
 {
     if (texture->type == TEXTURE_TYPE_LIGHTMAP)
         return; /* Lightmap filter is always GL_LINEAR */
     if (texture->type == TEXTURE_TYPE_NOTEXTURE)
         return; /* Notexture is always GL_NEAREST */
     GL_Bind(TextureToId(texture));
-    if (texture_properties[texture->type].mipmap) {
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode->min_filter);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode->mag_filter);
+    if (texture->type == TEXTURE_TYPE_NOTEXTURE) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    } else if (texture_properties[texture->type].mipmap) {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_texturemode_current->min_filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_texturemode_current->mag_filter);
+        if (gl_anisotropy_enabled) {
+            float anisotropy = qclamp(gl_texture_anisotropy.value, 1.0f, gl_anisotropy_max);
+            glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY, anisotropy);
+        }
     } else {
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, mode->mag_filter);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mode->mag_filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_texturemode_current->mag_filter);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_texturemode_current->mag_filter);
     }
+}
+
+static void
+GL_Texture_Anisotropy_f(cvar_t *cvar)
+{
+    if (gl_anisotropy_enabled && cvar->value > gl_anisotropy_max) {
+        Con_Printf("Warning: anisotropy setting of %f will be capped to driver maximum of %f\n",
+                   cvar->value, gl_anisotropy_max);
+    }
+
+    gltexture_t *texture;
+    list_for_each_entry(texture, &manager.active, list)
+        GL_SetTextureMode(texture);
 }
 
 /*
@@ -343,13 +366,13 @@ GL_TextureMode_f(void)
     gltexture_t *texture;
 
     if (Cmd_Argc() == 1) {
-	Con_Printf("%s\n", glmode->name);
+	Con_Printf("%s\n", gl_texturemode_current->name);
 	return;
     }
 
     for (i = 0; i < ARRAY_SIZE(gl_texturemodes); i++) {
 	if (!strcasecmp(gl_texturemodes[i].name, Cmd_Argv(1))) {
-	    glmode = &gl_texturemodes[i];
+	    gl_texturemode_current = &gl_texturemodes[i];
 	    break;
 	}
     }
@@ -360,7 +383,7 @@ GL_TextureMode_f(void)
 
     /* Change all the existing mipmap texture objects */
     list_for_each_entry(texture, &manager.active, list)
-        GL_UpdateTextureMode(texture, glmode);
+        GL_SetTextureMode(texture);
 }
 
 static void
@@ -545,8 +568,7 @@ GL_Upload32(texture_id_t texture_id, qpic32_t *pic)
             mip_memory_size = GL_GetMipMemorySize(scaled->width, scaled->height, internal_format);
             miplevel++;
         }
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->min_filter);
-        glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
+        GL_SetTextureMode(texture);
 	texture->max_miplevel = max_miplevel;
     } else {
         if (compressed) {
@@ -559,13 +581,7 @@ GL_Upload32(texture_id_t texture_id, qpic32_t *pic)
                          scaled->width, scaled->height, 0,
                          GL_RGBA, GL_UNSIGNED_BYTE, scaled->pixels);
         }
-        if (texture->type == TEXTURE_TYPE_NOTEXTURE) {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        } else {
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, glmode->mag_filter);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, glmode->mag_filter);
-        }
+        GL_SetTextureMode(texture);
 	texture->max_miplevel = 0;
     }
 
@@ -751,7 +767,8 @@ GL_AllocTexture(const model_t *owner, const char *name, unsigned short crc, int 
             if (width != texture->width || height != texture->height)
                 goto GL_AllocTexture_setup;
 
-            /* Move it back to the active list and return */
+            /* Update texture mode, move it back to the active list and return */
+            GL_SetTextureMode(texture);
             list_del(&texture->list);
             list_add(&texture->list, &manager.active);
             result.exists = true;
@@ -985,6 +1002,7 @@ GL_Textures_RegisterVariables()
     Cvar_RegisterVariable(&gl_playermip);
     Cvar_RegisterVariable(&gl_max_textures);
     Cvar_RegisterVariable(&gl_npot);
+    Cvar_RegisterVariable(&gl_texture_anisotropy);
 }
 
 void
@@ -1001,7 +1019,7 @@ GL_Textures_Init(void)
 {
     GLint max_size;
 
-    glmode = gl_texturemodes;
+    gl_texturemode_current = gl_texturemodes;
 
     // FIXME - could do better to check on each texture upload with
     //         GL_PROXY_TEXTURE_2D
