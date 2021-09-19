@@ -237,7 +237,6 @@ extern cvar_t gl_reporttjunctions;
 extern cvar_t gl_nocolors;
 extern cvar_t gl_zfix;
 extern cvar_t gl_finish;
-extern cvar_t gl_subdivide_size;
 extern cvar_t gl_fullbrights;
 extern cvar_t gl_farclip;
 extern cvar_t gl_picmip;
