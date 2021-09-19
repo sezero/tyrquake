@@ -322,8 +322,7 @@ GL_SetTextureMode(const gltexture_t *texture)
 {
     if (texture->type == TEXTURE_TYPE_LIGHTMAP)
         return; /* Lightmap filter is always GL_LINEAR */
-    if (texture->type == TEXTURE_TYPE_NOTEXTURE)
-        return; /* Notexture is always GL_NEAREST */
+
     GL_Bind(TextureToId(texture));
     if (texture->type == TEXTURE_TYPE_NOTEXTURE) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
