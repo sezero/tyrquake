@@ -212,10 +212,20 @@ struct draw_glpic {
 static struct draw_glpic draw_glpics[MAX_DRAW_GLPICS];
 static int num_draw_glpics;
 
+static model_t drawpic_owner = {
+    .name = "drawpics",
+};
+
 void
 Draw_ResetPicTextures()
 {
+    GL_DisownTextures(&drawpic_owner);
     num_draw_glpics = 0;
+
+    draw_chars = NULL;
+    conback = NULL;
+    draw_disc = NULL;
+    draw_backtile = NULL;
 }
 
 void
@@ -282,10 +292,6 @@ Draw_PicFromWad(const char *name)
     return pic;
 }
 
-static model_t cachepic_owner = {
-    .name = "cachepic",
-};
-
 /*
 ================
 Draw_CachePic
@@ -322,7 +328,7 @@ Draw_CachePic(const char *path)
     pic->height = dpic->height;
     pic->pixels = dpic->data;
 
-    cachepic->glpic.texture = GL_LoadTexture8_GLPic(&cachepic_owner, path, &cachepic->glpic);
+    cachepic->glpic.texture = GL_LoadTexture8_GLPic(&drawpic_owner, path, &cachepic->glpic);
 
     Hunk_FreeToLowMark(mark);
 
@@ -402,8 +408,6 @@ Draw_Init(void)
     qpic8_t *pic;
     char version[5];
 
-    GL_DisownTextures(&cachepic_owner);
-
     GL_Textures_Init();
 
     /* Load the graphics wad onto the hunk */
@@ -442,14 +446,17 @@ Draw_Init(void)
 void
 Draw_InitGLTextures()
 {
+    if (!draw_chars)
+        return; // Gamedir changed
+
     /* Upload the charset and crosshair textures */
     qpic8_t charset_pic = { 128, 128, 128, draw_chars };
-    charset_texture = GL_LoadTexture8(NULL, "charset", &charset_pic, TEXTURE_TYPE_CHARSET);
+    charset_texture = GL_LoadTexture8(&drawpic_owner, "charset", &charset_pic, TEXTURE_TYPE_CHARSET);
     qpic8_t crosshair_pic = { 8, 8, 8, crosshair_data };
-    crosshair_texture = GL_LoadTexture8(NULL, "crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
+    crosshair_texture = GL_LoadTexture8(&drawpic_owner, "crosshair", &crosshair_pic, TEXTURE_TYPE_HUD);
 
     /* Upload the console background texture */
-    conback->texture = GL_LoadTexture8_GLPic(NULL, "conback", conback);
+    conback->texture = GL_LoadTexture8_GLPic(&drawpic_owner, "conback", conback);
 
     /* create textures for scraps */
     Scrap_InitGLTextures();
