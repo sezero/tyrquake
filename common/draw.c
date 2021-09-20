@@ -674,17 +674,19 @@ Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
     drawlines = conback->height * CHAR_HEIGHT / 200;
     drawwidth = conback->width * CHAR_WIDTH / 320;
 
+    num |= 0x80; // Use alt text
+
     row = num >> 4;
     col = num & 15;
     source = draw_chars + (row << 10) + (col << 3);
-    fstep = 320 * 0x10000 / conback->width;
+    fstep = (320 << 16) / conback->width;
 
     for (y = 0; y < drawlines; y++, dest += conback->width) {
 	src = source + (y * CHAR_HEIGHT / drawlines) * 128;
 	f = 0;
 	for (x = 0; x < drawwidth; x++, f += fstep) {
 	    if (src[f >> 16])
-		dest[x] = 0x60 + src[f >> 16];
+		dest[x] = src[f >> 16];
 	}
     }
 }
