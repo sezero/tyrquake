@@ -98,7 +98,7 @@ R_NetGraph(void)
     if (!TextureIsValid(netgraphtexture)) {
         netgraphtexture = GL_AllocTexture8(NULL, "@netgraph", &netgraph, TEXTURE_TYPE_HUD);
     }
-    GL_Upload8(netgraphtexture, &netgraph, TEXTURE_TYPE_HUD);
+    GL_Upload8(netgraphtexture, &netgraph);
 
     x = 8;
     glColor3f(1, 1, 1);
