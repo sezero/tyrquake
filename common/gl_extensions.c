@@ -329,20 +329,37 @@ GL_ExtensionCheck_VertexProgram()
 // Need to track these program/shader resources and re-init if context goes away
 struct vertex_programs vp;
 
-/* Full pass - base texture with color plus fullbright mask texture overlay */
-static const char *alias_lerp_full_vp_text =
+/* Interpolate animation, handle base texture + fullbright and fog coord */
+static const char *alias_lerp_vp_text =
     "!!ARBvp1.0\n"
     "\n"
-    "ATTRIB pos0 = vertex.position;\n"
-    "ATTRIB pos1 = vertex.attrib[1];\n"
-    "PARAM  mat[4] = { state.matrix.mvp };\n"
-    "PARAM  lerp0 = program.local[0];\n"
-    "PARAM  lerp1 = program.local[1];\n"
-    "TEMP   lerpPos;\n"
+    "ATTRIB pos0        = vertex.position;\n"       // 0
+    "ATTRIB pos1        = vertex.attrib[1];\n"      // 1 (usually weight)
+    "ATTRIB norm0       = vertex.normal;\n"         // 2
+    "ATTRIB norm1       = vertex.attrib[3];\n"      // 3 (usually color)
+    "PARAM  mat[4]      = { state.matrix.mvp };\n"
+    "PARAM  lerp0       = program.local[0];\n"
+    "PARAM  lerp1       = program.local[1];\n"
+    "PARAM  shadevector = program.local[2];\n"
+    "PARAM  shadelight  = program.local[3];\n"
     "\n"
     "# Interpolate the vertex positions 0 and 1\n"
+    "TEMP   lerpPos;\n"
     "MUL    lerpPos, pos0, lerp0;\n"
     "MAD    lerpPos, pos1, lerp1, lerpPos;\n"
+    "\n"
+    "# Interpolate normals\n"
+    "TEMP   lerpNorm;\n"
+    "MUL    lerpNorm, norm0, lerp0;\n"
+    "MAD    lerpNorm, norm1, lerp1, lerpNorm;\n"
+    "\n"
+    "# Calculate lighting.  Shadevector is in model space, so no need to transform normal\n"
+    "TEMP shadedot, dothigh, dotlow;\n"
+    "DP3 shadedot, lerpNorm, shadevector;\n"
+    "ADD dothigh, shadedot, 1.0;\n"
+    "MAD dotlow, shadedot, 0.2954545, 1.0;\n"
+    "MAX shadedot, dotlow, dothigh;\n"
+    "MUL result.color, shadedot, shadelight;\n"
     "\n"
     "# Transform by concatenation of the MODELVIEW and PROJECTION matrices.\n"
     "TEMP   pos;\n"
@@ -353,39 +370,41 @@ static const char *alias_lerp_full_vp_text =
     "MOV    result.position, pos;\n"
     "MOV    result.fogcoord, pos.z;\n"
     "\n"
-    "# Pass two layers of texcoords and primary color unchanged.\n"
+    "# Pass two layers of texcoords unchanged.\n"
     "MOV    result.texcoord, vertex.texcoord;\n"
     "MOV    result.texcoord[1], vertex.texcoord[1];\n"
-    "MOV    result.color, vertex.color;\n"
     "END\n";
 
-/* Single texture and color/light */
-static const char *alias_lerp_base_vp_text =
+/* No lerping case */
+static const char *alias_nolerp_vp_text =
     "!!ARBvp1.0\n"
     "\n"
-    "ATTRIB pos0 = vertex.position;\n"
-    "ATTRIB pos1 = vertex.attrib[1];\n"
-    "PARAM  mat[4] = { state.matrix.mvp };\n"
-    "PARAM  lerp0 = program.local[0];\n"
-    "PARAM  lerp1 = program.local[1];\n"
-    "TEMP   lerpPos;\n"
+    "ATTRIB pos0        = vertex.position;\n"       // 0
+    "ATTRIB norm0       = vertex.normal;\n"         // 2
+    "PARAM  mat[4]      = { state.matrix.mvp };\n"
+    "PARAM  shadevector = program.local[2];\n"
+    "PARAM  shadelight  = program.local[3];\n"
     "\n"
-    "# Interpolate the vertex positions 0 and 1\n"
-    "MUL    lerpPos, pos0, lerp0;\n"
-    "MAD    lerpPos, pos1, lerp1, lerpPos;\n"
+    "# Calculate lighting.  Shadevector is in model space, so no need to transform normal\n"
+    "TEMP shadedot, dothigh, dotlow;\n"
+    "DP3 shadedot, norm0, shadevector;"
+    "ADD dothigh, shadedot, 1.0;\n"
+    "MAD dotlow, shadedot, 0.2954545, 1.0;\n"
+    "MAX shadedot, dotlow, dothigh;\n"
+    "MUL result.color, shadedot, shadelight;\n"
     "\n"
     "# Transform by concatenation of the MODELVIEW and PROJECTION matrices.\n"
     "TEMP   pos;\n"
-    "DP4    pos.x, mat[0], lerpPos;\n"
-    "DP4    pos.y, mat[1], lerpPos;\n"
-    "DP4    pos.z, mat[2], lerpPos;\n"
-    "DP4    pos.w, mat[3], lerpPos;\n"
+    "DP4    pos.x, mat[0], pos0;\n"
+    "DP4    pos.y, mat[1], pos0;\n"
+    "DP4    pos.z, mat[2], pos0;\n"
+    "DP4    pos.w, mat[3], pos0;\n"
     "MOV    result.position, pos;\n"
     "MOV    result.fogcoord, pos.z;\n"
     "\n"
-    "# Pass the texcoords and color unchanged.\n"
+    "# Pass the texcoords unchanged.\n"
     "MOV    result.texcoord, vertex.texcoord;\n"
-    "MOV    result.color, vertex.color;\n"
+    "MOV    result.texcoord[1], vertex.texcoord[1];\n"
     "END\n";
 
 #include "sys.h"
@@ -424,8 +443,8 @@ GL_InitVertexPrograms()
     qglGenPrograms(ARRAY_SIZE(vp.handles), vp.handles);
 
     qboolean success = true;
-    success &= GL_CompileVertexProgram(vp.alias_lerp_full, alias_lerp_full_vp_text);
-    success &= GL_CompileVertexProgram(vp.alias_lerp_base, alias_lerp_base_vp_text);
+    success &= GL_CompileVertexProgram(vp.alias_lerp, alias_lerp_vp_text);
+    success &= GL_CompileVertexProgram(vp.alias_nolerp, alias_nolerp_vp_text);
 
     /* If some vertex programs failed to compile, disable the feature */
     if (!success) {

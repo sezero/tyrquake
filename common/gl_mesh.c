@@ -52,7 +52,7 @@ GL_UploadAliasMeshData(aliashdr_t *hdr)
         /* Upload the static data for vertices, indices and texcoords */
         float *vertex = (float *)((byte *)hdr + hdr->posedata);
         qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.vertex);
-        qglBufferData(GL_ARRAY_BUFFER, hdr->numposes * hdr->numverts * 3 * sizeof(float), vertex, GL_STATIC_DRAW);
+        qglBufferData(GL_ARRAY_BUFFER, hdr->numposes * hdr->numverts * 6 * sizeof(float), vertex, GL_STATIC_DRAW);
 
         texcoord_t *texcoord = (texcoord_t *)((byte *)hdr + glhdr->texcoords);
         qglBindBuffer(GL_ARRAY_BUFFER, glhdr->buffers.texcoord);
@@ -152,10 +152,11 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
     }
 
     /*
-     * Allocate the pose data (vertices)
+     * Allocate the pose data (vertices + normals)
+     * TODO: try compressed int8 verts/normals?
      */
     int numverts = hdr->numverts + num_seam_verts;
-    float *vertex = Hunk_AllocName(hdr->numposes * numverts * 3 * sizeof(float), "meshtris");
+    float *vertex = Hunk_AllocName(hdr->numposes * numverts * 6 * sizeof(float), "meshvert");
     hdr->posedata = (byte *)vertex - (byte *)hdr;
 
     /* Each pose has unique vertices and a normal which is used to generate a color for shading */
@@ -165,6 +166,11 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
 	    *vertex++ = posedata->verts[posenum][i].v[0];
 	    *vertex++ = posedata->verts[posenum][i].v[1];
 	    *vertex++ = posedata->verts[posenum][i].v[2];
+
+            const float *normal = r_avertexnormals[posedata->verts[posenum][i].lightnormalindex];
+            *vertex++ = normal[0];
+            *vertex++ = normal[1];
+            *vertex++ = normal[2];
         }
         for (i = 0; i < hdr->numverts; i++) {
             if (!seam_vertex_map[i])
@@ -172,6 +178,11 @@ GL_LoadAliasMeshData(const model_t *model, aliashdr_t *hdr,
             *vertex++ = posedata->verts[posenum][i].v[0];
             *vertex++ = posedata->verts[posenum][i].v[1];
             *vertex++ = posedata->verts[posenum][i].v[2];
+
+            const float *normal = r_avertexnormals[posedata->verts[posenum][i].lightnormalindex];
+            *vertex++ = normal[0];
+            *vertex++ = normal[1];
+            *vertex++ = normal[2];
         }
     }
 

@@ -330,8 +330,8 @@ struct vertex_programs {
     union {
         GLuint handles[2];
         struct {
-            GLuint alias_lerp_full;        // Base + fullbright masks in single pass
-            GLuint alias_lerp_base;        // Single texture per pass
+            GLuint alias_lerp;
+            GLuint alias_nolerp;
         };
     };
 };

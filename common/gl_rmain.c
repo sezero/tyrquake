@@ -529,7 +529,7 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
     const maliasskindesc_t *skindesc;
     const float *intervals;
     int skinnum, numframes, frame;
-    const qgltexture_t *textures;
+    const qgltexture_t *skin;
 
     skinnum = entity->skinnum;
     if ((skinnum >= aliashdr->numskins) || (skinnum < 0)) {
@@ -549,9 +549,37 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 	frame += Mod_FindInterval(intervals + frame, numframes, frametime);
     }
 
-    textures = (qgltexture_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures);
+    skin = (qgltexture_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->textures) + frame;
 
-    return &textures[frame];
+    /*
+     * Handle dynamically colormapped player textures.  Each player
+     * skin is cached separately with the color mapping applied.
+     * Heads are just uncolored.
+     */
+#ifdef NQ_HACK
+    if (entity->colormap != vid.colormap && !gl_nocolors.value) {
+	const int playernum = CL_PlayerEntity(entity);
+	if (playernum) {
+	    skin = &playertextures[playernum - 1].texture;
+            assert(TextureIsValid(skin->base));
+        }
+    }
+#endif
+#ifdef QW_HACK
+    if (entity->scoreboard && !gl_nocolors.value) {
+	const int playernum = entity->scoreboard - cl.players;
+	if (!entity->scoreboard->skin) {
+	    Skin_Find(entity->scoreboard);
+	    R_TranslatePlayerSkin(playernum);
+	}
+	if (playernum >= 0 && playernum < MAX_CLIENTS) {
+	    skin = &playertextures[playernum].texture;
+            assert(TextureIsValid(skin->base));
+        }
+    }
+#endif
+
+    return skin;
 }
 
 static void
@@ -731,90 +759,8 @@ R_AliasDrawModel(entity_t *entity)
     aliashdr = Mod_Extradata(entity->model);
     R_AliasSetupAnimationLerp(entity, aliashdr, &lerpdata);
 
-    const float weight0 = 1.0f - lerpdata.blend;
-    const float weight1 = lerpdata.blend;
-    const qboolean do_lerp = (lerpdata.blend != 1.0f);
-    const qboolean gpu_lerp = (gl_buffer_objects_enabled && gl_vertex_program_enabled && do_lerp);
-    const qboolean cpu_lerp = (!gpu_lerp && do_lerp);
-
-    const int numverts = aliashdr->numverts;
-
-    /* Generate the vertex buffers */
-    float *vertexbuf0;
-    float *vertexbuf1;
-    if (gpu_lerp) {
-        glEnable(GL_VERTEX_PROGRAM_ARB);
-        /* Buffer pointers are an offset into the GPU buffer */
-        vertexbuf0 = (float *)((intptr_t)lerpdata.pose0 * numverts * 3 * sizeof(float));
-        vertexbuf1 = (float *)((intptr_t)lerpdata.pose1 * numverts * 3 * sizeof(float));
-    } else if (cpu_lerp) {
-        /* Do the blend into local memory */
-        vertexbuf0 = alloca(numverts * 3 * sizeof(float));
-        const float *posedata = (float *)((byte *)aliashdr + aliashdr->posedata);
-        const float *vert0 = posedata + lerpdata.pose0 * numverts * 3;
-        const float *vert1 = posedata + lerpdata.pose1 * numverts * 3;
-        float *dstvert = vertexbuf0;
-        for (i = 0; i < numverts; i++) {
-            *dstvert++ = *vert0++ * weight0 + *vert1++ * weight1;
-            *dstvert++ = *vert0++ * weight0 + *vert1++ * weight1;
-            *dstvert++ = *vert0++ * weight0 + *vert1++ * weight1;
-        }
-    } else if (gl_buffer_objects_enabled) {
-        /* Setup the offset into the static GPU buffer */
-        vertexbuf0 = (float *)((intptr_t)lerpdata.pose1 * numverts * 3 * sizeof(float));
-    } else {
-        float *posedata = (float *)((byte *)aliashdr + aliashdr->posedata);
-        vertexbuf0 = posedata + lerpdata.pose1 * numverts * 3;
-    }
-
-    /* Generate the color buffer (lighting/alpha) */
-    uint8_t *colorbuf = alloca(numverts * 4 * sizeof(uint8_t));
-
-    const uint8_t alpha = ENTALPHA_DECODE(entity->alpha) * 255.0f;
-    const qboolean alpha_blend = (alpha < 255);
-    if (do_lerp) {
-        const uint8_t *lightnormalindices = (byte *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
-        const uint8_t *lightnormalindex0 = lightnormalindices + lerpdata.pose0 * numverts;
-        const uint8_t *lightnormalindex1 = lightnormalindices + lerpdata.pose1 * numverts;
-        uint8_t *dstcolor = colorbuf;
-        for (i = 0; i < numverts; i++) {
-            float lightscale;
-            lightscale  = light.shadedots[*lightnormalindex0++] * weight0;
-            lightscale += light.shadedots[*lightnormalindex1++] * weight1;
-            lightscale *= 128.0f;
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
-            *dstcolor++ = alpha;
-        }
-    } else {
-        const uint8_t *lightnormalindex = (const uint8_t *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
-        lightnormalindex += lerpdata.pose1 * numverts;
-        uint8_t *dstcolor = colorbuf;
-        for (i = 0; i < numverts; i++) {
-            float lightscale = light.shadedots[*lightnormalindex++] * 128.0f;
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
-            *dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
-            *dstcolor++ = alpha;
-        }
-    }
-
-    /* Indices and texture coordinates are static buffers or raw model data */
-    uint16_t *indices;
-    float *texcoords;
-    if (gl_buffer_objects_enabled) {
-        indices = 0;
-        texcoords = 0;
-        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.index);
-    } else {
-        indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
-        texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
-    }
-
     /* Setup state for drawing */
     VectorCopy(lerpdata.origin, r_entorigin);
-    GL_DisableMultitexture();
     glPushMatrix();
     R_RotateForEntity(lerpdata.origin, lerpdata.angles);
 
@@ -836,40 +782,137 @@ R_AliasDrawModel(entity_t *entity)
 	glScalef(scale[0], scale[1], scale[2]);
     }
 
+    const float weight0 = 1.0f - lerpdata.blend;
+    const float weight1 = lerpdata.blend;
+    const qboolean do_lerp = (lerpdata.blend != 1.0f);
+    const qboolean use_vp = (gl_buffer_objects_enabled && gl_vertex_program_enabled);
+
+    const int numverts = aliashdr->numverts;
+    const uint8_t alpha = ENTALPHA_DECODE(entity->alpha) * 255.0f;
+    const qboolean alpha_blend = (alpha < 255);
+
+    /* Setup the various buffers */
+    float    *vertexbuf0 = NULL;
+    float    *vertexbuf1 = NULL;
+    uint8_t  *colorbuf   = NULL;
+    uint16_t *indices    = NULL;
+    float    *texcoords  = NULL;
+
+    if (use_vp) {
+        vertexbuf0 = (float *)NULL + lerpdata.pose0 * numverts * 6;
+        vertexbuf1 = (float *)NULL + lerpdata.pose1 * numverts * 6;
+        glEnable(GL_VERTEX_PROGRAM_ARB);
+        if (do_lerp) {
+            qglBindProgram(GL_VERTEX_PROGRAM_ARB, vp.alias_lerp);
+            qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 0, weight0, weight0, weight0, weight0);
+            qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 1, weight1, weight1, weight1, weight1);
+        } else {
+            qglBindProgram(GL_VERTEX_PROGRAM_ARB, vp.alias_nolerp);
+        }
+
+        /* Calculate lighting parameters for the vertex program */
+        vec3_t shadevector;
+        float angle = (lerpdata.angles[1] + lerpdata.angles[0]) / 180 * M_PI;
+
+        shadevector[0] = cosf(-angle);
+        shadevector[1] = sinf(-angle);
+        shadevector[2] = 1.0f;
+        VectorNormalize(shadevector);
+        VectorScale(light.shade, 0.5f, light.shade);
+        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 2, shadevector[0], shadevector[1], shadevector[2], 1.0f);
+        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 3, light.shade[0], light.shade[1], light.shade[2], (float)alpha / 255.0f);
+    } else if (gl_buffer_objects_enabled) {
+        if (do_lerp) {
+            float *posedata = (float *)((byte *)aliashdr + aliashdr->posedata);
+            vertexbuf0 = posedata + lerpdata.pose0 * numverts * 6;
+            vertexbuf1 = posedata + lerpdata.pose1 * numverts * 6;
+        } else {
+            vertexbuf0 = (float *)NULL + lerpdata.pose0 * numverts * 6;
+            vertexbuf1 = (float *)NULL + lerpdata.pose1 * numverts * 6;
+        }
+    } else {
+        float *posedata = (float *)((byte *)aliashdr + aliashdr->posedata);
+        vertexbuf0 = posedata + lerpdata.pose0 * numverts * 6;
+        vertexbuf1 = posedata + lerpdata.pose1 * numverts * 6;
+        indices = (uint16_t *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->indices);
+        texcoords = (float *)((byte *)aliashdr + GL_Aliashdr(aliashdr)->texcoords);
+    }
+
+    /* Interpolate vertices if needed */
+    if (do_lerp && !use_vp) {
+        /* Blend vertices */
+        float *outbuf = alloca(numverts * 6 * sizeof(float));
+        float *dstvert = outbuf;
+        for (i = 0; i < numverts; i++) {
+            *dstvert++ = *vertexbuf0++ * weight0 + *vertexbuf1++ * weight1;
+            *dstvert++ = *vertexbuf0++ * weight0 + *vertexbuf1++ * weight1;
+            *dstvert++ = *vertexbuf0++ * weight0 + *vertexbuf1++ * weight1;
+
+            /* Skip over normals in this case - TODO: don't even load normals if no VP */
+            dstvert += 3;
+            vertexbuf0 += 3;
+            vertexbuf1 += 3;
+        }
+
+        vertexbuf0 = outbuf;
+        vertexbuf1 = NULL;
+    }
+
+    /* If no interpolation, render the destination state */
+    if (!do_lerp)
+        vertexbuf0 = vertexbuf1;
+
+    /* Generate color buffer for lighting if vertex program not available */
+    if (!use_vp) {
+	colorbuf = alloca(numverts * 4 * sizeof(uint8_t));
+	if (do_lerp) {
+	    /* Blend normals / lighting */
+	    const uint8_t *lightnormalindices = (byte *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
+	    const uint8_t *lightnormalindex0 = lightnormalindices + lerpdata.pose0 * numverts;
+	    const uint8_t *lightnormalindex1 = lightnormalindices + lerpdata.pose1 * numverts;
+	    uint8_t *dstcolor = colorbuf;
+	    for (i = 0; i < numverts; i++) {
+		float lightscale;
+		lightscale  = light.shadedots[*lightnormalindex0++] * weight0;
+		lightscale += light.shadedots[*lightnormalindex1++] * weight1;
+		lightscale *= 128.0f;
+		*dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
+		*dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
+		*dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
+		*dstcolor++ = alpha;
+	    }
+        } else {
+	    /* Generate lighting from single pose */
+	    const uint8_t *lightnormalindex = (const uint8_t *)aliashdr + GL_Aliashdr(aliashdr)->lightnormalindex;
+	    lightnormalindex += lerpdata.pose1 * numverts;
+	    uint8_t *dstcolor = colorbuf;
+	    for (i = 0; i < numverts; i++) {
+		float lightscale = light.shadedots[*lightnormalindex++] * 128.0f;
+		*dstcolor++ = (uint8_t)qmin(lightscale * light.shade[0], 255.0f);
+		*dstcolor++ = (uint8_t)qmin(lightscale * light.shade[1], 255.0f);
+		*dstcolor++ = (uint8_t)qmin(lightscale * light.shade[2], 255.0f);
+		*dstcolor++ = alpha;
+	    }
+        }
+    }
+
+    /* Bind color buffer */
+    if (r_fullbright.value) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+    } else {
+        glEnableClientState(GL_COLOR_ARRAY);
+        glColorPointer(4, GL_UNSIGNED_BYTE, 0, colorbuf);
+    }
+
+    /* Indices and texture coordinates are static buffers or raw model data */
+    if (gl_buffer_objects_enabled)
+        qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.index);
+
     const qgltexture_t *skin = R_AliasSetupSkin(entity, aliashdr);
     qboolean skin_has_fullbrights = TextureIsValid(skin->fullbright);
-    GL_Bind(skin->base);
 
-    /*
-     * We can't dynamically colormap textures, so they are cached
-     * seperately for the players.  Heads are just uncolored.
-     */
-#ifdef NQ_HACK
-    if (entity->colormap != vid.colormap && !gl_nocolors.value) {
-	const int playernum = CL_PlayerEntity(entity);
-	if (playernum) {
-	    skin_has_fullbrights = playertextures[playernum - 1].fullbright;
-	    skin = &playertextures[playernum - 1].texture;
-            assert(TextureIsValid(skin->base));
-	    GL_Bind(skin->base);
-        }
-    }
-#endif
-#ifdef QW_HACK
-    if (entity->scoreboard && !gl_nocolors.value) {
-	const int playernum = entity->scoreboard - cl.players;
-	if (!entity->scoreboard->skin) {
-	    Skin_Find(entity->scoreboard);
-	    R_TranslatePlayerSkin(playernum);
-	}
-	if (playernum >= 0 && playernum < MAX_CLIENTS) {
-	    skin_has_fullbrights = playertextures[playernum].fullbright;
-	    skin = &playertextures[playernum].texture;
-            assert(TextureIsValid(skin->base));
-	    GL_Bind(skin->base);
-        }
-    }
-#endif
+    GL_DisableMultitexture();
+    GL_Bind(skin->base);
 
     if (gl_smoothmodels.value)
 	glShadeModel(GL_SMOOTH);
@@ -892,16 +935,8 @@ R_AliasDrawModel(entity_t *entity)
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     }
 
-    /* Select the appropriate vertex program */
-    const qboolean fullbright_pass = skin_has_fullbrights && gl_fullbrights.value && !r_fullbright.value;
-    if (gpu_lerp) {
-        GLuint vertex_program = (gl_mtexable && fullbright_pass) ? vp.alias_lerp_full : vp.alias_lerp_base;
-        qglBindProgram(GL_VERTEX_PROGRAM_ARB, vertex_program);
-        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 0, weight0, weight0, weight0, weight0);
-        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 1, weight1, weight1, weight1, weight1);
-    }
+    const qboolean do_fullbright_pass = skin_has_fullbrights && gl_fullbrights.value && !r_fullbright.value;
 
-    /* Draw */
     glEnable(GL_VERTEX_ARRAY);
     if (gl_mtexable)
         qglClientActiveTexture(GL_TEXTURE0);
@@ -909,21 +944,30 @@ R_AliasDrawModel(entity_t *entity)
     /* Bind vertices */
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    if (gpu_lerp) {
-        /* Interpolate static vertex buffers on the GPU */
+    if (use_vp) {
+	/* Primary vertices and normals */
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
-        glVertexPointer(3, GL_FLOAT, 0, vertexbuf0);
-        qglEnableVertexAttribArray(1);
-        qglVertexAttribPointer(1, 3, GL_FLOAT, false, 0, vertexbuf1);
+        glVertexPointer(3, GL_FLOAT, 6 * sizeof(float), vertexbuf0);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glNormalPointer(GL_FLOAT, 6 * sizeof(float), vertexbuf0 + 3);
+
+	/* Bind secondary verts/normals if interpolating */
+	if (do_lerp) {
+	    qglEnableVertexAttribArray(1);
+	    qglVertexAttribPointer(1, 3, GL_FLOAT, false, 6 * sizeof(float), vertexbuf1);
+	    qglEnableVertexAttribArray(3);
+	    qglVertexAttribPointer(3, 3, GL_FLOAT, false, 6 * sizeof(float), vertexbuf1 + 3);
+	}
+
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
-    } else if (gl_buffer_objects_enabled && !cpu_lerp) {
-        /* Use static vertex buffer on the GPU */
+    } else if (gl_buffer_objects_enabled && !do_lerp) {
+        /* Use static vertex/normals buffers on the GPU */
         qglBindBuffer(GL_ARRAY_BUFFER, GL_Aliashdr(aliashdr)->buffers.vertex);
-        glVertexPointer(3, GL_FLOAT, 0, vertexbuf0);
+        glVertexPointer(3, GL_FLOAT, 6 * sizeof(float), vertexbuf0);
         qglBindBuffer(GL_ARRAY_BUFFER, 0);
     } else {
-        /* Dynamically uploaded vertex buffer */
-        glVertexPointer(3, GL_FLOAT, 0, vertexbuf0);
+        /* Client side vertex buffer for upload */
+        glVertexPointer(3, GL_FLOAT, 6 * sizeof(float), vertexbuf0);
     }
 
     /* Bind texture coordinates */
@@ -935,16 +979,8 @@ R_AliasDrawModel(entity_t *entity)
         glTexCoordPointer(2, GL_FLOAT, 0, texcoords);
     }
 
-    /* Bind color buffer */
-    if (r_fullbright.value) {
-        glColor3f(1.0f, 1.0f, 1.0f);
-    } else {
-        glEnableClientState(GL_COLOR_ARRAY);
-        glColorPointer(4, GL_UNSIGNED_BYTE, 0, colorbuf);
-    }
-
     /* If rendering fullbright mask with multitexture, bind the second texture and coordinates */
-    if (gl_mtexable && fullbright_pass) {
+    if (gl_mtexable && do_fullbright_pass) {
         GL_EnableMultitexture();
         GL_Bind(skin->fullbright);
         qglClientActiveTexture(GL_TEXTURE1);
@@ -967,7 +1003,7 @@ R_AliasDrawModel(entity_t *entity)
     gl_indices_submitted += aliashdr->numtris * 3;
 
     /* Disable second texture if we enabled it */
-    if (gl_mtexable && fullbright_pass) {
+    if (gl_mtexable && do_fullbright_pass) {
         glDisableClientState(GL_TEXTURE_COORD_ARRAY);
         qglClientActiveTexture(GL_TEXTURE0);
         GL_DisableMultitexture();
@@ -979,26 +1015,26 @@ R_AliasDrawModel(entity_t *entity)
         glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     }
 
-    /* Disable color buffer */
-    glDisableClientState(GL_COLOR_ARRAY);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+    /* Disable lighting for second pass */
+    if (use_vp)
+	glDisableClientState(GL_NORMAL_ARRAY);
+    else
+	glDisableClientState(GL_COLOR_ARRAY);
 
     /* If we are doing fullbrights on the second pass, do that now */
-    if (!gl_mtexable && fullbright_pass && !alpha_blend) {
-        qglBindProgram(GL_VERTEX_PROGRAM_ARB, vp.alias_lerp_base);
-        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 0, weight0, weight0, weight0, weight0);
-        qglProgramLocalParameter4f(GL_VERTEX_PROGRAM_ARB, 1, weight1, weight1, weight1, weight1);
-
+    if (!gl_mtexable && do_fullbright_pass && !alpha_blend) {
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         GL_Bind(skin->fullbright);
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
         qglDrawRangeElements(GL_TRIANGLES, 0, aliashdr->numverts - 1, aliashdr->numtris * 3, GL_UNSIGNED_SHORT, indices);
         gl_draw_calls++;
         gl_verts_submitted += numverts;
         gl_indices_submitted += aliashdr->numtris * 3;
 
+        glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
         glDisable(GL_BLEND);
         glDepthMask(GL_TRUE);
     }
@@ -1020,9 +1056,12 @@ R_AliasDrawModel(entity_t *entity)
         qglBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
     /* Disable the vertex program if we enabled it */
-    if (gpu_lerp) {
-        qglDisableVertexAttribArray(1);
+    if (use_vp) {
         glDisable(GL_VERTEX_PROGRAM_ARB);
+	if (do_lerp) {
+	    qglDisableVertexAttribArray(1); // Secondary vertices
+	    qglDisableVertexAttribArray(3); // Secondary normals
+	}
     }
 
     glDisableClientState(GL_VERTEX_ARRAY);
