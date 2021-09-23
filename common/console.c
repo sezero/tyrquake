@@ -386,7 +386,7 @@ Con_DPrintf(const char *fmt, ...)
     qvsnprintf(msg, sizeof(msg), fmt, argptr);
     va_end(argptr);
 
-    Con_Printf("%s", msg);
+    Con_SafePrintf("%s", msg);
 }
 
 
