@@ -282,6 +282,10 @@ R_RegisterVariables()
 
     Cvar_RegisterVariable(&_debug_models);
 
+    Cvar_RegisterVariable(&r_warpspeed);
+    Cvar_RegisterVariable(&r_warpfactor);
+    Cvar_RegisterVariable(&r_warpscale);
+
     Fog_RegisterVariables();
     Sky_RegisterVariables();
     GL_Textures_RegisterVariables();

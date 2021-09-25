@@ -20,6 +20,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 // gl_warp_sin.h
 // Precalulated table of sin values for use in gl_warp.c
+//
+// Values are: 8.0 * sin(index * (2 * M_PI) / 256))
 
 /* *INDENT-OFF* */
 

@@ -206,6 +206,8 @@ GL_GetTextureFormat(const gltexture_t *texture)
 {
     if (texture->type == TEXTURE_TYPE_LIGHTMAP) {
         return gl_lightmap_format;
+    } else if (texture->type == TEXTURE_TYPE_DATA) {
+        return GL_RGBA;
     } else if (texture_properties[texture->type].palette->alpha) {
         if (gl_texture_compression_enabled) {
             switch (texture->type) {
@@ -327,6 +329,10 @@ GL_SetTextureMode(const gltexture_t *texture)
     if (texture->type == TEXTURE_TYPE_NOTEXTURE) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    } else if (texture->type == TEXTURE_TYPE_DATA) {
+        /* For warp vertex program we want to interpolate these values when sampling */
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     } else if (texture_properties[texture->type].mipmap) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_texturemode_current->min_filter);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_texturemode_current->mag_filter);
@@ -1031,6 +1037,7 @@ GL_Textures_Init(void)
 
     GL_InitTextureManager();
     GL_LoadNoTexture();
+    GL_CreateWarpTableTexture();
 }
 
 

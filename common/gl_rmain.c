@@ -162,11 +162,13 @@ GL_Init(void)
     GL_ExtensionCheck_NPoT();
     GL_ExtensionCheck_BufferObjects();
     GL_ExtensionCheck_VertexProgram();
+    GL_ExtensionCheck_FragmentProgram();
     GL_ExtensionCheck_RangeElements();
     GL_ExtensionCheck_TextureCompression();
     GL_ExtensionCheck_Anisotropy();
 
     GL_InitVertexPrograms();
+    GL_InitFragmentPrograms();
 
     glClearColor(0.5, 0.5, 0.5, 0);
     glFrontFace(GL_CW);

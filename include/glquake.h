@@ -328,21 +328,40 @@ extern GLboolean (APIENTRY *qglIsProgram)(GLuint program);
 /* TEMPORARY HACK */
 struct vertex_programs {
     union {
-        GLuint handles[2];
+        GLuint handles[3];
         struct {
             GLuint alias_lerp;
             GLuint alias_nolerp;
+            GLuint warp;
         };
     };
 };
+struct fragment_programs {
+    union {
+        GLuint handles[2];
+        struct {
+            GLuint warp;
+            GLuint warp_fog;
+        };
+    };
+};
+
+extern const char warp_vp_text[];
+extern const char warp_fp_text[];
+extern const char warp_fog_fp_text[];
+extern texture_id_t r_warp_lookup_table;
+
 extern struct vertex_programs vp;
+extern struct fragment_programs fp;
 extern void GL_InitVertexPrograms();
+extern void GL_InitFragmentPrograms();
 
 extern qboolean gl_npotable;
 extern qboolean gl_mtexable;
 extern qboolean gl_texture_env_combine;
 extern qboolean gl_buffer_objects_enabled;
 extern qboolean gl_vertex_program_enabled;
+extern qboolean gl_fragment_program_enabled;
 extern qboolean gl_texture_compression_enabled;
 extern qboolean gl_anisotropy_enabled;
 
@@ -356,18 +375,23 @@ void GL_ExtensionCheck_Combine(void);
 void GL_ExtensionCheck_GenerateMipmaps();
 void GL_ExtensionCheck_BufferObjects();
 void GL_ExtensionCheck_VertexProgram();
+void GL_ExtensionCheck_FragmentProgram();
 void GL_ExtensionCheck_RangeElements();
 void GL_ExtensionCheck_TextureCompression();
 void GL_ExtensionCheck_Anisotropy();
+void GL_ExtensionCheck_FramebufferObject();
 void GL_DisableMultitexture(void);
 void GL_EnableMultitexture(void);
 
 //
 // gl_warp.c
 //
+extern cvar_t r_warpspeed;
+extern cvar_t r_warpfactor;
+extern cvar_t r_warpscale;
 extern cvar_t r_waterquality;
-void GL_SubdivideSurface(brushmodel_t *brushmodel, msurface_t *surf);
 void R_UpdateWarpTextures();
+void GL_CreateWarpTableTexture();
 
 //
 // gl_draw.c

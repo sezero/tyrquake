@@ -527,34 +527,26 @@ AddSurfaceVertices(brushmodel_t *brushmodel, msurface_t *surf, vec7_t *verts)
 
 	/* Texture coordinates */
         const mtexinfo_t *const texinfo = surf->texinfo;
-	float s = DotProduct(bspvertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
-	float t = DotProduct(bspvertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
+	float s = DotProduct(bspvertex, texinfo->vecs[0]);
+	float t = DotProduct(bspvertex, texinfo->vecs[1]);
+
         if (surf->flags & SURF_DRAWTURB) {
-            s /= 128.0f;
-            t /= 128.0f;
+            verts[i][3] = s / 64.0f; /* Scaled by standard warp texture width/height of 64 */
+            verts[i][4] = t / 64.0f;
+            verts[i][5] = s;         /* Unscaled texcoord for warp fragment program */
+            verts[i][6] = t;
         } else {
-            s /= texinfo->texture->width;
-            t /= texinfo->texture->height;
+            s += surf->texinfo->vecs[0][3];
+            t += surf->texinfo->vecs[1][3];
+
+            /* Surface texture coordinates */
+            verts[i][3] = s / texinfo->texture->width;
+            verts[i][4] = t / texinfo->texture->height;
+
+            /* Lightmap texture coordinates */
+            verts[i][5] = (s - surf->texturemins[0] + (surf->light_s * 16) + 8) / (BLOCK_WIDTH  * 16);
+            verts[i][6] = (t - surf->texturemins[1] + (surf->light_t * 16) + 8) / (BLOCK_HEIGHT * 16);
         }
-
-	verts[i][3] = s;
-	verts[i][4] = t;
-
-	/* Lightmap texture coordinates */
-	s = DotProduct(bspvertex, texinfo->vecs[0]) + texinfo->vecs[0][3];
-	s -= surf->texturemins[0];
-	s += surf->light_s * 16;
-	s += 8;
-	s /= BLOCK_WIDTH * 16;	/* texinfo->texture->width */
-
-	t = DotProduct(bspvertex, texinfo->vecs[1]) + texinfo->vecs[1][3];
-	t -= surf->texturemins[1];
-	t += surf->light_t * 16;
-	t += 8;
-	t /= BLOCK_HEIGHT * 16;	/* texinfo->texture->height */
-
-	verts[i][5] = s;
-	verts[i][6] = t;
     }
 }
 

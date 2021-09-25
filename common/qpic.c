@@ -52,6 +52,7 @@ texture_properties_t texture_properties[] = {
     { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // NOTEXTURE
     { NULL,                   QPIC_ALPHA_OP_NONE,          false, false, false, false }, // LIGHTMAP
     { &qpal_standard,         QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // WARP_TARGET
+    { NULL,                   QPIC_ALPHA_OP_NONE,          false, false, false, true  }, // DATA
 };
 
 /*

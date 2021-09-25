@@ -285,15 +285,31 @@ void (APIENTRY *qglDisableVertexAttribArray)(GLuint index);
 void (APIENTRY *qglVertexAttribPointer)(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 GLboolean (APIENTRY *qglIsProgram)(GLuint program);
 
-void
-GL_ExtensionCheck_VertexProgram()
+static qboolean
+GL_ProgramFunctionsAreLoaded()
 {
-    gl_vertex_program_enabled = false;
-    if (COM_CheckParm("-noglvertexprogram"))
-        return;
+    return
+        qglProgramString            &&
+        qglBindProgram              &&
+        qglDeletePrograms           &&
+        qglGenPrograms              &&
+        qglProgramLocalParameter4f  &&
+        qglProgramLocalParameter4fv &&
+        qglProgramEnvParameter4f    &&
+        qglProgramEnvParameter4fv   &&
+        qglEnableVertexAttribArray  &&
+        qglDisableVertexAttribArray &&
+        qglVertexAttribPointer      &&
+        qglIsProgram;
+}
 
-    // TODO: Is this available as a non-extension?
-    if (GL_ExtensionCheck("GL_ARB_vertex_program")) {
+static qboolean
+GL_LoadProgramFunctions()
+{
+    if (GL_ProgramFunctionsAreLoaded())
+        return true;
+
+    if (GL_ExtensionCheck("GL_ARB_vertex_program") || GL_ExtensionCheck("GL_ARB_fragment_program")) {
         qglProgramString            = GL_GetProcAddress("glProgramStringARB");
         qglBindProgram              = GL_GetProcAddress("glBindProgramARB");
         qglDeletePrograms           = GL_GetProcAddress("glDeleteProgramsARB");
@@ -308,20 +324,17 @@ GL_ExtensionCheck_VertexProgram()
         qglIsProgram                = GL_GetProcAddress("glIsProgramARB");
     }
 
-    gl_vertex_program_enabled =
-        qglProgramString            &&
-        qglBindProgram              &&
-        qglDeletePrograms           &&
-        qglGenPrograms              &&
-        qglProgramLocalParameter4f  &&
-        qglProgramLocalParameter4fv &&
-        qglProgramEnvParameter4f    &&
-        qglProgramEnvParameter4fv   &&
-        qglEnableVertexAttribArray  &&
-        qglDisableVertexAttribArray &&
-        qglVertexAttribPointer      &&
-        qglIsProgram;
+    return GL_ProgramFunctionsAreLoaded();
+}
 
+void
+GL_ExtensionCheck_VertexProgram()
+{
+    gl_vertex_program_enabled = false;
+    if (COM_CheckParm("-noglvertexprogram"))
+        return;
+
+    gl_vertex_program_enabled = GL_ExtensionCheck("GL_ARB_vertex_program") && GL_LoadProgramFunctions();
     if (gl_vertex_program_enabled)
         Con_Printf("***** GL Vertex Program Enabled!\n");
 }
@@ -407,22 +420,30 @@ static const char *alias_nolerp_vp_text =
     "MOV    result.texcoord[1], vertex.texcoord[1];\n"
     "END\n";
 
-#include "sys.h"
-
-static qboolean
-GL_CompileVertexProgram(GLuint handle, const char *text)
+static const char *
+ProgramTypeString(GLenum program_type)
 {
-    qglBindProgram(GL_VERTEX_PROGRAM_ARB, handle);
-    qglProgramString(GL_VERTEX_PROGRAM_ARB, GL_PROGRAM_FORMAT_ASCII_ARB, strlen(text), text);
-    qglBindProgram(GL_VERTEX_PROGRAM_ARB, 0);
-
-    GLuint error = glGetError();
-    if (!error) {
-        Con_DPrintf("-----------------> Vertex Program Compiled!\n");
-        return true;
+    switch (program_type) {
+        case GL_VERTEX_PROGRAM_ARB: return "vertex";
+        case GL_FRAGMENT_PROGRAM_ARB: return "fragment";
+        default: assert(!"Invalid program type");
     }
 
-    Con_DPrintf("Vertex Program Error Code %d (0x%x)\n", error, error);
+    return "";
+}
+
+static qboolean
+GL_CompileProgram(GLenum program_type, GLuint handle, const char *text)
+{
+    qglBindProgram(program_type, handle);
+    qglProgramString(program_type, GL_PROGRAM_FORMAT_ASCII_ARB, strlen(text), text);
+    qglBindProgram(program_type, 0);
+
+    GLuint error = glGetError();
+    if (!error)
+        return true;
+
+    Con_DPrintf("%s program error code %d (0x%x)\n", ProgramTypeString(program_type), error, error);
     const char *error_message = (const char *)glGetString(GL_PROGRAM_ERROR_STRING_ARB);
     int error_position;
     glGetIntegerv(GL_PROGRAM_ERROR_POSITION_ARB, &error_position);
@@ -443,12 +464,13 @@ GL_InitVertexPrograms()
     qglGenPrograms(ARRAY_SIZE(vp.handles), vp.handles);
 
     qboolean success = true;
-    success &= GL_CompileVertexProgram(vp.alias_lerp, alias_lerp_vp_text);
-    success &= GL_CompileVertexProgram(vp.alias_nolerp, alias_nolerp_vp_text);
+    success &= GL_CompileProgram(GL_VERTEX_PROGRAM_ARB, vp.alias_lerp, alias_lerp_vp_text);
+    success &= GL_CompileProgram(GL_VERTEX_PROGRAM_ARB, vp.alias_nolerp, alias_nolerp_vp_text);
+    success &= GL_CompileProgram(GL_VERTEX_PROGRAM_ARB, vp.warp, warp_vp_text);
 
     /* If some vertex programs failed to compile, disable the feature */
     if (!success) {
-        Con_Printf(
+        Con_SafePrintf(
             "WARNING: Some vertex programs failed to compile.\n"
             "         Vertex programs will be disabled.\n"
             "         Enable developer mode for further info.\n"
@@ -458,6 +480,46 @@ GL_InitVertexPrograms()
 }
 
 
+/*
+ * Fragment Programs
+ */
+qboolean gl_fragment_program_enabled;
+
+void
+GL_ExtensionCheck_FragmentProgram()
+{
+    gl_fragment_program_enabled = false;
+    if (COM_CheckParm("-noglfragmentprogram"))
+        return;
+
+    gl_fragment_program_enabled = GL_ExtensionCheck("GL_ARB_fragment_program") && GL_LoadProgramFunctions();
+    if (gl_vertex_program_enabled)
+        Con_Printf("***** GL Fragment Program Enabled!\n");
+}
+
+struct fragment_programs fp;
+
+void
+GL_InitFragmentPrograms()
+{
+    if (!gl_fragment_program_enabled)
+        return;
+
+    qglGenPrograms(ARRAY_SIZE(fp.handles), fp.handles);
+
+    qboolean success = true;
+    success &= GL_CompileProgram(GL_FRAGMENT_PROGRAM_ARB, fp.warp, warp_fp_text);
+    success &= GL_CompileProgram(GL_FRAGMENT_PROGRAM_ARB, fp.warp_fog, warp_fog_fp_text);
+
+    if (!success) {
+        Con_SafePrintf(
+            "WARNING: Some vertex programs failed to compile.\n"
+            "         Vertex programs will be disabled.\n"
+            "         Enable developer mode for further info.\n"
+        );
+        gl_fragment_program_enabled = false;
+    }
+}
 
 /*
  * Prefer glDrawRangeElements, but we can fall back to glDrawElements

@@ -750,6 +750,65 @@ TriBuf_DrawTurb(triangle_buffer_t *buffer, const texture_t *texture, float alpha
     }
 }
 
+cvar_t r_warpspeed  = { "r_warpspeed",  "4" };
+cvar_t r_warpfactor = { "r_warpfactor", "2" };
+cvar_t r_warpscale  = { "r_warpscale",  "8" };
+
+/*
+ * Water/Slime/Lava/Tele are fullbright (no lightmap)
+ * May be blended, depending on r_wateralpha setting
+ * (vertex/fragment program version)
+ */
+static void
+TriBuf_DrawTurbVP(triangle_buffer_t *buffer, const texture_t *texture, float alpha)
+{
+    glEnable(GL_VERTEX_PROGRAM_ARB);
+    glEnable(GL_FRAGMENT_PROGRAM_ARB);
+    glColor4f(1, 1, 1, 1);
+
+    if (alpha < 1.0f) {
+	glEnable(GL_BLEND);
+        glDepthMask(GL_FALSE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    GL_SelectTMU(GL_TEXTURE0);
+    GL_Bind(texture->gl_texturenum);
+    GL_EnableMultitexture();
+    GL_Bind(r_warp_lookup_table);
+
+    float params[4];
+    params[0] = realtime * r_warpspeed.value  * (0.125f / M_PI); // Factor to offset lookup into the sin table
+    params[1] =            r_warpfactor.value * 0.00390625f;     // scaled by ??? (approximately: (360/256) * (PI/180) / 64)
+    params[2] =            r_warpscale.value  * 0.015625f;       // scaled by 1/64
+    params[3] =            r_warpscale.value  * 0.03125f;        // scaled by 1/32
+
+    qglBindProgram(GL_VERTEX_PROGRAM_ARB, vp.warp);
+    qglProgramEnvParameter4fv(GL_VERTEX_PROGRAM_ARB, 0, params);
+
+    qglBindProgram(GL_FRAGMENT_PROGRAM_ARB, Fog_GetDensity() > 0 ? fp.warp_fog : fp.warp);
+    qglProgramEnvParameter4fv(GL_FRAGMENT_PROGRAM_ARB, 0, params);
+    qglProgramEnvParameter4f(GL_FRAGMENT_PROGRAM_ARB, 1, 1, 1, 1, alpha);
+
+    const struct buffer_state state = {
+        .texcoords = {
+            [0] = { .active = true, .slot = 0 },
+            [1] = { .active = true, .slot = 1 },
+        },
+    };
+    TriBuf_DrawElements(buffer, &state);
+
+    if (alpha < 1.0f) {
+	glDisable(GL_BLEND);
+        glDepthMask(GL_TRUE);
+    }
+
+    qglBindProgram(GL_VERTEX_PROGRAM_ARB, 0);
+    qglBindProgram(GL_FRAGMENT_PROGRAM_ARB, 0);
+    glDisable(GL_VERTEX_PROGRAM_ARB);
+    glDisable(GL_FRAGMENT_PROGRAM_ARB);
+}
+
 static void
 TriBuf_DrawFlat(triangle_buffer_t *buffer)
 {
@@ -1583,7 +1642,10 @@ DrawTurbChain(triangle_buffer_t *buffer, materialchain_t *materialchain, texture
     for (surf = materialchain->surf; surf; surf = surf->chain)
         TriBuf_AddSurf(buffer, surf);
     TriBuf_Finalise(buffer);
-    TriBuf_DrawTurb(buffer, texture, alpha);
+    if (gl_vertex_program_enabled && gl_fragment_program_enabled)
+        TriBuf_DrawTurbVP(buffer, texture, alpha);
+    else
+        TriBuf_DrawTurb(buffer, texture, alpha);
 }
 
 static void
