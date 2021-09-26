@@ -1235,6 +1235,8 @@ R_DrawViewModel
 static void
 R_DrawViewModel(void)
 {
+    entity_t *entity = &cl.viewent;
+
 #ifdef NQ_HACK
     if (!r_drawviewmodel.value)
 	return;
@@ -1249,23 +1251,50 @@ R_DrawViewModel(void)
 
     if (envmap)
 	return;
-
     if (!r_drawentities.value)
 	return;
-
-    if (cl.stats[STAT_ITEMS] & IT_INVISIBILITY)
-	return;
-
     if (cl.stats[STAT_HEALTH] <= 0)
 	return;
-
-    if (!cl.viewent.model)
+    if (!entity->model)
 	return;
+
+    entity->alpha = (cl.stats[STAT_ITEMS] & IT_INVISIBILITY) ? 64 : 255;
+    if (r_drawviewmodel.value < 1.0f)
+        entity->alpha = qclamp((int)(((float)entity->alpha * r_drawviewmodel.value) + 0.5f), 0, 255);
+    if (entity->alpha < 1)
+        return;
+
+    if (entity->alpha < 255) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
+
+    /* If FOV is above 90, just draw the model with a 90 degree FOV */
+    if (scr_fov.value > 90.0f) {
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+
+        glmatrix_t projection;
+        refdef_t rd = r_refdef;
+        SCR_CalcFOV(&rd, 90);
+        GL_CreateProjectionMatrix(&projection, rd.fov_x, rd.fov_y);
+        glLoadMatrixf(projection.m16);
+
+        glMatrixMode(GL_MODELVIEW);
+    }
 
     // hack the depth range to prevent view model from poking into walls
     glDepthRange(gldepthmin, gldepthmin + 0.3 * (gldepthmax - gldepthmin));
-    R_AliasDrawModel(&cl.viewent);
+    R_AliasDrawModel(entity);
     glDepthRange(gldepthmin, gldepthmax);
+
+    if (scr_fov.value > 90.0f) {
+        glMatrixMode (GL_PROJECTION);
+        glPopMatrix ();
+        glMatrixMode (GL_MODELVIEW);
+    }
+    if (entity->alpha < 255)
+        glDisable(GL_BLEND);
 }
 
 /*
@@ -1351,17 +1380,13 @@ R_SetFrustum(void)
 	VectorSubtract(vpn, vup, frustum[3].normal);
     } else {
 	// rotate VPN right by FOV_X/2 degrees
-	RotatePointAroundVector(frustum[0].normal, vup, vpn,
-				-(90 - r_refdef.fov_x / 2));
+	RotatePointAroundVector(frustum[0].normal, vup,    vpn, -(90 - r_refdef.fov_x / 2));
 	// rotate VPN left by FOV_X/2 degrees
-	RotatePointAroundVector(frustum[1].normal, vup, vpn,
-				90 - r_refdef.fov_x / 2);
-	// rotate VPN up by FOV_X/2 degrees
-	RotatePointAroundVector(frustum[2].normal, vright, vpn,
-				90 - r_refdef.fov_y / 2);
-	// rotate VPN down by FOV_X/2 degrees
-	RotatePointAroundVector(frustum[3].normal, vright, vpn,
-				-(90 - r_refdef.fov_y / 2));
+	RotatePointAroundVector(frustum[1].normal, vup,    vpn,   90 - r_refdef.fov_x / 2);
+	// rotate VPN up by FOV_Y/2 degrees
+	RotatePointAroundVector(frustum[2].normal, vright, vpn,   90 - r_refdef.fov_y / 2);
+	// rotate VPN down by FOV_Y/2 degrees
+	RotatePointAroundVector(frustum[3].normal, vright, vpn, -(90 - r_refdef.fov_y / 2));
     }
 
     for (i = 0; i < 4; i++) {
@@ -1419,21 +1444,41 @@ R_SetupFrame(void)
 }
 
 
-static void
-MYgluPerspective(GLdouble fovy, GLdouble aspect,
-		 GLdouble zNear, GLdouble zFar)
+/*
+ * Setup projection matrix - Pretty much direct replacement of gluPerspective.
+ */
+void
+GL_CreateProjectionMatrix(glmatrix_t *matrix, float fov_x, float fov_y)
 {
-    GLdouble xmin, xmax, ymin, ymax;
+    const float nearclip = 4.0f;
+    float left, right, bottom, top;
 
-    ymax = zNear * tan(fovy * M_PI / 360.0);
-    ymin = -ymax;
+    right = nearclip * tan(fov_x * M_PI / 360.0);
+    left = -right;
 
-    xmin = ymin * aspect;
-    xmax = ymax * aspect;
+    top = nearclip * tan(fov_y * M_PI / 360.0);
+    bottom = -top;
 
-    glFrustum(xmin, xmax, ymin, ymax, zNear, zFar);
+    matrix->m16[0]  = (2 * nearclip) / (right - left);
+    matrix->m16[4]  = 0;
+    matrix->m16[8]  = (right + left) / (right - left);
+    matrix->m16[12] = 0;
+
+    matrix->m16[1]  = 0;
+    matrix->m16[5]  = (2 * nearclip) / (top - bottom);
+    matrix->m16[9]  = (top + bottom) / (top - bottom);
+    matrix->m16[13] = 0;
+
+    matrix->m16[2]  =  0;
+    matrix->m16[6]  =  0;
+    matrix->m16[10] = - (gl_farclip.value + nearclip) / (gl_farclip.value - nearclip);
+    matrix->m16[14] = -2 * (gl_farclip.value * nearclip) / (gl_farclip.value - nearclip);
+
+    matrix->m16[3]  =  0;
+    matrix->m16[7]  =  0;
+    matrix->m16[11] = -1;
+    matrix->m16[15] =  0;
 }
-
 
 /*
 =============
@@ -1443,19 +1488,19 @@ R_SetupGL
 static void
 R_SetupGL(void)
 {
-    float screenaspect;
-    int x, x2, y2, y, w, h;
+    /* Projection matrix */
+    glmatrix_t matrix;
+    GL_CreateProjectionMatrix(&matrix, r_refdef.fov_x, r_refdef.fov_y);
+    glMatrixMode(GL_PROJECTION);
+    glLoadMatrixf(matrix.m16);
 
     //
     // set up viewpoint
     //
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    x = r_refdef.vrect.x * glwidth / vid.width;
-    x2 = (r_refdef.vrect.x + r_refdef.vrect.width) * glwidth / vid.width;
-    y = (vid.height - r_refdef.vrect.y) * glheight / vid.height;
-    y2 = (vid.height - (r_refdef.vrect.y + r_refdef.vrect.height)) * glheight / vid.height;
+    int x = r_refdef.vrect.x * glwidth / vid.width;
+    int x2 = (r_refdef.vrect.x + r_refdef.vrect.width) * glwidth / vid.width;
+    int y = (vid.height - r_refdef.vrect.y) * glheight / vid.height;
+    int y2 = (vid.height - (r_refdef.vrect.y + r_refdef.vrect.height)) * glheight / vid.height;
 
     // fudge around because of frac screen scale
     // FIXME: well not fix, but figure out why this is done...
@@ -1468,8 +1513,8 @@ R_SetupGL(void)
     if (y < glheight)
 	y++;
 
-    w = x2 - x;
-    h = y - y2;
+    int w = x2 - x;
+    int h = y - y2;
 
     // FIXME: Skybox? Regular Quake sky?
     if (envmap) {
@@ -1478,10 +1523,6 @@ R_SetupGL(void)
     }
 
     glViewport(glx + x, gly + y2, w, h);
-    screenaspect = (float)r_refdef.vrect.width / r_refdef.vrect.height;
-
-    /* TODO: Set depth dynamically based on PVS. */
-    MYgluPerspective(r_refdef.fov_y, screenaspect, 4, gl_farclip.value);
 
     if (mirror) {
 	if (mirror_plane->normal[2])
@@ -1498,8 +1539,7 @@ R_SetupGL(void)
     glRotatef(-r_refdef.viewangles[2], 1, 0, 0);
     glRotatef(-r_refdef.viewangles[0], 0, 1, 0);
     glRotatef(-r_refdef.viewangles[1], 0, 0, 1);
-    glTranslatef(-r_refdef.vieworg[0], -r_refdef.vieworg[1],
-		 -r_refdef.vieworg[2]);
+    glTranslatef(-r_refdef.vieworg[0], -r_refdef.vieworg[1], -r_refdef.vieworg[2]);
 
     glGetFloatv(GL_MODELVIEW_MATRIX, r_world_matrix);
 

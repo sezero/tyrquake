@@ -45,6 +45,18 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #define APIENTRY
 #endif
 
+typedef union glmatrix {
+    float m16[16];
+    float m4x4[4][4];
+    struct {
+        float _11, _12, _13, _14;
+        float _21, _22, _23, _24;
+        float _31, _32, _33, _34;
+        float _41, _42, _43, _44;
+    };
+} glmatrix_t;
+
+void GL_CreateProjectionMatrix(glmatrix_t *matrix, float fov_x, float fov_y);
 void GL_BeginRendering(int *x, int *y, int *width, int *height);
 void GL_EndRendering(void);
 

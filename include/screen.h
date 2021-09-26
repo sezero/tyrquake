@@ -23,6 +23,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "qtypes.h"
 #include "cvar.h"
+#include "render.h"
 #include "vid.h"
 
 // screen.h
@@ -38,6 +39,7 @@ void SCR_CenterPrint(const char *str);
 void SCR_BeginLoadingPlaque(void);
 void SCR_EndLoadingPlaque(void);
 int SCR_ModalMessage(const char *text);
+void SCR_CalcFOV(refdef_t *refdef, float fov);
 
 extern float scr_con_current;
 extern float scr_centertime_off;

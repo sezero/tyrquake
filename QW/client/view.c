@@ -844,25 +844,11 @@ V_CalcRefdef(void)
     CalcGunAngle();
 
     VectorCopy(player_origin, view->origin);
-    view->origin[2] += 22;
+    view->origin[2] += 22; /* cl.viewheight */
 
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < 3; i++)
 	view->origin[i] += forward[i] * bob * 0.4;
-//              view->origin[i] += right[i]*bob*0.4;
-//              view->origin[i] += up[i]*bob*0.8;
-    }
     view->origin[2] += bob;
-
-// fudge position around to keep amount of weapon visible
-// roughly equal with different FOV
-    if (scr_viewsize.value == 110 && cl_sbar.value)
-	view->origin[2] += 1;
-    else if (scr_viewsize.value == 100 && cl_sbar.value)
-	view->origin[2] += 2;
-    else if (scr_viewsize.value == 90)
-	view->origin[2] += 1;
-    else if (scr_viewsize.value == 80)
-	view->origin[2] += 0.5;
 
     if (view_message->flags & (PF_GIB | PF_DEAD))
 	view->model = NULL;

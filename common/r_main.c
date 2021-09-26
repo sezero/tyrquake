@@ -27,6 +27,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "r_local.h"
 #include "r_shared.h"
+#include "sbar.h"
 #include "screen.h"
 #include "sound.h"
 #include "sys.h"
@@ -488,11 +489,9 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
 // the polygon rasterization will never render in the first row or column
 // but will definately render in the [range] row and column, so adjust the
 // buffer origin to get an exact edge to edge fill
-    xcenter = ((float)r_refdef.vrect.width * XCENTERING) +
-	r_refdef.vrect.x - 0.5;
+    xcenter = ((float)r_refdef.vrect.width * XCENTERING) + r_refdef.vrect.x - 0.5;
     aliasxcenter = xcenter * r_aliasuvscale;
-    ycenter = ((float)r_refdef.vrect.height * YCENTERING) +
-	r_refdef.vrect.y - 0.5;
+    ycenter = ((float)r_refdef.vrect.height * YCENTERING) + r_refdef.vrect.y - 0.5;
     aliasycenter = ycenter * r_aliasuvscale;
 
     xscale = r_refdef.vrect.width / r_refdef.horizontalFieldOfView;
@@ -531,8 +530,7 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
     for (i = 0; i < 4; i++)
 	VectorNormalize(screenedge[i].normal);
 
-    res_scale =	sqrtf((r_refdef.vrect.width * r_refdef.vrect.height) /
-		      (320.0 * 152.0)) * (2.0 / r_refdef.horizontalFieldOfView);
+    res_scale =	sqrtf((r_refdef.vrect.width * r_refdef.vrect.height) / (320.0 * 152.0)) * (2.0 / r_refdef.horizontalFieldOfView);
     r_aliastransition = r_aliastransbase.value * res_scale;
     r_resfudge = r_aliastransadj.value * res_scale;
 
@@ -908,7 +906,7 @@ R_DrawViewModel
 static void
 R_DrawViewModel(void)
 {
-    entity_t *entity;
+    entity_t *entity = &cl.viewent;
 
 #ifdef NQ_HACK
     if (!r_drawviewmodel.value)
@@ -919,17 +917,31 @@ R_DrawViewModel(void)
 	return;
 #endif
 
-    if (cl.stats[STAT_ITEMS] & IT_INVISIBILITY)
-	return;
-
     if (cl.stats[STAT_HEALTH] <= 0)
 	return;
-
-    entity = &cl.viewent;
     if (!entity->model)
 	return;
 
+    entity->alpha = (cl.stats[STAT_ITEMS] & IT_INVISIBILITY) ? 64 : 255;
+    if (r_drawviewmodel.value < 1.0f)
+        entity->alpha = qclamp((int)(((float)entity->alpha * r_drawviewmodel.value) + 0.5f), 0, 255);
+    if (entity->alpha < 1)
+        return;
+
+    /* If FOV is above 90, just draw the model with a 90 degree FOV */
+    if (scr_fov.value > 90) {
+        SCR_CalcFOV(&r_refdef, 90);
+        vrect_t rect = { 0, 0, vid.width, vid.height };
+        R_ViewChanged(&rect, sb_lines, vid.aspect);
+    }
+
     R_AliasDrawModel(entity);
+
+    if (scr_fov.value > 90.0f) {
+        SCR_CalcFOV(&r_refdef, scr_fov.value);
+        vrect_t rect = { 0, 0, vid.width, vid.height };
+        R_ViewChanged(&rect, sb_lines, vid.aspect);
+    }
 }
 
 

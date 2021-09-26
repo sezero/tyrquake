@@ -159,7 +159,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 
     vid_currentmode = mode;
 

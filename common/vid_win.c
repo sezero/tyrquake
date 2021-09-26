@@ -517,7 +517,7 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
+    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 200.0);
 
     SendMessage(mainwindow, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
@@ -561,7 +561,7 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 240.0);
+    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 
     return true;
 }

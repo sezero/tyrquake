@@ -257,7 +257,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     vid.numpages = 1;
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
-    vid.aspect = ((float)vid.height / (float)vid.width) * (320.0 / 200.0);
+    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 200.0);
 
     VID_AllocBuffers(vid.width, vid.height);
 
