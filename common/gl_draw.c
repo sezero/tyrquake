@@ -101,6 +101,9 @@ Scrap_InitGLTextures()
 	scrap->pic.height = SCRAP_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
         scrap->texture = GL_LoadTexture8(NULL, va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
+
+        /* Init the whole block to the transparent color so we can pad with transparency */
+        memset(scrap->texels, 255, sizeof(scrap->texels));
     }
 }
 
@@ -115,12 +118,16 @@ Scrap_Init(void)
  *   Returns a scrap and the position inside it
  */
 static scrap_t *
-Scrap_AllocBlock(int w, int h, int *x, int *y)
+Scrap_AllocBlock(int width, int height, int *x, int *y)
 {
     int i, j;
     int best, best2;
     int scrapnum;
     scrap_t *scrap;
+
+    /* Pad the allocation on all sides with by pixel */
+    width += 2;
+    height += 2;
 
     /*
      * I'm sure that x & y are always set when we return from this function,
@@ -133,33 +140,36 @@ Scrap_AllocBlock(int w, int h, int *x, int *y)
     for (scrapnum = 0; scrapnum < MAX_SCRAPS; scrapnum++, scrap++) {
 	best = SCRAP_HEIGHT;
 
-	for (i = 0; i < SCRAP_WIDTH - w; i++) {
+	for (i = 0; i < SCRAP_WIDTH - width; i++) {
 	    best2 = 0;
 
-	    for (j = 0; j < w; j++) {
+	    for (j = 0; j < width; j++) {
 		if (scrap->allocated[i + j] >= best)
 		    break;
 		if (scrap->allocated[i + j] > best2)
 		    best2 = scrap->allocated[i + j];
 	    }
-	    if (j == w) {
+	    if (j == width) {
 		/* this is a valid spot */
 		*x = i;
 		*y = best = best2;
 	    }
 	}
 
-	if (best + h > SCRAP_HEIGHT)
+	if (best + height > SCRAP_HEIGHT)
 	    continue;
 
-	for (i = 0; i < w; i++)
-	    scrap->allocated[*x + i] = best + h;
+	for (i = 0; i < width; i++)
+	    scrap->allocated[*x + i] = best + height;
 
 	if (*x == 0x818181 || *y == 0x818181)
 	    Sys_Error("%s: block allocation problem", __func__);
 
 	scrap->dirty = true;
 
+        /* Remove pad bytes and return */
+        *x += 1;
+        *y += 1;
 	return scrap;
     }
 
