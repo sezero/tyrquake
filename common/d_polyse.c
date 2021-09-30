@@ -258,8 +258,8 @@ D_DrawNonSubdiv(void)
 	index1 = pfv + ptri->vertindex[1];
 	index2 = pfv + ptri->vertindex[2];
 
-	d_xdenom = (index0->v[1] - index1->v[1]) *
-	    (index0->v[0] - index2->v[0]) -
+	d_xdenom =
+            (index0->v[1] - index1->v[1]) * (index0->v[0] - index2->v[0]) -
 	    (index0->v[0] - index1->v[0]) * (index0->v[1] - index2->v[1]);
 
 	if (d_xdenom >= 0) {
@@ -397,8 +397,7 @@ D_PolysetUpdateTables(void)
     int i;
     byte *s;
 
-    if (r_affinetridesc.skinwidth != skinwidth ||
-	r_affinetridesc.pskin != skinstart) {
+    if (r_affinetridesc.skinwidth != skinwidth || r_affinetridesc.pskin != skinstart) {
 	skinwidth = r_affinetridesc.skinwidth;
 	skinstart = r_affinetridesc.pskin;
 	s = skinstart;
@@ -479,8 +478,7 @@ D_PolysetSetUpForLineScan
 ====================
 */
 static void
-D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv,
-			  fixed8_t endvertu, fixed8_t endvertv)
+D_PolysetSetUpForLineScan(fixed8_t startvertu, fixed8_t startvertv, fixed8_t endvertu, fixed8_t endvertv)
 {
     double dm, dn;
     int tm, tn;
@@ -666,16 +664,14 @@ D_RasterizeAliasPolySmooth(void)
 //
 // scan out the top (and possibly only) part of the left edge
 //
-    D_PolysetSetUpForLineScan(plefttop[0], plefttop[1],
-			      pleftbottom[0], pleftbottom[1]);
+    D_PolysetSetUpForLineScan(plefttop[0], plefttop[1], pleftbottom[0], pleftbottom[1]);
 
     d_pedgespanpackage = a_spans;
 
     ystart = plefttop[1];
     d_aspancount = plefttop[0] - prighttop[0];
+    d_ptex = (byte *)r_affinetridesc.pskin + (plefttop[2] >> 16) + (plefttop[3] >> 16) * r_affinetridesc.skinwidth;
 
-    d_ptex = (byte *)r_affinetridesc.pskin + (plefttop[2] >> 16) +
-	(plefttop[3] >> 16) * r_affinetridesc.skinwidth;
 #ifdef USE_X86_ASM
     d_sfrac = (plefttop[2] & 0xFFFF) << 16;
     d_tfrac = (plefttop[3] & 0xFFFF) << 16;
@@ -687,12 +683,14 @@ D_RasterizeAliasPolySmooth(void)
     d_pzbasestep = d_zwidth + ubasestep;
     d_pzextrastep = d_pzbasestep + 1;
 #endif
+
     d_light = plefttop[4];
     d_zi = plefttop[5];
 
     d_pdestbasestep = screenwidth + ubasestep;
     d_pdestextrastep = d_pdestbasestep + 1;
     d_pdest = (byte *)d_viewbuffer + ystart * screenwidth + plefttop[0];
+
     d_pz = d_pzbuffer + ystart * d_zwidth + plefttop[0];
 
     /* TODO: can reuse partial expressions here */
@@ -708,8 +706,7 @@ D_RasterizeAliasPolySmooth(void)
 	working_lstepx = r_lstepx;
 
     d_countextrastep = ubasestep + 1;
-    d_ptexbasestep = ((r_sstepy + r_sstepx * ubasestep) >> 16) +
-	((r_tstepy + r_tstepx * ubasestep) >> 16) * r_affinetridesc.skinwidth;
+    d_ptexbasestep = ((r_sstepy + r_sstepx * ubasestep) >> 16) + ((r_tstepy + r_tstepx * ubasestep) >> 16) * r_affinetridesc.skinwidth;
 #ifdef USE_X86_ASM
     d_sfracbasestep = (r_sstepy + r_sstepx * ubasestep) << 16;
     d_tfracbasestep = (r_tstepy + r_tstepx * ubasestep) << 16;
@@ -720,9 +717,7 @@ D_RasterizeAliasPolySmooth(void)
     d_lightbasestep = r_lstepy + working_lstepx * ubasestep;
     d_zibasestep = r_zistepy + r_zistepx * ubasestep;
 
-    d_ptexextrastep = ((r_sstepy + r_sstepx * d_countextrastep) >> 16) +
-	((r_tstepy + r_tstepx * d_countextrastep) >> 16) *
-	r_affinetridesc.skinwidth;
+    d_ptexextrastep = ((r_sstepy + r_sstepx * d_countextrastep) >> 16) + ((r_tstepy + r_tstepx * d_countextrastep) >> 16) * r_affinetridesc.skinwidth;
 #ifdef USE_X86_ASM
     d_sfracextrastep = (r_sstepy + r_sstepx * d_countextrastep) << 16;
     d_tfracextrastep = (r_tstepy + r_tstepx * d_countextrastep) << 16;
@@ -744,8 +739,7 @@ D_RasterizeAliasPolySmooth(void)
 	plefttop = pleftbottom;
 	pleftbottom = pedgetable->pleftedgevert2;
 
-	D_PolysetSetUpForLineScan(plefttop[0], plefttop[1],
-				  pleftbottom[0], pleftbottom[1]);
+	D_PolysetSetUpForLineScan(plefttop[0], plefttop[1], pleftbottom[0], pleftbottom[1]);
 
 	height = pleftbottom[1] - plefttop[1];
 
@@ -753,8 +747,7 @@ D_RasterizeAliasPolySmooth(void)
 
 	ystart = plefttop[1];
 	d_aspancount = plefttop[0] - prighttop[0];
-	d_ptex = (byte *)r_affinetridesc.pskin + (plefttop[2] >> 16) +
-	    (plefttop[3] >> 16) * r_affinetridesc.skinwidth;
+	d_ptex = (byte *)r_affinetridesc.pskin + (plefttop[2] >> 16) + (plefttop[3] >> 16) * r_affinetridesc.skinwidth;
 	d_sfrac = 0;
 	d_tfrac = 0;
 	d_light = plefttop[4];
@@ -778,9 +771,7 @@ D_RasterizeAliasPolySmooth(void)
 	    working_lstepx = r_lstepx;
 
 	d_countextrastep = ubasestep + 1;
-	d_ptexbasestep = ((r_sstepy + r_sstepx * ubasestep) >> 16) +
-	    ((r_tstepy + r_tstepx * ubasestep) >> 16) *
-	    r_affinetridesc.skinwidth;
+	d_ptexbasestep = ((r_sstepy + r_sstepx * ubasestep) >> 16) + ((r_tstepy + r_tstepx * ubasestep) >> 16) * r_affinetridesc.skinwidth;
 #ifdef USE_X86_ASM
 	d_sfracbasestep = (r_sstepy + r_sstepx * ubasestep) << 16;
 	d_tfracbasestep = (r_tstepy + r_tstepx * ubasestep) << 16;
@@ -791,14 +782,10 @@ D_RasterizeAliasPolySmooth(void)
 	d_lightbasestep = r_lstepy + working_lstepx * ubasestep;
 	d_zibasestep = r_zistepy + r_zistepx * ubasestep;
 
-	d_ptexextrastep = ((r_sstepy + r_sstepx * d_countextrastep) >> 16) +
-	    ((r_tstepy + r_tstepx * d_countextrastep) >> 16) *
-	    r_affinetridesc.skinwidth;
+	d_ptexextrastep = ((r_sstepy + r_sstepx * d_countextrastep) >> 16) + ((r_tstepy + r_tstepx * d_countextrastep) >> 16) * r_affinetridesc.skinwidth;
 #ifdef USE_X86_ASM
-	d_sfracextrastep =
-	    ((r_sstepy + r_sstepx * d_countextrastep) & 0xFFFF) << 16;
-	d_tfracextrastep =
-	    ((r_tstepy + r_tstepx * d_countextrastep) & 0xFFFF) << 16;
+	d_sfracextrastep = ((r_sstepy + r_sstepx * d_countextrastep) & 0xFFFF) << 16;
+	d_tfracextrastep = ((r_tstepy + r_tstepx * d_countextrastep) & 0xFFFF) << 16;
 #else
 	d_sfracextrastep = (r_sstepy + r_sstepx * d_countextrastep) & 0xFFFF;
 	d_tfracextrastep = (r_tstepy + r_tstepx * d_countextrastep) & 0xFFFF;
@@ -812,8 +799,7 @@ D_RasterizeAliasPolySmooth(void)
 // count field
     d_pedgespanpackage = a_spans;
 
-    D_PolysetSetUpForLineScan(prighttop[0], prighttop[1],
-			      prightbottom[0], prightbottom[1]);
+    D_PolysetSetUpForLineScan(prighttop[0], prighttop[1], prightbottom[0], prightbottom[1]);
     d_aspancount = 0;
     d_countextrastep = ubasestep + 1;
     originalcount = a_spans[initialrightheight].count;
@@ -993,8 +979,7 @@ D_PolysetDrawFinalVerts_Translucent(finalvert_t *fv, int numverts)
     for (i = 0; i < numverts; i++, fv++) {
 	// valid triangle coordinates for filling can include the bottom and
 	// right clip edges, due to the fill rule; these shouldn't be drawn
-	if ((fv->v[0] < r_refdef.vrectright) &&
-	    (fv->v[1] < r_refdef.vrectbottom)) {
+	if ((fv->v[0] < r_refdef.vrectright) && (fv->v[1] < r_refdef.vrectbottom)) {
 	    z = fv->v[5] >> 16;
 	    zbuf = zspantable[fv->v[1]] + fv->v[0];
 	    if (z >= *zbuf) {

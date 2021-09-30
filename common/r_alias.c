@@ -65,7 +65,7 @@ typedef struct {
 cvar_t r_lerpmodels = { "r_lerpmodels", "1" };
 cvar_t r_lerpmove = { "r_lerpmove", "1" };
 
-static aedge_t aedges[12] = {
+static const aedge_t aedges[12] = {
     {0, 1}, {1, 2}, {2, 3}, {3, 0},
     {4, 5}, {5, 6}, {6, 7}, {7, 4},
     {0, 5}, {1, 4}, {2, 7}, {3, 6}
@@ -79,8 +79,7 @@ float r_avertexnormals[NUMVERTEXNORMALS][3] = {
 
 static void R_AliasSetUpTransform(entity_t *e, aliashdr_t *pahdr, lerpdata_t *lerpdata);
 static void R_AliasTransformVector(const vec3_t in, vec3_t out);
-static void R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av,
-				      trivertx_t *pverts, stvert_t *pstverts);
+static void R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av, trivertx_t *pverts, stvert_t *pstverts);
 
 void R_AliasTransformAndProjectFinalVerts(finalvert_t *fv, stvert_t *pstverts);
 void R_AliasProjectFinalVert(finalvert_t *fv, auxvert_t *av);
@@ -259,9 +258,8 @@ R_AliasCheckBBox(entity_t *entity, const aliashdr_t *aliashdr)
     numv = 8;
 
     if (zclipped) {
-	// organize points by edges, use edges to get new points (possible trivial
-	// reject)
-	for (i = 0; i < 12; i++) {
+	// organize points by edges, use edges to get new points (possible trivial reject)
+	for (int i = 0; i < 12; i++) {
 	    // edge endpoints
 	    pv0 = &viewpts[aedges[i].index0];
 	    pv1 = &viewpts[aedges[i].index1];
@@ -270,12 +268,9 @@ R_AliasCheckBBox(entity_t *entity, const aliashdr_t *aliashdr)
 
 	    // if one end is clipped and the other isn't, make a new point
 	    if (pv0->flags ^ pv1->flags) {
-		frac = (ALIAS_Z_CLIP_PLANE - pa0->fv[2]) /
-		    (pa1->fv[2] - pa0->fv[2]);
-		viewaux[numv].fv[0] = pa0->fv[0] +
-		    (pa1->fv[0] - pa0->fv[0]) * frac;
-		viewaux[numv].fv[1] = pa0->fv[1] +
-		    (pa1->fv[1] - pa0->fv[1]) * frac;
+		frac = (ALIAS_Z_CLIP_PLANE - pa0->fv[2]) / (pa1->fv[2] - pa0->fv[2]);
+		viewaux[numv].fv[0] = pa0->fv[0] + (pa1->fv[0] - pa0->fv[0]) * frac;
+		viewaux[numv].fv[1] = pa0->fv[1] + (pa1->fv[1] - pa0->fv[1]) * frac;
 		viewaux[numv].fv[2] = ALIAS_Z_CLIP_PLANE;
 		viewpts[numv].flags = 0;
 		numv++;
@@ -287,7 +282,7 @@ R_AliasCheckBBox(entity_t *entity, const aliashdr_t *aliashdr)
     allclip = ALIAS_XY_CLIP_MASK;
 
 // TODO: probably should do this loop in ASM, especially if we use floats
-    for (i = 0; i < numv; i++) {
+    for (int i = 0; i < numv; i++) {
 	// we don't need to bother with vertices that were z-clipped
 	if (viewpts[i].flags & ALIAS_Z_CLIP)
 	    continue;
@@ -391,8 +386,7 @@ R_AliasPreparePoints(aliashdr_t *pahdr, finalvert_t *pfinalverts, auxvert_t *pau
 	pfv[1] = &pfinalverts[ptri->vertindex[1]];
 	pfv[2] = &pfinalverts[ptri->vertindex[2]];
 
-	if (pfv[0]->flags & pfv[1]->flags & pfv[2]->
-	    flags & (ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP))
+	if (pfv[0]->flags & pfv[1]->flags & pfv[2]->flags & (ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP))
 	    continue;		// completely clipped
 
 	if (!((pfv[0]->flags | pfv[1]->flags | pfv[2]->flags) & (ALIAS_XY_CLIP_MASK | ALIAS_Z_CLIP))) {	// totally unclipped
@@ -474,8 +468,7 @@ R_AliasTransformFinalVert
 ================
 */
 static void
-R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av,
-			  trivertx_t *pverts, stvert_t *pstverts)
+R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av, trivertx_t *pverts, stvert_t *pstverts)
 {
     int temp;
     float lightcos, *plightnormal;
