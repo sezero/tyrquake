@@ -34,7 +34,7 @@ pfv0 is the unclipped vertex, pfv1 is the z-clipped vertex
 ================
 */
 static void
-R_Alias_clip_z(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
+R_Alias_clip_z(const finalvert_t *pfv0, const finalvert_t *pfv1, finalvert_t *out)
 {
     float scale;
     auxvert_t *pav0, *pav1, avout;
@@ -82,19 +82,17 @@ R_Alias_clip_z(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 #ifndef USE_X86_ASM
 
 void
-R_Alias_clip_left(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
+R_Alias_clip_left(const finalvert_t *pfv0, const finalvert_t *pfv1, finalvert_t *out)
 {
     float scale;
     int i;
 
-    if (pfv0->v[1] >= pfv1->v[1]) {
-	scale = (float)(r_refdef.aliasvrect.x - pfv0->v[0]) /
-	    (pfv1->v[0] - pfv0->v[0]);
+    if (pfv0->v[0] >= pfv1->v[0]) {
+	scale = (float)(r_refdef.aliasvrect.x - pfv0->v[0]) / (pfv1->v[0] - pfv0->v[0]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv0->v[i] + (pfv1->v[i] - pfv0->v[i]) * scale + 0.5;
     } else {
-	scale = (float)(r_refdef.aliasvrect.x - pfv1->v[0]) /
-	    (pfv0->v[0] - pfv1->v[0]);
+	scale = (float)(r_refdef.aliasvrect.x - pfv1->v[0]) / (pfv0->v[0] - pfv1->v[0]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv1->v[i] + (pfv0->v[i] - pfv1->v[i]) * scale + 0.5;
     }
@@ -102,19 +100,17 @@ R_Alias_clip_left(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 
 
 void
-R_Alias_clip_right(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
+R_Alias_clip_right(const finalvert_t *pfv0, const finalvert_t *pfv1, finalvert_t *out)
 {
     float scale;
     int i;
 
-    if (pfv0->v[1] >= pfv1->v[1]) {
-	scale = (float)(r_refdef.aliasvrectright - pfv0->v[0]) /
-	    (pfv1->v[0] - pfv0->v[0]);
+    if (pfv0->v[0] >= pfv1->v[0]) {
+	scale = (float)(r_refdef.aliasvrectright - pfv0->v[0]) / (pfv1->v[0] - pfv0->v[0]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv0->v[i] + (pfv1->v[i] - pfv0->v[i]) * scale + 0.5;
     } else {
-	scale = (float)(r_refdef.aliasvrectright - pfv1->v[0]) /
-	    (pfv0->v[0] - pfv1->v[0]);
+	scale = (float)(r_refdef.aliasvrectright - pfv1->v[0]) / (pfv0->v[0] - pfv1->v[0]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv1->v[i] + (pfv0->v[i] - pfv1->v[i]) * scale + 0.5;
     }
@@ -122,19 +118,17 @@ R_Alias_clip_right(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 
 
 void
-R_Alias_clip_top(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
+R_Alias_clip_top(const finalvert_t *pfv0, const finalvert_t *pfv1, finalvert_t *out)
 {
     float scale;
     int i;
 
     if (pfv0->v[1] >= pfv1->v[1]) {
-	scale = (float)(r_refdef.aliasvrect.y - pfv0->v[1]) /
-	    (pfv1->v[1] - pfv0->v[1]);
+	scale = (float)(r_refdef.aliasvrect.y - pfv0->v[1]) / (pfv1->v[1] - pfv0->v[1]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv0->v[i] + (pfv1->v[i] - pfv0->v[i]) * scale + 0.5;
     } else {
-	scale = (float)(r_refdef.aliasvrect.y - pfv1->v[1]) /
-	    (pfv0->v[1] - pfv1->v[1]);
+	scale = (float)(r_refdef.aliasvrect.y - pfv1->v[1]) / (pfv0->v[1] - pfv1->v[1]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv1->v[i] + (pfv0->v[i] - pfv1->v[i]) * scale + 0.5;
     }
@@ -142,21 +136,17 @@ R_Alias_clip_top(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 
 
 void
-R_Alias_clip_bottom(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
+R_Alias_clip_bottom(const finalvert_t *pfv0, const finalvert_t *pfv1, finalvert_t *out)
 {
     float scale;
     int i;
 
     if (pfv0->v[1] >= pfv1->v[1]) {
-	scale = (float)(r_refdef.aliasvrectbottom - pfv0->v[1]) /
-	    (pfv1->v[1] - pfv0->v[1]);
-
+	scale = (float)(r_refdef.aliasvrectbottom - pfv0->v[1]) / (pfv1->v[1] - pfv0->v[1]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv0->v[i] + (pfv1->v[i] - pfv0->v[i]) * scale + 0.5;
     } else {
-	scale = (float)(r_refdef.aliasvrectbottom - pfv1->v[1]) /
-	    (pfv0->v[1] - pfv1->v[1]);
-
+	scale = (float)(r_refdef.aliasvrectbottom - pfv1->v[1]) / (pfv0->v[1] - pfv1->v[1]);
 	for (i = 0; i < 6; i++)
 	    out->v[i] = pfv1->v[i] + (pfv0->v[i] - pfv1->v[i]) * scale + 0.5;
     }
@@ -164,11 +154,10 @@ R_Alias_clip_bottom(finalvert_t *pfv0, finalvert_t *pfv1, finalvert_t *out)
 
 #endif
 
+typedef void (clipfunc_t)(const finalvert_t *pfv0, const finalvert_t *pfv1, finalvert_t *out);
 
 static int
-R_AliasClip(finalvert_t *in, finalvert_t *out, int flag, int count,
-	    void (*clip) (finalvert_t *pfv0, finalvert_t *pfv1,
-			  finalvert_t *out))
+R_AliasClip(const finalvert_t *in, finalvert_t *out, int flag, int count, clipfunc_t *clip)
 {
     int i, j, k;
     int flags, oldflags;
