@@ -198,14 +198,13 @@ R_AliasGetBBox(const entity_t *entity, const aliashdr_t *aliashdr, vec3_t mins, 
 ================
 R_AliasCheckBBox
 
-FIXME: does not account for animation frame lerping.
-FIXME: switch over to radius-based culling like glquake?
+TODO: switch over to radius-based culling like glquake?
 ================
 */
 static qboolean
 R_AliasCheckBBox(entity_t *entity, const aliashdr_t *aliashdr)
 {
-    int i, flags, numv;
+    int flags, numv;
     vec3_t mins, maxs, basepts[8];
     float zi, v0, v1, frac;
     finalvert_t *pv0, *pv1, viewpts[16];
@@ -235,7 +234,7 @@ R_AliasCheckBBox(entity_t *entity, const aliashdr_t *aliashdr)
     entity->trivial_accept = 0;
 
     minz = 9999;
-    for (i = 0; i < 8; i++) {
+    for (int i = 0; i < 8; i++) {
 	R_AliasTransformVector(&basepts[i][0], &viewaux[i].fv[0]);
 
 	if (viewaux[i].fv[2] < ALIAS_Z_CLIP_PLANE) {
@@ -417,7 +416,6 @@ R_AliasSetUpTransform(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpda
 // TODO: should use a look-up table
 // TODO: could cache lazily, stored in the entity
 
-    R_AliasSetupTransformLerp(entity, lerpdata);
     /* The software renderer has reversed pitch angles */
     lerpdata->angles[PITCH] = -lerpdata->angles[PITCH];
 
@@ -748,8 +746,6 @@ set r_apverts
 static void
 R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata)
 {
-    R_AliasSetupAnimationLerp(entity, aliashdr, lerpdata);
-
     if (r_lerpmodels.value) {
         r_apverts = R_AliasBlendPoseVerts(entity, aliashdr, lerpdata);
     } else {
@@ -802,7 +798,12 @@ R_AliasDrawModel(entity_t *entity)
     lerpdata_t lerpdata;
 
     aliashdr = Mod_Extradata(entity->model);
+
+    R_AliasSetupTransformLerp(entity, &lerpdata);
+    R_AliasSetupAnimationLerp(entity, aliashdr, &lerpdata);
+
     R_AliasSetUpTransform(entity, aliashdr, &lerpdata);
+
     if (!R_AliasCheckBBox(entity, aliashdr))
         return;
 
