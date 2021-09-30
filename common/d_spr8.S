@@ -112,6 +112,10 @@ C(D_SpriteDrawSpans):
 	fistpl	izistep
 	movl	izistep,%eax
 	rorl	$16,%eax		// put upper 16 bits in low word
+    movl    sspan_t_v(%ebx),%ecx
+	cmpl	$0,%ecx
+	jl		LNextSpan
+
 	movl	sspan_t_count(%ebx),%ecx
 	movl	%eax,izistep
 
