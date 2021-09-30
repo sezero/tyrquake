@@ -133,10 +133,11 @@ SCR_SetHudscale(float scale)
     }
 
     scr_scale = qclamp(scale, 0.25f, 16.0f);
-    scr_scaled_width = (int)((float)vid.conwidth / scr_scale);
-    scr_scaled_height = (int)((float)vid.conheight / scr_scale);
+    scr_scaled_width = SCR_ScaleCoord(vid.conwidth);
+    scr_scaled_height = SCR_ScaleCoord(vid.conheight);
 
     Con_CheckResize();
+
     vid.recalc_refdef = true; /* Since scaling of sb_lines has changed */
 }
 
@@ -688,8 +689,8 @@ SCR_CalcRefdef()
 // bound viewsize
     if (scr_viewsize.value < 30)
 	Cvar_Set("viewsize", "30");
-    if (scr_viewsize.value > 120)
-	Cvar_Set("viewsize", "120");
+    if (scr_viewsize.value > 130)
+	Cvar_Set("viewsize", "130");
 
 // bound field of view
     if (scr_fov.value < 10)
@@ -699,16 +700,19 @@ SCR_CalcRefdef()
 
 // intermission is always full screen
     if (cl.intermission)
-	size = 120;
+	size = 130;
     else
 	size = scr_viewsize.value;
 
-    if (size >= 120)
+    if (size >= 130)
 	sb_lines = 0;		// no status bar at all
-    else if (size >= 110)
+    else if (size >= 120)
 	sb_lines = 24;		// no inventory
     else
 	sb_lines = 24 + 16 + 8;
+
+    /* Remove tile fill along side status bar when view is > 100% */
+    sb_lines_hidden = scr_viewsize.value < 110.0f ? sb_lines : 0;
 
 // these calculations mirror those in R_Init() for r_refdef, but take no
 // account of water warping
@@ -717,10 +721,10 @@ SCR_CalcRefdef()
     vrect.width = vid.width;
     vrect.height = vid.height;
 
-    R_SetVrect(&vrect, &scr_vrect, sb_lines);
-    R_ViewChanged(&vrect, sb_lines, vid.aspect);
-
+    R_SetVrect(&vrect, &scr_vrect, sb_lines_hidden);
+    R_SetVrect(&vrect, &r_refdef.vrect, sb_lines_hidden);
     SCR_CalcFOV(&r_refdef, scr_fov.value);
+    R_ViewChanged(&vrect, sb_lines_hidden, vid.aspect);
 
 // guard against going from one mode to another that's less than half the
 // vertical resolution
@@ -1221,7 +1225,7 @@ SCR_EndLoadingPlaque(void)
 static void
 SCR_TileClear(void)
 {
-    int scaled_sb_lines = (int)(sb_lines * scr_scale);
+    int scaled_sb_lines = SCR_Scale(sb_lines_hidden);
 
     if (r_refdef.vrect.x > 0) {
 	// left
@@ -1240,8 +1244,7 @@ SCR_TileClear(void)
 	Draw_TileClear(r_refdef.vrect.x,
 		       r_refdef.vrect.y + r_refdef.vrect.height,
 		       r_refdef.vrect.width,
-		       vid.height - scaled_sb_lines -
-		       (r_refdef.vrect.height + r_refdef.vrect.y));
+		       vid.height - scaled_sb_lines - (r_refdef.vrect.height + r_refdef.vrect.y));
     }
 }
 #endif
@@ -1433,7 +1436,7 @@ SCR_UpdateScreen(void)
 	vrect.x = 0;
 	vrect.y = 0;
 	vrect.width = vid.width;
-	vrect.height = vid.height - sb_lines;
+	vrect.height = vid.height - SCR_Scale(sb_lines_hidden);
         vrect.pnext = NULL;
 	VID_Update(&vrect);
     } else {

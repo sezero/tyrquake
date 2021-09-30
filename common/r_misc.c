@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "r_local.h"
 #include "render.h"
 #include "sbar.h"
+#include "screen.h"
 #ifdef NQ_HACK
 #include "host.h"
 #include "server.h"
@@ -180,20 +181,20 @@ R_TimeGraph(void)
 
     r_timings[timex] = a;
 
-    if (vid.width - 16 <= MAX_TIMINGS)
-	w = vid.width - 16;
+    if (scr_scaled_width - 16 <= MAX_TIMINGS)
+	w = scr_scaled_width - 16;
     else
 	w = MAX_TIMINGS;
 
-    x = -((vid.width - 320) >> 1);
-    y = vid.height - sb_lines - 24 - (int)r_graphheight.value * 2 - 2;
+    x = -((scr_scaled_width - 320) >> 1);
+    y = scr_scaled_height - sb_lines - 24 - (int)r_graphheight.value * 2 - 2;
     y2 = y + 8;
 
     M_DrawTextBox(x, y, (w + 7) / 8,
 		  ((int)r_graphheight.value * 2 + 7) / 8 + 1);
 
     x = 8;
-    y = vid.height - sb_lines - 8 - 2;
+    y = scr_scaled_width - sb_lines - 8 - 2;
 
     for (a = MAX_TIMINGS - w; a < w; a++) {
 	i = timex - a;
@@ -486,7 +487,7 @@ R_SetupFrame(void)
         vrect.width = vid.width;
         vrect.height = vid.height;
 
-        R_ViewChanged(&vrect, sb_lines, vid.aspect);
+        R_ViewChanged(&vrect, sb_lines_hidden, vid.aspect);
         r_viewchanged = false;
     }
 

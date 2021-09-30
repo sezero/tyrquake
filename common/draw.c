@@ -289,7 +289,7 @@ Draw_Crosshair(void)
          * Drawn directly into the video buffer, so no scaling of coordinates.
          * However, We will scale up the size a bit to match hud scale
          */
-        int size = (int)(scr_scale * 4.0f);
+        int size = SCR_Scale(4);
         int i;
 	x = scr_vrect.x + scr_vrect.width / 2 + cl_crossx.value;
 	y = scr_vrect.y + scr_vrect.height / 2 + cl_crossy.value;
@@ -305,12 +305,12 @@ Draw_Crosshair(void)
 
         /* Adjust char coordinates for hud scaling */
         if (scr_scale != 1.0f) {
-            x = (int)(x / scr_scale);
-            y = (int)(y / scr_scale);
+            x = SCR_ScaleCoord(x);
+            y = SCR_ScaleCoord(y);
         }
 
-        x += (int)cl_crossx.value - 4;
-        y += (int)cl_crossy.value - 4;
+        x += (int)cl_crossx.value - SCR_Scale(4);
+        y += (int)cl_crossy.value - SCR_Scale(4);
 	Draw_Character(x, y, '+');
     }
 }
@@ -326,10 +326,10 @@ Draw_ScaledPic(int x, int y, const qpic8_t *pic)
     assert(pic->stride);
 
     /* Calculate the destination pixels */
-    dst_x_start = (int)(x * scr_scale);
-    dst_y_start = (int)(y * scr_scale);
-    dst_x_end = (int)((x + pic->width) * scr_scale);
-    dst_y_end = (int)((y + pic->height) * scr_scale);
+    dst_x_start = SCR_Scale(x);
+    dst_y_start = SCR_Scale(y);
+    dst_x_end = SCR_Scale(x + pic->width);
+    dst_y_end = SCR_Scale(y + pic->height);
     dst_width = dst_x_end - dst_x_start;
     dst_height = dst_y_end - dst_y_start;
 
@@ -371,10 +371,10 @@ Draw_ScaledTransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
     assert(pic->stride);
 
     /* Calculate the destination pixels */
-    dst_x_start = (int)(x * scr_scale);
-    dst_y_start = (int)(y * scr_scale);
-    dst_x_end = (int)((x + pic->width) * scr_scale);
-    dst_y_end = (int)((y + pic->height) * scr_scale);
+    dst_x_start = SCR_Scale(x);
+    dst_y_start = SCR_Scale(y);
+    dst_x_end = SCR_Scale(x + pic->width);
+    dst_y_end = SCR_Scale(y + pic->height);
     dst_width = dst_x_end - dst_x_start;
     dst_height = dst_y_end - dst_y_start;
 
@@ -568,10 +568,10 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation
     assert(pic->stride);
 
     /* Calculate the destination pixels */
-    dst_x_start = (int)(x * scr_scale);
-    dst_y_start = (int)(y * scr_scale);
-    dst_x_end = (int)((x + pic->width) * scr_scale);
-    dst_y_end = (int)((y + pic->height) * scr_scale);
+    dst_x_start = SCR_Scale(x);
+    dst_y_start = SCR_Scale(y);
+    dst_x_end = SCR_Scale(x + pic->width);
+    dst_y_end = SCR_Scale(y + pic->height);
     dst_width = dst_x_end - dst_x_start;
     dst_height = dst_y_end - dst_y_start;
 
@@ -953,10 +953,10 @@ void
 Draw_TileClearScaled(int x, int y, int w, int h)
 {
     if (scr_scale != 1.0f) {
-        x = (int)(x * scr_scale);
-        y = (int)(y * scr_scale);
-        w = (int)(w * scr_scale);
-        h = (int)(h * scr_scale);
+        x = SCR_Scale(x);
+        y = SCR_Scale(y);
+        w = SCR_Scale(w);
+        h = SCR_Scale(h);
     }
     Draw_TileClear(x, y, w, h);
 }
@@ -978,10 +978,10 @@ Draw_Fill(int x, int y, int w, int h, int c)
     int u, v;
 
     if (scr_scale != 1.0f) {
-        x = (int)(x * scr_scale);
-        y = (int)(y * scr_scale);
-        w = (int)(w * scr_scale);
-        h = (int)(h * scr_scale);
+        x = SCR_Scale(x);
+        y = SCR_Scale(y);
+        w = SCR_Scale(w);
+        h = SCR_Scale(h);
     }
 
     if (x < 0 || x + w > vid.width || y < 0 || y + h > vid.height) {

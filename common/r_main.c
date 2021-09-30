@@ -385,7 +385,7 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
     qboolean full;
 
     if (scr_scale != 1.0f) {
-        lineadj = (int)(lineadj * scr_scale);
+        lineadj = SCR_Scale(lineadj);
     }
 
 #ifdef NQ_HACK
@@ -450,27 +450,27 @@ R_ViewChanged(const vrect_t *vrect, int lineadj, float aspect)
 
     R_SetVrect(vrect, &r_refdef.vrect, lineadj);
 
-    r_refdef.horizontalFieldOfView = 2.0 * tan(r_refdef.fov_x / 360 * M_PI);
-    r_refdef.fvrectx = (float)r_refdef.vrect.x;
-    r_refdef.fvrectx_adj = (float)r_refdef.vrect.x - 0.5;
-    r_refdef.vrect_x_adj_shift20 = (r_refdef.vrect.x << 20) + (1 << 19) - 1;
-    r_refdef.fvrecty = (float)r_refdef.vrect.y;
-    r_refdef.fvrecty_adj = (float)r_refdef.vrect.y - 0.5;
-    r_refdef.vrectright = r_refdef.vrect.x + r_refdef.vrect.width;
+    r_refdef.horizontalFieldOfView  = 2.0 * tan(r_refdef.fov_x / 360 * M_PI);
+    r_refdef.fvrectx                = (float)r_refdef.vrect.x;
+    r_refdef.fvrectx_adj            = (float)r_refdef.vrect.x - 0.5;
+    r_refdef.vrect_x_adj_shift20    = (r_refdef.vrect.x << 20) + (1 << 19) - 1;
+    r_refdef.fvrecty                = (float)r_refdef.vrect.y;
+    r_refdef.fvrecty_adj            = (float)r_refdef.vrect.y - 0.5;
+    r_refdef.vrectright             = r_refdef.vrect.x + r_refdef.vrect.width;
     r_refdef.vrectright_adj_shift20 = (r_refdef.vrectright << 20) + (1 << 19) - 1;
-    r_refdef.fvrectright = (float)r_refdef.vrectright;
-    r_refdef.fvrectright_adj = (float)r_refdef.vrectright - 0.5;
-    r_refdef.vrectrightedge = (float)r_refdef.vrectright - 0.99;
-    r_refdef.vrectbottom = r_refdef.vrect.y + r_refdef.vrect.height;
-    r_refdef.fvrectbottom = (float)r_refdef.vrectbottom;
-    r_refdef.fvrectbottom_adj = (float)r_refdef.vrectbottom - 0.5;
+    r_refdef.fvrectright            = (float)r_refdef.vrectright;
+    r_refdef.fvrectright_adj        = (float)r_refdef.vrectright - 0.5;
+    r_refdef.vrectrightedge         = (float)r_refdef.vrectright - 0.99;
+    r_refdef.vrectbottom            = r_refdef.vrect.y + r_refdef.vrect.height;
+    r_refdef.fvrectbottom           = (float)r_refdef.vrectbottom;
+    r_refdef.fvrectbottom_adj       = (float)r_refdef.vrectbottom - 0.5;
 
-    r_refdef.aliasvrect.x = (int)(r_refdef.vrect.x * r_aliasuvscale);
-    r_refdef.aliasvrect.y = (int)(r_refdef.vrect.y * r_aliasuvscale);
-    r_refdef.aliasvrect.width = (int)(r_refdef.vrect.width * r_aliasuvscale);
-    r_refdef.aliasvrect.height = (int)(r_refdef.vrect.height * r_aliasuvscale);
-    r_refdef.aliasvrectright = r_refdef.aliasvrect.x + r_refdef.aliasvrect.width;
-    r_refdef.aliasvrectbottom = r_refdef.aliasvrect.y + r_refdef.aliasvrect.height;
+    r_refdef.aliasvrect.x           = (int)(r_refdef.vrect.x * r_aliasuvscale);
+    r_refdef.aliasvrect.y           = (int)(r_refdef.vrect.y * r_aliasuvscale);
+    r_refdef.aliasvrect.width       = (int)(r_refdef.vrect.width * r_aliasuvscale);
+    r_refdef.aliasvrect.height      = (int)(r_refdef.vrect.height * r_aliasuvscale);
+    r_refdef.aliasvrectright        = r_refdef.aliasvrect.x + r_refdef.aliasvrect.width;
+    r_refdef.aliasvrectbottom       = r_refdef.aliasvrect.y + r_refdef.aliasvrect.height;
 
     pixelAspect = aspect;
     xOrigin = r_refdef.xOrigin;
@@ -932,7 +932,7 @@ R_DrawViewModel(void)
     if (scr_fov.value > 90) {
         SCR_CalcFOV(&r_refdef, 90);
         vrect_t rect = { 0, 0, vid.width, vid.height };
-        R_ViewChanged(&rect, sb_lines, vid.aspect);
+        R_ViewChanged(&rect, sb_lines_hidden, vid.aspect);
     }
 
     R_AliasDrawModel(entity);
@@ -940,7 +940,7 @@ R_DrawViewModel(void)
     if (scr_fov.value > 90.0f) {
         SCR_CalcFOV(&r_refdef, scr_fov.value);
         vrect_t rect = { 0, 0, vid.width, vid.height };
-        R_ViewChanged(&rect, sb_lines, vid.aspect);
+        R_ViewChanged(&rect, sb_lines_hidden, vid.aspect);
     }
 }
 

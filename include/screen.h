@@ -61,4 +61,7 @@ extern int scr_scaled_width;
 extern int scr_scaled_height;
 extern float scr_conbackscale; /* The scaling applied to the console background */
 
+static inline int SCR_Scale(int pixels)     { return (int)((float)pixels * scr_scale + 0.5f); }
+static inline int SCR_ScaleCoord(int coord) { return (int)((float)coord  / scr_scale + 0.5f); }
+
 #endif /* SCREEN_H */

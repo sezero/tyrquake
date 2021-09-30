@@ -61,7 +61,8 @@ const qpic8_t *sb_face_invis_invuln;
 
 qboolean sb_showscores;
 
-int sb_lines;			// scan lines to draw
+int sb_lines;                   // scan lines to draw
+int sb_lines_hidden;            // scan lines obscured totally by the status bar
 
 const qpic8_t *rsb_invbar[2];
 const qpic8_t *rsb_weapons[5];
@@ -902,15 +903,15 @@ Sbar_Draw(void)
     if (scr_con_current == vid.height)
 	return;			// console is full screen
 
-    if (vid.numpages && sb_updates >= vid.numpages)
+    if (sb_lines_hidden == sb_lines && vid.numpages && sb_updates >= vid.numpages)
 	return;
 
     scr_copyeverything = 1;
 
     sb_updates++;
 
-    if (sb_lines && scr_scaled_width > 320)
-	Draw_TileClearScaled(0, scr_scaled_height - sb_lines, scr_scaled_width, sb_lines);
+    if (sb_lines_hidden && scr_scaled_width > 320)
+        Draw_TileClearScaled(0, scr_scaled_height - sb_lines_hidden, scr_scaled_width, sb_lines_hidden);
 
     if (sb_lines > 24) {
 	Sbar_DrawInventory();

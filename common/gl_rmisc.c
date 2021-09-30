@@ -320,7 +320,7 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
     qboolean full;
 
     if (scr_scale != 1.0f) {
-        lineadj = (int)(lineadj * scr_scale);
+        lineadj = SCR_Scale(lineadj);
     }
 
 #ifdef NQ_HACK

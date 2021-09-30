@@ -63,7 +63,8 @@ const qpic8_t *sb_face_invis_invuln;
 qboolean sb_showscores;
 qboolean sb_showteamscores;
 
-int sb_lines;			// scan lines to draw
+int sb_lines;                   // scan lines to draw
+int sb_lines_hidden;            // scan lines obscured totally by the status bar
 
 void Sbar_DeathmatchOverlay(int start);
 void Sbar_TeamOverlay(void);
@@ -847,7 +848,7 @@ Sbar_Draw(void)
 	sb_updates = 0;
     // clear unused areas in gl
     if (scr_scaled_width > 320 && !headsup)
-	Draw_TileClearScaled(320, scr_scaled_height - sb_lines, scr_scaled_width - 320, sb_lines);
+	Draw_TileClearScaled(320, scr_scaled_height - sb_lines_hidden, scr_scaled_width - 320, sb_lines_hidden);
 #endif
 
     if (sb_lines > 0)

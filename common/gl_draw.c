@@ -481,10 +481,10 @@ static inline struct drawrect
 Draw_GetScaledRect(int x, int y, int w, int h)
 {
     struct drawrect rect = {
-        .x = x * scr_scale,
-        .y = y * scr_scale,
-        .w = w * scr_scale,
-        .h = h * scr_scale,
+        .x = SCR_Scale(x),
+        .y = SCR_Scale(y),
+        .w = SCR_Scale(w),
+        .h = SCR_Scale(h),
     };
 
     return rect;
@@ -579,7 +579,7 @@ Draw_Crosshair(void)
 	glColor4ubv(rgba);
 	GL_Bind(crosshair_texture);
 
-        int stretch_offset = floorf(3.5f * scr_scale);
+        int stretch_offset = SCR_Scale(3.5f);
         int stretch_size = stretch_offset * 2 + 1;
         float stretch_texcoord = stretch_size / 8.0f;
 
@@ -613,11 +613,11 @@ Draw_Crosshair(void)
     }
 
     /* Adjust the coordinates for hud scaling */
-    int x = (int)((scr_vrect.x + scr_vrect.width / 2) / scr_scale);
-    int y = (int)((scr_vrect.y + scr_vrect.height / 2) / scr_scale);
+    int x = SCR_ScaleCoord(scr_vrect.x + scr_vrect.width / 2);
+    int y = SCR_ScaleCoord(scr_vrect.y + scr_vrect.height / 2);
 
-    x += (int)cl_crossx.value - 4;
-    y += (int)cl_crossy.value - 4;
+    x += (int)cl_crossx.value - SCR_Scale(4);
+    y += (int)cl_crossy.value - SCR_Scale(4);
 
     Draw_Character(x, y, '+');
 }
@@ -829,8 +829,8 @@ Draw_ConsoleBackground(int lines)
     {
 	if (!cls.download) {
 	    const char *version = va("TyrQuake (%s) QuakeWorld", build_version);
-            int x = scr_scaled_width - (strlen(version) * 8 + 11);
-            y = (int)((lines - 14) / scr_scale);
+            int x = scr_scaled_width - SCR_Scale(strlen(version) * 8 + 11);
+            y = SCR_ScaleCoord(lines - 14);
 	    Draw_Alt_String(x, y, version);
 	}
     }
