@@ -318,44 +318,65 @@ Draw_Crosshair(void)
 static void
 Draw_ScaledPic(int x, int y, const qpic8_t *pic)
 {
-    int dst_x, dst_x_start, dst_x_end, dst_width;
-    int dst_y, dst_y_start, dst_y_end, dst_height;
-    int f, fstep;
-    const byte *src;
-
     assert(pic->stride);
 
     /* Calculate the destination pixels */
-    dst_x_start = SCR_Scale(x);
-    dst_y_start = SCR_Scale(y);
-    dst_x_end = SCR_Scale(x + pic->width);
-    dst_y_end = SCR_Scale(y + pic->height);
-    dst_width = dst_x_end - dst_x_start;
-    dst_height = dst_y_end - dst_y_start;
+    int dst_x_start = SCR_Scale(x);
+    int dst_y_start = SCR_Scale(y);
+    int dst_x_end = SCR_Scale(x + pic->width);
+    int dst_y_end = SCR_Scale(y + pic->height);
+    int dst_width = dst_x_end - dst_x_start;
+    int dst_height = dst_y_end - dst_y_start;
 
     /* Clip to the output buffer size */
     dst_x_end = qmin(dst_x_end, vid.conwidth);
     dst_y_end = qmin(dst_y_end, vid.conheight);
 
     /* Fractional source step, 16-bits of precision */
-    fstep = pic->width * 0x10000 / dst_width;
-    if (r_pixbytes == 1) {
-        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
-            byte *dst = vid.buffer + dst_y * vid.rowbytes;
-            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
-            src = pic->pixels + src_row * pic->stride;
-            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
-                dst[dst_x] = src[f >> 16];
-            }
+    const int fstep = pic->width * 0x10000 / dst_width;
+    for (int dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+        byte *dst = vid.buffer + dst_y * vid.rowbytes;
+        int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+        const byte *src = pic->pixels + src_row * pic->stride;
+        for (int dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+            dst[dst_x] = src[f >> 16];
         }
-    } else {
-        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
-            uint16_t *dst = (uint16_t *)(vid.buffer + dst_y * vid.rowbytes);
-            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
-            src = pic->pixels + src_row * pic->stride;
-            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
-                dst[dst_x] = d_8to16table[src[f >> 16]];
-            }
+    }
+}
+
+static void
+Draw_ScaledPicAlpha(int x, int y, const qpic8_t *pic, float alpha)
+{
+    assert(pic->stride);
+
+    if (!alpha)
+        return;
+    const byte *transtable = Alpha_Transtable(alpha);
+    if (!transtable) {
+        Draw_ScaledPic(x, y, pic);
+        return;
+    }
+
+    /* Calculate the destination pixels */
+    int dst_x_start = SCR_Scale(x);
+    int dst_y_start = SCR_Scale(y);
+    int dst_x_end = SCR_Scale(x + pic->width);
+    int dst_y_end = SCR_Scale(y + pic->height);
+    int dst_width = dst_x_end - dst_x_start;
+    int dst_height = dst_y_end - dst_y_start;
+
+    /* Clip to the output buffer size */
+    dst_x_end = qmin(dst_x_end, vid.conwidth);
+    dst_y_end = qmin(dst_y_end, vid.conheight);
+
+    /* Fractional source step, 16-bits of precision */
+    const int fstep = pic->width * 0x10000 / dst_width;
+    for (int dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+        byte *dst = vid.buffer + dst_y * vid.rowbytes;
+        int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+        const byte *src = pic->pixels + src_row * pic->stride;
+        for (int dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+            dst[dst_x] = transtable[(((int)dst[dst_x]) << 8) + src[f >> 16]];
         }
     }
 }
@@ -363,50 +384,70 @@ Draw_ScaledPic(int x, int y, const qpic8_t *pic)
 static void
 Draw_ScaledTransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
 {
-    int dst_x, dst_x_start, dst_x_end, dst_width;
-    int dst_y, dst_y_start, dst_y_end, dst_height;
-    int f, fstep;
-    const byte *src;
-
     assert(pic->stride);
 
     /* Calculate the destination pixels */
-    dst_x_start = SCR_Scale(x);
-    dst_y_start = SCR_Scale(y);
-    dst_x_end = SCR_Scale(x + pic->width);
-    dst_y_end = SCR_Scale(y + pic->height);
-    dst_width = dst_x_end - dst_x_start;
-    dst_height = dst_y_end - dst_y_start;
+    int dst_x_start = SCR_Scale(x);
+    int dst_y_start = SCR_Scale(y);
+    int dst_x_end = SCR_Scale(x + pic->width);
+    int dst_y_end = SCR_Scale(y + pic->height);
+    int dst_width = dst_x_end - dst_x_start;
+    int dst_height = dst_y_end - dst_y_start;
 
     /* Clip to the output buffer size */
     dst_x_end = qmin(dst_x_end, vid.conwidth);
     dst_y_end = qmin(dst_y_end, vid.conheight);
 
     /* Fractional source step, 16-bits of precision */
-    fstep = pic->width * 0x10000 / dst_width;
-    if (r_pixbytes == 1) {
-        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
-            byte *dst = vid.buffer + dst_y * vid.rowbytes;
-            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
-            src = pic->pixels + src_row * pic->stride;
-            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
-                if (src[f >> 16] != transparent_color)
-                    dst[dst_x] = src[f >> 16];
-            }
-        }
-    } else {
-        for (dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
-            uint16_t *dst = (uint16_t *)(vid.buffer + dst_y * vid.rowbytes);
-            int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
-            src = pic->pixels + src_row * pic->stride;
-            for (dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
-                if (src[f >> 16] != transparent_color)
-                    dst[dst_x] = d_8to16table[src[f >> 16]];
-            }
+    const int fstep = pic->width * 0x10000 / dst_width;
+    for (int dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+        byte *dst = vid.buffer + dst_y * vid.rowbytes;
+        int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+        const byte *src = pic->pixels + src_row * pic->stride;
+        for (int dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+            if (src[f >> 16] != transparent_color)
+                dst[dst_x] = src[f >> 16];
         }
     }
 }
 
+static void
+Draw_ScaledTransPicAlpha(int x, int y, const qpic8_t *pic, byte transparent_color, float alpha)
+{
+    assert(pic->stride);
+
+    if (!alpha)
+        return;
+    const byte *transtable = Alpha_Transtable(alpha);
+    if (!transtable) {
+        Draw_ScaledTransPic(x, y, pic, transparent_color);
+        return;
+    }
+
+    /* Calculate the destination pixels */
+    int dst_x_start = SCR_Scale(x);
+    int dst_y_start = SCR_Scale(y);
+    int dst_x_end = SCR_Scale(x + pic->width);
+    int dst_y_end = SCR_Scale(y + pic->height);
+    int dst_width = dst_x_end - dst_x_start;
+    int dst_height = dst_y_end - dst_y_start;
+
+    /* Clip to the output buffer size */
+    dst_x_end = qmin(dst_x_end, vid.conwidth);
+    dst_y_end = qmin(dst_y_end, vid.conheight);
+
+    /* Fractional source step, 16-bits of precision */
+    const int fstep = pic->width * 0x10000 / dst_width;
+    for (int dst_y = qmax(0, dst_y_start); dst_y < dst_y_end; dst_y++) {
+        byte *dst = vid.buffer + dst_y * vid.rowbytes;
+        int src_row = (dst_y - dst_y_start) * pic->height / dst_height;
+        const byte *src = pic->pixels + src_row * pic->stride;
+        for (int dst_x = qmax(0, dst_x_start), f = 0; dst_x < dst_x_end; dst_x++, f += fstep) {
+            if (src[f >> 16] != transparent_color)
+                dst[dst_x] = transtable[(((int)dst[dst_x]) << 8) + src[f >> 16]];
+        }
+    }
+}
 
 /*
 =============
@@ -416,39 +457,59 @@ Draw_Pic
 void
 Draw_Pic(int x, int y, const qpic8_t *pic)
 {
-    byte *dest;
-    const byte *source;
-    uint16_t *pusdest;
-    int v, u;
+    assert(r_pixbytes == 1); // TODO: 16-bit back buffer isn't supported, just remove r_pixbytes.
 
     if (scr_scale != 1.0f) {
         Draw_ScaledPic(x, y, pic);
         return;
     }
 
-    if (x < 0 || x + pic->width > vid.width ||
-	y < 0 || y + pic->height > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
+    assert(x >= 0 && x + pic->width <= vid.width);
+    assert(y >= 0 && y + pic->height <= vid.height);
+
+    const byte *source = pic->pixels;
+    byte *dest = vid.buffer + y * vid.rowbytes + x;
+    for (int v = 0; v < pic->height; v++) {
+        memcpy(dest, source, pic->width);
+        dest += vid.rowbytes;
+        source += pic->stride;
+    }
+}
+
+/*
+=============
+Draw_PicAlpha
+=============
+*/
+void
+Draw_PicAlpha(int x, int y, const qpic8_t *pic, float alpha)
+{
+    assert(r_pixbytes == 1); // TODO: 16-bit back buffer isn't supported, just remove r_pixbytes.
+
+    if (scr_scale != 1.0f) {
+        Draw_ScaledPicAlpha(x, y, pic, alpha);
+        return;
     }
 
-    source = pic->pixels;
+    if (!alpha)
+        return;
+    const byte *transtable = Alpha_Transtable(alpha);
+    if (!transtable) {
+        Draw_Pic(x, y, pic);
+        return;
+    }
 
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
-	for (v = 0; v < pic->height; v++) {
-	    memcpy(dest, source, pic->width);
-	    dest += vid.rowbytes;
-	    source += pic->stride;
-	}
-    } else {
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-	for (v = 0; v < pic->height; v++) {
-	    for (u = 0; u < pic->width; u++) {
-		pusdest[u] = d_8to16table[source[u]];
-	    }
-	    pusdest += vid.rowbytes / 2;
-	    source += pic->stride;
-	}
+    assert(x >= 0 && x + pic->width <= vid.width);
+    assert(y >= 0 && y + pic->height <= vid.height);
+
+    const byte *source = pic->pixels;
+    byte *dest = vid.buffer + y * vid.rowbytes + x;
+    for (int v = 0; v < pic->height; v++) {
+        for (int u = 0; u < pic->width; u++) {
+            dest[u] = transtable[(((int)dest[u]) << 8) + source[u]];
+        }
+        dest += vid.rowbytes;
+        source += pic->stride;
     }
 }
 
@@ -458,8 +519,7 @@ Draw_SubPic
 =============
 */
 void
-Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
-	    int height)
+Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height)
 {
     qpic8_t subpic = {
         .width = width,
@@ -471,6 +531,18 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
     Draw_Pic(x, y, &subpic);
 }
 
+void
+Draw_SubPicAlpha(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height, float alpha)
+{
+    qpic8_t subpic = {
+        .width = width,
+        .height = height,
+        .stride = pic->width,
+        .pixels = pic->pixels + srcy * pic->stride + srcx,
+    };
+
+    Draw_PicAlpha(x, y, &subpic, alpha);
+}
 
 /*
 =============
@@ -480,74 +552,64 @@ Draw_TransPic
 void
 Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
 {
-    byte *dest, tbyte;
-    const byte *source;
-    uint16_t *pusdest;
-    int v, u;
+    assert(r_pixbytes == 1); // TODO: 16-bit back buffer isn't supported, just remove r_pixbytes.
 
     if (scr_scale != 1.0f) {
         Draw_ScaledTransPic(x, y, pic, transparent_color);
         return;
     }
 
-    if (x < 0 || (unsigned)(x + pic->width) > vid.width ||
-	y < 0 || (unsigned)(y + pic->height) > vid.height) {
-	Sys_Error("%s: bad coordinates", __func__);
+    assert(x >= 0 && x + pic->width <= vid.width);
+    assert(y >= 0 && y + pic->height <= vid.height);
+
+    const byte *source = pic->pixels;
+    byte *dest = vid.buffer + y * vid.rowbytes + x;
+    for (int v = 0; v < pic->height; v++) {
+        for (int u = 0; u < pic->width; u++) {
+            if (source[u] != transparent_color)
+                dest[u] = source[u];
+        }
+        dest += vid.rowbytes;
+        source += pic->width;
+    }
+}
+
+
+/*
+==================
+Draw_TransPicAlpha
+==================
+*/
+void
+Draw_TransPicAlpha(int x, int y, const qpic8_t *pic, byte transparent_color, float alpha)
+{
+    assert(r_pixbytes == 1); // TODO: 16-bit back buffer isn't supported, just remove r_pixbytes.
+
+    if (scr_scale != 1.0f) {
+        Draw_ScaledTransPicAlpha(x, y, pic, transparent_color, alpha);
+        return;
     }
 
-    source = pic->pixels;
+    if (!alpha)
+        return;
+    const byte *transtable = Alpha_Transtable(alpha);
+    if (!transtable) {
+        Draw_TransPic(x, y, pic, transparent_color);
+        return;
+    }
 
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
+    assert(x >= 0 && x + pic->width <= vid.width);
+    assert(y >= 0 && y + pic->height <= vid.height);
 
-	if (pic->width & 7) {	// general
-	    for (v = 0; v < pic->height; v++) {
-		for (u = 0; u < pic->width; u++)
-		    if ((tbyte = source[u]) != transparent_color)
-			dest[u] = tbyte;
-
-		dest += vid.rowbytes;
-		source += pic->width;
-	    }
-	} else {		// unwound
-	    for (v = 0; v < pic->height; v++) {
-		for (u = 0; u < pic->width; u += 8) {
-		    if ((tbyte = source[u]) != transparent_color)
-			dest[u] = tbyte;
-		    if ((tbyte = source[u + 1]) != transparent_color)
-			dest[u + 1] = tbyte;
-		    if ((tbyte = source[u + 2]) != transparent_color)
-			dest[u + 2] = tbyte;
-		    if ((tbyte = source[u + 3]) != transparent_color)
-			dest[u + 3] = tbyte;
-		    if ((tbyte = source[u + 4]) != transparent_color)
-			dest[u + 4] = tbyte;
-		    if ((tbyte = source[u + 5]) != transparent_color)
-			dest[u + 5] = tbyte;
-		    if ((tbyte = source[u + 6]) != transparent_color)
-			dest[u + 6] = tbyte;
-		    if ((tbyte = source[u + 7]) != transparent_color)
-			dest[u + 7] = tbyte;
-		}
-		dest += vid.rowbytes;
-		source += pic->width;
-	    }
-	}
-    } else {
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-
-	for (v = 0; v < pic->height; v++) {
-	    for (u = 0; u < pic->width; u++) {
-		tbyte = source[u];
-
-		if (tbyte != transparent_color) {
-		    pusdest[u] = d_8to16table[tbyte];
-		}
-	    }
-
-	    pusdest += vid.rowbytes / 2;
-	    source += pic->width;
-	}
+    const byte *source = pic->pixels;
+    byte *dest = vid.buffer + y * vid.rowbytes + x;
+    for (int v = 0; v < pic->height; v++) {
+        for (int u = 0; u < pic->width; u++) {
+            if (source[u] != transparent_color)
+                dest[u] = transtable[(((int)dest[u]) << 8) + source[u]];
+        }
+        dest += vid.rowbytes;
+        source += pic->width;
     }
 }
 
@@ -608,7 +670,7 @@ Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation
  * Draws one 8*8 graphics character with 0 being transparent.
  */
 void
-Draw_Character(int x, int y, byte num)
+Draw_CharacterAlpha(int x, int y, byte num, float alpha)
 {
     int row, col;
     qpic8_t pic = {
@@ -623,10 +685,16 @@ Draw_Character(int x, int y, byte num)
     pic.pixels = draw_chars + (row << 10) + (col << 3);
 
     if (scr_scale == 1.0f) {
-        Draw_ScaledTransPic(x, y, &pic, 0);
+        Draw_ScaledTransPicAlpha(x, y, &pic, 0, alpha);
     } else {
-        Draw_TransPic(x, y, &pic, 0);
+        Draw_TransPicAlpha(x, y, &pic, 0, alpha);
     }
+}
+
+void
+Draw_Character(int x, int y, byte num)
+{
+    Draw_CharacterAlpha(x, y, num, 1.0f);
 }
 
 /*
@@ -635,13 +703,19 @@ Draw_String
 ================
 */
 void
-Draw_String(int x, int y, const char *str)
+Draw_StringAlpha(int x, int y, const char *str, float alpha)
 {
     while (*str) {
-	Draw_Character(x, y, *str);
+	Draw_CharacterAlpha(x, y, *str, alpha);
 	str++;
 	x += 8;
     }
+}
+
+void
+Draw_String(int x, int y, const char *str)
+{
+    Draw_StringAlpha(x, y, str, 1.0f);
 }
 
 /*
@@ -650,18 +724,20 @@ Draw_Alt_String
 ================
 */
 void
-Draw_Alt_String(int x, int y, const char *str)
+Draw_Alt_StringAlpha(int x, int y, const char *str, float alpha)
 {
     while (*str) {
-	Draw_Character(x, y, (*str) | 0x80);
+	Draw_CharacterAlpha(x, y, (*str) | 0x80, alpha);
 	str++;
 	x += 8;
     }
 }
 
-
-
-
+void
+Draw_Alt_String(int x, int y, const char *str)
+{
+    Draw_Alt_StringAlpha(x, y, str, 1.0f);
+}
 
 static void
 Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
@@ -970,13 +1046,8 @@ Fills a box of pixels with a single color
 =============
 */
 void
-Draw_Fill(int x, int y, int w, int h, int c)
+Draw_FillAlpha(int x, int y, int w, int h, int c, float alpha)
 {
-    byte *dest;
-    uint16_t *pusdest;
-    uint16_t uc;
-    int u, v;
-
     if (scr_scale != 1.0f) {
         x = SCR_Scale(x);
         y = SCR_Scale(y);
@@ -984,25 +1055,31 @@ Draw_Fill(int x, int y, int w, int h, int c)
         h = SCR_Scale(h);
     }
 
-    if (x < 0 || x + w > vid.width || y < 0 || y + h > vid.height) {
-	Con_Printf("Bad Draw_Fill(%d, %d, %d, %d, %c)\n", x, y, w, h, c);
-	return;
-    }
+    assert(x >= 0 && x + w <= vid.width);
+    assert(y >= 0 && y + h <= vid.height);
 
-    if (r_pixbytes == 1) {
-	dest = vid.buffer + y * vid.rowbytes + x;
-	for (v = 0; v < h; v++, dest += vid.rowbytes)
-	    for (u = 0; u < w; u++)
-		dest[u] = c;
+    if (!alpha)
+        return;
+    const byte *transtable = Alpha_Transtable(alpha);
+
+    byte *dest = vid.buffer + y * vid.rowbytes + x;
+    if (transtable) {
+        for (int v = 0; v < h; v++, dest += vid.rowbytes)
+            for (int u = 0; u < w; u++)
+                dest[u] = transtable[(((int)dest[u]) << 8) + c];
     } else {
-	uc = d_8to16table[c];
-
-	pusdest = (uint16_t *)vid.buffer + y * (vid.rowbytes / 2) + x;
-	for (v = 0; v < h; v++, pusdest += vid.rowbytes / 2)
-	    for (u = 0; u < w; u++)
-		pusdest[u] = uc;
+        for (int v = 0; v < h; v++, dest += vid.rowbytes)
+            for (int u = 0; u < w; u++)
+                dest[u] = c;
     }
 }
+
+void
+Draw_Fill(int x, int y, int w, int h, int c)
+{
+    Draw_FillAlpha(x, y, w, h, c, 1.0f);
+}
+
 
 //=============================================================================
 

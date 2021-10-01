@@ -510,7 +510,7 @@ smoothly scrolled off.
 ================
 */
 void
-Draw_Character(int x, int y, byte num)
+Draw_CharacterAlpha(int x, int y, byte num, float alpha)
 {
     int row, col;
     float frow, fcol, size;
@@ -530,6 +530,12 @@ Draw_Character(int x, int y, byte num)
     fcol = col * 0.0625f;
     size = 0.0625f;
 
+    if (alpha < 1.0f) {
+        glDisable(GL_ALPHA_TEST);
+        glEnable(GL_BLEND);
+    }
+    glColor4f(1, 1, 1, alpha);
+
     GL_Bind(charset_texture);
     glBegin(GL_QUADS);
     glTexCoord2f(fcol, frow);
@@ -541,6 +547,18 @@ Draw_Character(int x, int y, byte num)
     glTexCoord2f(fcol, frow + size);
     glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
+
+    if (alpha < 1.0f) {
+        glDisable(GL_BLEND);
+        glEnable(GL_ALPHA_TEST);
+        glColor4f(1, 1, 1, 1);
+    }
+}
+
+void
+Draw_Character(int x, int y, byte num)
+{
+    Draw_CharacterAlpha(x, y, num, 1.0f);
 }
 
 /*
@@ -549,13 +567,19 @@ Draw_String
 ================
 */
 void
-Draw_String(int x, int y, const char *str)
+Draw_StringAlpha(int x, int y, const char *str, float alpha)
 {
     while (*str) {
-	Draw_Character(x, y, *str);
+	Draw_CharacterAlpha(x, y, *str, alpha);
 	str++;
 	x += 8;
     }
+}
+
+void
+Draw_String(int x, int y, const char *str)
+{
+    Draw_StringAlpha(x, y, str, 1.0f);
 }
 
 /*
@@ -564,13 +588,19 @@ Draw_Alt_String
 ================
 */
 void
-Draw_Alt_String(int x, int y, const char *str)
+Draw_Alt_StringAlpha(int x, int y, const char *str, float alpha)
 {
     while (*str) {
-	Draw_Character(x, y, (*str) | 0x80);
+	Draw_CharacterAlpha(x, y, (*str) | 0x80, alpha);
 	str++;
 	x += 8;
     }
+}
+
+void
+Draw_Alt_String(int x, int y, const char *str)
+{
+    Draw_Alt_StringAlpha(x, y, str, 1.0f);
 }
 
 void
@@ -617,7 +647,7 @@ Draw_Crosshair(void)
 
 	glEnd();
 
-	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+	glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
         return;
     }
@@ -638,7 +668,7 @@ Draw_Pic
 =============
 */
 void
-Draw_Pic(int x, int y, const qpic8_t *pic)
+Draw_PicAlpha(int x, int y, const qpic8_t *pic, float alpha)
 {
     struct drawrect rect = Draw_GetScaledRect(x, y, pic->width, pic->height);
     const glpic_t *glpic;
@@ -646,7 +676,12 @@ Draw_Pic(int x, int y, const qpic8_t *pic)
     glpic = const_container_of(pic, glpic_t, pic);
     Scrap_Flush(glpic->texture);
 
-    glColor4f(1, 1, 1, 1);
+    if (alpha < 1.0f) {
+        glDisable(GL_ALPHA_TEST);
+        glEnable(GL_BLEND);
+    }
+    glColor4f(1, 1, 1, alpha);
+
     GL_Bind(glpic->texture);
     glBegin(GL_QUADS);
     glTexCoord2f(glpic->sl, glpic->tl);
@@ -658,11 +693,22 @@ Draw_Pic(int x, int y, const qpic8_t *pic)
     glTexCoord2f(glpic->sl, glpic->th);
     glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
+
+    if (alpha < 1.0f) {
+        glDisable(GL_BLEND);
+        glEnable(GL_ALPHA_TEST);
+        glColor4f(1, 1, 1, 1);
+    }
 }
 
 void
-Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
-	    int height)
+Draw_Pic(int x, int y, const qpic8_t *pic)
+{
+    Draw_PicAlpha(x, y, pic, 1.0f);
+}
+
+void
+Draw_SubPicAlpha(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height, float alpha)
 {
     struct drawrect rect = Draw_GetScaledRect(x, y, width, height);
     const glpic_t *glpic;
@@ -681,7 +727,12 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
     newtl = glpic->tl + (srcy * oldglheight) / pic->height;
     newth = newtl + (height * oldglheight) / pic->height;
 
-    glColor4f(1, 1, 1, 1);
+    if (alpha < 1.0f) {
+        glDisable(GL_ALPHA_TEST);
+        glEnable(GL_BLEND);
+    }
+    glColor4f(1, 1, 1, alpha);
+
     GL_Bind(glpic->texture);
     glBegin(GL_QUADS);
     glTexCoord2f(newsl, newtl);
@@ -693,8 +744,19 @@ Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
     glTexCoord2f(newsl, newth);
     glVertex2f(rect.x, rect.y + rect.h);
     glEnd();
+
+    if (alpha < 1.0f) {
+        glDisable(GL_BLEND);
+        glEnable(GL_ALPHA_TEST);
+        glColor4f(1, 1, 1, 1);
+    }
 }
 
+void
+Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height)
+{
+    Draw_SubPicAlpha(x, y, pic, srcx, srcy, width, height, 1.0f);
+}
 /*
 =============
 Draw_TransPic
@@ -704,6 +766,12 @@ void
 Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color)
 {
     Draw_Pic(x, y, pic);
+}
+
+void
+Draw_TransPicAlpha(int x, int y, const qpic8_t *pic, byte transparent_color, float alpha)
+{
+    Draw_PicAlpha(x, y, pic, alpha);
 }
 
 
@@ -891,14 +959,16 @@ Fills a box of pixels with a single color
 =============
 */
 void
-Draw_Fill(int x, int y, int w, int h, int c)
+Draw_FillAlpha(int x, int y, int w, int h, int c, float alpha)
 {
     struct drawrect rect = Draw_GetScaledRect(x, y, w, h);
 
+    if (alpha < 1.0f) {
+        glDisable(GL_ALPHA_TEST);
+        glEnable(GL_BLEND);
+    }
     glDisable(GL_TEXTURE_2D);
-    glColor3f(host_basepal[c * 3] / 255.0,
-	      host_basepal[c * 3 + 1] / 255.0,
-	      host_basepal[c * 3 + 2] / 255.0);
+    glColor4f(host_basepal[c * 3] / 255.0f, host_basepal[c * 3 + 1] / 255.0f, host_basepal[c * 3 + 2] / 255.0f, alpha);
 
     glBegin(GL_QUADS);
 
@@ -908,10 +978,20 @@ Draw_Fill(int x, int y, int w, int h, int c)
     glVertex2f(rect.x, rect.y + rect.h);
 
     glEnd();
+
+    if (alpha < 1.0f) {
+        glDisable(GL_BLEND);
+        glEnable(GL_ALPHA_TEST);
+    }
     glColor3f(1, 1, 1);
     glEnable(GL_TEXTURE_2D);
 }
 
+void
+Draw_Fill(int x, int y, int w, int h, int c)
+{
+    Draw_FillAlpha(x, y, w, h, c, 1.0f);
+}
 //=============================================================================
 
 /*
@@ -997,7 +1077,9 @@ GL_Set2D(void)
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_BLEND);
     glEnable(GL_ALPHA_TEST);
-//      glDisable(GL_ALPHA_TEST);
+
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
     glColor4f(1, 1, 1, 1);
 }

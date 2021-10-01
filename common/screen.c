@@ -111,6 +111,16 @@ qboolean scr_disabled_for_loading;
 qboolean scr_block_drawing;
 qboolean scr_skipupdate;
 
+static void
+SCR_SbarAlpha_f(cvar_t *cvar)
+{
+    if (cvar->value < 0.0f || cvar->value > 1.0f) {
+        cvar->value = qclamp(cvar->value, 0.0f, 1.0f);
+        Cvar_SetValue(cvar->name, cvar->value);
+    }
+}
+
+cvar_t scr_sbaralpha = { "scr_sbaralpha", "0.75", .flags = CVAR_CONFIG, .callback = SCR_SbarAlpha_f };
 static cvar_t scr_centertime = { "scr_centertime", "2" };
 static cvar_t scr_printspeed = { "scr_printspeed", "8" };
 
@@ -187,7 +197,7 @@ SCR_Hudscale_f()
 }
 
 
-cvar_t scr_viewsize = { "viewsize", "100", CVAR_CONFIG };
+cvar_t scr_viewsize = { "viewsize", "110", .flags = CVAR_CONFIG };
 cvar_t scr_fov = { "fov", "90" };	// 10 - 170
 static cvar_t scr_conspeed = { "scr_conspeed", "300" };
 static cvar_t scr_showram = { "showram", "1" };
@@ -1486,6 +1496,7 @@ SCR_RegisterVariables()
     Cvar_RegisterVariable(&scr_viewsize);
     Cvar_RegisterVariable(&scr_conspeed);
     Cvar_RegisterVariable(&scr_hudscale);
+    Cvar_RegisterVariable(&scr_sbaralpha);
     Cvar_RegisterVariable(&scr_showram);
     Cvar_RegisterVariable(&scr_showturtle);
     Cvar_RegisterVariable(&scr_showpause);

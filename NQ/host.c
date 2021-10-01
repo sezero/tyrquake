@@ -864,9 +864,9 @@ Host_LoadPalettes()
 static void
 Host_NewGame()
 {
+    Alpha_Init();
     Draw_Init();
     SCR_Init();
-    Alpha_Init();
     R_Init();
     Sbar_Init();
 }

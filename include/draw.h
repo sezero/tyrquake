@@ -41,8 +41,11 @@ void Draw_RegisterVariables();
 void Draw_Init();
 
 void Draw_Character(int x, int y, byte num);
+void Draw_CharacterAlpha(int x, int y, byte num, float alpha);
 void Draw_Pic(int x, int y, const qpic8_t *pic);
+void Draw_PicAlpha(int x, int y, const qpic8_t *pic, float alpha);
 void Draw_TransPic(int x, int y, const qpic8_t *pic, byte transparent_color);
+void Draw_TransPicAlpha(int x, int y, const qpic8_t *pic, byte transparent_color, float alpha);
 void Draw_TransPicTranslate(int x, int y, const qpic8_t *pic, const byte *translation);
 void Draw_ConsoleBackground(int lines);
 void Draw_BeginDisc(void);
@@ -50,14 +53,17 @@ void Draw_EndDisc(void);
 void Draw_TileClear(int x, int y, int w, int h);
 void Draw_TileClearScaled(int x, int y, int w, int h);
 void Draw_Fill(int x, int y, int w, int h, int c);
+void Draw_FillAlpha(int x, int y, int w, int h, int c, float alpha);
 void Draw_FadeScreen(void);
 void Draw_String(int x, int y, const char *str);
+void Draw_StringAlpha(int x, int y, const char *str, float alpha);
 const qpic8_t *Draw_PicFromWad(const char *name);
 const qpic8_t *Draw_CachePic(const char *path);
 
 void Draw_Alt_String(int x, int y, const char *str);
+void Draw_Alt_StringAlpha(int x, int y, const char *str, float alpha);
 void Draw_Crosshair(void);
-void Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy,
-		 int width, int height);
+void Draw_SubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height);
+void Draw_SubPicAlpha(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height, float alpha);
 
 #endif /* DRAW_H */

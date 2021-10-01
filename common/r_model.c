@@ -72,7 +72,7 @@ Alpha_Init()
     float alphastep;
     byte *tables;
 
-    Con_Printf("Initializing palettes...\n");
+    Con_SafePrintf("Initializing palettes...\n");
 
     num_transtables = 4; // TODO: Add cvar to configure
     host_transtables = Hunk_AllocName((sizeof(byte *) + 65536) * num_transtables, "translucency");

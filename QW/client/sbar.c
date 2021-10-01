@@ -258,10 +258,10 @@ Sbar_Init(void)
 Sbar_DrawPic
 =============
 */
-void
+static void
 Sbar_DrawPic(int x, int y, const qpic8_t *pic)
 {
-    Draw_Pic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic);
+    Draw_PicAlpha(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, scr_sbaralpha.value);
 }
 
 /*
@@ -271,10 +271,10 @@ Sbar_DrawSubPic
 JACK: Draws a portion of the picture in the status bar.
 */
 
-void
+static void
 Sbar_DrawSubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width, int height)
 {
-    Draw_SubPic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, srcx, srcy, width, height);
+    Draw_SubPicAlpha(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, srcx, srcy, width, height, scr_sbaralpha.value);
 }
 
 
@@ -283,10 +283,10 @@ Sbar_DrawSubPic(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width,
 Sbar_DrawTransPic
 =============
 */
-void
+static void
 Sbar_DrawTransPic(int x, int y, const qpic8_t *pic)
 {
-    Draw_TransPic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR);
+    Draw_TransPicAlpha(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR, scr_sbaralpha.value);
 }
 
 /*
@@ -296,10 +296,10 @@ Sbar_DrawCharacter
 Draws one solid graphics character
 ================
 */
-void
+static void
 Sbar_DrawCharacter(int x, int y, int num)
 {
-    Draw_Character(x + 4, y + scr_scaled_height - SBAR_HEIGHT, num);
+    Draw_CharacterAlpha(x + 4, y + scr_scaled_height - SBAR_HEIGHT, num, scr_sbaralpha.value);
 }
 
 /*
@@ -310,7 +310,7 @@ Sbar_DrawString
 static void
 Sbar_DrawString(int x, int y, const char *str)
 {
-    Draw_String(x, y + scr_scaled_height - SBAR_HEIGHT, str);
+    Draw_StringAlpha(x, y + scr_scaled_height - SBAR_HEIGHT, str, scr_sbaralpha.value);
 }
 
 /*
@@ -318,7 +318,7 @@ Sbar_DrawString(int x, int y, const char *str)
 Sbar_itoa
 =============
 */
-int
+static int
 Sbar_itoa(int num, char *buf)
 {
     char *str;
@@ -352,7 +352,7 @@ Sbar_itoa(int num, char *buf)
 Sbar_DrawNum
 =============
 */
-void
+static void
 Sbar_DrawNum(int x, int y, int num, int digits, int color)
 {
     char str[12];
@@ -578,29 +578,20 @@ Sbar_DrawInventory(void)
     for (i = 0; i < 4; i++) {
 	qsnprintf(num, sizeof(num), "%3i", cl.stats[STAT_SHELLS + i]);
 	if (headsup) {
-//                      Sbar_DrawSubPic(3, -24, sb_ibar, 3, 0, 42,11);
-	    Sbar_DrawSubPic((hudswap) ? 0 : (scr_scaled_width - 42),
-			    -24 - (4 - i) * 11, sb_ibar, 3 + (i * 48), 0, 42,
-			    11);
+	    Sbar_DrawSubPic((hudswap) ? 0 : (scr_scaled_width - 42), -24 - (4 - i) * 11, sb_ibar, 3 + (i * 48), 0, 42, 11);
 	    if (num[0] != ' ')
-		Sbar_DrawCharacter((hudswap) ? 3 : (scr_scaled_width - 39),
-				   -24 - (4 - i) * 11, 18 + num[0] - '0');
+		Sbar_DrawCharacter((hudswap) ? 3 : (scr_scaled_width - 39), -24 - (4 - i) * 11, 18 + num[0] - '0');
 	    if (num[1] != ' ')
-		Sbar_DrawCharacter((hudswap) ? 11 : (scr_scaled_width - 31),
-				   -24 - (4 - i) * 11, 18 + num[1] - '0');
+		Sbar_DrawCharacter((hudswap) ? 11 : (scr_scaled_width - 31), -24 - (4 - i) * 11, 18 + num[1] - '0');
 	    if (num[2] != ' ')
-		Sbar_DrawCharacter((hudswap) ? 19 : (scr_scaled_width - 23),
-				   -24 - (4 - i) * 11, 18 + num[2] - '0');
+		Sbar_DrawCharacter((hudswap) ? 19 : (scr_scaled_width - 23), -24 - (4 - i) * 11, 18 + num[2] - '0');
 	} else {
 	    if (num[0] != ' ')
-		Sbar_DrawCharacter((6 * i + 1) * 8 - 2, -24,
-				   18 + num[0] - '0');
+		Sbar_DrawCharacter((6 * i + 1) * 8 - 2, -24, 18 + num[0] - '0');
 	    if (num[1] != ' ')
-		Sbar_DrawCharacter((6 * i + 2) * 8 - 2, -24,
-				   18 + num[1] - '0');
+		Sbar_DrawCharacter((6 * i + 2) * 8 - 2, -24, 18 + num[1] - '0');
 	    if (num[2] != ' ')
-		Sbar_DrawCharacter((6 * i + 3) * 8 - 2, -24,
-				   18 + num[2] - '0');
+		Sbar_DrawCharacter((6 * i + 3) * 8 - 2, -24, 18 + num[2] - '0');
 	}
     }
 
@@ -664,11 +655,8 @@ Sbar_DrawFrags(void)
 	// draw background
 	top = Sbar_ColorForMap(s->topcolor);
 	bottom = Sbar_ColorForMap(s->bottomcolor);
-
-//              Draw_Fill (xofs + x*8 + 10, y, 28, 4, top);
-//              Draw_Fill (xofs + x*8 + 10, y+4, 28, 3, bottom);
-	Draw_Fill(x * 8 + 10, y, 28, 4, top);
-	Draw_Fill(x * 8 + 10, y + 4, 28, 3, bottom);
+	Draw_FillAlpha(x * 8 + 10, y, 28, 4, top, scr_sbaralpha.value);
+	Draw_FillAlpha(x * 8 + 10, y + 4, 28, 3, bottom, scr_sbaralpha.value);
 
 	// draw number
 	f = s->frags;
@@ -746,8 +734,7 @@ Sbar_DrawNormal(void)
 	Sbar_DrawNum(24, 0, 666, 3, 1);
 	Sbar_DrawPic(0, 0, draw_disc);
     } else {
-	Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3,
-		     cl.stats[STAT_ARMOR] <= 25);
+	Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
 	if (cl.stats[STAT_ITEMS] & IT_ARMOR3)
 	    Sbar_DrawPic(0, 0, sb_armor[2]);
 	else if (cl.stats[STAT_ITEMS] & IT_ARMOR2)
@@ -760,8 +747,7 @@ Sbar_DrawNormal(void)
     Sbar_DrawFace();
 
 // health
-    Sbar_DrawNum(136, 0, cl.stats[STAT_HEALTH], 3,
-		 cl.stats[STAT_HEALTH] <= 25);
+    Sbar_DrawNum(136, 0, cl.stats[STAT_HEALTH], 3, cl.stats[STAT_HEALTH] <= 25);
 
 // ammo icon
     if (cl.stats[STAT_ITEMS] & IT_SHELLS)
@@ -812,17 +798,14 @@ Sbar_Draw(void)
 	    if (autocam != CAM_TRACK) {
 		Sbar_DrawPic(0, 0, sb_scorebar);
 		Sbar_DrawString(160 - 7 * 8, 4, "SPECTATOR MODE");
-		Sbar_DrawString(160 - 14 * 8 + 4, 12,
-				"Press [ATTACK] for AutoCamera");
+		Sbar_DrawString(160 - 14 * 8 + 4, 12, "Press [ATTACK] for AutoCamera");
 	    } else {
 		if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
 		    Sbar_SoloScoreboard();
 		else
 		    Sbar_DrawNormal();
 
-//                                      Sbar_DrawString (160-14*8+4,4, "SPECTATOR MODE - TRACK CAMERA");
-		qsnprintf(st, sizeof(st), "Tracking %-.13s, [JUMP] for next",
-			cl.players[spec_track].name);
+		qsnprintf(st, sizeof(st), "Tracking %-.13s, [JUMP] for next", cl.players[spec_track].name);
 		Sbar_DrawString(0, -8, st);
 	    }
 	} else if (sb_showscores || cl.stats[STAT_HEALTH] <= 0)
@@ -833,8 +816,7 @@ Sbar_Draw(void)
 // main screen deathmatch rankings
     // if we're dead show team scores in team games
     if (cl.stats[STAT_HEALTH] <= 0 && !cl.spectator)
-	if (atoi(Info_ValueForKey(cl.serverinfo, "teamplay")) > 0 &&
-	    !sb_showscores)
+	if (atoi(Info_ValueForKey(cl.serverinfo, "teamplay")) > 0 && !sb_showscores)
 	    Sbar_TeamOverlay();
 	else
 	    Sbar_DeathmatchOverlay(0);
@@ -925,11 +907,10 @@ Sbar_TeamOverlay(void)
 
     y = 24;
     x = 36;
-    Draw_String(x, y, "low/avg/high team total players");
+    Draw_StringAlpha(x, y, "low/avg/high team total players", scr_sbaralpha.value);
     y += 8;
 //      Draw_String(x, y, "------------ ---- ----- -------");
-    Draw_String(x, y,
-		"\x1d\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1e\x1e\x1f");
+    Draw_StringAlpha(x, y, "\x1d\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1e\x1e\x1f", scr_sbaralpha.value);
     y += 8;
 
 // sort the teams
@@ -955,24 +936,23 @@ Sbar_TeamOverlay(void)
 	    pavg = 999;
 
 	qsnprintf(num, sizeof(num), "%3i/%3i/%3i", plow, pavg, phigh);
-	Draw_String(x, y, num);
+	Draw_StringAlpha(x, y, num, scr_sbaralpha.value);
 
 	// draw team
 	qstrncpy(team, tm->team, sizeof(team));
-	Draw_String(x + 104, y, team);
+	Draw_StringAlpha(x + 104, y, team, scr_sbaralpha.value);
 
 	// draw total
 	qsnprintf(num, sizeof(num), "%5i", tm->frags);
-	Draw_String(x + 104 + 40, y, num);
+	Draw_StringAlpha(x + 104 + 40, y, num, scr_sbaralpha.value);
 
 	// draw players
 	qsnprintf(num, sizeof(num), "%5i", tm->players);
-	Draw_String(x + 104 + 88, y, num);
+	Draw_StringAlpha(x + 104 + 88, y, num, scr_sbaralpha.value);
 
-	if (!strncmp(Info_ValueForKey(cl.players[cl.playernum].userinfo,
-				      "team"), tm->team, 16)) {
-	    Draw_Character(x + 104 - 8, y, 16);
-	    Draw_Character(x + 104 + 32, y, 17);
+	if (!strncmp(Info_ValueForKey(cl.players[cl.playernum].userinfo, "team"), tm->team, 16)) {
+	    Draw_CharacterAlpha(x + 104 - 8, y, 16, scr_sbaralpha.value);
+	    Draw_CharacterAlpha(x + 104 + 32, y, 17, scr_sbaralpha.value);
 	}
 
 	y += 8;
@@ -1036,20 +1016,18 @@ Sbar_DeathmatchOverlay(int start)
     if (teamplay) {
 	x = 4;
 //                            0    40 64   104   152  192
-	Draw_String(x, y, "ping pl time frags team name");
+	Draw_StringAlpha(x, y, "ping pl time frags team name", scr_sbaralpha.value);
 	y += 8;
 //              Draw_String ( x , y, "---- -- ---- ----- ---- ----------------");
-	Draw_String(x, y,
-		    "\x1d\x1e\x1e\x1f \x1d\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1f");
+	Draw_StringAlpha(x, y, "\x1d\x1e\x1e\x1f \x1d\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1f", scr_sbaralpha.value);
 	y += 8;
     } else {
 	x = 16;
 //                            0    40 64   104   152
-	Draw_String(x, y, "ping pl time frags name");
+	Draw_StringAlpha(x, y, "ping pl time frags name", scr_sbaralpha.value);
 	y += 8;
 //              Draw_String ( x , y, "---- -- ---- ----- ----------------");
-	Draw_String(x, y,
-		    "\x1d\x1e\x1e\x1f \x1d\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1f");
+	Draw_StringAlpha(x, y, "\x1d\x1e\x1e\x1f \x1d\x1f \x1d\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1f \x1d\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1e\x1f", scr_sbaralpha.value);
 	y += 8;
     }
 
@@ -1064,23 +1042,23 @@ Sbar_DeathmatchOverlay(int start)
 	if (p < 0 || p > 999)
 	    p = 999;
 	qsnprintf(num, sizeof(num), "%4i", p);
-	Draw_String(x, y, num);
+	Draw_StringAlpha(x, y, num, scr_sbaralpha.value);
 
 	// draw pl
 	p = s->pl;
 	qsnprintf(num, sizeof(num), "%3i", p);
 	if (p > 25)
-	    Draw_Alt_String(x + 32, y, num);
+	    Draw_Alt_StringAlpha(x + 32, y, num, scr_sbaralpha.value);
 	else
-	    Draw_String(x + 32, y, num);
+	    Draw_StringAlpha(x + 32, y, num, scr_sbaralpha.value);
 
 	if (s->spectator) {
-	    Draw_String(x + 40, y, "(spectator)");
+	    Draw_StringAlpha(x + 40, y, "(spectator)", scr_sbaralpha.value);
 	    // draw name
 	    if (teamplay)
-		Draw_String(x + 152 + 40, y, s->name);
+		Draw_StringAlpha(x + 152 + 40, y, s->name, scr_sbaralpha.value);
 	    else
-		Draw_String(x + 152, y, s->name);
+		Draw_StringAlpha(x + 152, y, s->name, scr_sbaralpha.value);
 	    y += skip;
 	    continue;
 	}
@@ -1091,41 +1069,41 @@ Sbar_DeathmatchOverlay(int start)
 	    total = realtime - s->entertime;
 	minutes = (int)total / 60;
 	qsnprintf(num, sizeof(num), "%4i", minutes);
-	Draw_String(x + 64, y, num);
+	Draw_StringAlpha(x + 64, y, num, scr_sbaralpha.value);
 
 	// draw background
 	top = Sbar_ColorForMap(s->topcolor);
 	bottom = Sbar_ColorForMap(s->bottomcolor);
 
 	if (largegame)
-	    Draw_Fill(x + 104, y + 1, 40, 3, top);
+	    Draw_FillAlpha(x + 104, y + 1, 40, 3, top, scr_sbaralpha.value);
 	else
-	    Draw_Fill(x + 104, y, 40, 4, top);
-	Draw_Fill(x + 104, y + 4, 40, 4, bottom);
+	    Draw_FillAlpha(x + 104, y, 40, 4, top, scr_sbaralpha.value);
+	Draw_FillAlpha(x + 104, y + 4, 40, 4, bottom, scr_sbaralpha.value);
 
 	// draw number
 	f = s->frags;
 	qsnprintf(num, sizeof(num), "%3i", f);
 
-	Draw_Character(x + 112, y, num[0]);
-	Draw_Character(x + 120, y, num[1]);
-	Draw_Character(x + 128, y, num[2]);
+	Draw_CharacterAlpha(x + 112, y, num[0], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 120, y, num[1], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 128, y, num[2], scr_sbaralpha.value);
 
 	if (k == cl.playernum) {
-	    Draw_Character(x + 104, y, 16);
-	    Draw_Character(x + 136, y, 17);
+	    Draw_CharacterAlpha(x + 104, y, 16, scr_sbaralpha.value);
+	    Draw_CharacterAlpha(x + 136, y, 17, scr_sbaralpha.value);
 	}
 	// team
 	if (teamplay) {
 	    team[4] = 0;
 	    strncpy(team, Info_ValueForKey(s->userinfo, "team"), 4);
-	    Draw_String(x + 152, y, team);
+	    Draw_StringAlpha(x + 152, y, team, scr_sbaralpha.value);
 	}
 	// draw name
 	if (teamplay)
-	    Draw_String(x + 152 + 40, y, s->name);
+	    Draw_StringAlpha(x + 152 + 40, y, s->name, scr_sbaralpha.value);
 	else
-	    Draw_String(x + 152, y, s->name);
+	    Draw_StringAlpha(x + 152, y, s->name, scr_sbaralpha.value);
 
 	y += skip;
     }
@@ -1190,18 +1168,18 @@ Sbar_MiniDeathmatchOverlay(void)
 	/* draw background */
 	top = Sbar_ColorForMap(player->topcolor);
 	bottom = Sbar_ColorForMap(player->bottomcolor);
-	Draw_Fill(x, y + 1, 40, 3, top);
-	Draw_Fill(x, y + 4, 40, 4, bottom);
+	Draw_FillAlpha(x, y + 1, 40, 3, top, scr_sbaralpha.value);
+	Draw_FillAlpha(x, y + 4, 40, 4, bottom, scr_sbaralpha.value);
 
 	/* draw frags */
 	char frags[4];
 	qsnprintf(frags, sizeof(frags), "%3d", player->frags);
-	Draw_Character(x + 8, y, frags[0]);
-	Draw_Character(x + 16, y, frags[1]);
-	Draw_Character(x + 24, y, frags[2]);
+	Draw_CharacterAlpha(x + 8, y, frags[0], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 16, y, frags[1], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 24, y, frags[2], scr_sbaralpha.value);
 	if (playernum == cl.playernum) {
-	    Draw_Character(x, y, 16);
-	    Draw_Character(x + 32, y, 17);
+	    Draw_CharacterAlpha(x, y, 16, scr_sbaralpha.value);
+	    Draw_CharacterAlpha(x + 32, y, 17, scr_sbaralpha.value);
 	}
 
 	/* draw team name */
@@ -1209,16 +1187,16 @@ Sbar_MiniDeathmatchOverlay(void)
 	    const char *playerteam = Info_ValueForKey(player->userinfo, "team");
 	    char short_team[5];
 	    qsnprintf(short_team, sizeof(short_team), "%-4s", playerteam);
-	    Draw_String(x + 48, y, short_team);
+	    Draw_StringAlpha(x + 48, y, short_team, scr_sbaralpha.value);
 	}
 
 	/* draw name */
 	char name[17];
 	qsnprintf(name, sizeof(name), "%-16s", player->name);
 	if (teamplay)
-	    Draw_String(x + 48 + 40, y, name);
+	    Draw_StringAlpha(x + 48 + 40, y, name, scr_sbaralpha.value);
 	else
-	    Draw_String(x + 48, y, name);
+	    Draw_StringAlpha(x + 48, y, name, scr_sbaralpha.value);
 
 	y += 8;
     }
@@ -1230,7 +1208,7 @@ Sbar_MiniDeathmatchOverlay(void)
     /* draw seperator */
     x += 208;
     for (y = scr_scaled_height - sb_lines; y < scr_scaled_height - 6; y += 2)
-	Draw_Character(x, y, 14);
+	Draw_CharacterAlpha(x, y, 14, scr_sbaralpha.value);
 
     const player_info_t *player = &cl.players[cl.playernum];
     const char *playerteam = Info_ValueForKey(player->userinfo, "team");
@@ -1244,15 +1222,15 @@ Sbar_MiniDeathmatchOverlay(void)
 	/* draw teamname */
 	char short_team[5];
 	qsnprintf(short_team, sizeof(short_team), "%-4s", team->team);
-	Draw_String(x, y, short_team);
+	Draw_StringAlpha(x, y, short_team, scr_sbaralpha.value);
 
 	/* draw frags */
 	char frags[4];
 	qsnprintf(frags, sizeof(frags), "%3d", team->frags);
-	Draw_String(x + 40, y, frags);
+	Draw_StringAlpha(x + 40, y, frags, scr_sbaralpha.value);
 	if (!strncmp(team->team, playerteam, 16)) {
-	    Draw_Character(x - 8, y, 16);
-	    Draw_Character(x + 32, y, 17);
+	    Draw_CharacterAlpha(x - 8, y, 16, scr_sbaralpha.value);
+	    Draw_CharacterAlpha(x + 32, y, 17, scr_sbaralpha.value);
 	}
 
 	y += 8;

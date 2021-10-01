@@ -50,6 +50,7 @@ extern qboolean scr_skipupdate;
 extern qboolean scr_block_drawing;
 extern cvar_t scr_viewsize;
 extern cvar_t scr_fov;
+extern cvar_t scr_sbaralpha;
 extern vrect_t scr_vrect;
 
 // only the refresh window will be updated unless these variables are flagged

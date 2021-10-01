@@ -291,13 +291,14 @@ Sbar_Init(void)
 Sbar_DrawPic
 =============
 */
-void
+static void
 Sbar_DrawPic(int x, int y, const qpic8_t *pic)
 {
+    float alpha = sb_lines_hidden ? 1.0f : scr_sbaralpha.value;
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_Pic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic);
+	Draw_PicAlpha(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, alpha);
     else
-	Draw_Pic(x + ((scr_scaled_width - 320) >> 1), y + (scr_scaled_height - SBAR_HEIGHT), pic);
+	Draw_PicAlpha(x + ((scr_scaled_width - 320) >> 1), y + (scr_scaled_height - SBAR_HEIGHT), pic, alpha);
 }
 
 /*
@@ -305,13 +306,14 @@ Sbar_DrawPic(int x, int y, const qpic8_t *pic)
 Sbar_DrawTransPic
 =============
 */
-void
+static void
 Sbar_DrawTransPic(int x, int y, const qpic8_t *pic)
 {
+    float alpha = sb_lines_hidden ? 1.0f : scr_sbaralpha.value;
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_TransPic(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR);
+	Draw_TransPicAlpha(x, y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR, alpha);
     else
-	Draw_TransPic(x + ((scr_scaled_width - 320) >> 1), y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR);
+	Draw_TransPicAlpha(x + ((scr_scaled_width - 320) >> 1), y + (scr_scaled_height - SBAR_HEIGHT), pic, TRANSPARENT_COLOR, alpha);
 }
 
 /*
@@ -321,13 +323,13 @@ Sbar_DrawCharacter
 Draws one solid graphics character
 ================
 */
-void
+static void
 Sbar_DrawCharacter(int x, int y, int num)
 {
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_Character(x + 4, y + scr_scaled_height - SBAR_HEIGHT, num);
+	Draw_CharacterAlpha(x + 4, y + scr_scaled_height - SBAR_HEIGHT, num, scr_sbaralpha.value);
     else
-	Draw_Character(x + ((scr_scaled_width - 320) >> 1) + 4, y + scr_scaled_height - SBAR_HEIGHT, num);
+	Draw_CharacterAlpha(x + ((scr_scaled_width - 320) >> 1) + 4, y + scr_scaled_height - SBAR_HEIGHT, num, scr_sbaralpha.value);
 }
 
 /*
@@ -339,9 +341,9 @@ static void
 Sbar_DrawString(int x, int y, const char *str)
 {
     if (cl.gametype == GAME_DEATHMATCH)
-	Draw_String(x, y + scr_scaled_height - SBAR_HEIGHT, str);
+	Draw_StringAlpha(x, y + scr_scaled_height - SBAR_HEIGHT, str, scr_sbaralpha.value);
     else
-	Draw_String(x + ((scr_scaled_width - 320) >> 1), y + scr_scaled_height - SBAR_HEIGHT, str);
+	Draw_StringAlpha(x + ((scr_scaled_width - 320) >> 1), y + scr_scaled_height - SBAR_HEIGHT, str, scr_sbaralpha.value);
 }
 
 /*
@@ -349,7 +351,7 @@ Sbar_DrawString(int x, int y, const char *str)
 Sbar_itoa
 =============
 */
-int
+static int
 Sbar_itoa(int num, char *buf)
 {
     char *str;
@@ -383,7 +385,7 @@ Sbar_itoa(int num, char *buf)
 Sbar_DrawNum
 =============
 */
-void
+static void
 Sbar_DrawNum(int x, int y, int num, int digits, int color)
 {
     char str[12];
@@ -557,10 +559,10 @@ Sbar_DrawScoreboard(void)
 	top = Sbar_ColorForMap(p->topcolor);
 	bottom = Sbar_ColorForMap(p->bottomcolor);
 
-	Draw_Fill(x * 8 + 10 + ((scr_scaled_width - 320) >> 1),
-		  y + scr_scaled_height - SBAR_HEIGHT, 28, 4, top);
-	Draw_Fill(x * 8 + 10 + ((scr_scaled_width - 320) >> 1),
-		  y + 4 + scr_scaled_height - SBAR_HEIGHT, 28, 4, bottom);
+	Draw_FillAlpha(x * 8 + 10 + ((scr_scaled_width - 320) >> 1),
+                       y + scr_scaled_height - SBAR_HEIGHT, 28, 4, top, scr_sbaralpha.value);
+	Draw_FillAlpha(x * 8 + 10 + ((scr_scaled_width - 320) >> 1),
+                       y + 4 + scr_scaled_height - SBAR_HEIGHT, 28, 4, bottom, scr_sbaralpha.value);
 
 	// draw text
 	for (j = 0; j < 20; j++) {
@@ -784,8 +786,8 @@ Sbar_DrawFrags(void)
 	top = Sbar_ColorForMap(p->topcolor);
 	bottom = Sbar_ColorForMap(p->bottomcolor);
 
-	Draw_Fill(xofs + x * 8 + 10, y, 28, 4, top);
-	Draw_Fill(xofs + x * 8 + 10, y + 4, 28, 3, bottom);
+	Draw_FillAlpha(xofs + x * 8 + 10, y, 28, 4, top, scr_sbaralpha.value);
+	Draw_FillAlpha(xofs + x * 8 + 10, y + 4, 28, 3, bottom, scr_sbaralpha.value);
 
 	// draw number
 	f = p->frags;
@@ -837,8 +839,8 @@ Sbar_DrawFace(void)
 	    xofs = ((vid.width - 320) >> 1) + 113;
 
 	Sbar_DrawPic(112, 0, rsb_teambord);
-	Draw_Fill(xofs, scr_scaled_height - SBAR_HEIGHT + 3, 22, 9, top);
-	Draw_Fill(xofs, scr_scaled_height - SBAR_HEIGHT + 12, 22, 9, bottom);
+	Draw_FillAlpha(xofs, scr_scaled_height - SBAR_HEIGHT + 3, 22, 9, top, scr_sbaralpha.value);
+	Draw_FillAlpha(xofs, scr_scaled_height - SBAR_HEIGHT + 12, 22, 9, bottom, scr_sbaralpha.value);
 
 	// draw number
 	f = p->frags;
@@ -940,8 +942,7 @@ Sbar_Draw(void)
 	    Sbar_DrawPic(0, 0, draw_disc);
 	} else {
 	    if (rogue) {
-		Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3,
-			     cl.stats[STAT_ARMOR] <= 25);
+		Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
 		if (cl.stats[STAT_ITEMS] & RIT_ARMOR3)
 		    Sbar_DrawPic(0, 0, sb_armor[2]);
 		else if (cl.stats[STAT_ITEMS] & RIT_ARMOR2)
@@ -949,8 +950,7 @@ Sbar_Draw(void)
 		else if (cl.stats[STAT_ITEMS] & RIT_ARMOR1)
 		    Sbar_DrawPic(0, 0, sb_armor[0]);
 	    } else {
-		Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3,
-			     cl.stats[STAT_ARMOR] <= 25);
+		Sbar_DrawNum(24, 0, cl.stats[STAT_ARMOR], 3, cl.stats[STAT_ARMOR] <= 25);
 		if (cl.stats[STAT_ITEMS] & IT_ARMOR3)
 		    Sbar_DrawPic(0, 0, sb_armor[2]);
 		else if (cl.stats[STAT_ITEMS] & IT_ARMOR2)
@@ -964,8 +964,7 @@ Sbar_Draw(void)
 	Sbar_DrawFace();
 
 	// health
-	Sbar_DrawNum(136, 0, cl.stats[STAT_HEALTH], 3,
-		     cl.stats[STAT_HEALTH] <= 25);
+	Sbar_DrawNum(136, 0, cl.stats[STAT_HEALTH], 3, cl.stats[STAT_HEALTH] <= 25);
 
 	// ammo icon
 	if (rogue) {
@@ -994,8 +993,7 @@ Sbar_Draw(void)
 		Sbar_DrawPic(224, 0, sb_ammo[3]);
 	}
 
-	Sbar_DrawNum(248, 0, cl.stats[STAT_AMMO], 3,
-		     cl.stats[STAT_AMMO] <= 10);
+	Sbar_DrawNum(248, 0, cl.stats[STAT_AMMO], 3, cl.stats[STAT_AMMO] <= 10);
     }
 
     if (scr_scaled_width > 320) {
@@ -1078,19 +1076,19 @@ Sbar_DeathmatchOverlay(void)
 	top = Sbar_ColorForMap(p->topcolor);
 	bottom = Sbar_ColorForMap(p->bottomcolor);
 
-	Draw_Fill(x, y, 40, 4, top);
-	Draw_Fill(x, y + 4, 40, 4, bottom);
+	Draw_FillAlpha(x, y, 40, 4, top, scr_sbaralpha.value);
+	Draw_FillAlpha(x, y + 4, 40, 4, bottom, scr_sbaralpha.value);
 
 	// draw number
 	f = p->frags;
 	qsnprintf(num, sizeof(num), "%3i", f);
 
-	Draw_Character(x + 8, y, num[0]);
-	Draw_Character(x + 16, y, num[1]);
-	Draw_Character(x + 24, y, num[2]);
+	Draw_CharacterAlpha(x + 8, y, num[0], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 16, y, num[1], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 24, y, num[2], scr_sbaralpha.value);
 
 	if (k == cl.viewentity - 1)
-	    Draw_Character(x - 8, y, 12);
+	    Draw_CharacterAlpha(x - 8, y, 12, scr_sbaralpha.value);
 
 #if 0
 	{
@@ -1106,12 +1104,12 @@ Sbar_DeathmatchOverlay(void)
 
 	    qsnprintf(num, sizeof(num), "%3i:%i%i", minutes, tens, units);
 
-	    Draw_String(x + 48, y, num);
+	    Draw_StringAlpha(x + 48, y, num, scr_sbaralpha.value);
 	}
 #endif
 
 	// draw name
-	Draw_String(x + 64, y, p->name);
+	Draw_StringAlpha(x + 64, y, p->name, scr_sbaralpha.value);
 
 	y += 10;
     }
@@ -1163,24 +1161,24 @@ Sbar_MiniDeathmatchOverlay(void)
 	/* draw background */
 	top = Sbar_ColorForMap(player->topcolor);
 	bottom = Sbar_ColorForMap(player->bottomcolor);
-	Draw_Fill(x, y + 1, 40, 3, top);
-	Draw_Fill(x, y + 4, 40, 4, bottom);
+	Draw_FillAlpha(x, y + 1, 40, 3, top, scr_sbaralpha.value);
+	Draw_FillAlpha(x, y + 4, 40, 4, bottom, scr_sbaralpha.value);
 
 	/* draw frags */
 	char frags[4];
 	qsnprintf(frags, sizeof(frags), "%3d", player->frags);
-	Draw_Character(x + 8, y, frags[0]);
-	Draw_Character(x + 16, y, frags[1]);
-	Draw_Character(x + 24, y, frags[2]);
+	Draw_CharacterAlpha(x + 8, y, frags[0], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 16, y, frags[1], scr_sbaralpha.value);
+	Draw_CharacterAlpha(x + 24, y, frags[2], scr_sbaralpha.value);
 	if (playernum == cl.viewentity - 1) {
-	    Draw_Character(x, y, 16);
-	    Draw_Character(x + 32, y, 17);
+	    Draw_CharacterAlpha(x, y, 16, scr_sbaralpha.value);
+	    Draw_CharacterAlpha(x + 32, y, 17, scr_sbaralpha.value);
 	}
 
 	/* draw name */
 	char name[17];
 	qsnprintf(name, sizeof(name), "%-16s", player->name);
-	Draw_String(x + 48, y, name);
+	Draw_StringAlpha(x + 48, y, name, scr_sbaralpha.value);
 
 	y += 8;
     }

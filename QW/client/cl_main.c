@@ -1480,9 +1480,9 @@ static void
 Host_NewGame()
 {
     //Host_LoadPalettes();
+    Alpha_Init();
     Draw_Init();
     SCR_Init();
-    Alpha_Init();
     R_Init();
     Sbar_Init();
 }
