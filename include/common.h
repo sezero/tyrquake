@@ -275,15 +275,14 @@ enum qscandir_flags {
 void COM_WriteFile(const char *filename, const void *data, int len);
 int COM_FilePriority(const char *filename);
 int COM_FOpenFile(const char *filename, FILE **file);
+FILE *COM_FOpenFileCreate(const char *path, const char *mode);
 void COM_ScanDir(struct stree_root *root, const char *path, const char *prefix, const char *suffix, enum qscandir_flags flags);
 void COM_ScanBaseDir(struct stree_root *root, const char *prefix);
 void *COM_LoadStackFile(const char *path, void *buffer, size_t buffersize, size_t *size);
 void *COM_LoadTempFile(const char *path, size_t *size);
 void *COM_LoadHunkFile(const char *path, size_t *size);
 void COM_LoadCacheFile(const char *path, struct cache_user_s *cu);
-#ifdef QW_HACK
 void COM_CreatePath(const char *path);
-#endif
 
 extern struct cvar_s registered;
 extern qboolean standard_quake, rogue, hipnotic;

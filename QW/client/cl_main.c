@@ -1252,22 +1252,22 @@ Writes key bindings and archived cvars to config.cfg
 void
 Host_WriteConfiguration(void)
 {
-    FILE *configFile;
+    FILE *config_file;
 
     if (host_initialized) {
-	configFile = fopen(va("%s/config.cfg", com_gamedir), "w");
-        if (configFile) {
-            Key_WriteBindings(configFile);
-            Cvar_WriteVariables(configFile, CVAR_CONFIG | CVAR_VIDEO);
-            fclose(configFile);
+        config_file = COM_FOpenFileCreate("config.cfg", "w");
+        if (config_file) {
+            Key_WriteBindings(config_file);
+            Cvar_WriteVariables(config_file, CVAR_CONFIG | CVAR_VIDEO);
+            fclose(config_file);
         } else {
 	    Con_Printf("Couldn't write config.cfg.\n");
         }
 
-        configFile = fopen(va("%s/video.cfg", com_gamedir), "w");
-        if (configFile) {
-            Cvar_WriteVariables(configFile, CVAR_VIDEO);
-            fclose(configFile);
+        config_file = COM_FOpenFileCreate("video.cfg", "w");
+        if (config_file) {
+            Cvar_WriteVariables(config_file, CVAR_VIDEO);
+            fclose(config_file);
         } else {
 	    Con_Printf("Couldn't write video.cfg.\n");
         }

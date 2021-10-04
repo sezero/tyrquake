@@ -1371,16 +1371,10 @@ void
 COM_WriteFile(const char *filename, const void *data, int len)
 {
     FILE *f;
-    char name[MAX_OSPATH];
 
-    qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, filename);
-
-    f = fopen(name, "wb");
+    f = COM_FOpenFileCreate(filename, "wb");
     if (!f) {
-	Sys_mkdir(com_gamedir);
-	f = fopen(name, "wb");
-	if (!f)
-	    Sys_Error("Error opening %s", filename);
+        Sys_Error("Error opening %s", filename);
     }
     fwrite(data, 1, len, f);
     fclose(f);
@@ -1393,21 +1387,21 @@ COM_CreatePath
 ============
 */
 void
-COM_CreatePath(const char *path)
+COM_CreatePath(const char *relative_path)
 {
-    char part[MAX_OSPATH];
-    char *ofs;
-
-    if (!path || !path[0])
+    if (!relative_path || !relative_path[0])
 	return;
 
-    strncpy(part, path, sizeof(part));
-    part[MAX_OSPATH - 1] = 0;
+    char path[MAX_OSPATH];
+    qstrncpy(path, va("%s/%s", com_gamedir, relative_path), sizeof(path));
 
-    for (ofs = part + 1; *ofs; ofs++) {
+    for (char *ofs = path + 1; *ofs; ofs++) {
 	if (*ofs == '/') {	// create the directory
 	    *ofs = 0;
-	    Sys_mkdir(part);
+
+            Sys_Printf("%s: creating '%s'\n", __func__, path);
+
+	    Sys_mkdir(path);
 	    *ofs = '/';
 	}
     }
@@ -1464,6 +1458,15 @@ COM_FOpenFile(const char *filename, FILE **file)
     *file = NULL;
 
     return -1;
+}
+
+FILE *
+COM_FOpenFileCreate(const char *path, const char *mode)
+{
+    Sys_Printf("%s: path is '%s'\n", __func__, path);
+
+    COM_CreatePath(path);
+    return fopen(va("%s/%s", com_gamedir, path), mode);
 }
 
 /**
