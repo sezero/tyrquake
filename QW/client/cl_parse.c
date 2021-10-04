@@ -512,8 +512,6 @@ CL_ParseServerData
 static void
 CL_ParseServerData(void)
 {
-    FILE *f;
-    char fn[MAX_OSPATH];
     qboolean cflag = false;
     int protover;
 
@@ -551,8 +549,9 @@ CL_ParseServerData(void)
     //ZOID--run the autoexec.cfg in the gamedir
     //if it exists
     if (cflag) {
-	qsnprintf(fn, sizeof(fn), "%s/%s", com_gamedir, "config.cfg");
-	if ((f = fopen(fn, "r")) != NULL) {
+        FILE *f;
+        COM_FOpenFile("config.cfg", &f);
+        if (f) {
 	    fclose(f);
 	    Cbuf_AddText("cl_warncmd 0\n");
 	    Cbuf_AddText("exec config.cfg\n");
