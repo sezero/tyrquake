@@ -346,14 +346,9 @@ A download message has been received from the server
 static void
 CL_ParseDownload(void)
 {
-    int size, percent;
-    char name[1024];
-    int r;
-
-
     // read the data
-    size = MSG_ReadShort();
-    percent = MSG_ReadByte();
+    int size = MSG_ReadShort();
+    int percent = MSG_ReadByte();
 
     if (cls.demoplayback) {
 	if (size > 0)
@@ -373,14 +368,7 @@ CL_ParseDownload(void)
     }
     // open the file if not opened yet
     if (!cls.download) {
-	if (strncmp(cls.downloadtempname, "skins/", 6))
-	    qsnprintf(name, sizeof(name), "%s/%s", com_gamedir, cls.downloadtempname);
-	else
-	    qsnprintf(name, sizeof(name), "qw/%s", cls.downloadtempname);
-
-	COM_CreatePath(name);
-
-	cls.download = fopen(name, "wb");
+	cls.download = COM_FOpenFileCreate(cls.downloadtempname, "wb");
 	if (!cls.download) {
 	    msg_readcount += size;
 	    Con_Printf("Failed to open %s\n", cls.downloadtempname);
@@ -407,9 +395,6 @@ CL_ParseDownload(void)
 	MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
 	MSG_WriteString(&cls.netchan.message, "nextdl");
     } else {
-	char oldn[MAX_OSPATH];
-	char newn[MAX_OSPATH];
-
 #if 0
 	Con_Printf("100%%\n");
 #endif
@@ -418,15 +403,9 @@ CL_ParseDownload(void)
 
 	// rename the temp file to it's final name
 	if (strcmp(cls.downloadtempname, cls.downloadname)) {
-	    if (strncmp(cls.downloadtempname, "skins/", 6)) {
-		qsnprintf(oldn, sizeof(oldn), "%s/%s", com_gamedir, cls.downloadtempname);
-		qsnprintf(newn, sizeof(newn), "%s/%s", com_gamedir, cls.downloadname);
-	    } else {
-		qsnprintf(oldn, sizeof(oldn), "qw/%s", cls.downloadtempname);
-		qsnprintf(newn, sizeof(newn), "qw/%s", cls.downloadname);
-	    }
-	    r = rename(oldn, newn);
-	    if (r)
+	    int error = rename(va("%s/%s", com_gamedir, cls.downloadtempname),
+                               va("%s/%s", com_gamedir, cls.downloadname));
+	    if (error)
 		Con_Printf("failed to rename.\n");
 	}
 
