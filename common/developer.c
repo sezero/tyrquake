@@ -156,7 +156,7 @@ DbgPanel_BufferChar(dbgpanel_buffer_t *buffer, const debug_panel_t *panel, vec3_
 void
 DbgPanel_Draw(debug_panel_t *panel)
 {
-    const glpic_t *glpic = const_container_of(draw_backtile, glpic_t, pic);
+    texture_id_t backtile_texture = const_container_of(draw_backtile, glpic_t, pic)->texture;
     int row, col, width, height;
     float scale;
     vec3_t base, corner;
@@ -222,7 +222,7 @@ DbgPanel_Draw(debug_panel_t *panel)
 
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    GL_Bind(glpic->texture);
+    GL_Bind(backtile_texture);
     glEnable(GL_VERTEX_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);

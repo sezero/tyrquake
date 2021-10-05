@@ -108,7 +108,11 @@ typedef struct {
 } qgltexture_t;
 
 typedef struct {
-    texture_id_t texture;
+    qboolean is_scrap;
+    union {
+        texture_id_t texture;
+        int scrapnum;
+    };
     float sl, tl, sh, th;
     qpic8_t pic;
 } glpic_t;

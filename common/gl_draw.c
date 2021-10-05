@@ -92,18 +92,12 @@ static scrap_t gl_scraps[MAX_SCRAPS];
 static void
 Scrap_InitGLTextures()
 {
-    int i;
-    scrap_t *scrap;
-
-    scrap = gl_scraps;
-    for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
+    scrap_t *scrap = gl_scraps;
+    for (int scrapnum = 0; scrapnum < MAX_SCRAPS; scrapnum++, scrap++) {
 	scrap->pic.width = scrap->pic.stride = SCRAP_WIDTH;
 	scrap->pic.height = SCRAP_HEIGHT;
 	scrap->pic.pixels = scrap->texels;
-        scrap->texture = GL_LoadTexture8(NULL, va("@conscrap_%02d", i), &scrap->pic, TEXTURE_TYPE_HUD);
-
-        /* Init the whole block to the transparent color so we can pad with transparency */
-        memset(scrap->texels, 255, sizeof(scrap->texels));
+        scrap->texture = GL_LoadTexture8(NULL, va("@conscrap_%02d", scrapnum), &scrap->pic, TEXTURE_TYPE_HUD);
     }
 }
 
@@ -111,6 +105,12 @@ static void
 Scrap_Init(void)
 {
     memset(gl_scraps, 0, sizeof(gl_scraps));
+
+    /* Init the whole block to the transparent color so we can pad with transparency */
+    scrap_t *scrap = gl_scraps;
+    for (int i = 0; i < MAX_SCRAPS; i++, scrap++) {
+        memset(scrap->texels, 255, sizeof(scrap->texels));
+    }
 }
 
 /*
@@ -176,21 +176,47 @@ Scrap_AllocBlock(int width, int height, int *x, int *y)
     Sys_Error("%s: full", __func__);
 }
 
+static void
+Scrap_Alloc(glpic_t *subpic, const qpic8_t *pic)
+{
+    int x, y;
+
+    scrap_t *scrap = Scrap_AllocBlock(pic->width, pic->height, &x, &y);
+    int src = 0;
+    for (int i = 0; i < pic->height; i++) {
+        for (int j = 0; j < pic->width; j++, src++) {
+            const int dst = (y + i) * SCRAP_WIDTH + x + j;
+            scrap->texels[dst] = pic->pixels[src];
+        }
+    }
+
+    /* Set the texture and internal texcoords */
+    subpic->sl = (x + 0.01) / (float)SCRAP_WIDTH;
+    subpic->sh = (x + pic->width - 0.01) / (float)SCRAP_WIDTH;
+    subpic->tl = (y + 0.01) / (float)SCRAP_WIDTH;
+    subpic->th = (y + pic->height - 0.01) / (float)SCRAP_WIDTH;
+
+    subpic->is_scrap = true;
+    subpic->scrapnum = scrap - gl_scraps;
+}
 
 static void
-Scrap_Flush(texture_id_t texture)
+GLPic_Bind(const glpic_t *glpic)
 {
-    int i;
-    scrap_t *scrap;
+    texture_id_t texture;
 
-    scrap = gl_scraps;
-    for (i = 0; i < MAX_SCRAPS; i++, scrap++) {
-	if (scrap->dirty && TexturesAreSame(texture, scrap->texture)) {
+    if (glpic->is_scrap) {
+        scrap_t *scrap = &gl_scraps[glpic->scrapnum];
+        if (scrap->dirty) {
 	    GL_Upload8(scrap->texture, &scrap->pic);
 	    scrap->dirty = false;
-	    return;
 	}
+        texture = scrap->texture;
+    } else {
+        texture = glpic->texture;
     }
+
+    GL_Bind(texture);
 }
 
 //=============================================================================
@@ -256,7 +282,6 @@ Draw_PicFromWad(const char *name)
     qpic8_t *pic;
     dpic8_t *dpic;
     glpic_t *glpic;
-    scrap_t *scrap;
     struct draw_glpic *drawpic;
 
     glpic = Hunk_AllocName(sizeof(*glpic), name);
@@ -270,23 +295,7 @@ Draw_PicFromWad(const char *name)
 
     /* load little ones into the scrap */
     if (pic->width < 64 && pic->height < 64) {
-	int x, y;
-	int i, j, src;
-
-	scrap = Scrap_AllocBlock(pic->width, pic->height, &x, &y);
-	src = 0;
-	for (i = 0; i < pic->height; i++) {
-	    for (j = 0; j < pic->width; j++, src++) {
-		const int dst = (y + i) * SCRAP_WIDTH + x + j;
-		scrap->texels[dst] = pic->pixels[src];
-	    }
-	}
-	glpic->texture = scrap->texture;
-	glpic->sl = (x + 0.01) / (float)SCRAP_WIDTH;
-	glpic->sh = (x + pic->width - 0.01) / (float)SCRAP_WIDTH;
-	glpic->tl = (y + 0.01) / (float)SCRAP_WIDTH;
-	glpic->th = (y + pic->height - 0.01) / (float)SCRAP_WIDTH;
-
+        Scrap_Alloc(glpic, pic);
 	return pic;
     }
 
@@ -674,7 +683,6 @@ Draw_PicAlpha(int x, int y, const qpic8_t *pic, float alpha)
     const glpic_t *glpic;
 
     glpic = const_container_of(pic, glpic_t, pic);
-    Scrap_Flush(glpic->texture);
 
     if (alpha < 1.0f) {
         glDisable(GL_ALPHA_TEST);
@@ -682,7 +690,7 @@ Draw_PicAlpha(int x, int y, const qpic8_t *pic, float alpha)
     }
     glColor4f(1, 1, 1, alpha);
 
-    GL_Bind(glpic->texture);
+    GLPic_Bind(glpic);
     glBegin(GL_QUADS);
     glTexCoord2f(glpic->sl, glpic->tl);
     glVertex2f(rect.x, rect.y);
@@ -716,7 +724,6 @@ Draw_SubPicAlpha(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width
     float oldglwidth, oldglheight;
 
     glpic = const_container_of(pic, glpic_t, pic);
-    Scrap_Flush(glpic->texture);
 
     oldglwidth = glpic->sh - glpic->sl;
     oldglheight = glpic->th - glpic->tl;
@@ -733,7 +740,7 @@ Draw_SubPicAlpha(int x, int y, const qpic8_t *pic, int srcx, int srcy, int width
     }
     glColor4f(1, 1, 1, alpha);
 
-    GL_Bind(glpic->texture);
+    GLPic_Bind(glpic);
     glBegin(GL_QUADS);
     glTexCoord2f(newsl, newtl);
     glVertex2f(rect.x, rect.y);
@@ -860,12 +867,10 @@ Draw_ConsoleBackground
 static void
 Draw_ConsolePic(int lines, float offset, const glpic_t *glpic, float alpha)
 {
-    Scrap_Flush(glpic->texture);
-
     glDisable(GL_ALPHA_TEST);
     glEnable(GL_BLEND);
     glColor4f(1, 1, 1, alpha);
-    GL_Bind(glpic->texture);
+    GLPic_Bind(glpic);
 
     glBegin (GL_QUADS);
     glTexCoord2f (glpic->sl, offset * glpic->th);
@@ -930,7 +935,7 @@ Draw_TileClear(int x, int y, int w, int h)
     const glpic_t *glpic = const_container_of(draw_backtile, glpic_t, pic);
 
     glColor3f(1, 1, 1);
-    GL_Bind(glpic->texture);
+    GLPic_Bind(glpic);
     glBegin(GL_QUADS);
     glTexCoord2f(x / 64.0, y / 64.0);
     glVertex2f(x, y);
