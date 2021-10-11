@@ -387,6 +387,10 @@ VID_InitModeList(void)
     mode = &vid_windowed_mode;
     mode->width = 640;
     mode->height = 480;
+    mode->min_scale = 1;
+    mode->resolution.scale = 1;
+    mode->resolution.width = mode->width;
+    mode->resolution.height = mode->height;
     mode->bpp = devmode.dmBitsPerPel;
     mode->refresh = devmode.dmDisplayFrequency;
 
@@ -401,12 +405,19 @@ VID_InitModeList(void)
 	success = EnumDisplaySettings(NULL, testmodenum++, &devmode);
 	if (!success)
 	    break;
-	if (devmode.dmPelsWidth > MAXWIDTH || devmode.dmPelsHeight > MAXHEIGHT)
-	    continue;
 	if (devmode.dmPelsWidth < 640 || devmode.dmPelsHeight < 480)
 	    continue;
 	if (devmode.dmBitsPerPel < 15)
 	    continue;
+
+        int scale = 1;
+        while (scale <= VID_MAX_SCALE) {
+            if (devmode.dmPelsWidth / scale <= MAXWIDTH && devmode.dmPelsHeight / scale <= MAXHEIGHT)
+                break;
+            scale <<= 1;
+        }
+        if (scale > VID_MAX_SCALE)
+            continue;
 
 	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
@@ -417,6 +428,10 @@ VID_InitModeList(void)
         mode = &vid_modelist[vid_nummodes++];
 	mode->width = devmode.dmPelsWidth;
 	mode->height = devmode.dmPelsHeight;
+        mode->min_scale = scale;
+        mode->resolution.scale = scale;
+        mode->resolution.width = mode->width / scale;
+        mode->resolution.height = mode->height / scale;
 	mode->bpp = devmode.dmBitsPerPel;
 	mode->refresh = devmode.dmDisplayFrequency;
     }
@@ -514,11 +529,6 @@ VID_SetWindowedMode(const qvidmode_t *mode)
     UpdateWindow(mainwindow);
     vid_fulldib_on_focus_mode = NULL;
 
-    vid.numpages = 1;
-    vid.width = vid.conwidth = mode->width;
-    vid.height = vid.conheight = mode->height;
-    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 200.0);
-
     SendMessage(mainwindow, WM_SETICON, ICON_BIG, (LPARAM)hIcon);
     SendMessage(mainwindow, WM_SETICON, ICON_SMALL, (LPARAM)hIcon);
 
@@ -557,11 +567,6 @@ VID_SetFullDIBMode(const qvidmode_t *mode)
 
     /* Update the input rect */
     IN_UpdateWindowRect(0, 0, mode->width, mode->height);
-
-    vid.numpages = 1;
-    vid.width = vid.conwidth = mode->width;
-    vid.height = vid.conheight = mode->height;
-    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 
     return true;
 }
@@ -605,9 +610,30 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 				    windowRect.right - windowRect.left,
 				    windowRect.bottom - windowRect.top,
 				    NULL, NULL, global_hInstance, NULL);
+
     }
     if (!mainwindow)
         Sys_Error("Unable to create window");
+
+    maindc = GetDC(mainwindow);
+    int rastercaps = GetDeviceCaps(maindc, RASTERCAPS);
+    if (rastercaps & RC_BITBLT)
+        Sys_Printf("*** --- *** --- Main window has BITBLT capability\n");
+    if (rastercaps & RC_STRETCHBLT)
+        Sys_Printf("*** --- *** --- Main window has STRETCHBLT capability\n");
+
+    vid.output.width = mode->width;
+    vid.output.height = mode->height;
+    vid.output.scale = mode->resolution.scale;
+    if (vid.output.scale) {
+        vid.width = vid.conwidth = mode->width / mode->resolution.scale;
+        vid.height = vid.conheight = mode->height / mode->resolution.scale;
+    } else {
+        vid.width = vid.conwidth = mode->resolution.width;
+        vid.height = vid.conheight = mode->resolution.height;
+    }
+    vid.numpages = 1;
+    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 
     /* Set either the fullscreen or windowed mode */
     success = false;
@@ -628,7 +654,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     }
 
     /* Create the DIB */
-    VID_CreateDIB(mode->width, mode->height, palette);
+    VID_CreateDIB(vid.width, vid.height, palette);
 
     CDAudio_Resume();
     scr_disabled_for_loading = save_disabled_value;
@@ -868,11 +894,44 @@ FlipScreen(vrect_t *rects)
     if (!hdcDIBSection)
 	return;
 
-    while (rects) {
-	BitBlt(maindc, rects->x, rects->y,
-	       rects->x + rects->width, rects->y + rects->height,
-	       hdcDIBSection, rects->x, rects->y, SRCCOPY);
-	rects = rects->pnext;
+    if (vid.output.scale == 1) {
+        /* Fast path for 1:1 blits */
+        while (rects) {
+            BitBlt(maindc,
+                   rects->x, rects->y,
+                   rects->width, rects->height,
+                   hdcDIBSection,
+                   rects->x, rects->y,
+                   SRCCOPY);
+            rects = rects->pnext;
+        }
+    } else if (vid.output.scale) {
+        /* Integral scaling */
+        int shift = Q_log2(vid.output.scale);
+        while (rects) {
+            StretchBlt(maindc,
+                       rects->x << shift, rects->y << shift,
+                       rects->width << shift, rects->height << shift,
+                       hdcDIBSection,
+                       rects->x, rects->y,
+                       rects->width, rects->height,
+                       SRCCOPY);
+            rects = rects->pnext;
+        }
+    } else {
+        /* Arbitrary scaling */
+        float hscale = (float)vid.output.width / (float)vid.width;
+        float vscale = (float)vid.output.height / (float)vid.height;
+        while (rects) {
+            StretchBlt(maindc,
+                       rects->x * hscale, rects->y * vscale,
+                       rects->width * hscale, rects->height * vscale,
+                       hdcDIBSection,
+                       rects->x, rects->y,
+                       rects->width, rects->height,
+                       SRCCOPY);
+            rects = rects->pnext;
+        }
     }
 }
 

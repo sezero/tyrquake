@@ -65,6 +65,9 @@ static cvar_t vid_width = { "vid_width", "800", CVAR_VIDEO };
 static cvar_t vid_height = { "vid_height", "600", CVAR_VIDEO };
 static cvar_t vid_bpp = { "vid_bpp", "32", CVAR_VIDEO };
 static cvar_t vid_refreshrate = { "vid_refreshrate", "60", CVAR_VIDEO };
+static cvar_t vid_render_resolution_scale = { "vid_render_resolution_scale", "1", CVAR_VIDEO };
+static cvar_t vid_render_resolution_width = { "vid_render_resolution_width", stringify(MINWIDTH), CVAR_VIDEO };
+static cvar_t vid_render_resolution_height = { "vid_render_resolution_height", stringify(MINHEIGHT), CVAR_VIDEO };
 
 cvar_t vid_window_x = { "vid_window_x", "0", CVAR_VIDEO };
 cvar_t vid_window_y = { "vid_window_y", "0", CVAR_VIDEO };
@@ -79,6 +82,14 @@ VID_SetModeCvars(const qvidmode_t *mode)
     Cvar_SetValue("vid_height", mode->height);
     Cvar_SetValue("vid_bpp", mode->bpp);
     Cvar_SetValue("vid_refreshrate", mode->refresh);
+}
+
+static void
+VID_SetResolutionCvars(const qvidmode_t *mode)
+{
+    Cvar_SetValue("vid_render_resolution_scale", mode->resolution.scale);
+    Cvar_SetValue("vid_render_resolution_width", mode->resolution.width);
+    Cvar_SetValue("vid_render_resolution_height", mode->resolution.height);
 }
 
 /* Compare function for qsort - highest res to lowest */
@@ -116,6 +127,7 @@ VID_SortModeList(qvidmode_t *modelist, int nummodes)
 }
 
 typedef enum {
+    VID_MENU_CURSOR_MODE,
     VID_MENU_CURSOR_RESOLUTION,
     VID_MENU_CURSOR_BPP,
     VID_MENU_CURSOR_REFRESH,
@@ -127,10 +139,18 @@ typedef enum {
     VID_MENU_CURSOR_HEIGHT,
 } vid_menu_cursor_t;
 
+typedef enum {
+    CONFIGURE_WINDOW_NONE,
+    CONFIGURE_WINDOW_MODE,
+    CONFIGURE_WINDOW_RESOLUTION,
+} configure_window_t;
+
 typedef struct {
     qvidmode_t mode;
     qboolean fullscreen;
-    qboolean configure_window;
+    configure_window_t configure_window;
+    int configure_width;
+    int configure_height;
     vid_menu_cursor_t cursor;
 } vid_menustate_t;
 
@@ -141,8 +161,19 @@ VID_MenuInitState(const qvidmode_t *mode)
 {
     vid_menustate.mode = *mode;
     vid_menustate.fullscreen = (vid_currentmode != &vid_windowed_mode);
-    vid_menustate.configure_window = false;
-    vid_menustate.cursor = VID_MENU_CURSOR_RESOLUTION;
+    vid_menustate.configure_window = CONFIGURE_WINDOW_NONE;
+    vid_menustate.cursor = VID_MENU_CURSOR_MODE;
+}
+
+static const char *
+FormatDimensions(int width, int height)
+{
+    /* Calculate relative width/height for aspect ratio */
+    int divisor = Q_gcd(width, height);
+    int relative_width = width / divisor;
+    int relative_height = height / divisor;
+
+    return va("%-9s (%d:%d)", va("%dx%d", width, height), relative_width, relative_height);
 }
 
 /*
@@ -153,16 +184,11 @@ VID_MenuDraw
 void
 VID_MenuDraw_(const vid_menustate_t *menu)
 {
-    static const int cursor_heights[] = { 48, 56, 64, 72, 88, 96, 0, 64, 80 };
+    static const int cursor_heights[] = { 48, 56, 64, 72, 80, 96, 104, 0, 72, 88 };
     const qpic8_t *pic;
     const char *text;
-    vid_menu_cursor_t cursor = VID_MENU_CURSOR_RESOLUTION;
-    int rwidth, rheight, divisor, length;
-
-    /* Calculate relative width/height for aspect ratio */
-    divisor = Q_gcd(menu->mode.width, menu->mode.height);
-    rwidth = menu->mode.width / divisor;
-    rheight = menu->mode.height / divisor;
+    vid_menu_cursor_t cursor = VID_MENU_CURSOR_MODE;
+    int length;
 
     M_DrawTransPic(16, 4, Draw_CachePic("gfx/qplaque.lmp"));
 
@@ -172,23 +198,38 @@ VID_MenuDraw_(const vid_menustate_t *menu)
     text = "Video Options";
     M_PrintWhite((320 - 8 * strlen(text)) / 2, 32, text);
 
-    M_Print(16, cursor_heights[cursor], "        Video mode");
-    M_Print(184, cursor_heights[cursor], va("%ix%i (%i:%i)", menu->mode.width, menu->mode.height, rwidth, rheight));
+    if (menu->configure_window != CONFIGURE_WINDOW_RESOLUTION) {
+        M_Print(16, cursor_heights[cursor], "        Video mode");
+        M_Print(184, cursor_heights[cursor], FormatDimensions(menu->mode.width, menu->mode.height));
+    }
     cursor++;
 
-    if (menu->configure_window) {
+#ifndef GLQUAKE
+    if (menu->configure_window != CONFIGURE_WINDOW_MODE) {
+        M_Print(16, cursor_heights[cursor], "        Resolution");
+        if (menu->mode.resolution.scale) {
+            const char *scaled = menu->mode.resolution.scale > 1 ? "scaled" : "unscaled";
+            M_Print(184, cursor_heights[cursor], va("%s (%d:1)", scaled, menu->mode.resolution.scale));
+        } else {
+            M_Print(184, cursor_heights[cursor], FormatDimensions(menu->mode.resolution.width, menu->mode.resolution.height));
+        }
+    }
+#endif
+    cursor++;
+
+    if (menu->configure_window != CONFIGURE_WINDOW_NONE) {
         cursor = VID_MENU_CURSOR_WIDTH;
-        // TODO: sub-menu for manual width/height adjustment?
+
         M_Print(16, cursor_heights[cursor], "             Width");
         M_DrawTextBox(184 - 8, cursor_heights[cursor] - 8, 6, 1);
-        if (menu->mode.width)
-            M_Print(184, cursor_heights[cursor], va("%i", menu->mode.width));
+        if (menu->configure_width)
+            M_Print(184, cursor_heights[cursor], va("%i", menu->configure_width));
         cursor++;
 
         M_Print(16, cursor_heights[cursor], "            Height");
         M_DrawTextBox(184 - 8, cursor_heights[cursor] - 8, 6, 1);
-        if (menu->mode.height)
-            M_Print(184, cursor_heights[cursor], va("%i", menu->mode.height));
+        if (menu->configure_height)
+            M_Print(184, cursor_heights[cursor], va("%i", menu->configure_height));
         cursor++;
     } else {
         M_Print(16, cursor_heights[cursor], "       Color depth");
@@ -196,10 +237,8 @@ VID_MenuDraw_(const vid_menustate_t *menu)
         cursor++;
 
         /* Refresh rate is not always available */
-        if (menu->mode.refresh && menu->fullscreen)
-            text = va("%i Hz", menu->mode.refresh);
-        else
-            text = "n/a";
+        int refresh = menu->fullscreen ? menu->mode.refresh : vid_windowed_mode.refresh;
+        text = refresh ? va("%i Hz", refresh) : "n/a";
         M_Print(16, cursor_heights[cursor], "      Refresh rate");
         M_Print(184, cursor_heights[cursor], text);
         cursor++;
@@ -217,11 +256,11 @@ VID_MenuDraw_(const vid_menustate_t *menu)
 
     /* cursors */
     if (menu->cursor == VID_MENU_CURSOR_WIDTH) {
-        length = menu->mode.width ? strlen(va("%d", menu->mode.width)) : 0;
+        length = menu->configure_width ? strlen(va("%d", menu->configure_width)) : 0;
         M_DrawCursor(184 + 8 * length, cursor_heights[menu->cursor], 10);
         M_DrawCharacter(168, cursor_heights[menu->cursor], 13);
     } else if (menu->cursor == VID_MENU_CURSOR_HEIGHT) {
-        length = menu->mode.height ? strlen(va("%d", menu->mode.height)) : 0;
+        length = menu->configure_height ? strlen(va("%d", menu->configure_height)) : 0;
         M_DrawCursor(184 + 8 * length, cursor_heights[menu->cursor], 10);
         M_DrawCharacter(168, cursor_heights[menu->cursor], 13);
     } else {
@@ -322,10 +361,10 @@ VID_BestModeMatch(const qvidmode_t *mode, const qvidmode_t *test)
     return match;
 }
 
-static const qvidmode_t *
+static qvidmode_t *
 VID_FindMode(int width, int height, int bpp, int refresh)
 {
-    const qvidmode_t *mode;
+    qvidmode_t *mode;
 
     for (mode = vid_modelist; mode - vid_modelist < vid_nummodes; mode++) {
 	if (mode->width != width || mode->height != height)
@@ -506,19 +545,61 @@ VID_FindPrevRefresh(const qvidmode_t *mode)
 }
 
 static void
-VID_Menu_ExitConfigureWindow(vid_menustate_t *menu)
+VID_Menu_ExitConfigureWindow(vid_menustate_t *menu, qboolean apply_changes)
 {
-    menu->configure_window = false;
-    menu->cursor = VID_MENU_CURSOR_APPLY;
+    if (menu->configure_window == CONFIGURE_WINDOW_MODE) {
+        if (apply_changes) {
+            menu->mode.width = qclamp(menu->configure_width, MINWIDTH, MAXWIDTH);
+            menu->mode.height = qclamp(menu->configure_height, MINHEIGHT, MAXHEIGHT);
+        }
+        menu->cursor = VID_MENU_CURSOR_MODE;
+    } else if (menu->configure_window == CONFIGURE_WINDOW_RESOLUTION) {
+        if (apply_changes) {
+            menu->mode.resolution.scale = 0;
+            menu->mode.resolution.width = qclamp(menu->configure_width, MINWIDTH, MAXWIDTH);
+            menu->mode.resolution.height = qclamp(menu->configure_height, MINHEIGHT, MAXHEIGHT);
+        }
+        menu->cursor = VID_MENU_CURSOR_RESOLUTION;
+    }
 
 #ifndef GLQUAKE
-    /* The software render needs width to be a multiple of 8 */
+    /*
+     * The software render needs width to be a multiple of 8
+     * TODO: techincally, only the resolution width...
+     */
     menu->mode.width &= ~7;
+    menu->mode.resolution.width &= ~7;
 #endif
 
-    menu->mode.width = qclamp(menu->mode.width, MINWIDTH, MAXWIDTH);
-    menu->mode.height = qclamp(menu->mode.height, MINHEIGHT, MAXHEIGHT);
+    menu->configure_window = CONFIGURE_WINDOW_NONE;
 }
+
+static int
+IntStringAppendChar(int value, char c)
+{
+    char string[6];
+    int length = qsnprintf(string, sizeof(string), "%d", value);
+
+    /* Check there is room to append */
+    if (length >= sizeof(string) - 1)
+        return value;
+
+    string[length] = c;
+    string[length + 1] = 0;
+
+    return atoi(string);
+}
+
+static int
+IntStringDeleteChar(int value)
+{
+    char string[6];
+    qsnprintf(string, sizeof(string), "%d", value);
+    string[strlen(string) - 1] = 0;
+
+    return atoi(string);
+}
+
 
 /*
 ================
@@ -529,21 +610,19 @@ void
 VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 {
     const qvidmode_t *mode;
-    char string[6];
-    int length;
 
     switch (keynum) {
     case K_ESCAPE:
 	S_LocalSound("misc/menu1.wav");
-        if (menu->configure_window) {
-            VID_Menu_ExitConfigureWindow(menu);
+        if (menu->configure_window != CONFIGURE_WINDOW_NONE) {
+            VID_Menu_ExitConfigureWindow(menu, false);
         } else {
             M_Menu_Options_f();
         }
 	break;
     case K_UPARROW:
 	S_LocalSound("misc/menu1.wav");
-	if (menu->cursor == VID_MENU_CURSOR_RESOLUTION)
+	if (menu->cursor == VID_MENU_CURSOR_MODE)
 	    menu->cursor = VID_MENU_CURSOR_LINES - 1;
 	else if (menu->cursor == VID_MENU_CURSOR_WIDTH)
             menu->cursor = VID_MENU_CURSOR_HEIGHT;
@@ -551,24 +630,32 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
             menu->cursor = VID_MENU_CURSOR_WIDTH;
         else
 	    menu->cursor--;
+#ifdef GLQUAKE
+        if (menu->cursor == VID_MENU_CURSOR_RESOLUTION)
+            menu->cursor--;
+#endif
 	break;
     case K_DOWNARROW:
 	S_LocalSound("misc/menu1.wav");
 	if (menu->cursor == VID_MENU_CURSOR_LINES - 1)
-	    menu->cursor = VID_MENU_CURSOR_RESOLUTION;
+	    menu->cursor = VID_MENU_CURSOR_MODE;
 	else if (menu->cursor == VID_MENU_CURSOR_WIDTH)
             menu->cursor = VID_MENU_CURSOR_HEIGHT;
         else if (menu->cursor == VID_MENU_CURSOR_HEIGHT)
             menu->cursor = VID_MENU_CURSOR_WIDTH;
 	else
 	    menu->cursor++;
+#ifdef GLQUAKE
+        if (menu->cursor == VID_MENU_CURSOR_RESOLUTION)
+            menu->cursor++;
+#endif
 	break;
     case K_LEFTARROW:
 	S_LocalSound("misc/menu3.wav");
         if (!vid_nummodes)
             break;
 	switch (menu->cursor) {
-	case VID_MENU_CURSOR_RESOLUTION:
+	case VID_MENU_CURSOR_MODE:
 	    mode = VID_FindPrevResolution(menu->mode.width, menu->mode.height);
 	    menu->mode.width = mode->width;
 	    menu->mode.height = mode->height;
@@ -595,6 +682,12 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 		menu->mode.refresh = mode->refresh;
             }
 	    break;
+        case VID_MENU_CURSOR_RESOLUTION:
+            if (menu->mode.resolution.scale > menu->mode.min_scale)
+                menu->mode.resolution.scale >>= 1;
+            else
+                menu->mode.resolution.scale = VID_MAX_SCALE;
+            break;
         default:
 	    break;
 	}
@@ -604,7 +697,7 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
         if (!vid_nummodes)
             break;
 	switch (menu->cursor) {
-        case VID_MENU_CURSOR_RESOLUTION:
+        case VID_MENU_CURSOR_MODE:
 	    mode = VID_FindNextResolution(menu->mode.width, menu->mode.height);
 	    menu->mode.width = mode->width;
 	    menu->mode.height = mode->height;
@@ -629,28 +722,44 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 		menu->mode.refresh = mode->refresh;
             }
 	    break;
+        case VID_MENU_CURSOR_RESOLUTION:
+            if (menu->mode.resolution.scale < VID_MAX_SCALE)
+                menu->mode.resolution.scale <<= 1;
+            else
+                menu->mode.resolution.scale = menu->mode.min_scale;
+            break;
 	default:
 	    break;
 	}
 	break;
     case K_ENTER:
 	S_LocalSound("misc/menu1.wav");
-        if (menu->configure_window) {
-            VID_Menu_ExitConfigureWindow(menu);
+        if (menu->configure_window != CONFIGURE_WINDOW_NONE) {
+            VID_Menu_ExitConfigureWindow(menu, true);
             break;
         }
 	switch (menu->cursor) {
-        case VID_MENU_CURSOR_RESOLUTION:
+        case VID_MENU_CURSOR_MODE:
             /* If we're in windowed mode, enter the width/height submenu */
             if (!menu->fullscreen) {
-                menu->configure_window = true;
+                menu->configure_window = CONFIGURE_WINDOW_MODE;
+                menu->configure_width = menu->mode.width;
+                menu->configure_height = menu->mode.height;
                 menu->cursor = VID_MENU_CURSOR_HEIGHT;
             }
+            break;
+        case VID_MENU_CURSOR_RESOLUTION:
+            /* If we're in windowed mode, enter the width/height submenu */
+            menu->configure_window = CONFIGURE_WINDOW_RESOLUTION;
+            menu->configure_width = menu->mode.resolution.width ? menu->mode.resolution.width : menu->mode.width;
+            menu->configure_height = menu->mode.resolution.height ? menu->mode.resolution.height : menu->mode.height;
+            menu->cursor = VID_MENU_CURSOR_HEIGHT;
             break;
 	case VID_MENU_CURSOR_APPLY:
 	    /* If it's a windowed mode, update the modelist entry */
 	    if (!menu->fullscreen) {
 		vid_windowed_mode = menu->mode;
+                VID_SetResolutionCvars(&menu->mode);
                 VID_SetModeCvars(&vid_windowed_mode);
                 Cbuf_AddText("vid_restart\n");
 		break;
@@ -658,6 +767,7 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	    /* If fullscreen, give the existing mode from modelist array */
             mode = VID_FindMode(menu->mode.width, menu->mode.height, menu->mode.bpp, menu->mode.refresh);
             if (mode) {
+                VID_SetResolutionCvars(&menu->mode);
                 VID_SetModeCvars(mode);
                 Cbuf_AddText("vid_restart\n");
 	    }
@@ -674,38 +784,18 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	}
         break;
     case K_BACKSPACE:
-        if (menu->cursor == VID_MENU_CURSOR_WIDTH) {
-            if (menu->mode.width) {
-                qsnprintf(string, sizeof(string), "%d", menu->mode.width);
-                string[strlen(string) - 1] = 0;
-                menu->mode.width = atoi(string);
-            }
-        } else if (menu->cursor == VID_MENU_CURSOR_HEIGHT) {
-            if (menu->mode.height) {
-                qsnprintf(string, sizeof(string), "%d", menu->mode.height);
-                string[strlen(string) - 1] = 0;
-                menu->mode.height = atoi(string);
-            }
-        }
+        if (menu->cursor == VID_MENU_CURSOR_WIDTH)
+            menu->configure_width = IntStringDeleteChar(menu->configure_width);
+        else if (menu->cursor == VID_MENU_CURSOR_HEIGHT)
+            menu->configure_height = IntStringDeleteChar(menu->configure_height);
         break;
     default:
         if (keynum < K_0 || keynum > K_9)
             break;
-        if (menu->cursor == VID_MENU_CURSOR_WIDTH) {
-            length = qsnprintf(string, sizeof(string), "%d", menu->mode.width);
-            if (length < sizeof(string) - 1) {
-                string[length] = keynum;
-                string[length + 1] = 0;
-                menu->mode.width = atoi(string);
-            }
-        } else if (menu->cursor == VID_MENU_CURSOR_HEIGHT) {
-            length = qsnprintf(string, sizeof(string), "%d", menu->mode.height);
-            if (length < sizeof(string) - 1) {
-                string[length] = keynum;
-                string[length + 1] = 0;
-                menu->mode.height = atoi(string);
-            }
-        }
+        if (menu->cursor == VID_MENU_CURSOR_WIDTH)
+            menu->configure_width = IntStringAppendChar(menu->configure_width, keynum);
+        else if (menu->cursor == VID_MENU_CURSOR_HEIGHT)
+            menu->configure_height = IntStringAppendChar(menu->configure_height, keynum);
 	break;
     }
 }
@@ -821,28 +911,44 @@ VID_Mode_f()
 const qvidmode_t *
 VID_GetModeFromCvars()
 {
-    const qvidmode_t *mode;
-    int width, height, bpp, refresh;
+    qvidmode_t *mode;
+    int width, height, bpp, refresh, scale;
 
     width = vid_width.value;
     height = vid_height.value;
     bpp = vid_bpp.value;
     refresh = vid_refreshrate.value;
-
-    /* Basic sanity checks */
-    if (width < MINWIDTH || width > MAXWIDTH || height < MINHEIGHT || height > MAXHEIGHT)
-        return NULL;
+    scale = qmax((int)vid_render_resolution_scale.value, 0);
 
     if (vid_fullscreen.value) {
         /* Find the mode in the valid fullscreen modes list */
         mode = VID_FindMode(width, height, bpp, refresh);
+        mode->resolution.scale = scale;
+        mode->resolution.width = vid_render_resolution_width.value;
+        mode->resolution.height = vid_render_resolution_height.value;
     } else {
         /* Set the parameters for the windowed mode */
-        vid_windowed_mode.width = width;
-        vid_windowed_mode.height = height;
-        vid_windowed_mode.bpp = bpp;
         mode = &vid_windowed_mode;
+        mode->width = width;
+        mode->height = height;
+        mode->bpp = bpp;
     }
+
+    if (scale) {
+        /* Use requested scale or scale up if necessary... */
+        while (scale <= VID_MAX_SCALE) {
+            if (mode->width / scale <= MAXWIDTH && mode->height / scale <= MAXHEIGHT)
+                break;
+            scale <<= 1;
+        }
+        if (scale > VID_MAX_SCALE)
+            return NULL;
+    } else {
+        /* Custom resolution must fit! */
+        if (mode->resolution.width > MAXWIDTH || mode->resolution.height > MAXHEIGHT)
+            return NULL;
+    }
+    mode->resolution.scale = scale;
 
     return mode;
 }
@@ -921,6 +1027,10 @@ VID_Mode_RegisterVariables(void)
     Cvar_RegisterVariable(&vid_window_y);
     Cvar_RegisterVariable(&vid_window_centered);
     Cvar_RegisterVariable(&vid_window_remember_position);
+
+    Cvar_RegisterVariable(&vid_render_resolution_scale);
+    Cvar_RegisterVariable(&vid_render_resolution_width);
+    Cvar_RegisterVariable(&vid_render_resolution_height);
 }
 
 void
