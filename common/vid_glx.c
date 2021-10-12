@@ -82,7 +82,6 @@ static int win_x, win_y;
 
 static XF86VidModeModeInfo saved_vidmode;
 static qboolean vidmode_active = false;
-static XVisualInfo *x_visinfo;
 
 void
 VID_GetDesktopRect(vrect_t *rect)
@@ -319,49 +318,6 @@ Check_Gamma(byte *palette)
     memcpy(palette, newpalette, sizeof(newpalette));
 }
 #endif
-
-static void
-VID_InitModeList(void)
-{
-    XF86VidModeModeInfo **xmodes, *xmode;
-    qvidmode_t *mode;
-    int i, numxmodes;
-
-    /* Init a default windowed mode */
-    mode = &vid_windowed_mode;
-    mode->width = 640;
-    mode->height = 480;
-    mode->bpp = x_visinfo->depth;
-    mode->refresh = 0;
-
-    XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &numxmodes, &xmodes);
-
-    /* Count the valid modes, then allocate space to store them */
-    vid_nummodes = 0;
-    for (xmode = *xmodes, i = 0; i < numxmodes; i++, xmode++) {
-        if (xmode->hdisplay <= MAXWIDTH && xmode->vdisplay <= MAXHEIGHT)
-            vid_nummodes++;
-    }
-    vid_modelist = Hunk_HighAllocName(vid_nummodes * sizeof(qvidmode_t), "vidmodes");
-    vid_nummodes = 0;
-
-    /* Init the mode list */
-    mode = vid_modelist;
-    for (xmode = *xmodes, i = 0; i < numxmodes; i++, xmode++) {
-	if (xmode->hdisplay > MAXWIDTH || xmode->vdisplay > MAXHEIGHT)
-	    continue;
-
-	mode->width = xmode->hdisplay;
-	mode->height = xmode->vdisplay;
-	mode->bpp = x_visinfo->depth;
-	mode->refresh = 1000 * xmode->dotclock / xmode->htotal / xmode->vtotal;
-	vid_nummodes++;
-	mode++;
-    }
-    XFree(xmodes);
-
-    VID_SortModeList(vid_modelist, vid_nummodes);
-}
 
 /*
  * Before setting a fullscreen mode, save the current video mode so we

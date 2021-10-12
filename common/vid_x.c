@@ -71,7 +71,6 @@ unsigned short d_8to16table[256];
 static qboolean doShm;
 static Colormap x_cmap;
 static GC x_gc;
-static XVisualInfo *x_visinfo;
 
 static int x_shmeventtype;
 static qboolean oktodraw = false;
@@ -209,96 +208,209 @@ xlib_rgb24(int r, int g, int b)
 }
 
 static void
-st2_fixup(XImage *framebuf, int x, int y, int width, int height)
+st1_fixup(XImage *framebuf, const vrect_t *rect)
 {
-    int yi;
-    unsigned char *src;
-    PIXEL16 *dest;
-    register int count, n;
+    if (vid.output.scale == 1)
+        return;
 
-    if ((x < 0) || (y < 0))
-	return;
+    const int x = rect->x;
+    const int y = rect->y;
+    const int width = rect->width;
+    const int height = rect->height;
 
-    for (yi = y; yi < (y + height); yi++) {
-	src = (unsigned char *)&framebuf->data[yi * framebuf->bytes_per_line];
+    assert(x >= 0 && y >= 0);
 
-	// Duff's Device
-	count = width;
-	n = (count + 7) / 8;
-	dest = ((PIXEL16 *)src) + x + width - 1;
-	src += x + width - 1;
-
-	switch (count % 8) {
-	case 0:
-	    do {
-		*dest-- = st2d_8to16table[*src--];
-	case 7:
-		*dest-- = st2d_8to16table[*src--];
-	case 6:
-		*dest-- = st2d_8to16table[*src--];
-	case 5:
-		*dest-- = st2d_8to16table[*src--];
-	case 4:
-		*dest-- = st2d_8to16table[*src--];
-	case 3:
-		*dest-- = st2d_8to16table[*src--];
-	case 2:
-		*dest-- = st2d_8to16table[*src--];
-	case 1:
-		*dest-- = st2d_8to16table[*src--];
-	    } while (--n > 0);
-	}
-
-	//for (xi = (x + width - 1); xi >= x; xi--) {
-	//    dest[xi] = st2d_8to16table[src[xi]];
-	//}
+    if (vid.output.scale == 2) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            byte *dest0 = (byte *)&framebuf->data[(2 * yi + 0) * framebuf->bytes_per_line];
+            byte *dest1 = (byte *)&framebuf->data[(2 * yi + 1) * framebuf->bytes_per_line];
+            for (int xi = (x + width - 1); xi >= x; xi--) {
+                const byte color = src[xi];
+                dest0[xi * 2] = dest0[xi * 2 + 1] = color;
+                dest1[xi * 2] = dest1[xi * 2 + 1] = color;
+            }
+        }
+    } else if (vid.output.scale == 4) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            byte *dest0 = (byte *)&framebuf->data[(4 * yi + 0) * framebuf->bytes_per_line];
+            byte *dest1 = (byte *)&framebuf->data[(4 * yi + 1) * framebuf->bytes_per_line];
+            byte *dest2 = (byte *)&framebuf->data[(4 * yi + 2) * framebuf->bytes_per_line];
+            byte *dest3 = (byte *)&framebuf->data[(4 * yi + 3) * framebuf->bytes_per_line];
+            for (int xi = (x + width - 1); xi >= x; xi--) {
+                const byte color = src[xi];
+                dest0[xi * 4] = dest0[xi * 4 + 1] = dest0[xi * 4 + 2] = dest0[xi * 4 + 3] = color;
+                dest1[xi * 4] = dest1[xi * 4 + 1] = dest1[xi * 4 + 2] = dest1[xi * 4 + 3] = color;
+                dest2[xi * 4] = dest2[xi * 4 + 1] = dest2[xi * 4 + 2] = dest2[xi * 4 + 3] = color;
+                dest3[xi * 4] = dest3[xi * 4 + 1] = dest3[xi * 4 + 2] = dest3[xi * 4 + 3] = color;
+            }
+        }
+    } else {
+        /*
+         * Arbitrary scaling - walk the output lines and calculate the
+         * appropriate source lines as we go.
+         */
+        const int xstep = (vid.width << 16) / vid.output.width;
+        for (int yi = vid.output.height - 1; yi >= 0; yi--) {
+            byte *dst = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const int src_row = yi * vid.height / vid.output.height;
+            const byte *src = (byte *)&framebuf->data[src_row * framebuf->bytes_per_line];
+            int frac = (vid.width - 1) << 16;
+            for (int xi = vid.output.width - 1; xi >= 0; xi--) {
+                dst[xi] = src[frac >> 16];
+                frac -= xstep;
+            }
+        }
     }
 }
 
 static void
-st3_fixup(XImage * framebuf, int x, int y, int width, int height)
+st2_fixup(XImage *framebuf, const vrect_t *rect)
 {
-    int yi;
-    unsigned char *src;
-    PIXEL24 *dest;
-    register int count, n;
+    const int x = rect->x;
+    const int y = rect->y;
+    const int width = rect->width;
+    const int height = rect->height;
 
-    if ((x < 0) || (y < 0))
-	return;
+    assert(x >= 0 && y >= 0);
 
-    for (yi = y; yi < (y + height); yi++) {
-	src = (unsigned char *)&framebuf->data[yi * framebuf->bytes_per_line];
+    if (vid.output.scale == 1) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            PIXEL16 *dest = ((PIXEL16 *)src);
+            for(int xi = (x + width - 1); xi >= x; xi--) {
+                dest[xi] = st2d_8to16table[src[xi]];
+            }
+        }
+    } else if (vid.output.scale == 2) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            PIXEL16 *dest0 = (PIXEL16 *)&framebuf->data[(2 * yi + 0) * framebuf->bytes_per_line];
+            PIXEL16 *dest1 = (PIXEL16 *)&framebuf->data[(2 * yi + 1) * framebuf->bytes_per_line];
+            for (int xi = (x + width - 1); xi >= x; xi--) {
+                const PIXEL16 color = st2d_8to16table[src[xi]];
+                dest0[xi * 2] = dest0[xi * 2 + 1] = color;
+                dest1[xi * 2] = dest1[xi * 2 + 1] = color;
+            }
+        }
+    } else if (vid.output.scale == 4) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            PIXEL16 *dest0 = (PIXEL16 *)&framebuf->data[(4 * yi + 0) * framebuf->bytes_per_line];
+            PIXEL16 *dest1 = (PIXEL16 *)&framebuf->data[(4 * yi + 1) * framebuf->bytes_per_line];
+            PIXEL16 *dest2 = (PIXEL16 *)&framebuf->data[(4 * yi + 2) * framebuf->bytes_per_line];
+            PIXEL16 *dest3 = (PIXEL16 *)&framebuf->data[(4 * yi + 3) * framebuf->bytes_per_line];
+            for (int xi = (x + width - 1); xi >= x; xi--) {
+                const PIXEL16 color = st2d_8to16table[src[xi]];
+                dest0[xi * 4] = dest0[xi * 4 + 1] = dest0[xi * 4 + 2] = dest0[xi * 4 + 3] = color;
+                dest1[xi * 4] = dest1[xi * 4 + 1] = dest1[xi * 4 + 2] = dest1[xi * 4 + 3] = color;
+                dest2[xi * 4] = dest2[xi * 4 + 1] = dest2[xi * 4 + 2] = dest2[xi * 4 + 3] = color;
+                dest3[xi * 4] = dest3[xi * 4 + 1] = dest3[xi * 4 + 2] = dest3[xi * 4 + 3] = color;
+            }
+        }
+    } else {
+        /*
+         * Arbitrary scaling - walk the output lines and calculate the
+         * appropriate source lines as we go.
+         */
+        const int xstep = (vid.width << 16) / vid.output.width;
+        for (int yi = vid.output.height - 1; yi >= 0; yi--) {
+            PIXEL16 *dst = (PIXEL16 *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const int src_row = yi * vid.height / vid.output.height;
+            const byte *src = (byte *)&framebuf->data[src_row * framebuf->bytes_per_line];
+            int frac = (vid.width - 1) << 16;
+            for (int xi = vid.output.width - 1; xi >= 0; xi--) {
+                dst[xi] = st2d_8to16table[src[frac >> 16]];
+                frac -= xstep;
+            }
+        }
+    }
+}
 
-	// Duff's Device
-	count = width;
-	n = (count + 7) / 8;
-	dest = ((PIXEL24 *)src) + x + width - 1;
-	src += x + width - 1;
+static void
+st3_fixup(XImage *framebuf, const vrect_t *rect)
+{
+    const int x = rect->x;
+    const int y = rect->y;
+    const int width = rect->width;
+    const int height = rect->height;
 
-	switch (count % 8) {
-	case 0:
-	    do {
-		*dest-- = st2d_8to24table[*src--];
-	case 7:
-		*dest-- = st2d_8to24table[*src--];
-	case 6:
-		*dest-- = st2d_8to24table[*src--];
-	case 5:
-		*dest-- = st2d_8to24table[*src--];
-	case 4:
-		*dest-- = st2d_8to24table[*src--];
-	case 3:
-		*dest-- = st2d_8to24table[*src--];
-	case 2:
-		*dest-- = st2d_8to24table[*src--];
-	case 1:
-		*dest-- = st2d_8to24table[*src--];
-	    } while (--n > 0);
-	}
+    assert(x >= 0 && y >= 0);
 
-//              for(xi = (x+width-1); xi >= x; xi--) {
-//                      dest[xi] = st2d_8to16table[src[xi]];
-//              }
+    if (vid.output.scale == 1) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            PIXEL24 *dest = ((PIXEL24 *)src);
+            for(int xi = (x + width - 1); xi >= x; xi--) {
+                dest[xi] = st2d_8to24table[src[xi]];
+            }
+        }
+    } else if (vid.output.scale == 2) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            PIXEL24 *dest0 = (PIXEL24 *)&framebuf->data[(2 * yi + 0) * framebuf->bytes_per_line];
+            PIXEL24 *dest1 = (PIXEL24 *)&framebuf->data[(2 * yi + 1) * framebuf->bytes_per_line];
+            for (int xi = (x + width - 1); xi >= x; xi--) {
+                PIXEL24 color = st2d_8to24table[src[xi]];
+                dest0[xi * 2] = dest0[xi * 2 + 1] = color;
+                dest1[xi * 2] = dest1[xi * 2 + 1] = color;
+            }
+        }
+    } else if (vid.output.scale == 4) {
+        for (int yi = y + height - 1; yi >= y; yi--) {
+            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            PIXEL24 *dest0 = (PIXEL24 *)&framebuf->data[(4 * yi + 0) * framebuf->bytes_per_line];
+            PIXEL24 *dest1 = (PIXEL24 *)&framebuf->data[(4 * yi + 1) * framebuf->bytes_per_line];
+            PIXEL24 *dest2 = (PIXEL24 *)&framebuf->data[(4 * yi + 2) * framebuf->bytes_per_line];
+            PIXEL24 *dest3 = (PIXEL24 *)&framebuf->data[(4 * yi + 3) * framebuf->bytes_per_line];
+            for (int xi = (x + width - 1); xi >= x; xi--) {
+                PIXEL24 color = st2d_8to24table[src[xi]];
+                dest0[xi * 4] = dest0[xi * 4 + 1] = dest0[xi * 4 + 2] = dest0[xi * 4 + 3] = color;
+                dest1[xi * 4] = dest1[xi * 4 + 1] = dest1[xi * 4 + 2] = dest1[xi * 4 + 3] = color;
+                dest2[xi * 4] = dest2[xi * 4 + 1] = dest2[xi * 4 + 2] = dest2[xi * 4 + 3] = color;
+                dest3[xi * 4] = dest3[xi * 4 + 1] = dest3[xi * 4 + 2] = dest3[xi * 4 + 3] = color;
+            }
+        }
+    } else {
+        /*
+         * Arbitrary scaling - walk the output lines and calculate the
+         * appropriate source lines as we go.
+         */
+        const int xstep = (vid.width << 16) / vid.output.width;
+        for (int yi = vid.output.height - 1; yi >= 0; yi--) {
+            PIXEL24 *dst = (PIXEL24 *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const int src_row = yi * vid.height / vid.output.height;
+            const byte *src = (byte *)&framebuf->data[src_row * framebuf->bytes_per_line];
+            int frac = (vid.width - 1) << 16;
+            for (int xi = vid.output.width - 1; xi >= 0; xi--) {
+                dst[xi] = st2d_8to24table[src[frac >> 16]];
+                frac -= xstep;
+            }
+        }
+    }
+}
+
+/**
+ * Translate the 8-bit rendered image to the color depth of the
+ * front-buffer and apply the configured output scaling.
+ */
+static void
+VID_ResolveFramebuffer(XImage *framebuf, const vrect_t *rect)
+{
+    switch (x_visinfo->depth) {
+        case 8:
+            st1_fixup(framebuf, rect);
+            break;
+        case 16:
+            st2_fixup(framebuf, rect);
+            break;
+        case 24:
+            st3_fixup(framebuf, rect);
+            break;
+        default:
+            assert(!"Unsupported color format");
+            break;
     }
 }
 
@@ -344,17 +456,20 @@ ResetFrameBuffer(void)
     vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
+    int framebuffer_width = qmax(vid.width, vid.output.width);
+    int framebuffer_height = qmax(vid.height, vid.output.height);
+
     pixel_width = x_visinfo->depth / 8;
     if (pixel_width == 3)
 	pixel_width = 4;
-    framebuffer_bytes = ((vid.width * pixel_width + 7) & ~7) * vid.height;
+    framebuffer_bytes = ((framebuffer_width * pixel_width + 7) & ~7) * framebuffer_height;
     x_framebuffer[0] = XCreateImage(x_disp,
 				    x_visinfo->visual,
 				    x_visinfo->depth,
 				    ZPixmap,
 				    0,
 				    malloc(framebuffer_bytes),
-				    vid.width, vid.height, 32, 0);
+				    framebuffer_width, framebuffer_height, 32, 0);
     if (!x_framebuffer[0])
 	Sys_Error("VID: XCreateImage failed");
 
@@ -365,6 +480,7 @@ ResetFrameBuffer(void)
 
     vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
+    current_framebuffer = 0;
 }
 
 static void
@@ -394,8 +510,10 @@ ResetSharedFrameBuffers(void)
     vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
     D_InitCaches(vid_surfcache, vid_surfcachesize);
 
-    for (frm = 0; frm < 2; frm++) {
+    int framebuffer_width = qmax(vid.width, vid.output.width);
+    int framebuffer_height = qmax(vid.height, vid.output.height);
 
+    for (frm = 0; frm < 2; frm++) {
 	// free up old frame buffer memory
 	if (x_framebuffer[frm]) {
 	    XShmDetach(x_disp, &x_shminfo[frm]);
@@ -410,7 +528,8 @@ ResetSharedFrameBuffers(void)
 					     ZPixmap,
 					     0,
 					     &x_shminfo[frm],
-					     vid.width, vid.height);
+					     framebuffer_width,
+                                             framebuffer_height);
 
 	// grab shared memory
 	framebuffer_bytes = x_framebuffer[frm]->bytes_per_line * x_framebuffer[frm]->height;
@@ -425,8 +544,8 @@ ResetSharedFrameBuffers(void)
 	// attach to the shared memory segment
 	x_shminfo[frm].shmaddr = (void *)shmat(x_shminfo[frm].shmid, 0, 0);
 
-	printf("VID: shared memory id=%d, addr=0x%lx\n",
-	       x_shminfo[frm].shmid, (long)x_shminfo[frm].shmaddr);
+	printf("VID: shared memory id=%d, addr=0x%p\n",
+	       x_shminfo[frm].shmid, x_shminfo[frm].shmaddr);
 
 	x_framebuffer[frm]->data = x_shminfo[frm].shmaddr;
 
@@ -444,49 +563,7 @@ ResetSharedFrameBuffers(void)
 
     vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
-}
-
-static void
-VID_InitModeList(void)
-{
-    XF86VidModeModeInfo **xmodes, *xmode;
-    qvidmode_t *mode;
-    int i, numxmodes;
-
-    /* Init a default windowed mode */
-    mode = &vid_windowed_mode;
-    mode->width = 640;
-    mode->height = 480;
-    mode->bpp = x_visinfo->depth;
-    mode->refresh = 0;
-
-    XF86VidModeGetAllModeLines(x_disp, x_visinfo->screen, &numxmodes, &xmodes);
-
-    /* Count the valid modes, then allocate space to store them */
-    vid_nummodes = 0;
-    for (xmode = *xmodes, i = 0; i < numxmodes; i++, xmode++) {
-        if (xmode->hdisplay <= MAXWIDTH && xmode->vdisplay <= MAXHEIGHT)
-            vid_nummodes++;
-    }
-    vid_modelist = Hunk_HighAllocName(vid_nummodes * sizeof(qvidmode_t), "vidmodes");
-    vid_nummodes = 0;
-
-    /* Init the mode list */
-    mode = vid_modelist;
-    for (xmode = *xmodes, i = 0; i < numxmodes; i++, xmode++) {
-	if (xmode->hdisplay > MAXWIDTH || xmode->vdisplay > MAXHEIGHT)
-	    continue;
-
-	mode->width = xmode->hdisplay;
-	mode->height = xmode->vdisplay;
-	mode->bpp = x_visinfo->depth;
-	mode->refresh = 1000 * xmode->dotclock / xmode->htotal / xmode->vtotal;
-	vid_nummodes++;
-	mode++;
-    }
-    XFree(xmodes);
-
-    VID_SortModeList(vid_modelist, vid_nummodes);
+    current_framebuffer = 0;
 }
 
 /*
@@ -675,9 +752,33 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	}
     }
 
-    current_framebuffer = 0;
-    vid.width = vid.conwidth = mode->width;
-    vid.height = vid.conheight = mode->height;
+    doShm = false;
+
+    vid.output.width = mode->width;
+    vid.output.height = mode->height;
+    vid.output.scale = mode->resolution.scale;
+    if (mode->resolution.scale) {
+        vid.width = vid.conwidth = mode->width / mode->resolution.scale;
+        vid.height = vid.conheight = mode->height / mode->resolution.scale;
+    } else {
+        vid.width = vid.conwidth = mode->resolution.width;
+        vid.height = vid.conheight = mode->resolution.height;
+    }
+
+    /*
+     * We don't support render resolution greater than window size
+     * with the current framebuffer strategy, so just cap the render
+     * resolution to output size.
+     */
+    vid.height = qmin(vid.height, vid.output.height);
+    vid.width = qmin(vid.width, vid.output.width);
+    for (int scale = 1; scale <= VID_MAX_SCALE; scale++) {
+        if (vid.width * scale == vid.output.width && vid.height * scale == vid.output.height) {
+            vid.output.scale = scale;
+            break;
+        }
+    }
+
     vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 200.0);
     vid.numpages = 2;
 
@@ -892,21 +993,56 @@ VID_ProcessEvents(void)
     }
 }
 
+static vrect_t
+GetScaledRect(const vrect_t *in)
+{
+    vrect_t out;
+
+    if (vid.output.scale) {
+        out.x = in->x * vid.output.scale;
+        out.y = in->y * vid.output.scale;
+        out.width = in->width * vid.output.scale;
+        out.height = in->height * vid.output.scale;
+    } else {
+        const float hscale = (float)vid.output.width / (float)vid.width;
+        const float vscale = (float)vid.output.height / (float)vid.height;
+        out.x = in->x * hscale;
+        out.y = in->y * vscale;
+        out.width = in->width * hscale;
+        out.height = in->height * vscale;
+    }
+
+    return out;
+}
+
+
 // flushes the given rectangles from the view buffer to the screen
 void
 VID_Update(vrect_t *rects)
 {
 // if the window changes dimension, skip this frame
-
     if (config_notify) {
-	fprintf(stderr, "config notify\n");
 	config_notify = 0;
-	vid.width = qclamp(config_notify_width & ~7, MINWIDTH, MAXWIDTH);
-	vid.height = qclamp(config_notify_height, MINHEIGHT, MAXHEIGHT);
+
+        if (vid.output.scale) {
+            int width = config_notify_width / vid.output.scale;
+            int height = config_notify_height / vid.output.scale;
+            vid.width = vid.conwidth = qclamp(width & ~7, MINWIDTH, MAXWIDTH);
+            vid.height = vid.conheight = qclamp(height, MINHEIGHT, MAXHEIGHT);
+            vid.output.width = vid.width * vid.output.scale;
+            vid.output.height = vid.height * vid.output.scale;
+        } else {
+            vid.output.width = qclamp(config_notify_width & ~7, MINWIDTH, MAXWIDTH);
+            vid.output.height = qclamp(config_notify_height, MINHEIGHT, MAXHEIGHT);
+            vid.width = vid.conwidth = qmin(vid.width, vid.output.width);
+            vid.height = vid.conheight = qmin(vid.height, vid.output.height);
+        }
+
 	if (doShm)
 	    ResetSharedFrameBuffers();
 	else
 	    ResetFrameBuffer();
+
 	vid.rowbytes = x_framebuffer[0]->bytes_per_line;
 	vid.buffer = (byte *)x_framebuffer[current_framebuffer]->data;
 	vid.conbuffer = vid.buffer;
@@ -918,28 +1054,27 @@ VID_Update(vrect_t *rects)
 	Con_CheckResize();
 	return;
     }
+
     // force full update if not 8bit
     if (x_visinfo->depth != 8)
 	scr_fullupdate = 0;
 
     if (doShm) {
-
 	while (rects) {
-	    if (x_visinfo->depth == 16) {
-		st2_fixup(x_framebuffer[current_framebuffer],
-			  rects->x, rects->y, rects->width, rects->height);
-	    } else if (x_visinfo->depth == 24) {
-		st3_fixup(x_framebuffer[current_framebuffer],
-			  rects->x, rects->y, rects->width, rects->height);
-	    }
-	    if (!XShmPutImage(x_disp, x_win, x_gc,
-			      x_framebuffer[current_framebuffer], rects->x,
-			      rects->y, rects->x, rects->y, rects->width,
-			      rects->height, True))
-		Sys_Error("VID_Update: XShmPutImage failed");
-	    oktodraw = false;
-	    while (!oktodraw)
-		VID_ProcessEvents();
+            VID_ResolveFramebuffer(x_framebuffer[current_framebuffer], rects);
+            vrect_t scaled = GetScaledRect(rects);
+            Bool put_image = XShmPutImage(x_disp, x_win, x_gc,
+                                          x_framebuffer[current_framebuffer],
+                                          scaled.x, scaled.y,
+                                          scaled.x, scaled.y,
+                                          scaled.width, scaled.height, True);
+            if (!put_image)
+                Sys_Error("VID_Update: XShmPutImage failed");
+
+            oktodraw = false;
+            while (!oktodraw)
+                VID_ProcessEvents();
+
 	    rects = rects->pnext;
 	}
 	current_framebuffer = !current_framebuffer;
@@ -948,15 +1083,13 @@ VID_Update(vrect_t *rects)
 	XSync(x_disp, False);
     } else {
 	while (rects) {
-	    if (x_visinfo->depth == 16)
-		st2_fixup(x_framebuffer[current_framebuffer],
-			  rects->x, rects->y, rects->width, rects->height);
-	    else if (x_visinfo->depth == 24)
-		st3_fixup(x_framebuffer[current_framebuffer],
-			  rects->x, rects->y, rects->width, rects->height);
-	    XPutImage(x_disp, x_win, x_gc, x_framebuffer[0], rects->x,
-		      rects->y, rects->x, rects->y, rects->width,
-		      rects->height);
+            VID_ResolveFramebuffer(x_framebuffer[current_framebuffer], rects);
+            vrect_t scaled = GetScaledRect(rects);
+            XPutImage(x_disp, x_win, x_gc,
+                      x_framebuffer[0],
+                      scaled.x, scaled.y,
+                      scaled.x, scaled.y,
+                      scaled.width, scaled.height);
 	    rects = rects->pnext;
 	}
 	XSync(x_disp, False);
