@@ -69,7 +69,6 @@ static SDL_PixelFormat *sdl_format = NULL;
 static byte *vid_surfcache;
 static int vid_surfcachesize;
 static int VID_highhunkmark;
-static int window_width, window_height;
 
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
@@ -254,17 +253,22 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     VID_SetPalette(palette);
     VID_InitColormap(palette);
 
+    vid.output.width = mode->width;
+    vid.output.height = mode->height;
+    vid.output.scale = mode->resolution.scale;
+    if (mode->resolution.scale) {
+        vid.width = vid.conwidth = mode->width / mode->resolution.scale;
+        vid.height = vid.conheight = mode->height / mode->resolution.scale;
+    } else {
+        vid.width = vid.conwidth = mode->resolution.width;
+        vid.height = vid.conheight = mode->resolution.height;
+    }
     vid.numpages = 1;
-    vid.width = vid.conwidth = mode->width;
-    vid.height = vid.conheight = mode->height;
-    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 200.0);
+    vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 
     VID_AllocBuffers(vid.width, vid.height);
 
     D_InitCaches(vid_surfcache, vid_surfcachesize);
-
-    window_width = vid.width;
-    window_height = vid.height;
 
     vid_currentmode = mode;
 
@@ -396,10 +400,23 @@ VID_Init(const byte *palette)
     vid_menukeyfn = VID_MenuKey;
 }
 
+static void
+VID_SDL_BlitRect(int x, int y, int width, int height)
+{
+    const float hscale = (float)vid.output.width / (float)vid.width;
+    const float vscale = (float)vid.output.height / (float)vid.height;
+
+    SDL_Rect src_rect = { x, y, width, height };
+    SDL_Rect dst_rect = { x * hscale, y * vscale, width * hscale, height * vscale };
+    int err = SDL_RenderCopy(renderer, texture, &src_rect, &dst_rect);
+    if (err)
+	Sys_Error("%s: unable to render texture (%s)", __func__, SDL_GetError());
+    SDL_RenderPresent(renderer);
+}
+
 void
 VID_Update(vrect_t *rects)
 {
-    SDL_Rect subrect;
     int i;
     vrect_t *rect;
     vrect_t fullrect;
@@ -424,18 +441,15 @@ VID_Update(vrect_t *rects)
 	rects = &fullrect;
     }
 
-    for (rect = rects; rect; rect = rect->pnext) {
-	subrect.x = rect->x;
-	subrect.y = rect->y;
-	subrect.w = rect->width;
-	subrect.h = rect->height;
+    SDL_Rect lock_rect = { 0, 0, vid.width, vid.height };
+    err = SDL_LockTexture(texture, &lock_rect, (void **)&dst, &pitch);
+    if (err)
+        Sys_Error("%s: unable to lock texture (%s)",
+                  __func__, SDL_GetError());
 
-	err = SDL_LockTexture(texture, &subrect, (void **)&dst, &pitch);
-	if (err)
-	    Sys_Error("%s: unable to lock texture (%s)",
-		      __func__, SDL_GetError());
+    for (rect = rects; rect; rect = rect->pnext) {
 	src = vid.buffer + rect->y * vid.width + rect->x;
-	height = subrect.h;
+	height = rect->height;
 	switch (SDL_PIXELTYPE(sdl_format->format)) {
 	case SDL_PIXELTYPE_PACKED32:
 	    dst32 = dst;
@@ -459,12 +473,9 @@ VID_Update(vrect_t *rects)
 	    Sys_Error("%s: unsupported pixel format (%s)", __func__,
 		      SDL_GetPixelFormatName(sdl_format->format));
 	}
-	SDL_UnlockTexture(texture);
     }
-    err = SDL_RenderCopy(renderer, texture, NULL, NULL);
-    if (err)
-	Sys_Error("%s: unable to render texture (%s)", __func__, SDL_GetError());
-    SDL_RenderPresent(renderer);
+    SDL_UnlockTexture(texture);
+    VID_SDL_BlitRect(0, 0, vid.width, vid.height);
 }
 
 void
@@ -495,11 +506,7 @@ D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height)
 	src += width;
     }
     SDL_UnlockTexture(texture);
-
-    err = SDL_RenderCopy(renderer, texture, NULL, NULL);
-    if (err)
-	Sys_Error("%s: unable to render texture (%s)", __func__, SDL_GetError());
-    SDL_RenderPresent(renderer);
+    VID_SDL_BlitRect(x, y, width, height);
 }
 
 void
@@ -530,11 +537,7 @@ D_EndDirectRect(int x, int y, int width, int height)
 	src += vid.width;
     }
     SDL_UnlockTexture(texture);
-
-    err = SDL_RenderCopy(renderer, texture, NULL, NULL);
-    if (err)
-	Sys_Error("%s: unable to render texture (%s)", __func__, SDL_GetError());
-    SDL_RenderPresent(renderer);
+    VID_SDL_BlitRect(x, y, width, height);
 }
 
 void

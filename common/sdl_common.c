@@ -27,6 +27,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "vid.h"
 #include "zone.h"
 
+#ifdef GLQUAKE
+#include "glquake.h"
+#else
+#include "r_shared.h"
+#endif
+
 SDL_Window *sdl_window = NULL;
 
 #include "SDL.h"
@@ -55,8 +61,9 @@ VID_SDL_SetIcon()
     const uint32_t amask = 0xff000000;
 #endif
 
-    if (NULL == tyrquake_icon_128) return;
-    
+    if (!tyrquake_icon_128)
+        return;
+
     surface = SDL_CreateRGBSurfaceFrom((void *)tyrquake_icon_128, 128, 128, 32, 128 * 4, rmask, gmask, bmask, amask);
     if (!surface)
         return;
@@ -92,6 +99,10 @@ VID_SDL_InitModeList(void)
     mode->refresh = sdlmode.refresh_rate;
     mode->width = 640;
     mode->height = 480;
+    mode->min_scale = 1;
+    mode->resolution.scale = 1;
+    mode->resolution.width = mode->width;
+    mode->resolution.height = mode->height;
 
     displays = SDL_GetNumVideoDisplays();
     if (displays < 1)
@@ -114,11 +125,16 @@ VID_SDL_InitModeList(void)
     for (i = 0; i < sdlmodes; i++) {
 	err = SDL_GetDisplayMode(0, i, &sdlmode);
 	if (err)
-	    Sys_Error("%s: couldn't get mode %d info (%s)",
-		      __func__, i, SDL_GetError());
+	    Sys_Error("%s: couldn't get mode %d info (%s)", __func__, i, SDL_GetError());
 
-	Sys_Printf("%s: checking mode %i: %dx%d, %s\n", __func__,
-		   i, sdlmode.w, sdlmode.h, SDL_GetPixelFormatName(sdlmode.format));
+        int scale = 1;
+        while (scale <= VID_MAX_SCALE) {
+            if (sdlmode.w / scale <= MAXWIDTH && sdlmode.h / scale <= MAXHEIGHT)
+                break;
+            scale <<= 1;
+        }
+        if (scale > VID_MAX_SCALE)
+            continue;
 
 	if (SDL_PIXELTYPE(sdlmode.format) == SDL_PIXELTYPE_PACKED32)
 	    vid_modelist[vid_nummodes].bpp = 32;
@@ -130,6 +146,11 @@ VID_SDL_InitModeList(void)
 	mode->width = sdlmode.w;
 	mode->height = sdlmode.h;
 	mode->refresh = sdlmode.refresh_rate;
+        mode->min_scale = scale;
+        mode->resolution.scale = scale;
+        mode->resolution.width = mode->width / scale;
+        mode->resolution.height = mode->height / scale;
+
 	format = (qvidformat_t *)mode->driverdata;
 	format->format = sdlmode.format;
 	vid_nummodes++;
