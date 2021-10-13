@@ -44,16 +44,18 @@ static int have_focus = false;
 static void
 windowed_mouse_f(struct cvar_s *var)
 {
-    if (var->value) {
-	if (!VID_IsFullScreen()) {
-	    IN_GrabMouse();
-	    IN_GrabKeyboard();
-	}
-    } else {
-	if (!VID_IsFullScreen()) {
-	    IN_UngrabMouse();
-	    IN_UngrabKeyboard();
-	}
+    if (have_focus) {
+        if (var->value) {
+            if (!VID_IsFullScreen()) {
+                IN_GrabMouse();
+                IN_GrabKeyboard();
+            }
+        } else {
+            if (!VID_IsFullScreen()) {
+                IN_UngrabMouse();
+                IN_UngrabKeyboard();
+            }
+        }
     }
 }
 
