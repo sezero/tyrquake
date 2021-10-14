@@ -31,7 +31,7 @@ and the non-gl versions use a software-only renderer.
 .IP "\fB\-heapsize n, \-mem n\fP"
 Specifies the size of Quake's internal memory heap.  For historical reasons,
 when using \fB\-heapsize\fP n is specified in kB and when using \fB-mem\fP n
-is specified in MB.  Default 128MB.
+is specified in MB.  Default 256MB.
 .IP "\fB\-zone\fP"
 Specifies the amount of memory in kB to reserve for Quake's dynamic memory
 allocator.  Default 256kB.
@@ -278,15 +278,25 @@ Load the named skybox for the current level.
 .IP "\fBstopsound\fP"
 .IP "\fBsoundlist\fP"
 .IP "\fBsoundinfo\fP"
-.IP "\fBvid_describemodes\fP"
 .IP "\fBvid_nummodes\fP"
-.IP "\fBvid_describecurrentmode\fP"
-.IP "\fBvid_describemode\fP"
+Prints the number of video modes provided by the window/operating system.
 .IP "\fBvid_describemodes\fP"
-.IP "\fBvid_forcemode\fP"
-.IP "\fBvid_windowed\fP"
-.IP "\fBvid_fullscreen\fP"
+Prints out the list of video modes available on the window/operating
+system.  Each mode is assigned a number which can be passed to the
+\fIvid_mode\fP command to set the mode directly.
+.IP "\fBvid_mode\fP"
+With no parameters, prints the current video mode as an integer or
+just 'windowed' if in windowed mode.  If given an integer argument for
+a valid video mode as described by the \fIvid_describemodes\fP
+command, then sets the video mode to one of the described fullscreen
+modes.
+.IP "\fBvid_describecurrentmode\fP"
+Prints a brief description of the current video mode.
 .IP "\fBvid_minimize\fP"
+.IP "\fBvid_restart\fP"
+Restarts the entire video system.  Used to change the window or screen
+resolution according to the \fIvid_width\fP, \fIvid_height\fP, \fIvid_bpp\fP,
+\fIvid_fullscreen\fP, \fIvid_fullscreen\fP console variables.
 .IP "\fBflush\fP"
 .IP "\fBhunk print|printall\fP"
 Print information about internal memory allocations on the hunk.  If
@@ -461,7 +471,7 @@ play once and then stop.  Default 1.
 .IP "\fBgl_max_size\fP"
 .IP "\fBgl_max_textures\fP"
 The maximum number of textures that will be kept in memory at one time.  If
-changed at runtime, a vid_restart is required for the change to take effect.
+changed at runtime, a \fIvid_restart\fP is required for the change to take effect.
 Default 2048.
 .IP "\fBgl_npot\fP"
 If 1, allow use of non-power-of-two sized textures in OpenGL (if the ARB
@@ -662,20 +672,51 @@ Specifies how far ahead (in seconds) to mix sound effects.  Lower values
 provide better audio latency, while higher values help prevent audio skipping
 when framerate drops.  Default 0.1.
 .IP "\fBsys_nostdout\fP"
-.IP "\fBvid_mode\fP"
 .IP "\fBvid_wait\fP"
 .IP "\fBvid_nopageflip\fP"
 .IP "\fB_vid_wait_override\fP"
-.IP "\fB_vid_default_mode\fP"
-.IP "\fB_vid_default_mode_win\fP"
-.IP "\fBvid_fullscreen_mode\fP"
-.IP "\fBvid_windowed_mode\fP"
 .IP "\fBblock_switch\fP"
+
+.IP "\fBvid_fullscreen\fP"
+If set to 1, switch to fullscreen mode on the next \fIvid_restart\fP.  Default
+0.
+.IP "\fBvid_width\fP, \fBvid_height\fP"
+Specifies the width and height in pixels of the window or fullscreen mode to
+set on the next \fIvid_restart\fP.  Default 800 x 600.
+.IP "\fBvid_bpp\fP"
+Specifies the color depth of the display mode to be set on the next
+\fIvid_restart\fP.  Valid values depend on the system, but typically 32, 16 or
+8.  Default 32.
+.IP "\fBvid_refreshrate\fP"
+Specifies the refresh rate of the display mode to be set on the next
+\fIvid_restart\fP.  Ignored for windowed modes.  Valid values depend on the
+system.  Default 60.
+.IP "\fBvid_render_resolution_scale\fP"
+Optionally scales up the pixel size rendered by the software renderer to
+improve performance or for aesthetic preference.  When 1 (default), renders
+each pixel of the window individually.  When 2 the rendered pixel size is 2x2
+so only 1/4 of the work is required by the 3d renderer.  For example with an
+800x600 window and scale set to 2, the render will draw the scene at 400x300
+and scale up the pixels by 2 to fill the window.  When set to 0, the render
+resolution is specified by the \fIvid_render_resolution_width\fP and
+\fIvid_render_resolution_height\fP variables manually.  Default 1.
+.IP "\fBvid_render_resolution_width\fP, \fBvid_render_resolution_height\fP"
+When \fIvid_render_resolution_scale\fP is 0, sets the width and height of the
+resolution to render the scene at which will then be stretched up to the
+window or screen size.  Default 320 x 200.
+.IP "\fBvid_window_centered\fP"
+When 1, place the window centered on the screen.  When 0, either use the
+previously remembered position if \fIvid_window_remember_position\fP is 1,
+otherwise allow the window manager to place the window.  Default 1.
+.IP "\fBvid_window_remember_position\fP"
+When 1, record the placement of the game window in the \fIvid_window_x\fP and
+\fIvid_window_y\fP console variables so the position can be restored next time
+the game starts or restarts.  Note that if \fIvid_window_centered\fP is 1,
+then the window will be centered and the remembered position will be ignored.
+Default 1.
 .IP "\fBvid_window_x\fP"
 .IP "\fBvid_window_y\fP"
-.IP "\fBvid_config_x\fP"
-.IP "\fBvid_config_y\fP"
-.IP "\fBvid_stretch_by_2\fP"
+Records the window position of the application at the time it was last closed.
 .IP "\fBhost_framerate\fP"
 .IP "\fBchase_back\fP"
 .IP "\fBchase_up\fP"
@@ -703,7 +744,7 @@ when framerate drops.  Default 0.1.
 .IP "\fBm_forward\fP"
 .IP "\fBm_side\fP"
 .IP "\fBm_freelook\fP"
-If 1, view orientation is controlled by mouse and the "mouse look" key
+If 1, view orientation is controlled by mouse and the \fImouse look\fP key
 (+mlook) has the inverse effect of temporarily disabling free look
 mode while depressed.
 .IP "\fBhost_speeds\fP"
@@ -821,7 +862,7 @@ model (GLQuake only for now).  Default 0.
 .SH BUGS
 .SH AUTHOR
 .SH COPYRIGHT
-Copyright (C) 2013-2019 Kevin Shanahan
+Copyright (C) 2013-2021 Kevin Shanahan
 .br
 Copyright (C) 1997 id Software
 .PP
