@@ -616,22 +616,16 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
         Sys_Error("Unable to create window");
 
     maindc = GetDC(mainwindow);
+
+    /* TODO: verify these raster capabilities to turn on/off scaling? */
     int rastercaps = GetDeviceCaps(maindc, RASTERCAPS);
     if (rastercaps & RC_BITBLT)
         Sys_Printf("*** --- *** --- Main window has BITBLT capability\n");
     if (rastercaps & RC_STRETCHBLT)
         Sys_Printf("*** --- *** --- Main window has STRETCHBLT capability\n");
 
-    vid.output.width = mode->width;
-    vid.output.height = mode->height;
-    vid.output.scale = mode->resolution.scale;
-    if (vid.output.scale) {
-        vid.width = vid.conwidth = mode->width / mode->resolution.scale;
-        vid.height = vid.conheight = mode->height / mode->resolution.scale;
-    } else {
-        vid.width = vid.conwidth = mode->resolution.width;
-        vid.height = vid.conheight = mode->resolution.height;
-    }
+    VID_Mode_SetupViddef(mode, &vid);
+
     vid.numpages = 1;
     vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 

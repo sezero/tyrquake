@@ -74,6 +74,46 @@ cvar_t vid_window_y = { "vid_window_y", "0", CVAR_VIDEO };
 cvar_t vid_window_centered = { "vid_window_centered", "1", CVAR_VIDEO };
 cvar_t vid_window_remember_position = { "vid_window_remember_position", "1", CVAR_VIDEO };
 
+void
+VID_Mode_SetupViddef(const qvidmode_t *mode, viddef_t *vid)
+{
+    /* Start with the requested output dimensions */
+    vid->output.width = mode->width;
+    vid->output.height = mode->height;
+    vid->output.scale = mode->resolution.scale;
+
+    /* Set the corresponding rendering resolution */
+    if (vid->output.scale) {
+        vid->width = mode->width / mode->resolution.scale;
+        vid->height = mode->height / mode->resolution.scale;
+    } else {
+        vid->width = mode->resolution.width;
+        vid->height = mode->resolution.height;
+    }
+
+    /* Make sure we meet the minimum width/height requirements */
+    vid->width = qmax((vid->width + 7) & ~7, MINWIDTH);
+    vid->height = qmax((vid->height + 7) & ~7, MINHEIGHT);
+
+    /* Ensure output is at least as big as render resolution */
+    vid->output.width = qmax(vid->output.width, vid->width);
+    vid->output.height = qmax(vid->output.height, vid->height);
+
+    /* Re-calculate the scale factor, in case the dimensions changed */
+    vid->output.scale = 0;
+    for (int scale = 1; scale <= VID_MAX_SCALE; scale <<= 1) {
+        if (vid->width * scale == vid->output.width && vid->height * scale == vid->output.height) {
+            vid->output.scale = scale;
+            break;
+        }
+    }
+
+    /* Copy dimensions for the console */
+    vid->conwidth = vid->width;
+    vid->conheight = vid->height;
+}
+
+
 static void
 VID_SetModeCvars(const qvidmode_t *mode)
 {

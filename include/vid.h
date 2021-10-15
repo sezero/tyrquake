@@ -109,6 +109,7 @@ extern double vid_testendtime;
 
 void VID_Mode_RegisterVariables();
 void VID_Mode_AddCommands();
+void VID_Mode_SetupViddef(const qvidmode_t *mode, viddef_t *vid);
 void VID_SortModeList(qvidmode_t *modelist, int nummodes);
 const qvidmode_t *VID_GetCmdlineMode();
 const qvidmode_t *VID_GetModeFromCvars();

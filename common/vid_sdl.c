@@ -253,16 +253,8 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     VID_SetPalette(palette);
     VID_InitColormap(palette);
 
-    vid.output.width = mode->width;
-    vid.output.height = mode->height;
-    vid.output.scale = mode->resolution.scale;
-    if (mode->resolution.scale) {
-        vid.width = vid.conwidth = mode->width / mode->resolution.scale;
-        vid.height = vid.conheight = mode->height / mode->resolution.scale;
-    } else {
-        vid.width = vid.conwidth = mode->resolution.width;
-        vid.height = vid.conheight = mode->resolution.height;
-    }
+    VID_Mode_SetupViddef(mode, &vid);
+
     vid.numpages = 1;
     vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 240.0);
 

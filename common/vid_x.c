@@ -734,15 +734,14 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     XSetInputFocus(x_disp, x_win, RevertToParent, CurrentTime);
     IN_Commands(); // update grabs (FIXME - this is a wierd function call to do that!)
 
-    /* even if MITSHM is available, make sure it's a local connection */
+    doShm = false;
     if (XShmQueryExtension(x_disp)) {
-	char *displayname;
-
 	doShm = true;
-	displayname = (char *)getenv("DISPLAY");
+
+        /* even if MITSHM is available, make sure it's a local connection */
+	char *displayname = (char *)getenv("DISPLAY");
 	if (displayname) {
 	    char *d = displayname;
-
 	    while (*d && (*d != ':'))
 		d++;
 	    if (*d)
@@ -752,32 +751,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	}
     }
 
-    doShm = false;
-
-    vid.output.width = mode->width;
-    vid.output.height = mode->height;
-    vid.output.scale = mode->resolution.scale;
-    if (mode->resolution.scale) {
-        vid.width = vid.conwidth = mode->width / mode->resolution.scale;
-        vid.height = vid.conheight = mode->height / mode->resolution.scale;
-    } else {
-        vid.width = vid.conwidth = mode->resolution.width;
-        vid.height = vid.conheight = mode->resolution.height;
-    }
-
-    /*
-     * We don't support render resolution greater than window size
-     * with the current framebuffer strategy, so just cap the render
-     * resolution to output size.
-     */
-    vid.height = qmin(vid.height, vid.output.height);
-    vid.width = qmin(vid.width, vid.output.width);
-    for (int scale = 1; scale <= VID_MAX_SCALE; scale++) {
-        if (vid.width * scale == vid.output.width && vid.height * scale == vid.output.height) {
-            vid.output.scale = scale;
-            break;
-        }
-    }
+    VID_Mode_SetupViddef(mode, &vid);
 
     vid.aspect = 1;//((float)vid.height / (float)vid.width) * (320.0 / 200.0);
     vid.numpages = 2;
