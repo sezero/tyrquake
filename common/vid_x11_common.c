@@ -59,6 +59,7 @@ typedef union {
 void
 VID_X11_SetIcon()
 {
+#ifndef DISABLE_ICON
     bgra_pixel_t pixel;
     int i, mark, iconsize;
     long *icondata, *dst;
@@ -87,6 +88,7 @@ VID_X11_SetIcon()
     XChangeProperty(x_disp, x_win, property, XA_CARDINAL, 32, PropModeReplace, (unsigned char *)icondata, iconsize + 2);
 
     Hunk_FreeToLowMark(mark);
+#endif
 }
 
 void

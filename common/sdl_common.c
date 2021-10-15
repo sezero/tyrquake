@@ -47,6 +47,7 @@ SDL_PixelFormat *sdl_desktop_format = NULL;
 void
 VID_SDL_SetIcon()
 {
+#ifndef DISABLE_ICON
     SDL_Surface *surface;
 
 #ifdef __BIG_ENDIAN__
@@ -61,15 +62,13 @@ VID_SDL_SetIcon()
     const uint32_t amask = 0xff000000;
 #endif
 
-    if (!tyrquake_icon_128)
-        return;
-
     surface = SDL_CreateRGBSurfaceFrom((void *)tyrquake_icon_128, 128, 128, 32, 128 * 4, rmask, gmask, bmask, amask);
     if (!surface)
         return;
 
     SDL_SetWindowIcon(sdl_window, surface);
     SDL_FreeSurface(surface);
+#endif
 }
 
 void
