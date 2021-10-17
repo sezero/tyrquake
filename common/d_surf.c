@@ -51,12 +51,25 @@ D_SurfaceCacheForRes(int width, int height)
 	return size;
     }
 
+    /*
+     * Surfcache sizes are kind of hand-tuned to avoid thrashing on
+     * some of the most demanding maps around currently (2021).  Cache
+     * sizes were a little smaller on the original release as we
+     * didn't have semi-transparent surfaces, mask textures and the
+     * like.
+     *
+     * The hand-wavey theory here to avoid oversized caches at high resolutions is:
+     *  - 14 bytes per pixel up to 320x200
+     *  - 6 bytes per pixel for additional pixels above 320x200 and up to 800x600
+     *  - 3 bytes per pixel for additional pixels above 800x600
+     */
     size = SURFCACHE_SIZE_AT_320X200;
 
     pix = width * height;
-    if (pix > 64000)
-	size += (pix - 64000) * 3;
-
+    if (pix > 320 * 200)
+	size += (qmin(pix, 800 * 600) - 320 * 200) * 6;
+    if (pix > (800 * 600))
+        size += (pix - 800 * 600) * 3;
 
     return size;
 }
@@ -94,7 +107,7 @@ D_InitCaches
 void
 D_InitCaches(void *buffer, int size)
 {
-    //Con_Printf("%ik surface cache\n", size / 1024);
+    Con_SafePrintf("%ik surface cache\n", size / 1024);
 
     sc_size = size - GUARDSIZE;
     sc_base = (surfcache_t *)buffer;
@@ -333,6 +346,10 @@ D_CacheSurface(const entity_t *e, msurface_t *surface, int miplevel)
 
     c_surf++;
     R_DrawSurface();
+
+#ifdef DEBUG
+    D_CheckCacheGuard();
+#endif
 
     return surface->cachespots[miplevel];
 }
