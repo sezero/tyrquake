@@ -388,13 +388,8 @@ R_SetVrect(const vrect_t *in, vrect_t *out, int lineadj)
         lineadj = SCR_Scale(lineadj);
     }
 
-#ifdef NQ_HACK
-    full = (scr_viewsize.value >= 120.0f);
-#endif
-#ifdef QW_HACK
-    full = (!cl_sbar.value && scr_viewsize.value >= 100.0f);
-#endif
-    size = qmin(scr_viewsize.value, 100.0f);
+    full = (scr_viewsize.value >= 100.0f);
+    size = qmin(scr_viewsize.value + 10.0f, 100.0f);  // 90 is full width but sbar height filled
 
     /* Hide the status bar during intermission */
     if (cl.intermission) {

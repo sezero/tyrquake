@@ -699,8 +699,8 @@ SCR_CalcRefdef()
 // bound viewsize
     if (scr_viewsize.value < 30)
 	Cvar_Set("viewsize", "30");
-    if (scr_viewsize.value > 130)
-	Cvar_Set("viewsize", "130");
+    if (scr_viewsize.value > 120)
+	Cvar_Set("viewsize", "120");
 
 // bound field of view
     if (scr_fov.value < 10)
@@ -710,19 +710,19 @@ SCR_CalcRefdef()
 
 // intermission is always full screen
     if (cl.intermission)
-	size = 130;
+	size = 120;
     else
 	size = scr_viewsize.value;
 
-    if (size >= 130)
+    if (size >= 120)
 	sb_lines = 0;		// no status bar at all
-    else if (size >= 120)
+    else if (size >= 110)
 	sb_lines = 24;		// no inventory
     else
 	sb_lines = 24 + 16 + 8;
 
-    /* Remove tile fill along side status bar when view is > 100% */
-    sb_lines_hidden = scr_viewsize.value < 110.0f ? sb_lines : 0;
+    /* Remove tile fill along side status bar when view is >= 100% */
+    sb_lines_hidden = scr_viewsize.value < 100.0f ? sb_lines : 0;
 
 // these calculations mirror those in R_Init() for r_refdef, but take no
 // account of water warping
