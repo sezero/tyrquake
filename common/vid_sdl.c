@@ -111,11 +111,6 @@ VID_ShiftPalette(const byte *palette)
 
 void VID_SetDefaultMode(void) { }
 
-static cvar_t vid_wait = { "vid_wait", "0" };
-static cvar_t vid_nopageflip = { "vid_nopageflip", "0", CVAR_VIDEO };
-static cvar_t _vid_wait_override = { "_vid_wait_override", "0", CVAR_VIDEO };
-static cvar_t block_switch = { "block_switch", "0", CVAR_VIDEO };
-
 static qboolean Minimized;
 
 qboolean
@@ -237,9 +232,19 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     if (!sdl_window)
 	Sys_Error("%s: Unable to create window: %s", __func__, SDL_GetError());
 
-    renderer = SDL_CreateRenderer(sdl_window, -1, SDL_RENDERER_ACCELERATED);
+    flags = vid_vsync.value ? SDL_RENDERER_PRESENTVSYNC : 0;
+    renderer = SDL_CreateRenderer(sdl_window, -1, flags);
+    if (!renderer && flags)
+        renderer = SDL_CreateRenderer(sdl_window, -1, 0);
     if (!renderer)
 	Sys_Error("%s: Unable to create renderer: %s", __func__, SDL_GetError());
+
+    /* Update vsync availability info based on renderer returned */
+    if (flags & SDL_RENDERER_PRESENTVSYNC) {
+        SDL_RendererInfo renderer_info;
+        SDL_GetRendererInfo(renderer, &renderer_info);
+        vsync_available = !!(renderer_info.flags & SDL_RENDERER_PRESENTVSYNC);
+    }
 
     texture = SDL_CreateTexture(renderer,
 				format->format,
@@ -353,10 +358,6 @@ VID_ProcessEvents()
 void
 VID_RegisterVariables()
 {
-    Cvar_RegisterVariable(&vid_wait);
-    Cvar_RegisterVariable(&vid_nopageflip);
-    Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&block_switch);
 }
 
 void
@@ -390,6 +391,9 @@ VID_Init(const byte *palette)
 
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
+
+    /* Assume vsync is available, we will set false if enable fails */
+    vsync_available = true;
 }
 
 static void

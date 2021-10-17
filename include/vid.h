@@ -102,6 +102,17 @@ extern cvar_t vid_window_y;
 extern cvar_t vid_window_centered;
 extern cvar_t vid_window_remember_position;
 
+/* Vsync */
+extern qboolean vsync_available;
+extern qboolean adaptive_vsync_available;
+extern cvar_t vid_vsync;
+
+enum vid_vsync_state {
+    VSYNC_STATE_OFF,
+    VSYNC_STATE_ON,
+    VSYNC_STATE_ADAPTIVE,
+};
+
 /* FIXME - vid mode testing */
 extern int vid_testingmode;
 extern int vid_realmode;

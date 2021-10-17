@@ -88,10 +88,6 @@ static qboolean hide_window;
 
 static float vid_gamma = 1.0;
 
-static cvar_t vid_wait = { "vid_wait", "0" };
-static cvar_t vid_nopageflip = { "vid_nopageflip", "0", CVAR_VIDEO };
-static cvar_t _vid_wait_override = { "_vid_wait_override", "0", CVAR_VIDEO };
-
 float gldepthmin, gldepthmax;
 static qboolean reload_textures; // Flag to set/test on gl context destroy/create
 
@@ -747,9 +743,6 @@ Check_Gamma(const byte *palette, byte *newpalette)
 void
 VID_RegisterVariables()
 {
-    Cvar_RegisterVariable(&vid_wait);
-    Cvar_RegisterVariable(&vid_nopageflip);
-    Cvar_RegisterVariable(&_vid_wait_override);
 }
 
 void

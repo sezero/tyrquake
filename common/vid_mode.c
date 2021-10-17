@@ -74,6 +74,33 @@ cvar_t vid_window_y = { "vid_window_y", "0", CVAR_VIDEO };
 cvar_t vid_window_centered = { "vid_window_centered", "1", CVAR_VIDEO };
 cvar_t vid_window_remember_position = { "vid_window_remember_position", "1", CVAR_VIDEO };
 
+qboolean vsync_available;
+qboolean adaptive_vsync_available;
+cvar_t vid_vsync = { "vid_vsync", "1", CVAR_VIDEO };
+
+static const char *
+VID_VsyncString(enum vid_vsync_state state)
+{
+    const char *vsync_string[] = { "off", "on", "adaptive" };
+    const char *available = "";
+    if (state == VSYNC_STATE_ON && !vsync_available)
+        available = " (N/A)";
+    else if (state == VSYNC_STATE_ADAPTIVE && !adaptive_vsync_available)
+        available = " (N/A)";
+
+    return va("%s%s", vsync_string[state], available);
+}
+
+static enum vid_vsync_state
+VID_VsyncStateFromCvar()
+{
+    enum vid_vsync_state state = vid_vsync.value;
+    if (state < VSYNC_STATE_OFF || state > VSYNC_STATE_ADAPTIVE)
+        state = VSYNC_STATE_OFF;
+
+    return state;
+}
+
 void
 VID_Mode_SetupViddef(const qvidmode_t *mode, viddef_t *vid)
 {
@@ -113,15 +140,15 @@ VID_Mode_SetupViddef(const qvidmode_t *mode, viddef_t *vid)
     vid->conheight = vid->height;
 }
 
-
 static void
-VID_SetModeCvars(const qvidmode_t *mode)
+VID_SetModeCvars(const qvidmode_t *mode, enum vid_vsync_state vsync)
 {
     Cvar_SetValue("vid_fullscreen", (mode == &vid_windowed_mode) ? 0 : 1);
     Cvar_SetValue("vid_width", mode->width);
     Cvar_SetValue("vid_height", mode->height);
     Cvar_SetValue("vid_bpp", mode->bpp);
     Cvar_SetValue("vid_refreshrate", mode->refresh);
+    Cvar_SetValue("vid_vsync", vsync);
 }
 
 static void
@@ -172,6 +199,7 @@ typedef enum {
     VID_MENU_CURSOR_BPP,
     VID_MENU_CURSOR_REFRESH,
     VID_MENU_CURSOR_FULLSCREEN,
+    VID_MENU_CURSOR_VERTICAL_SYNC,
     VID_MENU_CURSOR_TEST,
     VID_MENU_CURSOR_APPLY,
     VID_MENU_CURSOR_LINES,
@@ -188,6 +216,7 @@ typedef enum {
 typedef struct {
     qvidmode_t mode;
     qboolean fullscreen;
+    enum vid_vsync_state vsync;
     configure_window_t configure_window;
     int configure_width;
     int configure_height;
@@ -203,6 +232,7 @@ VID_MenuInitState(const qvidmode_t *mode)
     vid_menustate.fullscreen = (vid_currentmode != &vid_windowed_mode);
     vid_menustate.configure_window = CONFIGURE_WINDOW_NONE;
     vid_menustate.cursor = VID_MENU_CURSOR_MODE;
+    vid_menustate.vsync = VID_VsyncStateFromCvar();
 }
 
 static const char *
@@ -224,7 +254,7 @@ VID_MenuDraw
 void
 VID_MenuDraw_(const vid_menustate_t *menu)
 {
-    static const int cursor_heights[] = { 48, 56, 64, 72, 80, 96, 104, 0, 72, 88 };
+    static const int cursor_heights[] = { 48, 56, 64, 72, 80, 88, 104, 112, 0, 72, 88 };
     const qpic8_t *pic;
     const char *text;
     vid_menu_cursor_t cursor = VID_MENU_CURSOR_MODE;
@@ -285,6 +315,10 @@ VID_MenuDraw_(const vid_menustate_t *menu)
 
         M_Print(16, cursor_heights[cursor], "        Fullscreen");
         M_DrawCheckbox(184, cursor_heights[cursor], menu->fullscreen);
+        cursor++;
+
+        M_Print(16, cursor_heights[cursor], "     Vertical Sync");
+        M_Print(184, cursor_heights[cursor], VID_VsyncString(menu->vsync));
         cursor++;
 
         M_Print(184, cursor_heights[cursor], "Test changes");
@@ -722,6 +756,9 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 		menu->mode.refresh = mode->refresh;
             }
 	    break;
+        case VID_MENU_CURSOR_VERTICAL_SYNC:
+            menu->vsync = menu->vsync > VSYNC_STATE_OFF ? menu->vsync - 1 : VSYNC_STATE_ADAPTIVE;
+            break;
         case VID_MENU_CURSOR_RESOLUTION:
             if (menu->mode.resolution.scale > menu->mode.min_scale)
                 menu->mode.resolution.scale >>= 1;
@@ -762,6 +799,9 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 		menu->mode.refresh = mode->refresh;
             }
 	    break;
+        case VID_MENU_CURSOR_VERTICAL_SYNC:
+            menu->vsync = menu->vsync < VSYNC_STATE_ADAPTIVE ? menu->vsync + 1 : VSYNC_STATE_OFF;
+            break;
         case VID_MENU_CURSOR_RESOLUTION:
             if (menu->mode.resolution.scale < VID_MAX_SCALE)
                 menu->mode.resolution.scale <<= 1;
@@ -800,7 +840,7 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 	    if (!menu->fullscreen) {
 		vid_windowed_mode = menu->mode;
                 VID_SetResolutionCvars(&menu->mode);
-                VID_SetModeCvars(&vid_windowed_mode);
+                VID_SetModeCvars(&vid_windowed_mode, menu->vsync);
                 Cbuf_AddText("vid_restart\n");
 		break;
 	    }
@@ -808,7 +848,7 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
             mode = VID_FindMode(menu->mode.width, menu->mode.height, menu->mode.bpp, menu->mode.refresh);
             if (mode) {
                 VID_SetResolutionCvars(&menu->mode);
-                VID_SetModeCvars(mode);
+                VID_SetModeCvars(mode, menu->vsync);
                 Cbuf_AddText("vid_restart\n");
 	    }
 	    break;
@@ -943,7 +983,7 @@ VID_Mode_f()
     }
 
     if (mode != vid_currentmode) {
-        VID_SetModeCvars(mode);
+        VID_SetModeCvars(mode, VID_VsyncStateFromCvar());
         Cbuf_AddText("vid_restart\n");
     }
 }
@@ -1067,6 +1107,7 @@ VID_Mode_RegisterVariables(void)
     Cvar_RegisterVariable(&vid_window_y);
     Cvar_RegisterVariable(&vid_window_centered);
     Cvar_RegisterVariable(&vid_window_remember_position);
+    Cvar_RegisterVariable(&vid_vsync);
 
     Cvar_RegisterVariable(&vid_render_resolution_scale);
     Cvar_RegisterVariable(&vid_render_resolution_width);

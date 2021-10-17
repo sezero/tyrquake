@@ -21,6 +21,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include <windows.h>
 #include <mmsystem.h>
+#include <ddraw.h>
 
 #include "cdaudio.h"
 #include "cmd.h"
@@ -91,11 +92,6 @@ static int vid_surfcachesize;
 static int VID_highhunkmark;
 static byte vid_curpal[256 * 3];
 
-static cvar_t vid_wait = { "vid_wait", "0" };
-static cvar_t vid_nopageflip = { "vid_nopageflip", "0", CVAR_VIDEO };
-static cvar_t _vid_wait_override = { "_vid_wait_override", "0", CVAR_VIDEO };
-static cvar_t block_switch = { "block_switch", "0", CVAR_VIDEO };
-
 unsigned short d_8to16table[256];
 unsigned d_8to24table[256];
 
@@ -103,6 +99,57 @@ static byte backingbuf[48 * 24];
 
 static void AppActivate(BOOL fActive, BOOL minimize);
 static LONG WINAPI MainWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+static HINSTANCE DDrawLibrary;
+static struct IDirectDraw *pDDraw;
+
+static qboolean
+VID_InitDDraw()
+{
+    HRESULT hr;
+
+    assert(!DDrawLibrary);
+    assert(!pDDraw);
+
+    DDrawLibrary = LoadLibrary("ddraw.dll");
+    if (!DDrawLibrary) {
+        Con_SafePrintf("Unable to load ddraw.dll\n");
+        return false;
+    }
+
+    HRESULT (WINAPI *pDirectDrawCreate)(GUID *, LPDIRECTDRAW *, IUnknown *);
+    pDirectDrawCreate = (void *)GetProcAddress(DDrawLibrary, "DirectDrawCreate");
+    if (!pDirectDrawCreate) {
+        Con_SafePrintf("Unable to load DirectDrawCreate function\n");
+        return false;
+    }
+
+    hr = pDirectDrawCreate(NULL, &pDDraw, NULL);
+    if (hr != DD_OK) {
+        Con_SafePrintf("Failed to create DirectDraw instance\n");
+        return false;
+    }
+
+    hr = IDirectDraw_WaitForVerticalBlank(pDDraw, DDWAITVB_BLOCKBEGIN, 0);
+    vsync_available = (hr == DD_OK);
+
+    return true;
+}
+
+static void
+VID_ShutdownDDraw()
+{
+    if (pDDraw) {
+        IDirectDraw_Release(pDDraw);
+        pDDraw = NULL;
+    }
+
+    if (DDrawLibrary) {
+        FreeLibrary(DDrawLibrary);
+        DDrawLibrary = 0;
+    }
+}
+
 
 void
 VID_GetDesktopRect(vrect_t *rect)
@@ -770,10 +817,6 @@ VID_Minimize_f(void)
 void
 VID_RegisterVariables()
 {
-    Cvar_RegisterVariable(&vid_wait);
-    Cvar_RegisterVariable(&vid_nopageflip);
-    Cvar_RegisterVariable(&_vid_wait_override);
-    Cvar_RegisterVariable(&block_switch);
 }
 
 void
@@ -851,6 +894,8 @@ VID_Init(const byte *palette)
     VID_SetPalette(palette);
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
+
+    VID_InitDDraw();
 }
 
 
@@ -858,6 +903,8 @@ void
 VID_Shutdown(void)
 {
     if (vid_initialized) {
+        VID_ShutdownDDraw();
+
 	if (modestate == MS_FULLSCREEN)
 	    ChangeDisplaySettings(NULL, CDS_FULLSCREEN);
 
@@ -883,10 +930,13 @@ FlipScreen
 ================
 */
 static void
-FlipScreen(vrect_t *rects)
+FlipScreen(vrect_t *rects, qboolean vsync)
 {
     if (!hdcDIBSection)
 	return;
+
+    if (vsync && vid_vsync.value && vsync_available && pDDraw)
+        IDirectDraw_WaitForVerticalBlank(pDDraw, DDWAITVB_BLOCKBEGIN, 0);
 
     if (vid.output.scale == 1) {
         /* Fast path for 1:1 blits */
@@ -969,7 +1019,7 @@ D_BeginDirectRect(int x, int y, const byte *pbitmap, int width, int height)
     rect.height = height << repshift;
     rect.pnext = NULL;
 
-    FlipScreen(&rect);
+    FlipScreen(&rect, false);
 }
 
 
@@ -1010,7 +1060,7 @@ D_EndDirectRect(int x, int y, int width, int height)
     rect.height = height << repshift;
     rect.pnext = NULL;
 
-    FlipScreen(&rect);
+    FlipScreen(&rect, false);
 }
 
 void
@@ -1046,7 +1096,7 @@ VID_Update(vrect_t *rects)
 	}
     }
     // We've drawn the frame; copy it to the screen
-    FlipScreen(rects);
+    FlipScreen(rects, true);
 
 // handle the mouse state when windowed if that's changed
     if (modestate == MS_WINDOWED) {
