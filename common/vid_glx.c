@@ -367,6 +367,34 @@ VID_InitColormap(const byte *palette)
     vid.fullbright = 256 - LittleLong(*((int *)vid.colormap + 2048));
 }
 
+static const char * (*qglXQueryExtensionsString)(Display *dpy, int screen);
+static void (*qglXSwapIntervalEXT)(Display *dpy, GLXDrawable drawable, int interval);
+
+static qboolean
+GLX_ExtensionCheck(const char *extension)
+{
+    if (!qglXQueryExtensionsString) {
+        qglXQueryExtensionsString = GL_GetProcAddress("glXQueryExtensionsString");
+        if (!qglXQueryExtensionsString)
+            return false;
+    }
+    const char *string = qglXQueryExtensionsString(x_disp, x_visinfo->screen);
+    return GL_ExtensionCheck_String(extension, string);
+}
+
+static void
+GLX_ExtensionCheck_SwapControl()
+{
+    if (GLX_ExtensionCheck("GLX_EXT_swap_control"))
+        qglXSwapIntervalEXT = GL_GetProcAddress("glXSwapIntervalEXT");
+
+    if (qglXSwapIntervalEXT) {
+        vsync_available = true;
+        if (GLX_ExtensionCheck("GLX_EXT_swap_control_tear"))
+            adaptive_vsync_available = true;
+    }
+}
+
 qboolean
 VID_SetMode(const qvidmode_t *mode, const byte *palette)
 {
@@ -477,6 +505,16 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     GL_Init();
     if (reload_textures)
 	GL_ReloadTextures();
+
+    GLX_ExtensionCheck_SwapControl();
+    if (qglXSwapIntervalEXT) {
+        int swap_interval = 0;
+        if (adaptive_vsync_available && vid_vsync.value == VSYNC_STATE_ADAPTIVE)
+            swap_interval = -1;
+        else if (vsync_available && vid_vsync.value)
+            swap_interval = 1;
+        qglXSwapIntervalEXT(x_disp, x_win, swap_interval);
+    }
 
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
