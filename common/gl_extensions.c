@@ -31,12 +31,10 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 qboolean gl_npotable;
 qboolean gl_texture_env_combine;
 
-static qboolean
-GL_ExtensionCheck(const char *extension)
+qboolean
+GL_ExtensionCheck_String(const char *extension, const char *search)
 {
-    int length = strlen(extension);
-    const char *search = (const char *)glGetString(GL_EXTENSIONS);
-
+    const int length = strlen(extension);
     while ((search = strstr(search, extension))) {
 	if (!search[length] || search[length] == ' ')
 	    return true;
@@ -44,6 +42,13 @@ GL_ExtensionCheck(const char *extension)
     }
 
     return false;
+}
+
+qboolean
+GL_ExtensionCheck(const char *extension)
+{
+    const char *search = (const char *)glGetString(GL_EXTENSIONS);
+    return GL_ExtensionCheck_String(extension, search);
 }
 
 static qboolean gl_version_es;

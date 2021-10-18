@@ -44,12 +44,6 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "host.h"
 #endif
 
-void *
-GL_GetProcAddress(const char *name)
-{
-    return wglGetProcAddress(name);
-}
-
 qboolean VID_CheckAdequateMem(int width, int height) { return true; }
 
 static qboolean Minimized;
@@ -154,6 +148,41 @@ VID_CenterWindow(HWND window)
     VID_SetWindowPos(window, x, y);
 }
 
+void *
+GL_GetProcAddress(const char *name)
+{
+    return wglGetProcAddress(name);
+}
+
+static const char * (WINAPI *qwglGetExtensionsStringARB)(HDC hdc);
+static BOOL (WINAPI *qwglSwapIntervalEXT)(int interval);
+
+static qboolean
+WGL_ExtensionCheck(const char *extension)
+{
+    if (!qwglGetExtensionsStringARB) {
+        qwglGetExtensionsStringARB = (void *)wglGetProcAddress("wglGetExtensionsStringARB");
+        if (!qwglGetExtensionsStringARB)
+            return false;
+    }
+    const char *string = qwglGetExtensionsStringARB(maindc);
+    return GL_ExtensionCheck_String(extension, string);
+}
+
+static void
+WGL_ExtensionCheck_SwapControl()
+{
+    if (WGL_ExtensionCheck("WGL_EXT_swap_control") && GL_ExtensionCheck("WGL_EXT_swap_control"))
+        qwglSwapIntervalEXT = (void *)wglGetProcAddress("wglSwapIntervalEXT");
+
+    if (qwglSwapIntervalEXT) {
+        vsync_available = true;
+        if (WGL_ExtensionCheck("WGL_EXT_swap_control_tear")) {
+            adaptive_vsync_available = true;
+        }
+    }
+}
+
 static void
 VID_ShutdownGLContext()
 {
@@ -208,6 +237,16 @@ VID_CreateGLContext(int width, int height, const byte *palette)
     if (reload_textures) {
 	GL_ReloadTextures();
         reload_textures = false;
+    }
+
+    WGL_ExtensionCheck_SwapControl();
+    if (qwglSwapIntervalEXT) {
+        int swap_interval = 0;
+        if (adaptive_vsync_available && vid_vsync.value == VSYNC_STATE_ADAPTIVE)
+            swap_interval = -1;
+        else if (vsync_available && vid_vsync.value)
+            swap_interval = 1;
+        qwglSwapIntervalEXT(swap_interval);
     }
 }
 

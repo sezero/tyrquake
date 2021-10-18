@@ -383,6 +383,8 @@ extern qboolean gl_anisotropy_enabled;
 
 extern float gl_anisotropy_max;
 
+qboolean GL_ExtensionCheck_String(const char *extension, const char *search);
+qboolean GL_ExtensionCheck(const char *extension);
 void GL_ParseVersionString(const char *version);
 void *GL_GetProcAddress(const char *name);
 void GL_ExtensionCheck_NPoT(void);
