@@ -156,6 +156,18 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
     if (reload_textures)
 	GL_ReloadTextures();
 
+    /* Test available swap interval features for the menu */
+    vsync_available = SDL_GL_SetSwapInterval(1) != -1;
+    adaptive_vsync_available = SDL_GL_SetSwapInterval(-1) != -1;
+
+    /* Set the vsync interval according to cvar preference */
+    int swap_interval = 0;
+    if (adaptive_vsync_available && vid_vsync.value == VSYNC_STATE_ADAPTIVE)
+        swap_interval = -1;
+    else if (vsync_available && vid_vsync.value)
+        swap_interval = 1;
+    SDL_GL_SetSwapInterval(swap_interval);
+
     vid.numpages = 0; /* Contents of the back buffer are undefined after swap */
     vid.width = vid.conwidth = mode->width;
     vid.height = vid.conheight = mode->height;
