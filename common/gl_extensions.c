@@ -513,8 +513,8 @@ GL_InitFragmentPrograms()
 
     if (!success) {
         Con_SafePrintf(
-            "WARNING: Some vertex programs failed to compile.\n"
-            "         Vertex programs will be disabled.\n"
+            "WARNING: Some fragment programs failed to compile.\n"
+            "         Fragment programs will be disabled.\n"
             "         Enable developer mode for further info.\n"
         );
         gl_fragment_program_enabled = false;
