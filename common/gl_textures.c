@@ -111,19 +111,6 @@ GL_InitTextureManager()
         list_add_tail(&manager.textures[i].list, &manager.free);
 }
 
-void
-GL_FreeTextures()
-{
-    gltexture_t *texture;
-
-    list_for_each_entry(texture, &manager.active, list)
-        glDeleteTextures(1, &texture->texnum);
-    list_for_each_entry(texture, &manager.inactive, list)
-        glDeleteTextures(1, &texture->texnum);
-
-    GL_InitTextureManager();
-}
-
 /*
  * =================
  *    Multitexture
@@ -199,6 +186,23 @@ GL_Bind(texture_id_t texture_id)
 
     glBindTexture(GL_TEXTURE_2D, texture->texnum);
     glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, texture->max_miplevel);
+}
+
+void
+GL_FreeTextures()
+{
+    gltexture_t *texture;
+
+    list_for_each_entry(texture, &manager.active, list)
+        glDeleteTextures(1, &texture->texnum);
+    list_for_each_entry(texture, &manager.inactive, list)
+        glDeleteTextures(1, &texture->texnum);
+
+    for (int i = 0; i < MAX_TMU; i++)
+        tmu_texture[i] = 0;
+    current_tmu = 0;
+
+    GL_InitTextureManager();
 }
 
 static GLint
@@ -1036,8 +1040,6 @@ GL_Textures_Init(void)
     }
 
     GL_InitTextureManager();
-    GL_LoadNoTexture();
-    GL_CreateWarpTableTexture();
 }
 
 

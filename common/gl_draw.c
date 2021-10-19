@@ -487,6 +487,9 @@ Draw_InitGLTextures()
 
     /* Init the particle texture */
     R_InitParticleTexture();
+
+    GL_LoadNoTexture();
+    GL_CreateWarpTableTexture();
 }
 
 struct drawrect {

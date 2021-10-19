@@ -207,7 +207,6 @@ GL_Shutdown()
 void
 GL_ReloadTextures()
 {
-    GL_LoadNoTexture();
     Draw_InitGLTextures();
     Draw_ReloadPicTextures();
     Mod_ReloadTextures();
