@@ -43,6 +43,20 @@ static RECT window_rect;
 unsigned int uiWheelMessage;
 qboolean mouseactive;
 
+static qboolean have_focus;
+
+void
+IN_SetFocus(qboolean focus)
+{
+    have_focus = focus;
+}
+
+qboolean
+IN_HaveFocus()
+{
+    return have_focus;
+}
+
 #define DINPUT_BUFFERSIZE 16
 
 static HRESULT (WINAPI *pDirectInputCreate)(HINSTANCE hinst, DWORD dwVersion,
@@ -658,7 +672,7 @@ IN_Move
 void
 IN_Move(usercmd_t *cmd)
 {
-    if (ActiveApp && window_visible()) {
+    if (have_focus && window_visible()) {
 	IN_MouseMove(cmd);
 	IN_JoyMove(cmd);
     }

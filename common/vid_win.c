@@ -1110,7 +1110,7 @@ VID_Update(vrect_t *rects)
 		IN_DeactivateMouse();
 		IN_ShowMouse();
 	    }
-	} else if (key_dest == key_game && ActiveApp) {
+	} else if (key_dest == key_game && IN_HaveFocus()) {
 	    IN_ActivateMouse();
 	    IN_HideMouse();
 	}
@@ -1172,13 +1172,13 @@ AppActivate(BOOL fActive, BOOL minimize)
     HDC hdc;
     static BOOL sound_active;
 
-    ActiveApp = fActive;
+    IN_SetFocus(fActive);
 
     /* messy, but it seems to work */
     if (vid_fulldib_on_focus_mode) {
 	Minimized = minimize;
 	if (Minimized)
-	    ActiveApp = false;
+	    IN_SetFocus(false);
     }
 
     if (vid_initialized) {
@@ -1192,11 +1192,11 @@ AppActivate(BOOL fActive, BOOL minimize)
     }
 
     /* enable/disable sound on focus gain/loss */
-    if (!ActiveApp && sound_active) {
+    if (!IN_HaveFocus() && sound_active) {
 	S_BlockSound();
 	S_ClearBuffer();
 	sound_active = false;
-    } else if (ActiveApp && !sound_active) {
+    } else if (IN_HaveFocus() && !sound_active) {
 	S_UnblockSound();
 	S_ClearBuffer();
 	sound_active = true;
@@ -1204,7 +1204,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 
     /* Minimize/restore windows & mouse-capture on demand */
     if (!in_mode_set) {
-	if (ActiveApp) {
+	if (IN_HaveFocus()) {
 	    if (vid_fulldib_on_focus_mode) {
 		if (vid_initialized) {
 		    VID_SetMode(vid_fulldib_on_focus_mode, vid_curpal);
@@ -1223,7 +1223,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 	    }
 	}
 
-	if (!ActiveApp) {
+	if (!IN_HaveFocus()) {
 	    if (modestate == MS_FULLSCREEN) {
 		if (vid_initialized) {
 		    force_minimized = true;

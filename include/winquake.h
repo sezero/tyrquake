@@ -46,7 +46,6 @@ typedef enum {
 } modestate_t;
 
 extern HWND mainwindow;
-extern qboolean ActiveApp;
 extern qboolean WinNT;
 
 //

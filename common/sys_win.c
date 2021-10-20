@@ -69,7 +69,6 @@ static cvar_t sys_nostdout = { "sys_nostdout", "0" };
 #define PAUSE_SLEEP	50	// sleep time on pause or minimization
 #define NOT_FOCUS_SLEEP	20	// sleep time when not focus
 
-qboolean ActiveApp;
 static HANDLE tevent;
 
 #ifdef NQ_HACK
@@ -882,11 +881,10 @@ WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine,
 	 * yield the CPU for a little while when paused, minimized,
 	 * or not the focus
 	 */
-	if ((cl.paused && (!ActiveApp && !DDActive)) || !window_visible()
-	    || scr_block_drawing) {
+	if ((cl.paused && (!IN_HaveFocus() && !DDActive)) || !window_visible() || scr_block_drawing) {
 	    SleepUntilInput(PAUSE_SLEEP);
 	    scr_skipupdate = 1;	/* no point in bothering to draw */
-	} else if (!ActiveApp && !DDActive) {
+	} else if (!IN_HaveFocus() && !DDActive) {
 	    SleepUntilInput(NOT_FOCUS_SLEEP);
 	}
 

@@ -59,4 +59,7 @@ void IN_ClearStates(void);
 void IN_Accumulate(void);
 // save accumulated mouse movement (used in S_ExtraUpdate(), _WIN32 only)
 
+void IN_SetFocus(qboolean focus);
+qboolean IN_HaveFocus();
+
 #endif /* INPUT_H */

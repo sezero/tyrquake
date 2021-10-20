@@ -622,7 +622,7 @@ GL_EndRendering(void)
 	    }
 	} else {
 	    windowed_mouse = true;
-	    if (key_dest == key_game && !mouseactive && ActiveApp) {
+	    if (key_dest == key_game && !mouseactive && IN_HaveFocus()) {
 		IN_ActivateMouse();
 		IN_HideMouse();
 	    } else if (mouseactive && key_dest != key_game) {
@@ -892,19 +892,19 @@ AppActivate(BOOL fActive, BOOL minimize)
 {
     static BOOL sound_active;
 
-    ActiveApp = fActive;
+    IN_SetFocus(fActive);
     Minimized = minimize;
 
     /* enable/disable sound on focus gain/loss */
-    if (!ActiveApp && sound_active) {
+    if (!IN_HaveFocus() && sound_active) {
 	S_BlockSound();
 	sound_active = false;
-    } else if (ActiveApp && !sound_active) {
+    } else if (IN_HaveFocus() && !sound_active) {
 	S_UnblockSound();
 	sound_active = true;
     }
 
-    if (ActiveApp) {
+    if (IN_HaveFocus()) {
 	if (modestate == MS_FULLSCREEN) {
 	    if (vid_canalttab && vid_wassuspended) {
 		vid_wassuspended = false;
@@ -929,7 +929,7 @@ AppActivate(BOOL fActive, BOOL minimize)
 	    VID_SetGammaRamp(ramps);
     }
 
-    if (!ActiveApp) {
+    if (!IN_HaveFocus()) {
 	/* Restore desktop gamma */
 	if (VID_SetGammaRamp)
 	    VID_SetGammaRamp(saved_gamma_ramp);
