@@ -900,7 +900,7 @@ R_AliasDrawModel(entity_t *entity)
     /* Bind color buffer */
     if (r_fullbright.value) {
         glColor3f(1.0f, 1.0f, 1.0f);
-    } else {
+    } else if (!use_vp) {
         glEnableClientState(GL_COLOR_ARRAY);
         glColorPointer(4, GL_UNSIGNED_BYTE, 0, colorbuf);
     }
