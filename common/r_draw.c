@@ -357,10 +357,10 @@ R_RenderFace
 ================
 */
 void
-R_RenderFace(const entity_t *e, msurface_t *surf, int clipflags)
+R_RenderFace(const entity_t *entity, msurface_t *surf, int clipflags)
 {
-    const brushmodel_t *brushmodel = BrushModel(e->model);
-    const qboolean insubmodel = e->model != r_worldentity.model;
+    const brushmodel_t *brushmodel = BrushModel(entity->model);
+    const qboolean insubmodel = entity->model != r_worldentity.model;
     int i, lindex;
     unsigned mask;
     mplane_t *pplane;
@@ -474,12 +474,17 @@ R_RenderFace(const entity_t *e, msurface_t *surf, int clipflags)
     surface_p->flags = surf->flags;
     surface_p->insubmodel = insubmodel;
     surface_p->spanstate = 0;
-    surface_p->entity = e;
+    surface_p->entity = entity;
     surface_p->key = r_currentkey++;
     surface_p->spans = NULL;
 
     /* Flag alpha surfs */
-    surface_p->alphatable = Alpha_Transtable(R_GetSurfAlpha(surf->flags));
+    float alpha = R_GetSurfAlpha(surf->flags);
+    if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
+        alpha *= ENTALPHA_DECODE(entity->alpha);
+        surface_p->flags |= SURF_DRAWENTALPHA;
+    }
+    surface_p->alphatable = Alpha_Transtable(alpha);
 
     pplane = surf->plane;
 // FIXME: cache this?
