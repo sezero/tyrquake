@@ -483,6 +483,8 @@ R_RenderFace(const entity_t *entity, msurface_t *surf, int clipflags)
     if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
         alpha *= ENTALPHA_DECODE(entity->alpha);
         surface_p->flags |= SURF_DRAWENTALPHA;
+    } else {
+        surface_p->flags &= ~SURF_DRAWENTALPHA;
     }
     surface_p->alphatable = Alpha_Transtable(alpha);
 
@@ -596,6 +598,8 @@ R_RenderBmodelFace(const entity_t *entity, bedge_t *pedges, msurface_t *psurf)
     if (entity->alpha != ENTALPHA_DEFAULT && entity->alpha != ENTALPHA_ONE) {
         alpha *= ENTALPHA_DECODE(entity->alpha);
         surface_p->flags |= SURF_DRAWENTALPHA;
+    } else {
+        surface_p->flags &= ~SURF_DRAWENTALPHA;
     }
     surface_p->alphatable = Alpha_Transtable(alpha);
 
