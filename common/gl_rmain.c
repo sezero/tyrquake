@@ -502,7 +502,7 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
      * each time around the loop, due to the way the expanded texture
      * width/height is returned for non-POT textures
      */
-    for (i = 0; i < aliashdr->numskins; i++) {
+    for (i = 0; i < GL_Aliashdr(aliashdr)->numtextures; i++) {
         pic.width = aliashdr->skinwidth;
         pic.height = aliashdr->skinheight;
         textures[i].base = GL_LoadTexture8(model, va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);

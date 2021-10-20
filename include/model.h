@@ -405,6 +405,7 @@ typedef struct {
     int indices;             // Offset to indices for drawing
     int texcoords;           // Offset to texcoords
     int textures;            // Offset to GLuint texture handles
+    int numtextures;         // Total number of textures (including skingroups)
     int lightnormalindex;    // Offset to lightnormalindex data
     union {
         GLuint all[3];

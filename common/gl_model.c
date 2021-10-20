@@ -118,6 +118,7 @@ GL_LoadAliasSkinData(model_t *model, aliashdr_t *aliashdr, const alias_skindata_
     aliashdr->skindata = (byte *)pixels - (byte *)aliashdr;
     textures = Mod_AllocName(skindata->numskins * sizeof(qgltexture_t), model->name);
     GL_Aliashdr(aliashdr)->textures = (byte *)textures - (byte *)aliashdr;
+    GL_Aliashdr(aliashdr)->numtextures = skindata->numskins;
 
     for (i = 0; i < skindata->numskins; i++) {
 	GL_FloodFillSkin(skindata->data[i], aliashdr->skinwidth, aliashdr->skinheight);
