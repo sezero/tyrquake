@@ -296,7 +296,8 @@ Prints a brief description of the current video mode.
 .IP "\fBvid_restart\fP"
 Restarts the entire video system.  Used to change the window or screen
 resolution according to the \fIvid_width\fP, \fIvid_height\fP, \fIvid_bpp\fP,
-\fIvid_fullscreen\fP, \fIvid_fullscreen\fP console variables.
+\fIvid_fullscreen\fP, \fIvid_refreshrate\fP and \fIvid_vsync\fP console
+variables.
 .IP "\fBflush\fP"
 .IP "\fBhunk print|printall\fP"
 Print information about internal memory allocations on the hunk.  If
@@ -672,10 +673,6 @@ Specifies how far ahead (in seconds) to mix sound effects.  Lower values
 provide better audio latency, while higher values help prevent audio skipping
 when framerate drops.  Default 0.1.
 .IP "\fBsys_nostdout\fP"
-.IP "\fBvid_wait\fP"
-.IP "\fBvid_nopageflip\fP"
-.IP "\fB_vid_wait_override\fP"
-.IP "\fBblock_switch\fP"
 
 .IP "\fBvid_fullscreen\fP"
 If set to 1, switch to fullscreen mode on the next \fIvid_restart\fP.  Default
@@ -691,6 +688,13 @@ Specifies the color depth of the display mode to be set on the next
 Specifies the refresh rate of the display mode to be set on the next
 \fIvid_restart\fP.  Ignored for windowed modes.  Valid values depend on the
 system.  Default 60.
+.IP "\fBvid_vsync\fP"
+When 0, rendering occurs as fast as possible with no synchronization to
+vertical refresh.  When '1', synchronize display of frames with vertical
+refresh to avoid tearing.  When '2', use 'adaptive vsync' - wait for vertical
+refresh to display the frame if the rendering completed ahead of the vertical
+refresh.  If rendering was slower than the vertical refresh, display
+immediately.  Not all modes are supported on all systems.  Default '1'.
 .IP "\fBvid_render_resolution_scale\fP"
 Optionally scales up the pixel size rendered by the software renderer to
 improve performance or for aesthetic preference.  When 1 (default), renders
