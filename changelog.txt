@@ -2,6 +2,25 @@
   CHANGELOG
 \-----------/
 
+v0.69
+=====
+- Add support for scaling the software renderer output by a factor of 2 or 4
+- Add translucent HUD support ("scr_sbaralpha")
+- Add support for OpenGL vertex program animation interpolation
+- Add support for OpenGL fragment program water surface warping
+- Add support for OpenGL buffer objects to improve rendering performance
+- Add support for DXT texture compression (greatly helps low-memory systems)
+- Add vsync support for most platforms ("vid_vsync")
+- Add anisotropic filtering for OpenGL ("gl_texture_anisotropy")
+- Add back the vid mode test functionality
+- Add cl_maxpitch and cl_minpitch console variables (default 90/-90)
+- Improve FOV calculations to work better with widescreen aspect ratios
+- Improved dynamic lighting performance on OpenGL (removed redundant updates)
+- Fix a few software renderer entity alpha bugs
+- Fix a few more texture reloading bugs in OpenGL
+- Fix framerate on windows when compiled with SDL video/input
+- Fix a few model/sprite clipping bugs the could crash the software renderer
+
 v0.68
 =====
 - Fix compilation of x86 on unix variant when using ASM

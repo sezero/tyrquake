@@ -2,8 +2,8 @@
  Tyr-Quake
 -----------
 
-Date:		2021-07-19
-Version: 	0.68
+Date:		2021-10-26
+Version: 	0.69
 Author:		Kevin Shanahan (aka. Tyrann)
 Webpage:	http://disenchant.net
 email:		kevin@shanahan.id.au
@@ -47,3 +47,4 @@ the Launcher.
 History:
 --------
 See changelog.txt for the summary of changes in each release version.
+For full details, see: https://disenchant.net/git/tyrquake.git/
