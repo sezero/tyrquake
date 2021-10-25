@@ -53,11 +53,6 @@ const qvidmode_t *vid_currentmode = &vid_windowed_mode;
 
 int vid_nummodes;
 
-/* FIXME - vid mode testing */
-int vid_testingmode;
-int vid_realmode;
-double vid_testendtime;
-
 static const char *VID_GetModeDescription(const qvidmode_t *mode);
 
 static cvar_t vid_fullscreen = { "vid_fullscreen", "0", CVAR_VIDEO };
@@ -68,6 +63,48 @@ static cvar_t vid_refreshrate = { "vid_refreshrate", "60", CVAR_VIDEO };
 static cvar_t vid_render_resolution_scale = { "vid_render_resolution_scale", "1", CVAR_VIDEO };
 static cvar_t vid_render_resolution_width = { "vid_render_resolution_width", stringify(MINWIDTH), CVAR_VIDEO };
 static cvar_t vid_render_resolution_height = { "vid_render_resolution_height", stringify(MINHEIGHT), CVAR_VIDEO };
+
+/* Vid mode change testing */
+static struct modevars {
+    float fullscreen;
+    float width;
+    float height;
+    float bpp;
+    float refreshrate;
+    struct {
+        float scale;
+        float width;
+        float height;
+    } resolution;
+} saved_vars;
+static qboolean vid_test_active;
+static double vid_test_endtime;
+
+static void
+VID_Mode_SaveModeVars()
+{
+    saved_vars.fullscreen        = vid_fullscreen.value;
+    saved_vars.width             = vid_width.value;
+    saved_vars.height            = vid_height.value;
+    saved_vars.bpp               = vid_bpp.value;
+    saved_vars.refreshrate       = vid_refreshrate.value;
+    saved_vars.resolution.scale  = vid_render_resolution_scale.value;
+    saved_vars.resolution.width  = vid_render_resolution_width.value;
+    saved_vars.resolution.height = vid_render_resolution_height.value;
+}
+
+static void
+VID_Mode_RestoreModeVars()
+{
+    Cvar_SetValue(vid_fullscreen.name,               saved_vars.fullscreen);
+    Cvar_SetValue(vid_width.name,                    saved_vars.width);
+    Cvar_SetValue(vid_height.name,                   saved_vars.height);
+    Cvar_SetValue(vid_bpp.name,                      saved_vars.bpp);
+    Cvar_SetValue(vid_refreshrate.name,              saved_vars.refreshrate);
+    Cvar_SetValue(vid_render_resolution_scale.name,  saved_vars.resolution.scale);
+    Cvar_SetValue(vid_render_resolution_width.name,  saved_vars.resolution.width);
+    Cvar_SetValue(vid_render_resolution_height.name, saved_vars.resolution.height);
+}
 
 cvar_t vid_window_x = { "vid_window_x", "0", CVAR_VIDEO };
 cvar_t vid_window_y = { "vid_window_y", "0", CVAR_VIDEO };
@@ -339,6 +376,21 @@ VID_MenuDraw_(const vid_menustate_t *menu)
         M_DrawCharacter(168, cursor_heights[menu->cursor], 13);
     } else {
         M_DrawCursor(168, cursor_heights[menu->cursor], 12);
+    }
+
+    /* Mode switch testing dialog */
+    if (vid_test_active) {
+        if (Sys_DoubleTime() > vid_test_endtime) {
+            VID_Mode_RestoreModeVars();
+            Cbuf_AddText("vid_restart\n");
+            vid_test_active = false;
+            return;
+        }
+
+        M_DrawTextBox(56, 76, 22, 3);
+        M_Print(64,  84, " Video mode changed.  ");
+        M_Print(64,  92, " Do you want to keep  ");
+        M_Print(64, 100, " these changes? (Y/N) ");
     }
 }
 
@@ -685,6 +737,25 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
 {
     const qvidmode_t *mode;
 
+    /* Handle vid test dialog, if active */
+    if (vid_test_active) {
+        switch (keynum) {
+        case K_ESCAPE:
+        case K_n:
+            vid_test_active = false;
+            VID_Mode_RestoreModeVars();
+            Cbuf_AddText("vid_restart\n");
+            break;
+        case K_ENTER:
+        case K_y:
+            vid_test_active = false;
+            break;
+        default:
+            break;
+        }
+        return;
+    }
+
     switch (keynum) {
     case K_ESCAPE:
 	S_LocalSound("misc/menu1.wav");
@@ -835,6 +906,11 @@ VID_MenuKey_(vid_menustate_t *menu, knum_t keynum)
             menu->configure_height = menu->mode.resolution.height ? menu->mode.resolution.height : menu->mode.height;
             menu->cursor = VID_MENU_CURSOR_HEIGHT;
             break;
+	case VID_MENU_CURSOR_TEST:
+            VID_Mode_SaveModeVars();
+            vid_test_active = true;
+            vid_test_endtime = Sys_DoubleTime() + 10;
+            /* Fall through */
 	case VID_MENU_CURSOR_APPLY:
 	    /* If it's a windowed mode, update the modelist entry */
 	    if (!menu->fullscreen) {

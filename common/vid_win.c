@@ -872,8 +872,6 @@ VID_Init(const byte *palette)
     VID_InitModeList();
     VID_LoadConfig();
 
-    vid_testingmode = 0;
-
     mode = VID_GetCmdlineMode();
     if (!mode)
         mode = VID_GetModeFromCvars();
@@ -919,7 +917,6 @@ VID_Shutdown(void)
 	if (mainwindow)
 	    DestroyWindow(mainwindow);
 
-	vid_testingmode = 0;
 	vid_initialized = 0;
     }
 }

@@ -113,11 +113,6 @@ enum vid_vsync_state {
     VSYNC_STATE_ADAPTIVE,
 };
 
-/* FIXME - vid mode testing */
-extern int vid_testingmode;
-extern int vid_realmode;
-extern double vid_testendtime;
-
 void VID_Mode_RegisterVariables();
 void VID_Mode_AddCommands();
 void VID_Mode_SetupViddef(const qvidmode_t *mode, viddef_t *vid);
