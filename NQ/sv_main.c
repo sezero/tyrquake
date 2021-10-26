@@ -1254,14 +1254,14 @@ SV_SendDisconnect(const char *reason)
 
     MSG_WriteChar(&msg, svc_stufftext);
     if (reason) {
-        MSG_WriteString(&msg, va("echo \"%s\"\ndisconnect\n", reason));
+        MSG_WriteStringf(&msg, "echo \"%s\"\ndisconnect\n", reason);
     } else {
         MSG_WriteString(&msg, "disconnect\n");
     }
     NET_SendToAll(&msg, 5);
 
     if (cls.state != ca_dedicated) {
-        Cbuf_AddText(va("echo \"%s\"\n", reason));
+        Cbuf_AddText("echo \"%s\"\n", reason);
 	Cmd_ExecuteString("disconnect\n", src_command);
     }
 }
