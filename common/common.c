@@ -1939,7 +1939,7 @@ COM_RestoreGameDirectoryState()
     hipnotic        = saved_game_directory_state.hipnotic;
     rogue           = saved_game_directory_state.rogue;
     com_modified    = saved_game_directory_state.com_modified;
-    com_game_type   = hipnotic = saved_game_directory_state.com_game_type;
+    com_game_type   = saved_game_directory_state.com_game_type;
     hipnotic        = saved_game_directory_state.hipnotic;
     com_searchpaths = saved_game_directory_state.com_searchpaths;
     qstrncpy(com_gamedir, saved_game_directory_state.com_gamedir, sizeof(com_gamedir));
