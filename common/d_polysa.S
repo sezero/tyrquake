@@ -2244,7 +2244,7 @@ LTFVLoop:
 LTNextVert:
 	addl	$(fv_size),%ebx
 	decl	%ecx
-	jnz	LFVLoop
+	jnz	LTFVLoop
 
 	popl	%edi
 	popl	%esi
