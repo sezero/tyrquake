@@ -953,11 +953,13 @@ LTDraw:
 	movl	C(d_scantable)(,%ebp,4),%eax
 	addl	%eax,%ecx
 	movl	C(d_viewbuffer),%eax
-    movb    (%eax,%ecx,1),%dh
+    movb    (%eax,%ecx),%dh
 
 //      *pdest = r_transtable[(((int)*pdest) << 8) + pix]
-    movb    C(r_transtable)(%edx),%dl
-	movb	%dl,(%eax,%ecx,1)
+    andl    $0xFFFF,%edx
+    movb    0x12345678(%edx),%dl
+LTPatch10T:
+    movb    %dl,(%eax,%ecx)
 
 //	}
 //
@@ -1679,6 +1681,7 @@ C(D_Aff8Patch):
 	movl	%ecx,LTPatch8T-4
 	movl	%eax,LTPatch9-4
 	movl	%ecx,LTPatch9T-4
+    movl    %ecx,LTPatch10T-4
 
 	ret
 
@@ -2235,8 +2238,10 @@ LTFVLoop:
     movb    (%esi,%edi),%dh
 
 //              *pdest = r_transtable[(((int)*pdest) << 8) + pix]
-    movb    C(r_transtable)(%edx),%dl
-	movb	%dl,(%esi,%edi)
+    andl    $0xFFFF,%edx
+    movl    C(r_transtable),%eax
+    movb    (%eax,%edx,1),%dl
+    movb    %dl,(%esi,%edi)
 
 //			}
 //		}
