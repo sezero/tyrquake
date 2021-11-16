@@ -135,12 +135,12 @@ Skin_Cache(skin_t * skin)
 	Sys_Error("Skin_Cache: couldn't allocate");
 
     /* Check the PCX header */
-    if (pcx->identifier != 0x0a
-	|| pcx->version != 5
-	|| pcx->encoding != 1
-	|| pcx->bits_per_pixel != 8 || pcx->xmax >= 320 || pcx->ymax >= 200) {
-	goto Fail;
-    }
+    if (pcx->identifier != 0x0a || pcx->version != 5 || pcx->encoding != 1)
+	goto Fail_Free;
+
+    /* TODO: support other skin sizes? */
+    if (pcx->bits_per_pixel != 8 || pcx->xmax >= 320 || pcx->ymax >= 200)
+	goto Fail_Free;
 
     raw = pcx->data;
     pix = out;
@@ -149,14 +149,14 @@ Skin_Cache(skin_t * skin)
     for (y = 0; y < pcx->ymax; y++, pix += 320) {
 	for (x = 0; x <= pcx->xmax;) {
 	    if (raw - (byte *)pcx > pcxsize)
-		goto Fail;
+		goto Fail_Free;
 
 	    dataByte = *raw++;
 
 	    if ((dataByte & 0xC0) == 0xC0) {
 		runLength = dataByte & 0x3F;
 		if (raw - (byte *)pcx > pcxsize)
-		    goto Fail;
+		    goto Fail_Free;
 
 		dataByte = *raw++;
 	    } else
@@ -164,7 +164,7 @@ Skin_Cache(skin_t * skin)
 
 	    // skin sanity check
 	    if (runLength + x > pcx->xmax + 2)
-		goto Fail;
+		goto Fail_Free;
 
 	    while (runLength-- > 0)
 		pix[x++] = dataByte;
@@ -173,14 +173,15 @@ Skin_Cache(skin_t * skin)
     }
 
     if (raw - (byte *)pcx > pcxsize)
-	goto Fail;
+	goto Fail_Free;
 
     skin->failedload = false;
     return out;
 
+ Fail_Free:
+    Cache_Free(&skin->cache);
  Fail:
     Con_Printf("Skin %s was malformed.  You should delete it.\n", name);
-    Cache_Free(&skin->cache);
     skin->failedload = true;
     return NULL;
 }
