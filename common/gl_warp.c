@@ -120,7 +120,6 @@ R_UpdateWarpTextures()
         GL_DisableMultitexture();
         qglClientActiveTexture(GL_TEXTURE0);
     }
-    glEnable(GL_VERTEX_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     glVertexPointer(2, GL_FLOAT, 4 * sizeof(float), vertices);
     glEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -157,7 +156,6 @@ R_UpdateWarpTextures()
 
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_VERTEX_ARRAY);
-    glDisable(GL_VERTEX_ARRAY);
 }
 
 

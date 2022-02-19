@@ -1679,7 +1679,6 @@ DrawSolidChain(triangle_buffer_t *buffer, materialchain_t *materialchain, glbrus
 static void
 GL_BeginMaterialChains()
 {
-    glEnable(GL_VERTEX_ARRAY);
     glEnableClientState(GL_VERTEX_ARRAY);
     if (gl_mtexable) {
 	qglClientActiveTexture(GL_TEXTURE0);
@@ -1705,7 +1704,6 @@ GL_EndMaterialChains()
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisable(GL_VERTEX_ARRAY);
 }
 
 static void

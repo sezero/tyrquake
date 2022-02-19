@@ -938,7 +938,6 @@ R_AliasDrawModel(entity_t *entity)
 
     const qboolean do_fullbright_pass = skin_has_fullbrights && gl_fullbrights.value && !r_fullbright.value;
 
-    glEnable(GL_VERTEX_ARRAY);
     if (gl_mtexable)
         qglClientActiveTexture(GL_TEXTURE0);
 
@@ -1067,7 +1066,6 @@ R_AliasDrawModel(entity_t *entity)
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisable(GL_VERTEX_ARRAY);
 
     c_alias_polys += aliashdr->numtris;
 
