@@ -2,6 +2,12 @@
   CHANGELOG
 \-----------/
 
+v0.70
+=====
+- Fix 'Cache_Dealloc:: not allocated' error on invalid QW skins
+- Fix some translucent alias model rendering bugs in the x86 assembly
+- Fix some invalid GL api usage (thanks Jelle Raaijmakers)
+
 v0.69
 =====
 - Add support for scaling the software renderer output by a factor of 2 or 4
