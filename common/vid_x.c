@@ -986,6 +986,8 @@ GetScaledRect(const vrect_t *in)
         out.height = in->height * vscale;
     }
 
+    out.pnext = in->pnext;
+
     return out;
 }
 
