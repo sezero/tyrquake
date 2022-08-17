@@ -157,7 +157,7 @@ VID_Mode_SetupViddef(const qvidmode_t *mode, viddef_t *vid)
 
     /* Make sure we meet the minimum width/height requirements */
     vid->width = qmax((vid->width + 7) & ~7, MINWIDTH);
-    vid->height = qmax((vid->height + 7) & ~7, MINHEIGHT);
+    vid->height = qmax(vid->height, MINHEIGHT);
 
     /* Ensure output is at least as big as render resolution */
     vid->output.width = qmax(vid->output.width, vid->width);

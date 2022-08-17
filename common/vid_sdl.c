@@ -162,8 +162,7 @@ VID_AllocBuffers(int width, int height)
      * see if there's enough memory, allowing for the normal mode 0x13 pixel,
      * z, and surface buffers
      */
-    if ((host_parms.memsize - tbuffersize + SURFCACHE_SIZE_AT_320X200 +
-	 0x10000 * 3) < minimum_memory) {
+    if ((host_parms.memsize - tbuffersize + SURFCACHE_SIZE_AT_320X200 + 0x10000 * 3) < minimum_memory) {
 	Con_SafePrintf("Not enough memory for video mode\n");
 	return false;
     }
@@ -182,8 +181,8 @@ VID_AllocBuffers(int width, int height)
     r_warpbuffer = Hunk_HighAllocName(width * height, "warpbuf");
 
     // In-memory buffer which we upload via SDL texture
-    vid.buffer = vid.conbuffer = vid.direct = Hunk_HighAllocName(vid.width * vid.height, "vidbuf");
-    vid.rowbytes = vid.conrowbytes = vid.width;
+    vid.buffer = vid.conbuffer = vid.direct = Hunk_HighAllocName(width * height, "vidbuf");
+    vid.rowbytes = vid.conrowbytes = width;
 
     R_AllocSurfEdges(false);
 
@@ -414,7 +413,8 @@ void
 VID_Update(vrect_t *rects)
 {
     int i;
-    vrect_t *rect;
+    vrect_t *prect;
+    vrect_t rect;
     vrect_t fullrect;
     byte *src;
     void *dst;
@@ -428,47 +428,56 @@ VID_Update(vrect_t *rects)
      * If the palette changed, refresh the whole screen
      */
     if (palette_changed) {
-	palette_changed = false;
-	fullrect.x = 0;
-	fullrect.y = 0;
-	fullrect.width = vid.width;
-	fullrect.height = vid.height;
-	fullrect.pnext = NULL;
-	rects = &fullrect;
+        palette_changed = false;
+        fullrect.x = 0;
+        fullrect.y = 0;
+        fullrect.width = vid_currentmode->width;
+        fullrect.height = vid_currentmode->height;
+        fullrect.pnext = NULL;
+        rects = &fullrect;
     }
 
-    SDL_Rect lock_rect = { 0, 0, vid.width, vid.height };
+    SDL_Rect lock_rect = { 0, 0, vid_currentmode->width, vid_currentmode->height };
     err = SDL_LockTexture(texture, &lock_rect, (void **)&dst, &pitch);
     if (err)
         Sys_Error("%s: unable to lock texture (%s)",
                   __func__, SDL_GetError());
 
-    for (rect = rects; rect; rect = rect->pnext) {
-	src = vid.buffer + rect->y * vid.width + rect->x;
-	height = rect->height;
-	switch (SDL_PIXELTYPE(sdl_format->format)) {
-	case SDL_PIXELTYPE_PACKED32:
-	    dst32 = dst;
-	    while (height--) {
-		for (i = 0; i < rect->width; i++)
-		    dst32[i] = d_8to24table[src[i]];
-		dst32 += pitch / sizeof(*dst32);
-		src += vid.width;
-	    }
-	    break;
-	case SDL_PIXELTYPE_PACKED16:
-	    dst16 = dst;
-	    while (height--) {
-		for (i = 0; i < rect->width; i++)
-		    dst16[i] = d_8to16table[src[i]];
-		dst16 += pitch / sizeof(*dst16);
-		src += vid.width;
-	    }
-	    break;
-	default:
-	    Sys_Error("%s: unsupported pixel format (%s)", __func__,
-		      SDL_GetPixelFormatName(sdl_format->format));
-	}
+    for (prect = rects; prect; prect = prect->pnext) {
+        rect = *prect;
+        if (rect.x >= lock_rect.w)
+            continue;
+        if (rect.y >= lock_rect.h)
+            continue;
+        if (rect.x + rect.width > lock_rect.w)
+            rect.width = lock_rect.w - rect.x;
+        if (rect.y + rect.height > lock_rect.h)
+            rect.height = lock_rect.h - rect.y;
+
+        src = vid.buffer + rect.y * vid.width + rect.x;
+        height = rect.height;
+        switch (SDL_PIXELTYPE(sdl_format->format)) {
+            case SDL_PIXELTYPE_PACKED32:
+                dst32 = dst;
+                while (height--) {
+                    for (i = 0; i < rect.width; i++)
+                        dst32[i] = d_8to24table[src[i]];
+                    dst32 += pitch / sizeof(*dst32);
+                    src += vid.width;
+                }
+                break;
+            case SDL_PIXELTYPE_PACKED16:
+                dst16 = dst;
+                while (height--) {
+                    for (i = 0; i < rect.width; i++)
+                        dst16[i] = d_8to16table[src[i]];
+                    dst16 += pitch / sizeof(*dst16);
+                    src += vid.width;
+                }
+                break;
+            default:
+                Sys_Error("%s: unsupported pixel format (%s)", __func__, SDL_GetPixelFormatName(sdl_format->format));
+        }
     }
     SDL_UnlockTexture(texture);
     VID_SDL_BlitRect(0, 0, vid.width, vid.height);
