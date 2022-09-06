@@ -2,8 +2,8 @@
  Tyr-Quake
 -----------
 
-Date:		2022-02-19
-Version: 	0.70
+Date:		2022-09-06
+Version: 	0.71
 Author:		Kevin Shanahan (aka. Tyrann)
 Webpage:	http://disenchant.net
 email:		kevin@shanahan.id.au

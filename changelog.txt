@@ -2,6 +2,11 @@
   CHANGELOG
 \-----------/
 
+v0.71
+=====
+- Fix crash in SDL renderer triggered by certain screen resolutions
+- Update FSF address in license text
+
 v0.70
 =====
 - Fix 'Cache_Dealloc:: not allocated' error on invalid QW skins
