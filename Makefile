@@ -50,7 +50,7 @@ TYR_VERSION_TIME := $(shell \
 	if [ -n "$(TYR_GIT)" ] && [ -z "$$(git status -s -uno)" ]; then \
 		git show -s --pretty='format:%at'; \
 	else \
-		date +%s; \
+		date -u -r changelog.txt +%s; \
 	fi)
 BUILD_VERSION_TIME_FILE = $(BUILD_DIR)/.build_version_time
 $(shell \
