@@ -408,9 +408,9 @@ PR_ExecuteProgram(func_t fnum)
 	s++;			// next statement
 
 	st = &pr_statements[s];
-	a = (eval_t *)&pr_globals[st->a];
-	b = (eval_t *)&pr_globals[st->b];
-	c = (eval_t *)&pr_globals[st->c];
+	a = (eval_t *)&pr_globals[(uint16_t)st->a];
+	b = (eval_t *)&pr_globals[(uint16_t)st->b];
+	c = (eval_t *)&pr_globals[(uint16_t)st->c];
 
 	if (!--runaway)
 	    PR_RunError("runaway loop error");
@@ -654,9 +654,9 @@ PR_ExecuteProgram(func_t fnum)
 
 	case OP_DONE:
 	case OP_RETURN:
-	    pr_globals[OFS_RETURN] = pr_globals[st->a];
-	    pr_globals[OFS_RETURN + 1] = pr_globals[st->a + 1];
-	    pr_globals[OFS_RETURN + 2] = pr_globals[st->a + 2];
+	    pr_globals[OFS_RETURN + 0] = pr_globals[(uint16_t)st->a + 0];
+	    pr_globals[OFS_RETURN + 1] = pr_globals[(uint16_t)st->a + 1];
+	    pr_globals[OFS_RETURN + 2] = pr_globals[(uint16_t)st->a + 2];
 
 	    s = PR_LeaveFunction();
 	    if (pr_depth == exitdepth)
