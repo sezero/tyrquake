@@ -1302,33 +1302,28 @@ DrawSkyBox(triangle_buffer_t *buffer, materialchain_t *materialchain)
         .texcoords = { [0] = { .active = true, .slot = 0 } }
     };
 
-    vec7_t verts[4];
     for (facenum = 0; facenum < 6; facenum++) {
         /* Cull skybox faces covered by geometry */
         if (mins[facenum][0] >= maxs[facenum][0] || mins[facenum][1] >= maxs[facenum][1])
             continue;
 
-        float *vert = verts[0];
+        vec7_t verts[4];
 
-        VectorMA(r_origin, scale, skyfaces[facenum][0], vert);
-        vert[3] = 0;
-        vert[4] = 1;
-        vert += VERTEXSIZE;
+        VectorMA(r_origin, scale, skyfaces[facenum][0], verts[0]);
+        verts[0][3] = 0;
+        verts[0][4] = 1;
 
-        VectorMA(r_origin, scale, skyfaces[facenum][1], vert);
-        vert[3] = 0;
-        vert[4] = 0;
-        vert += VERTEXSIZE;
+        VectorMA(r_origin, scale, skyfaces[facenum][1], verts[1]);
+        verts[1][3] = 0;
+        verts[1][4] = 0;
 
-        VectorMA(r_origin, scale, skyfaces[facenum][2], vert);
-        vert[3] = 1;
-        vert[4] = 0;
-        vert += VERTEXSIZE;
+        VectorMA(r_origin, scale, skyfaces[facenum][2], verts[2]);
+        verts[2][3] = 1;
+        verts[2][4] = 0;
 
-        VectorMA(r_origin, scale, skyfaces[facenum][3], vert);
-        vert[3] = 1;
-        vert[4] = 1;
-        vert += VERTEXSIZE;
+        VectorMA(r_origin, scale, skyfaces[facenum][3], verts[3]);
+        verts[3][3] = 1;
+        verts[3][4] = 1;
 
         /* Cull skybox faces outside the view frustum */
         if (R_CullBox(verts[skyfacebounds[facenum][0]], verts[skyfacebounds[facenum][1]]))
