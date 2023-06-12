@@ -216,10 +216,15 @@ Sys_FileTime(const char *path)
      * Between Jan 1, 1601 and Jan 1, 1970 there are 11644473600
      * seconds, so we will just subtract that value:
      */
+#define TICKS_PER_SECOND 10000000LL
+#define SECONDS_TO_UNIX_EPOCH 11644473600LL
+
     mtime.LowPart = filetime.dwLowDateTime;
     mtime.HighPart = filetime.dwHighDateTime;
+    mtime.QuadPart = (mtime.QuadPart / TICKS_PER_SECOND) - SECONDS_TO_UNIX_EPOCH;
 
-    mtime.QuadPart -= 11644473600LL * 10000;
+#undef TICKS_PER_SECOND
+#undef SECONDS_TO_UNIX_EPOCH
 
     return mtime.QuadPart;
 }
