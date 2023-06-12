@@ -464,6 +464,7 @@ R_RenderFace(const entity_t *entity, msurface_t *surf, int clipflags)
 	R_ClipEdge(&r_rightexit, &r_rightenter, view_clipplanes[1].next);
     }
 // if no edges made it out, return without posting the surface
+    r_pedge = NULL;
     if (!r_emitted)
 	return;
 
@@ -579,6 +580,7 @@ R_RenderBmodelFace(const entity_t *entity, bedge_t *pedges, msurface_t *psurf)
 	R_ClipEdge(&r_rightexit, &r_rightenter, view_clipplanes[1].next);
     }
 // if no edges made it out, return without posting the surface
+    r_pedge = NULL;
     if (!r_emitted)
 	return;
 

@@ -580,4 +580,6 @@ D_DrawSprite(void)
     } else {
         D_SpriteDrawSpans(sprite_spans);
     }
+
+    sprite_spans = NULL;
 }
