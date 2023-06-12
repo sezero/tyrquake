@@ -177,15 +177,14 @@ Win32_DefaultPath()
 const char *
 Sys_UserDataDirectory()
 {
-    const char *data_directory;
-
-    data_directory = Win32_Known_Path(win32_userdir, sizeof(win32_userdir), &FOLDERID_LocalAppData, "TyrQuake");
-    if (data_directory)
-        return data_directory;
-
     DWORD size = GetEnvironmentVariable("HOME", win32_userdir, sizeof(win32_userdir));
     if (size > 0 && size < sizeof(win32_userdir))
         return win32_userdir;
+
+    const char *data_directory;
+    data_directory = Win32_Known_Path(win32_userdir, sizeof(win32_userdir), &FOLDERID_LocalAppData, "TyrQuake");
+    if (data_directory)
+        return data_directory;
 
     return NULL;
 }
