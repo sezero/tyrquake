@@ -135,17 +135,23 @@ Win32_SteamPath()
 }
 
 static const char *
-Win32_CSIDL_Path(char *dest, size_t size, int csidl, const char *subfolder)
+Win32_Known_Path(char *dest, size_t size, REFKNOWNFOLDERID folder_id, const char *subfolder)
 {
-    char folder_path[MAX_PATH];
     HRESULT result;
+    wchar_t *wpath;
+    char path[MAX_PATH];
+    int path_len = 0;
 
-    result = SHGetFolderPathA(0, csidl | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, folder_path);
-    if (result != S_OK)
+    result = SHGetKnownFolderPath(folder_id, KF_FLAG_CREATE, NULL, &wpath);
+    if (SUCCEEDED(result))
+        path_len = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, path, sizeof(path), NULL, NULL);
+    CoTaskMemFree(wpath);
+
+    if (!path_len)
         return NULL;
 
-    Win32_StripTrailingSlash(folder_path);
-    qsnprintf(dest, size, "%s/%s", folder_path, subfolder);
+    Win32_StripTrailingSlash(path);
+    qsnprintf(dest, size, "%s/%s", path, subfolder);
 
     return dest;
 }
@@ -153,13 +159,13 @@ Win32_CSIDL_Path(char *dest, size_t size, int csidl, const char *subfolder)
 static const char *
 Win32_ProgramFilesX86Path()
 {
-    return Win32_CSIDL_Path(win32_basedir, sizeof(win32_basedir), CSIDL_PROGRAM_FILESX86, "Quake");
+    return Win32_Known_Path(win32_basedir, sizeof(win32_basedir), &FOLDERID_ProgramFilesX86, "Quake");
 }
 
 static const char *
 Win32_ProgramFilesPath()
 {
-    return Win32_CSIDL_Path(win32_basedir, sizeof(win32_basedir), CSIDL_PROGRAM_FILES, "Quake");
+    return Win32_Known_Path(win32_basedir, sizeof(win32_basedir), &FOLDERID_ProgramFiles, "Quake");
 }
 
 static const char *
@@ -173,7 +179,7 @@ Sys_UserDataDirectory()
 {
     const char *data_directory;
 
-    data_directory = Win32_CSIDL_Path(win32_userdir, sizeof(win32_userdir), CSIDL_LOCAL_APPDATA, "TyrQuake");
+    data_directory = Win32_Known_Path(win32_userdir, sizeof(win32_userdir), &FOLDERID_LocalAppData, "TyrQuake");
     if (data_directory)
         return data_directory;
 
