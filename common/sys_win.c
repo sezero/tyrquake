@@ -87,8 +87,6 @@ static HANDLE qwclsemaphore;
 #endif
 #endif /* !SERVERONLY */
 
-static char win32_cwd[MAX_PATH];
-static char win32_basedir[MAX_PATH];
 static char win32_userdir[MAX_PATH];
 
 static const char *
@@ -100,6 +98,48 @@ Win32_StripTrailingSlash(char *path)
 
     return path;
 }
+
+static const char *
+Win32_Known_Path(char *dest, size_t size, REFKNOWNFOLDERID folder_id, const char *subfolder)
+{
+    HRESULT result;
+    wchar_t *wpath;
+    char path[MAX_PATH];
+    int path_len = 0;
+
+    result = SHGetKnownFolderPath(folder_id, KF_FLAG_CREATE, NULL, &wpath);
+    if (SUCCEEDED(result))
+        path_len = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, path, sizeof(path), NULL, NULL);
+    CoTaskMemFree(wpath);
+
+    if (!path_len)
+        return NULL;
+
+    Win32_StripTrailingSlash(path);
+    qsnprintf(dest, size, "%s/%s", path, subfolder);
+
+    return dest;
+}
+
+const char *
+Sys_UserDataDirectory()
+{
+    DWORD size = GetEnvironmentVariable("HOME", win32_userdir, sizeof(win32_userdir));
+    if (size > 0 && size < sizeof(win32_userdir))
+        return win32_userdir;
+
+    const char *data_directory;
+    data_directory = Win32_Known_Path(win32_userdir, sizeof(win32_userdir), &FOLDERID_LocalAppData, "TyrQuake");
+    if (data_directory)
+        return data_directory;
+
+    return NULL;
+}
+
+#ifndef SERVERONLY
+
+static char win32_cwd[MAX_PATH];
+static char win32_basedir[MAX_PATH];
 
 static const char *
 Win32_SteamPath()
@@ -135,28 +175,6 @@ Win32_SteamPath()
 }
 
 static const char *
-Win32_Known_Path(char *dest, size_t size, REFKNOWNFOLDERID folder_id, const char *subfolder)
-{
-    HRESULT result;
-    wchar_t *wpath;
-    char path[MAX_PATH];
-    int path_len = 0;
-
-    result = SHGetKnownFolderPath(folder_id, KF_FLAG_CREATE, NULL, &wpath);
-    if (SUCCEEDED(result))
-        path_len = WideCharToMultiByte(CP_UTF8, 0, wpath, -1, path, sizeof(path), NULL, NULL);
-    CoTaskMemFree(wpath);
-
-    if (!path_len)
-        return NULL;
-
-    Win32_StripTrailingSlash(path);
-    qsnprintf(dest, size, "%s/%s", path, subfolder);
-
-    return dest;
-}
-
-static const char *
 Win32_ProgramFilesX86Path()
 {
     return Win32_Known_Path(win32_basedir, sizeof(win32_basedir), &FOLDERID_ProgramFilesX86, "Quake");
@@ -173,21 +191,7 @@ Win32_DefaultPath()
 {
     return "C:/quake";
 }
-
-const char *
-Sys_UserDataDirectory()
-{
-    DWORD size = GetEnvironmentVariable("HOME", win32_userdir, sizeof(win32_userdir));
-    if (size > 0 && size < sizeof(win32_userdir))
-        return win32_userdir;
-
-    const char *data_directory;
-    data_directory = Win32_Known_Path(win32_userdir, sizeof(win32_userdir), &FOLDERID_LocalAppData, "TyrQuake");
-    if (data_directory)
-        return data_directory;
-
-    return NULL;
-}
+#endif // !SERVERONLY
 
 int64_t
 Sys_FileTime(const char *path)
