@@ -40,6 +40,7 @@ extern qboolean window_visible(void);
 //
 int64_t Sys_FileTime(const char *path);
 void Sys_mkdir(const char *path);
+const char *Sys_UserDataDirectory();
 
 //
 // memory protection

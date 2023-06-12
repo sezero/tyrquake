@@ -1463,8 +1463,6 @@ COM_FOpenFile(const char *filename, FILE **file)
 FILE *
 COM_FOpenFileCreate(const char *path, const char *mode)
 {
-    Sys_Printf("%s: path is '%s'\n", __func__, path);
-
     COM_CreatePath(path);
     return fopen(va("%s/%s", com_gamedir, path), mode);
 }
@@ -2023,7 +2021,7 @@ void
 COM_InitFileSystem()
 {
     int i;
-    char *home;
+    const char *user_data_directory = Sys_UserDataDirectory();
 
     com_searchpaths = NULL;
 
@@ -2031,8 +2029,6 @@ COM_InitFileSystem()
     if (com_filesystem_mark)
         Hunk_FreeToLowMark(com_filesystem_mark);
     com_filesystem_mark = Hunk_LowMark();
-
-    home = getenv("HOME");
 
 //
 // -basedir <path>
@@ -2046,13 +2042,11 @@ COM_InitFileSystem()
 
     /* Load ID1 by default */
     COM_AddGameDirectory(com_basedir, "id1");
-    if (home)
-        COM_AddGameDirectory(va("%s/.tyrquake", home), "id1");
+    COM_AddGameDirectory(user_data_directory, "id1");
 
 #ifdef QW_HACK
     COM_AddGameDirectory(com_basedir, "qw");
-    if (home)
-        COM_AddGameDirectory(va("%s/.tyrquake", home), "qw");
+    COM_AddGameDirectory(user_data_directory, "qw");
     com_modified = true;
     com_game_type = GAME_TYPE_QW;
 #endif
@@ -2065,8 +2059,7 @@ COM_InitFileSystem()
 void
 COM_InitGameDirectory(const char *gamedir, enum game_type game_type)
 {
-    /* TODO: use proper location for user files on Win32.  Sys_UserDir()? */
-    const char *home = getenv("HOME");
+    const char *user_data_directory = Sys_UserDataDirectory();
 
     com_modified = false;
     rogue = false;
@@ -2076,32 +2069,28 @@ COM_InitGameDirectory(const char *gamedir, enum game_type game_type)
     switch (game_type) {
         case GAME_TYPE_HIPNOTIC:
             COM_AddGameDirectory(com_basedir, "hipnotic");
-            if (home)
-                COM_AddGameDirectory(va("%s/.tyrquake", home), "hipnotic");
+            COM_AddGameDirectory(user_data_directory, "hipnotic");
             hipnotic = true;
             standard_quake = false;
             com_modified = true;
             break;
         case GAME_TYPE_QUOTH:
             COM_AddGameDirectory(com_basedir, "quoth");
-            if (home)
-                COM_AddGameDirectory(va("%s/.tyrquake", home), "quoth");
+            COM_AddGameDirectory(user_data_directory, "quoth");
             hipnotic = true;
             standard_quake = false;
             com_modified = true;
             break;
         case GAME_TYPE_ROGUE:
             COM_AddGameDirectory(com_basedir, "rogue");
-            if (home)
-                COM_AddGameDirectory(va("%s/.tyrquake", home), "rogue");
+            COM_AddGameDirectory(user_data_directory, "rogue");
             rogue = true;
             standard_quake = false;
             com_modified = true;
             break;
         case GAME_TYPE_QW:
             COM_AddGameDirectory(com_basedir, "qw");
-            if (home)
-                COM_AddGameDirectory(va("%s/.tyrquake", home), "qw");
+            COM_AddGameDirectory(user_data_directory, "qw");
             com_modified = true;
         default:
             break;
@@ -2117,8 +2106,7 @@ COM_InitGameDirectory(const char *gamedir, enum game_type game_type)
         }
 
         COM_AddGameDirectory(com_basedir, gamedir);
-        if (home)
-            COM_AddGameDirectory(va("%s/.tyrquake", home), gamedir);
+        COM_AddGameDirectory(user_data_directory, gamedir);
     }
 }
 

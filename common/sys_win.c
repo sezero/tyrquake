@@ -89,6 +89,7 @@ static HANDLE qwclsemaphore;
 
 static char win32_cwd[MAX_PATH];
 static char win32_basedir[MAX_PATH];
+static char win32_userdir[MAX_PATH];
 
 static const char *
 Win32_StripTrailingSlash(char *path)
@@ -134,37 +135,53 @@ Win32_SteamPath()
 }
 
 static const char *
-Win32_CSIDL_Path(int csidl)
+Win32_CSIDL_Path(char *dest, size_t size, int csidl, const char *subfolder)
 {
     char folder_path[MAX_PATH];
-    BOOL result;
+    HRESULT result;
 
-    result = SHGetSpecialFolderPathA(0, folder_path, csidl, false);
-    if (!result)
+    result = SHGetFolderPathA(0, csidl | CSIDL_FLAG_CREATE, NULL, SHGFP_TYPE_CURRENT, folder_path);
+    if (result != S_OK)
         return NULL;
 
     Win32_StripTrailingSlash(folder_path);
-    qsnprintf(win32_basedir, sizeof(win32_basedir), "%s/Quake", folder_path);
+    qsnprintf(dest, size, "%s/%s", folder_path, subfolder);
 
-    return win32_basedir;
+    return dest;
 }
 
 static const char *
 Win32_ProgramFilesX86Path()
 {
-    return Win32_CSIDL_Path(CSIDL_PROGRAM_FILESX86);
+    return Win32_CSIDL_Path(win32_basedir, sizeof(win32_basedir), CSIDL_PROGRAM_FILESX86, "Quake");
 }
 
 static const char *
 Win32_ProgramFilesPath()
 {
-    return Win32_CSIDL_Path(CSIDL_PROGRAM_FILES);
+    return Win32_CSIDL_Path(win32_basedir, sizeof(win32_basedir), CSIDL_PROGRAM_FILES, "Quake");
 }
 
 static const char *
 Win32_DefaultPath()
 {
     return "C:/quake";
+}
+
+const char *
+Sys_UserDataDirectory()
+{
+    const char *data_directory;
+
+    data_directory = Win32_CSIDL_Path(win32_userdir, sizeof(win32_userdir), CSIDL_LOCAL_APPDATA, "TyrQuake");
+    if (data_directory)
+        return data_directory;
+
+    DWORD size = GetEnvironmentVariable("HOME", win32_userdir, sizeof(win32_userdir));
+    if (size > 0 && size < sizeof(win32_userdir))
+        return win32_userdir;
+
+    return NULL;
 }
 
 int64_t
