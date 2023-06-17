@@ -512,7 +512,7 @@ CL_ParseServerData
 static void
 CL_ParseServerData(void)
 {
-    qboolean cflag = false;
+    qboolean gamedir_changed = false;
     int protover;
 
     Con_DPrintf("Serverdata packet received.\n");
@@ -541,14 +541,14 @@ CL_ParseServerData(void)
     if (strcasecmp(com_gamedirfile, gamedir)) {
 	// save current config
 	Host_WriteConfiguration();
-	cflag = true;
+	gamedir_changed = true;
     }
 
     Host_Gamedir(gamedir, GAME_TYPE_QW);
 
     //ZOID--run the autoexec.cfg in the gamedir
     //if it exists
-    if (cflag) {
+    if (gamedir_changed) {
         FILE *f;
         COM_FOpenFile("config.cfg", &f);
         if (f) {
