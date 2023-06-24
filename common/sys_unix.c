@@ -65,12 +65,12 @@ static int do_stdin = 1;
 #else
 static qboolean noconinput = false;
 static qboolean nostdout = false;
-static char unix_userdir[MAX_PATH];
 #endif
 
 const char *
 Sys_UserDataDirectory()
 {
+    static char unix_userdir[MAX_OSPATH];
     const char *home = getenv("HOME");
     if (home) {
         qsnprintf(unix_userdir, sizeof(unix_userdir), "%s/.tyrquake", home);
@@ -79,8 +79,6 @@ Sys_UserDataDirectory()
 
     return NULL;
 }
-
-
 
 /*
  * ===========================================================================
