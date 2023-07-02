@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 affinetridesc_t r_affinetridesc;
 trivertx_t *r_apverts;
+qboolean r_alias_drawfence;
 
 void *acolormap;		// FIXME: should go away
 
@@ -587,9 +588,15 @@ R_AliasPrepareUnclippedPoints(aliashdr_t *pahdr, finalvert_t *pfinalverts)
 
     if (r_affinetridesc.drawtype) {
         if (r_transtable) {
-            D_PolysetDrawFinalVerts_Translucent(pfinalverts, r_anumverts);
+            if (r_alias_drawfence)
+                D_PolysetDrawFinalVerts_Fence_Translucent(pfinalverts, r_anumverts);
+            else
+                D_PolysetDrawFinalVerts_Translucent(pfinalverts, r_anumverts);
         } else {
-            D_PolysetDrawFinalVerts(pfinalverts, r_anumverts);
+            if (r_alias_drawfence)
+                D_PolysetDrawFinalVerts_Fence(pfinalverts, r_anumverts);
+            else
+                D_PolysetDrawFinalVerts(pfinalverts, r_anumverts);
         }
     }
     r_affinetridesc.pfinalverts = pfinalverts;
@@ -740,7 +747,7 @@ R_AliasBlendPoseVerts(const entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *
 =================
 R_AliasSetupFrame
 
-set r_apverts
+set r_apverts, r_alias_drawfence
 =================
 */
 static void
@@ -752,6 +759,7 @@ R_AliasSetupFrame(entity_t *entity, aliashdr_t *aliashdr, lerpdata_t *lerpdata)
         r_apverts = (trivertx_t *)((byte *)aliashdr + aliashdr->posedata);
         r_apverts += lerpdata->pose0 * aliashdr->numverts;
     }
+    r_alias_drawfence = !!(entity->model->flags & MOD_EF_HOLEY);
 }
 
 static void

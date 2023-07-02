@@ -502,16 +502,21 @@ GL_LoadAliasSkinTextures(const model_t *model, aliashdr_t *aliashdr)
      * each time around the loop, due to the way the expanded texture
      * width/height is returned for non-POT textures
      */
+    const enum texture_type skin_type =
+        (model->flags & MOD_EF_HOLEY) ? TEXTURE_TYPE_ALIAS_SKIN_HOLEY : TEXTURE_TYPE_ALIAS_SKIN;
+
     for (i = 0; i < GL_Aliashdr(aliashdr)->numtextures; i++) {
         pic.width = aliashdr->skinwidth;
         pic.height = aliashdr->skinheight;
-        textures[i].base = GL_LoadTexture8(model, va("%s_%i", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN);
+        textures[i].base = GL_LoadTexture8(model, va("%s_%i", model->name, i), &pic, skin_type);
         GL_Aliashdr(aliashdr)->texturewidth = pic.width << qmax(0, (int)gl_picmip.value);
         GL_Aliashdr(aliashdr)->textureheight = pic.height << qmax(0, (int)gl_picmip.value);
-        if (QPic_HasFullbrights(&pic, TEXTURE_TYPE_ALIAS_SKIN)) {
+        if (QPic_HasFullbrights(&pic, skin_type)) {
+            const enum texture_type skin_type_fullbright =
+                (model->flags & MOD_EF_HOLEY) ? TEXTURE_TYPE_ALIAS_SKIN_HOLEY_FULLBRIGHT : TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT;
             pic.width = aliashdr->skinwidth;
             pic.height  = aliashdr->skinheight;
-            textures[i].fullbright = GL_LoadTexture8(model, va("%s_%i:fullbright", model->name, i), &pic, TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT);
+            textures[i].fullbright = GL_LoadTexture8(model, va("%s_%i:fullbright", model->name, i), &pic, skin_type_fullbright);
         } else {
             textures[i].fullbright = invalid_texture_id;
         }
@@ -937,7 +942,10 @@ R_AliasDrawModel(entity_t *entity)
     }
 
     const qboolean do_fullbright_pass = skin_has_fullbrights && gl_fullbrights.value && !r_fullbright.value;
+    const qboolean alpha_test = !!(model->flags & MOD_EF_HOLEY);
 
+    if (alpha_test)
+        glEnable(GL_ALPHA_TEST);
     if (gl_mtexable)
         qglClientActiveTexture(GL_TEXTURE0);
 
@@ -1063,6 +1071,9 @@ R_AliasDrawModel(entity_t *entity)
 	    qglDisableVertexAttribArray(3); // Secondary normals
 	}
     }
+
+    if (alpha_test)
+        glDisable(GL_ALPHA_TEST);
 
     glDisableClientState(GL_VERTEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);

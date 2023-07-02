@@ -452,14 +452,21 @@ SW_Aliashdr(aliashdr_t *h)
 
 typedef enum { mod_brush, mod_sprite, mod_alias } modtype_t;
 
-#define MOD_EF_ROCKET   (1 << 0) // leave a trail
-#define MOD_EF_GRENADE  (1 << 1) // leave a trail
-#define MOD_EF_GIB      (1 << 2) // leave a trail
-#define MOD_EF_ROTATE   (1 << 3) // rotate (bonus items)
-#define MOD_EF_TRACER   (1 << 4) // green split trail
-#define MOD_EF_ZOMGIB   (1 << 5) // small blood trail
-#define MOD_EF_TRACER2  (1 << 6) // orange split trail + rotate
-#define MOD_EF_TRACER3  (1 << 7) // purple trail
+#define MOD_EF_ROCKET       (1 <<  0) // leave a trail
+#define MOD_EF_GRENADE      (1 <<  1) // leave a trail
+#define MOD_EF_GIB          (1 <<  2) // leave a trail
+#define MOD_EF_ROTATE       (1 <<  3) // rotate (bonus items)
+#define MOD_EF_TRACER       (1 <<  4) // green split trail
+#define MOD_EF_ZOMGIB       (1 <<  5) // small blood trail
+#define MOD_EF_TRACER2      (1 <<  6) // orange split trail + rotate
+#define MOD_EF_TRACER3      (1 <<  7) // purple trail
+
+#define MOD_EF_NOLERP       (1 <<  8) // TODO: don't lerp when animating (Fitz)
+#define MOD_EF_NOSHADOW     (1 <<  9) // TODO: don't cast a shadow (Fitz)
+#define MOD_EF_BRIGHTHACK   (1 << 10) // TODO: when fullbrights are disabled, use a hack to render this model brighter (Fitz)
+#define MOD_EF_EMITREPLACE  (1 << 11) // TODO: particle effect completely replaces the model, for flames or whatever (QSS)
+#define MOD_EF_EMITFORWARDS (1 << 12) // TODO: particle effect is emitted forwards, rather than downwards. why down? good question. (QSS)
+#define MOD_EF_HOLEY        (1 << 14) // make index 255 transparent (MarkV/QSS)
 
 typedef struct model_s {
     char name[MAX_QPATH];

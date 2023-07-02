@@ -224,6 +224,7 @@ extern int r_bmodelactive;
 
 extern float aliasxscale, aliasyscale, aliasxcenter, aliasycenter;
 extern float r_aliastransition, r_resfudge;
+extern qboolean r_alias_drawfence;
 
 extern qboolean r_surfaces_overflow;
 extern qboolean r_edges_overflow;

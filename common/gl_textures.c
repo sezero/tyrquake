@@ -220,6 +220,8 @@ GL_GetTextureFormat(const gltexture_t *texture)
                 case TEXTURE_TYPE_FENCE_FULLBRIGHT:
                 case TEXTURE_TYPE_SKY_FOREGROUND:
                 case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+                case TEXTURE_TYPE_ALIAS_SKIN_HOLEY:
+                case TEXTURE_TYPE_ALIAS_SKIN_HOLEY_FULLBRIGHT:
                 case TEXTURE_TYPE_SPRITE:
                     return GL_COMPRESSED_RGBA_S3TC_DXT5_EXT;
                 default:
@@ -448,6 +450,8 @@ GL_CanPadTexture(const gltexture_t *texture)
         case TEXTURE_TYPE_HUD:
         case TEXTURE_TYPE_ALIAS_SKIN:
         case TEXTURE_TYPE_ALIAS_SKIN_FULLBRIGHT:
+        case TEXTURE_TYPE_ALIAS_SKIN_HOLEY:
+        case TEXTURE_TYPE_ALIAS_SKIN_HOLEY_FULLBRIGHT:
         case TEXTURE_TYPE_PLAYER_SKIN:
         case TEXTURE_TYPE_PLAYER_SKIN_FULLBRIGHT:
             return true;

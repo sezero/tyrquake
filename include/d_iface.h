@@ -136,6 +136,8 @@ void D_DrawSubdiv();
 void D_DrawNonSubdiv();
 void D_PolysetDrawFinalVerts(finalvert_t *fv, int numverts);
 void D_PolysetDrawFinalVerts_Translucent(finalvert_t *fv, int numverts);
+void D_PolysetDrawFinalVerts_Fence(finalvert_t *fv, int numverts);
+void D_PolysetDrawFinalVerts_Fence_Translucent(finalvert_t *fv, int numverts);
 void D_DrawParticle(particle_t *pparticle);
 void D_DrawSprite(void);
 void D_DrawSurfaces(qboolean sort_submodels);

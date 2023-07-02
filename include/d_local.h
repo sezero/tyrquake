@@ -95,9 +95,16 @@ surfcache_t *D_CacheSurface(const entity_t *e, msurface_t *surface,
 			    int miplevel);
 
 #ifdef USE_X86_ASM
+void D_RasterizeAliasPolySmooth(void);
+void D_PolysetScanLeftEdge(int height);
+void D_PolysetSetEdgeTable(void);
+void D_PolysetCalcGradients(int skinwidth);
 void D_PolysetAff8Start(void);
 void D_PolysetAff8End(void);
+void D_PolysetDrawSpans8();
+void D_PolysetDrawSpans8_Fence();
 void D_PolysetDrawSpans8_Translucent();
+void D_PolysetDrawSpans8_Fence_Translucent();
 #endif
 
 extern short *d_pzbuffer;
