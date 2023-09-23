@@ -72,34 +72,36 @@ ResampleSfx(sfx_t *sfx, int inrate, int inwidth, const byte *data)
     sc->stereo = 0;
 
     // Resample / decimate to the current source rate
+    //
+    // TODO: Performance: We have to make sure multiplying out the step scale doesn't overflow the
+    // source buffer (because it really can in practice).  Maybe remove the qmin() from the loop and
+    // just check backwards from the end of the srcsample calculations until we are sure we're
+    // inside the valid range.
+    //
     if (stepscale == 1 && inwidth == 1 && sc->width == 1) {
 	for (i = 0; i < outcount; i++)
 	    ((signed char *)sc->data)[i] = (int)((unsigned char)(data[i]) - 128);
         srcsample = in_length - 1;
     } else if (inwidth == 1 && sc->width == 1) {
         for (i = 0; i < outcount; i++) {
-            srcsample = i * stepscale;
-            assert(srcsample < in_length);
+            srcsample = qmin((int)(i * stepscale), in_length - 1);
             ((int8_t *)sc->data)[i] = (int)((uint8_t)(data[srcsample])) - 128;
         }
     } else if (inwidth == 1 && sc->width == 2) {
         for (i = 0; i < outcount; i++) {
-            srcsample = i * stepscale;
-            assert(srcsample < in_length);
+            srcsample = qmin((int)(i * stepscale), in_length - 1);
             sample = (int)((unsigned char)(data[srcsample]) - 128) << 8;
             ((short *)sc->data)[i] = sample;
         }
     } else if (inwidth == 2 && sc->width == 1) {
         for (i = 0; i < outcount; i++) {
-            srcsample = i * stepscale;
-            assert(srcsample < in_length);
+            srcsample = qmin((int)(i * stepscale), in_length - 1);
             sample = LittleShort(((const short *)data)[srcsample]);
             ((signed char *)sc->data)[i] = sample >> 8;
         }
     } else if (inwidth == 2 && sc->width == 2) {
         for (i = 0; i < outcount; i++) {
-            srcsample = i * stepscale;
-            assert(srcsample < in_length);
+            srcsample = qmin((int)(i * stepscale), in_length - 1);
             sample = LittleShort(((const short *)data)[srcsample]);
             ((short *)sc->data)[i] = sample;
         }
