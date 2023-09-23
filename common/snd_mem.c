@@ -38,6 +38,31 @@ typedef struct {
 
 static wavinfo_t *GetWavinfo(const char *name, const byte *wav, int wavlength);
 
+
+static inline void
+Snd_Sample8To8(int8_t *restrict dst, const int8_t *restrict src)
+{
+    *dst = (int)((uint8_t)(*src)) - 128;
+}
+
+static inline void
+Snd_Sample8To16(int16_t *restrict dst, const int8_t *restrict src)
+{
+    *dst = ((int)((uint8_t)(*src)) - 128) << 8;
+}
+
+static inline void
+Snd_Sample16To8(int8_t *restrict dst, const int16_t *restrict src)
+{
+    *dst = LittleShort(*src) >> 8;
+}
+
+static inline void
+Snd_Sample16To16(int16_t *restrict dst, const int16_t *restrict src)
+{
+    *dst = LittleShort(*src);
+}
+
 /*
 ================
 ResampleSfx
@@ -46,70 +71,73 @@ ResampleSfx
 static void
 ResampleSfx(sfx_t *sfx, int inrate, int inwidth, const byte *data)
 {
-    int outcount;
-    int srcsample;
-    float stepscale;
-    int i;
-    int sample;
-    sfxcache_t *sc;
-
-    sc = Cache_Check(&sfx->cache);
+    sfxcache_t *sc = Cache_Check(&sfx->cache);
     if (!sc)
-	return;
+        return;
 
     const int in_length = sc->length;
-
-    stepscale = (float)inrate / shm->speed;
-    outcount = sc->length / stepscale;
+    const float stepscale = (float)inrate / shm->speed;
+    const int outcount = sc->length / stepscale;
     assert(outcount <= sc->alloc_samples);
 
     sc->length = outcount;
     if (sc->loopstart >= 0)
-	sc->loopstart = roundf(sc->loopstart / stepscale);
+        sc->loopstart = roundf(sc->loopstart / stepscale);
 
     sc->speed = shm->speed;
     sc->width = loadas8bit.value ? 1 : inwidth;
     sc->stereo = 0;
 
-    // Resample / decimate to the current source rate
-    //
-    // TODO: Performance: We have to make sure multiplying out the step scale doesn't overflow the
-    // source buffer (because it really can in practice).  Maybe remove the qmin() from the loop and
-    // just check backwards from the end of the srcsample calculations until we are sure we're
-    // inside the valid range.
-    //
+    /* Handle the simplest case with no resampling */
     if (stepscale == 1 && inwidth == 1 && sc->width == 1) {
-	for (i = 0; i < outcount; i++)
-	    ((signed char *)sc->data)[i] = (int)((unsigned char)(data[i]) - 128);
-        srcsample = in_length - 1;
-    } else if (inwidth == 1 && sc->width == 1) {
-        for (i = 0; i < outcount; i++) {
-            srcsample = qmin((int)(i * stepscale), in_length - 1);
-            ((int8_t *)sc->data)[i] = (int)((uint8_t)(data[srcsample])) - 128;
-        }
+        const int8_t *src = (const int8_t *)data;
+        int8_t *dst = (int8_t *)sc->data;
+        for (int i = 0; i < outcount; i++)
+            Snd_Sample8To8(dst + i, src + i);
+        return;
+    }
+
+    /*
+     * Resample / decimate to the current source rate
+     *
+     * NOTE: Due to inexact precision it is possible we end up referencing just past the end of the
+     * source buffer.  Check for that here to avoid checking inside the inner loop.
+     */
+    int safe_outcount = outcount;
+    while ((int)(safe_outcount * stepscale) >= in_length)
+        safe_outcount--;
+
+    if (inwidth == 1 && sc->width == 1) {
+        const int8_t *src = (const int8_t *)data;
+        int8_t *dst = (int8_t *)sc->data;
+        for (int i = 0; i < safe_outcount; i++)
+            Snd_Sample8To8(dst + i, src + (int)(i * stepscale));
+        for ( ; safe_outcount < outcount; safe_outcount++)
+            Snd_Sample8To8(dst + safe_outcount, src + in_length - 1);
     } else if (inwidth == 1 && sc->width == 2) {
-        for (i = 0; i < outcount; i++) {
-            srcsample = qmin((int)(i * stepscale), in_length - 1);
-            sample = (int)((unsigned char)(data[srcsample]) - 128) << 8;
-            ((short *)sc->data)[i] = sample;
-        }
+        const int8_t *src = (const int8_t *)data;
+        int16_t *dst = (int16_t *)sc->data;
+        for (int i = 0; i < safe_outcount; i++)
+            Snd_Sample8To16(dst + i, src + (int)(i * stepscale));
+        for ( ; safe_outcount < outcount; safe_outcount++)
+            Snd_Sample8To16(dst + safe_outcount, src + in_length - 1);
     } else if (inwidth == 2 && sc->width == 1) {
-        for (i = 0; i < outcount; i++) {
-            srcsample = qmin((int)(i * stepscale), in_length - 1);
-            sample = LittleShort(((const short *)data)[srcsample]);
-            ((signed char *)sc->data)[i] = sample >> 8;
-        }
+        const int16_t *src = (const int16_t *)data;
+        int8_t *dst = (int8_t *)sc->data;
+        for (int i = 0; i < safe_outcount; i++)
+            Snd_Sample16To8(dst + i, src + (int)(i * stepscale));
+        for ( ; safe_outcount < outcount; safe_outcount++)
+            Snd_Sample16To8(dst + safe_outcount, src + in_length - 1);
     } else if (inwidth == 2 && sc->width == 2) {
-        for (i = 0; i < outcount; i++) {
-            srcsample = qmin((int)(i * stepscale), in_length - 1);
-            sample = LittleShort(((const short *)data)[srcsample]);
-            ((short *)sc->data)[i] = sample;
-        }
+        const int16_t *src = (const int16_t *)data;
+        int16_t *dst = (int16_t *)sc->data;
+        for (int i = 0; i < safe_outcount; i++)
+            Snd_Sample16To16(dst + i, src + (int)(i * stepscale));
+        for ( ; safe_outcount < outcount; safe_outcount++)
+            Snd_Sample16To16(dst + safe_outcount, src + in_length - 1);
     } else {
         assert(!"Unsupported sound width in resampler");
     }
-
-    assert(srcsample < in_length);
 }
 
 const byte *snd_ramp;
