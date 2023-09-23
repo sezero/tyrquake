@@ -1079,6 +1079,8 @@ VID_GetModeFromCvars()
     if (vid_fullscreen.value) {
         /* Find the mode in the valid fullscreen modes list */
         mode = VID_FindMode(width, height, bpp, refresh);
+        if (!mode)
+            return NULL;
         mode->resolution.scale = scale;
         mode->resolution.width = vid_render_resolution_width.value;
         mode->resolution.height = vid_render_resolution_height.value;
