@@ -440,10 +440,6 @@ SW_Aliashdr(aliashdr_t *h)
 
 #endif
 
-#define	MAXALIASVERTS	2048
-#define	MAXALIASFRAMES	512
-#define	MAXALIASTRIS	4096
-
 //===================================================================
 
 //

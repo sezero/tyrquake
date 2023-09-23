@@ -137,6 +137,7 @@ extern int glx, gly, glwidth, glheight;
 
 // r_local.h -- private refresh defs
 
+#define MAXALIASVERTS 65536
 #define ALIAS_BASE_SIZE_RATIO	(1.0 / 11.0)
 				// normalizing factor so player model works
 				// out to about 1 pixel per triangle

@@ -474,7 +474,7 @@ Mod_LoadAliasModel(const alias_loader_t *loader, model_t *model, void *buffer, s
     if (aliashdr->numverts <= 0)
 	Sys_Error("model %s has no vertices", model->name);
     if (aliashdr->numverts > MAXALIASVERTS)
-	Sys_Error("model %s has too many vertices", model->name);
+	Sys_Error("model %s has too many vertices (%d > %d)", model->name, aliashdr->numverts, MAXALIASVERTS);
     if (aliashdr->numtris <= 0)
 	Sys_Error("model %s has no triangles", model->name);
 

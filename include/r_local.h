@@ -178,8 +178,20 @@ extern int r_currentbkey;
 // Alias models
 //=========================================================
 
-#define MAXALIASVERTS		2048	// TODO: tune this
-#define ALIAS_Z_CLIP_PLANE	5
+/*
+ * NOTE for MAXALIASVERTS:
+ *   Before raising this limit, R_AliasDrawModel has
+ *   finalverts[MAXALIASVERTS] and auxverts[MAXALIASVERTS].  These are
+ *   32 and 12 bytes respectively.
+ *
+ * 4096 = 128k + 48k = 176k
+ *
+ * DOS Quake had a 256k stack.  Modern systems have at least 1MB so we
+ * could go higher, but really that's a very detailed alias model...
+ */
+#define MAXALIASVERTS 4096
+
+#define ALIAS_Z_CLIP_PLANE 5
 
 extern int numverts;
 extern int a_skinwidth;
