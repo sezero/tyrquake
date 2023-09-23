@@ -177,26 +177,16 @@ C(R_Alias_clip_right):
 	movl	C(r_refdef)+rd_aliasvrectright,%eax
 
 LRightLeftEntry:
-
-
-	movl	fv_v+4(%esi),%edx
-	movl	fv_v+4(%edi),%ecx
-
-	cmpl	%ecx,%edx
 	movl	fv_v+0(%esi),%edx
-
 	movl	fv_v+0(%edi),%ecx
-	jl		LDoForward2
-
-	movl	fv_v+0(%esi),%ecx
+	cmpl	%ecx,%edx          // if (pfv0->v[0] >= pfv1->v[0]) {
+	jl		LDoForward
+                               // } else {
+	movl	fv_v+0(%esi),%ecx  //     Swap pfv0 <-> pfv1
 	movl	fv_v+0(%edi),%edx
 	movl	pfv0(%esp),%edi
 	movl	pfv1(%esp),%esi
-
-LDoForward2:
-
 	jmp		LDoForward
-
 
 .globl C(R_Alias_clip_left)
 C(R_Alias_clip_left):
