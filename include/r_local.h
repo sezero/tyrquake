@@ -193,12 +193,7 @@ extern int r_currentbkey;
 
 #define ALIAS_Z_CLIP_PLANE 5
 
-extern int numverts;
-extern int a_skinwidth;
-extern int numtriangles;
-extern float leftclip, topclip, rightclip, bottomclip;
-extern int r_acliptype;
-extern float r_avertexnormals[][3];
+extern const float r_avertexnormals[][3];
 
 //=========================================================
 // turbulence stuff

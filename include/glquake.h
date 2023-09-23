@@ -512,7 +512,7 @@ qpic32_t *PCX_LoadHunkFile(const char *filename, const char *hunkname);
 //
 // r_part.c
 //
-extern float r_avertexnormals[][3];
+extern const float r_avertexnormals[][3];
 
 //
 // gl_draw.c

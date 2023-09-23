@@ -50,7 +50,6 @@ static float ziscale;
 static vec3_t alias_forward, alias_right, alias_up;
 
 int r_amodels_drawn;
-int a_skinwidth;
 int r_anumverts;
 
 float aliastransform[3][4];
@@ -74,7 +73,7 @@ static const aedge_t aedges[12] = {
 
 #define NUMVERTEXNORMALS	162
 
-float r_avertexnormals[NUMVERTEXNORMALS][3] = {
+const float r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
 
@@ -470,7 +469,7 @@ static void
 R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av, trivertx_t *pverts, stvert_t *pstverts)
 {
     int temp;
-    float lightcos, *plightnormal;
+    float lightcos;
 
     av->fv[0] = DotProduct(pverts->v, aliastransform[0]) + aliastransform[0][3];
     av->fv[1] = DotProduct(pverts->v, aliastransform[1]) + aliastransform[1][3];
@@ -482,7 +481,7 @@ R_AliasTransformFinalVert(finalvert_t *fv, auxvert_t *av, trivertx_t *pverts, st
     fv->flags = pstverts->onseam;
 
 // lighting
-    plightnormal = r_avertexnormals[pverts->lightnormalindex];
+    const float *plightnormal = r_avertexnormals[pverts->lightnormalindex];
     lightcos = DotProduct(plightnormal, r_plightvec);
     temp = r_ambientlight;
 
@@ -509,7 +508,7 @@ void
 R_AliasTransformAndProjectFinalVerts(finalvert_t *fv, stvert_t *pstverts)
 {
     int i, temp;
-    float lightcos, *plightnormal, zi;
+    float lightcos, zi;
     trivertx_t *pverts;
 
     pverts = r_apverts;
@@ -531,7 +530,7 @@ R_AliasTransformAndProjectFinalVerts(finalvert_t *fv, stvert_t *pstverts)
 	fv->flags = pstverts->onseam;
 
 	// lighting
-	plightnormal = r_avertexnormals[pverts->lightnormalindex];
+	const float *plightnormal = r_avertexnormals[pverts->lightnormalindex];
 	lightcos = DotProduct(plightnormal, r_plightvec);
 	temp = r_ambientlight;
 
@@ -629,7 +628,6 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
 
     pskindesc = ((maliasskindesc_t *)((byte *)aliashdr + aliashdr->skindesc));
     pskindesc += skinnum;
-    a_skinwidth = aliashdr->skinwidth;
 
     frame = pskindesc->firstframe;
     numframes = pskindesc->numframes;
@@ -645,8 +643,8 @@ R_AliasSetupSkin(const entity_t *entity, aliashdr_t *aliashdr)
     pdata += frame * skinbytes;
 
     r_affinetridesc.pskin = pdata;
-    r_affinetridesc.skinwidth = a_skinwidth;
-    r_affinetridesc.seamfixupX16 = (a_skinwidth >> 1) << 16;
+    r_affinetridesc.skinwidth = aliashdr->skinwidth;
+    r_affinetridesc.seamfixupX16 = (aliashdr->skinwidth >> 1) << 16;
     r_affinetridesc.skinheight = aliashdr->skinheight;
 
 #ifdef QW_HACK

@@ -458,20 +458,20 @@ R_DrawSpriteModel(const entity_t *entity)
 #define NUMVERTEXNORMALS 162
 
 // quantized vertex normals for alias models
-float r_avertexnormals[NUMVERTEXNORMALS][3] = {
+const float r_avertexnormals[NUMVERTEXNORMALS][3] = {
 #include "anorms.h"
 };
 
 // precalculated dot products for quantized angles
 #define SHADEDOT_QUANT 16
-static float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
+static const float r_avertexnormal_dots[SHADEDOT_QUANT][256] =
 #include "anorm_dots.h"
      ;
 
 typedef struct {
     vec3_t shade;
     float ambient;
-    float *shadedots;
+    const float *shadedots;
 } alias_light_t;
 
 /*
