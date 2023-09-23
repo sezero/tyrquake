@@ -129,8 +129,8 @@ static cvar_t r_zgraph = { "r_zgraph", "0" };
 static cvar_t r_timegraph = { "r_timegraph", "0" };
 static cvar_t r_aliasstats = { "r_polymodelstats", "0" };
 static cvar_t r_dspeeds = { "r_dspeeds", "0" };
-static cvar_t r_maxsurfs = { "r_maxsurfs", stringify(MINSURFACES) };
-static cvar_t r_maxedges = { "r_maxedges", stringify(MINEDGES) };
+static cvar_t r_maxsurfs = { "r_maxsurfs", stringify(MIN_SURFACES) };
+static cvar_t r_maxedges = { "r_maxedges", stringify(MIN_EDGES) };
 static cvar_t r_aliastransbase = { "r_aliastransbase", "200" };
 static cvar_t r_aliastransadj = { "r_aliastransadj", "100" };
 
@@ -336,8 +336,8 @@ R_NewMap(void)
     R_ClearParticles();
 
     /* Edge rendering resources */
-    r_numsurfaces = qmax((int)r_maxsurfs.value, MINSURFACES);
-    r_numedges = qmax((int)r_maxedges.value, MINEDGES);
+    r_numsurfaces = qmax((int)r_maxsurfs.value, MIN_SURFACES);
+    r_numedges = qmax((int)r_maxedges.value, MIN_EDGES);
 
     /* brushmodel clipping */
     r_numbclipverts = MIN_STACK_BMODEL_VERTS;
@@ -1166,14 +1166,13 @@ R_RenderView_(void)
         realloc = true;
     }
     if (r_surfaces_overflow) {
-        if (r_numsurfaces < MAX_SURFACES_INCREMENT)
-            r_numsurfaces *= 2;
-        else
-            r_numsurfaces += MAX_SURFACES_INCREMENT;
-
-        Con_DPrintf("surface limit bumped to %d\n", r_numsurfaces);
-        r_surfaces_overflow = false;
-        realloc = true;
+        int r_numsurfaces_old = r_numsurfaces;
+        r_numsurfaces = qmin(r_numsurfaces + qmin(r_numsurfaces, MAX_SURFACES_INCREMENT), MAX_SURFACES);
+        if (r_numsurfaces != r_numsurfaces_old) {
+            Con_DPrintf("surface limit bumped to %d\n", r_numsurfaces);
+            r_surfaces_overflow = false;
+            realloc = true;
+        }
     }
 
     // Redo hunk allocations it needed...

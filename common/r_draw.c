@@ -371,8 +371,9 @@ R_RenderFace(const entity_t *entity, msurface_t *surf, int clipflags)
 
 // skip out if no more surfs
     if (surface_p >= surf_max) {
-	r_surfaces_overflow = true;
-	return;
+        // Only flag overflow if we are able to allocate more surfaces
+        r_surfaces_overflow = (r_numsurfaces < MAX_SURFACES);
+        return;
     }
 // ditto if not enough edges left, or switch to auxedges if possible
     if ((edge_p + surf->numedges + 4) >= edge_max) {
@@ -523,8 +524,9 @@ R_RenderBmodelFace(const entity_t *entity, bedge_t *pedges, msurface_t *psurf)
 
 // skip out if no more surfs
     if (surface_p >= surf_max) {
-	r_surfaces_overflow = true;
-	return;
+        // Only flag overflow if we are able to allocate more surfaces
+        r_surfaces_overflow = (r_numsurfaces < MAX_SURFACES);
+        return;
     }
 // ditto if not enough edges left, or switch to auxedges if possible
     if ((edge_p + psurf->numedges + 4) >= edge_max) {

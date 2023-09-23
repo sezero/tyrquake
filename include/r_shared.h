@@ -79,13 +79,12 @@ void R_AllocSurfEdges(qboolean nostack);
  * Min edges/surfaces are just a reasonable number to play the
  * original id/hipnotic/rouge maps.  Surfaces we want to reference
  * using shorts to pack the edge_t struct into cache lines, so the
- * upper limit on those is 16 bits.  Edges is just 32 bit limited, but
- * no need for quite that many if we don't have the surfs...
+ * upper limit on those is 16 bits.  Edges is 32 bits, so not worried
+ * about overflowing that.
  */
-#define MINSURFACES    768
-#define MINEDGES      2304
-#define MAXSURFACES 0xffff
-#define MAXEDGES (MAXSURFACES << 2)
+#define MIN_SURFACES    768
+#define MIN_EDGES      2304
+#define MAX_SURFACES   UINT16_MAX
 
 /*
  * Maxs for stack allocated edges/surfs here are based on having at

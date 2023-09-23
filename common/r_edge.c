@@ -172,7 +172,6 @@ R_RemoveEdges
 static void
 R_RemoveEdges(edge_t *pedge)
 {
-
     do {
 	pedge->next->prev = pedge->prev;
 	pedge->prev->next = pedge->next;
