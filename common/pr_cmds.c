@@ -1172,41 +1172,34 @@ PF_precache_sound(void)
 static void
 PF_precache_model(void)
 {
-    const char *s;
-    int i;
-
     if (sv.state != ss_loading)
-	PR_RunError("%s: Precache can only be done in spawn functions",
-		    __func__);
+	PR_RunError("%s: Precache can only be done in spawn functions", __func__);
 
-    s = G_STRING(OFS_PARM0);
+    const char *model_name = G_STRING(OFS_PARM0);
     G_INT(OFS_RETURN) = G_INT(OFS_PARM0);
-    PR_CheckEmptyString(s);
+    PR_CheckEmptyString(model_name);
 
 #ifdef NQ_HACK
-    for (i = 0; i < max_models(sv.protocol); i++) {
+    const int max_model_precache = max_models(sv.protocol);
 #endif
 #ifdef QW_HACK
-    for (i = 0; i < MAX_MODELS; i++) {
+    const int max_model_precache = MAX_MODELS;
 #endif
+    for (int i = 0; i < max_model_precache; i++) {
 	if (!sv.model_precache[i]) {
-	    sv.model_precache[i] = s;
+	    sv.model_precache[i] = model_name;
 #ifdef NQ_HACK
-	    sv.models[i] = Mod_ForName(s, true);
+	    sv.models[i] = Mod_ForName(model_name, false);
+            if (!sv.models[i])
+                PR_RunError("%s: %s not found", __func__, model_name);
 #endif
 	    return;
 	}
-	if (!strcmp(sv.model_precache[i], s))
+	if (!strcmp(sv.model_precache[i], model_name))
 	    return;
     }
-#ifdef NQ_HACK
-    PR_RunError("%s: overflow (max = %d)", __func__, max_models(sv.protocol));
-#endif
-#ifdef QW_HACK
-    PR_RunError("%s: overflow (max = %d)", __func__, MAX_MODELS);
-#endif
+    PR_RunError("%s: overflow (max = %d)", __func__, max_model_precache);
 }
-
 
 static void
 PF_coredump(void)
