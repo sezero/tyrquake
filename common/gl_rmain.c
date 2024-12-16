@@ -1094,7 +1094,9 @@ R_ResetPlayerTextures()
 	if (TextureIsValid(texture->base)) {
 	    texture->base = invalid_texture_id;
 	    texture->fullbright = invalid_texture_id;
+	    #ifndef QW_HACK
             if (cl.players)
+            #endif
                 R_TranslatePlayerSkin(playernum);
 	}
     }
