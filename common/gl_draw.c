@@ -354,8 +354,8 @@ Draw_CachePic(const char *path)
     return pic;
 }
 
-#define CHAR_WIDTH  8
-#define CHAR_HEIGHT 8
+#define QCHAR_WIDTH  8
+#define QCHAR_HEIGHT 8
 
 static void
 Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
@@ -365,8 +365,8 @@ Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
     int drawlines, drawwidth;
     int x, y, fstep, f;
 
-    drawlines = conback->height * CHAR_HEIGHT / 200;
-    drawwidth = conback->width * CHAR_WIDTH / 320;
+    drawlines = conback->height * QCHAR_HEIGHT / 200;
+    drawwidth = conback->width * QCHAR_WIDTH / 320;
 
     num |= 0x80; // Use alt text
 
@@ -376,7 +376,7 @@ Draw_ScaledCharToConback(const qpic8_t *conback, int num, byte *dest)
     fstep = (320 << 16) / conback->width;
 
     for (y = 0; y < drawlines; y++, dest += conback->width) {
-	src = source + (y * CHAR_HEIGHT / drawlines) * 128;
+	src = source + (y * QCHAR_HEIGHT / drawlines) * 128;
 	f = 0;
 	for (x = 0; x < drawwidth; x++, f += fstep) {
 	    if (src[f >> 16] != 255)
@@ -401,12 +401,12 @@ Draw_ConbackString(const qpic8_t *conback, byte *pixels, const char *str)
     byte *dest;
 
     len = strlen(str);
-    row = conback->height - ((CHAR_HEIGHT + 6) * conback->height / 200);
-    col = conback->width - ((11 + CHAR_WIDTH * len) * conback->width / 320);
+    row = conback->height - ((QCHAR_HEIGHT + 6) * conback->height / 200);
+    col = conback->width - ((11 + QCHAR_WIDTH * len) * conback->width / 320);
 
     dest = pixels + conback->width * row + col;
     for (i = 0; i < len; i++) {
-	x = i * CHAR_WIDTH * conback->width / 320;
+	x = i * QCHAR_WIDTH * conback->width / 320;
 	Draw_ScaledCharToConback(conback, str[i], dest + x);
     }
 }
