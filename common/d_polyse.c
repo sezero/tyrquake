@@ -25,7 +25,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "d_local.h"
 
 // !!! if this is changed, it must be changed in asm_draw.h too !!!
-typedef struct {
+typedef struct spanpackage_s {
     void *pdest;
     short *pz;
     int count;

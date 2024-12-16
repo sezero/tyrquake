@@ -101,10 +101,11 @@ void D_PolysetSetEdgeTable(void);
 void D_PolysetCalcGradients(int skinwidth);
 void D_PolysetAff8Start(void);
 void D_PolysetAff8End(void);
-void D_PolysetDrawSpans8();
-void D_PolysetDrawSpans8_Fence();
-void D_PolysetDrawSpans8_Translucent();
-void D_PolysetDrawSpans8_Fence_Translucent();
+struct spanpackage_s; /* detailed in d_polyse.c */
+void D_PolysetDrawSpans8(struct spanpackage_s*);
+void D_PolysetDrawSpans8_Fence(struct spanpackage_s*);
+void D_PolysetDrawSpans8_Translucent(struct spanpackage_s*);
+void D_PolysetDrawSpans8_Fence_Translucent(struct spanpackage_s*);
 #endif
 
 extern short *d_pzbuffer;
