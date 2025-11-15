@@ -763,8 +763,6 @@ static void
 SV_Snap(int uid)
 {
     client_t *cl;
-    char pcxname[80];
-    char checkname[MAX_OSPATH];
     int i;
 
     for (i = 0, cl = svs.clients; i < MAX_CLIENTS; i++, cl++) {
@@ -778,30 +776,29 @@ SV_Snap(int uid)
 	return;
     }
 
-    qsnprintf(pcxname, sizeof(pcxname), "%d-00.pcx", uid);
-
-    /*
-     * TODO: This should be the user directory (although it is qwsv...)
-     *       Create COM_ functions for this kind of thing?
-     */
-    qsnprintf(checkname, sizeof(checkname), "%s/snap", com_gamedir);
+    // Ensure snapshot directory exists
+    char filename_buffer[MAX_OSPATH];
+    qsnprintf(filename_buffer, sizeof(filename_buffer), "%s/snap", com_gamedir);
     Sys_mkdir(com_gamedir);
-    Sys_mkdir(checkname);
+    Sys_mkdir(filename_buffer);
 
+    // Find the next unused filename in sequence
+    qsnprintf(filename_buffer, sizeof(filename_buffer), "%s/snap/%d-00.tga", com_gamedir, uid);
+    char *digits = filename_buffer + strlen(filename_buffer) - 6;
     for (i = 0; i <= 99; i++) {
-	pcxname[strlen(pcxname) - 6] = i / 10 + '0';
-	pcxname[strlen(pcxname) - 5] = i % 10 + '0';
-	qsnprintf(checkname, sizeof(checkname), "%s/snap/%s", com_gamedir, pcxname);
-	if (Sys_FileTime(checkname) == -1)
+	digits[0] = i / 10 + '0';
+	digits[1] = i % 10 + '0';
+	if (Sys_FileTime(filename_buffer) == -1)
 	    break;		// file doesn't exist
     }
     if (i == 100) {
 	Con_Printf("Snap: Couldn't create a file, clean some out.\n");
 	return;
     }
-    strcpy(cl->uploadfn, checkname);
 
-    memcpy(&cl->snap_from, &net_from, sizeof(net_from));
+    qstrncpy(cl->uploadfn, filename_buffer, sizeof(cl->uploadfn));
+    cl->snap_from = net_from;
+
     if (sv_redirected != RD_NONE)
 	cl->remote_snap = true;
     else

@@ -500,11 +500,6 @@ void Sky_AddPolyToSkyboxBounds(const vec7_t *verts, int numverts, float mins[6][
 qboolean Sky_LoadSkyboxTextures(const char *skyboxname);
 
 //
-// tga.c
-//
-qpic32_t *TGA_LoadHunkFile(const char *filename, const char *hunkname);
-
-//
 // pcx.c
 //
 qpic32_t *PCX_LoadHunkFile(const char *filename, const char *hunkname);

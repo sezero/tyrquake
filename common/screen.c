@@ -33,6 +33,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "screen.h"
 #include "sound.h"
 #include "sys.h"
+#include "tga.h"
 #include "vid.h"
 #include "view.h"
 
@@ -225,7 +226,7 @@ static float scr_disabled_time;
 #endif
 #ifdef QW_HACK
 static float oldsbar;
-static cvar_t scr_allowsnap = { "scr_allowsnap", "1" };
+static cvar_t scr_allowsnap = { "scr_allowsnap", "0" };
 #endif
 
 //=============================================================================
@@ -779,6 +780,30 @@ SCR_SizeDown_f(void)
 ==============================================================================
 */
 
+static const char *
+SCR_ScreenShotFilename(const char *prefix, char *buffer, int buffer_length)
+{
+    char path[MAX_OSPATH];
+    int length = qsnprintf(path, sizeof(path), "%s/%s00.tga", com_gamedir, prefix);
+    char *digits = path + length - 6;
+    int i;
+    for (i = 0; i < 100; i++) {
+	digits[0] = i / 10 + '0';
+	digits[1] = i % 10 + '0';
+	if (Sys_FileTime(path) == -1)
+            break;
+    }
+    if (i == 100)
+        return NULL;
+
+    char *filename = path + length - (strlen(prefix) + 6);
+    if (strlen(filename) >= buffer_length)
+        return NULL;
+
+    qstrncpy(buffer, filename, buffer_length);
+    return buffer;
+}
+
 #ifdef QW_HACK
 /*
 Find closest color in the palette for named color
@@ -797,9 +822,8 @@ MipColor(int r, int g, int b)
     if (r == lr && g == lg && b == lb)
 	return lastbest;
 
+    best = 0;
     bestdist = 256 * 256 * 3;
-
-    best = 0;			// FIXME - Uninitialised? Zero ok?
     for (i = 0; i < 256; i++) {
 	r1 = host_basepal[i * 3] - r;
 	g1 = host_basepal[i * 3 + 1] - g;
@@ -820,27 +844,16 @@ MipColor(int r, int g, int b)
 static void
 SCR_DrawCharToSnap(int num, byte *dest, int width)
 {
-    int row, col;
-    const byte *source;
-    int drawline;
-    int x, stride;
+    int row = num >> 4;
+    int col = num & 15;
+    const byte *source = draw_chars + (row << 10) + (col << 3);
 
-    row = num >> 4;
-    col = num & 15;
-    source = draw_chars + (row << 10) + (col << 3);
+    const int stride = -128;
+    source -= 7 * stride;
 
-#ifdef GLQUAKE
-    stride = -128;
-#else
-    stride = 128;
-#endif
-
-    if (stride < 0)
-	source -= 7 * stride;
-
-    drawline = 8;
+    int drawline = 8;
     while (drawline--) {
-	for (x = 0; x < 8; x++)
+	for (int x = 0; x < 8; x++)
 	    if (source[x])
 		dest[x] = source[x];
 	    else
@@ -853,22 +866,13 @@ SCR_DrawCharToSnap(int num, byte *dest, int width)
 static void
 SCR_DrawStringToSnap(const char *s, byte *buf, int x, int y, int width, int height)
 {
-    byte *dest;
-    const unsigned char *p;
-
-#ifdef GLQUAKE
-    dest = buf + (height - y - 8) * width + x;
-#else
-    dest = buf + y * width + x;
-#endif
-
-    p = (const unsigned char *)s;
+    byte *dest = buf + (height - y - 8) * width + x;
+    const byte *p = (const byte *)s;
     while (*p) {
 	SCR_DrawCharToSnap(*p++, dest, width);
 	dest += 8;
     }
 }
-
 
 /*
 ==================
@@ -878,90 +882,86 @@ SCR_RSShot_f
 static void
 SCR_RSShot_f(void)
 {
-    int i;
-    int x, y;
-    unsigned char *src, *dest;
-    char pcxname[80];
-    unsigned char *newbuf;
-    int w, h;
-    int dx, dy, dex, dey, nx;
-    int r, b, g;
-    int count;
-    float fracw, frach;
-    char st[80];
-    time_t now;
-
     if (CL_IsUploading())
 	return;			// already one pending
 
     if (cls.state < ca_onserver)
 	return;			// gotta be connected
 
-#ifndef GLQUAKE /* <- probably a bug, should check always? */
     if (!scr_allowsnap.value) {
 	MSG_WriteByte(&cls.netchan.message, clc_stringcmd);
 	MSG_WriteString(&cls.netchan.message, "snap\n");
 	Con_Printf("Refusing remote screen shot request.\n");
 	return;
     }
-#endif
 
     Con_Printf("Remote screen shot requested.\n");
 
-//
-// find a file name to save it to
-//
-    strcpy(pcxname, "mquake00.pcx");
+    int mark = Hunk_LowMark();
 
-    for (i = 0; i <= 99; i++) {
-	pcxname[6] = i / 10 + '0';
-	pcxname[7] = i % 10 + '0';
-	if (Sys_FileTime(va("%s/%s", com_gamedir, pcxname)) == -1)
-	    break;		// file doesn't exist
+#ifdef GLQUAKE
+    byte *pixel_buffer = Hunk_AllocName(glwidth * glheight * 3, "screenshot");
+    glReadPixels(glx, gly, glwidth, glheight, GL_RGB, GL_UNSIGNED_BYTE, pixel_buffer);
+
+    const int src_width = glwidth;
+    const int src_height = glheight;
+#else
+    D_EnableBackBufferAccess();	// enable direct drawing of console to back
+
+    /* Converting to a 24-bit buffer just to share the code path with GLQuake */
+    byte *pixel_buffer = Hunk_AllocName(vid.width * vid.height * 3, "screenshot");
+    {
+        const byte *src = vid.buffer;
+        int stride = vid.rowbytes;
+        if (stride < 0) {
+            src += stride * (vid.height - 1);
+            stride = -stride;
+        }
+
+        byte *dst = pixel_buffer;
+        for (uint32_t y = 0; y < vid.height; y++, src += stride) {
+            for (uint32_t x = 0; x < vid.width; x++) {
+                *dst++ = host_basepal[src[x] * 3 + 0];
+                *dst++ = host_basepal[src[x] * 3 + 1];
+                *dst++ = host_basepal[src[x] * 3 + 2];
+            }
+        }
     }
-    if (i == 100) {
-	Con_Printf("SCR_ScreenShot_f: Couldn't create a PCX\n");
-	return;
-    }
+    D_DisableBackBufferAccess();
 
-//
-// save the pcx file
-//
-#ifdef GLQUAKE /* FIXME - consolidate common bits */
-    newbuf = malloc(glheight * glwidth * 4);
+    const int src_width = vid.width;
+    const int src_height = vid.height;
+#endif
 
-    glReadPixels(glx, gly, glwidth, glheight, GL_RGBA, GL_UNSIGNED_BYTE,
-		 newbuf);
+    // Resample
+    int w = qmin(src_width, RSSHOT_WIDTH);
+    int h = qmin(src_height, RSSHOT_HEIGHT);
+    float fracw = (float)src_width / (float)w;
+    float frach = (float)src_height / (float)h;
 
-    w = (vid.width < RSSHOT_WIDTH) ? glwidth : RSSHOT_WIDTH;
-    h = (vid.height < RSSHOT_HEIGHT) ? glheight : RSSHOT_HEIGHT;
+    for (int y = 0; y < h; y++) {
+	byte *dest = pixel_buffer + (w * 3 * y);
+	for (int x = 0; x < w; x++) {
+	    int r = 0;
+            int g = 0;
+            int b = 0;
 
-    fracw = (float)glwidth / (float)w;
-    frach = (float)glheight / (float)h;
-
-    for (y = 0; y < h; y++) {
-	dest = newbuf + (w * 4 * y);
-
-	for (x = 0; x < w; x++) {
-	    r = g = b = 0;
-
-	    dx = x * fracw;
-	    dex = (x + 1) * fracw;
+	    int dx = x * fracw;
+	    int dex = (x + 1) * fracw;
 	    if (dex == dx)
 		dex++;		// at least one
-	    dy = y * frach;
-	    dey = (y + 1) * frach;
+	    int dy = y * frach;
+	    int dey = (y + 1) * frach;
 	    if (dey == dy)
 		dey++;		// at least one
 
-	    count = 0;
+	    int count = 0;
 	    for ( /* */ ; dy < dey; dy++) {
-		src = newbuf + (glwidth * 4 * dy) + dx * 4;
-		for (nx = dx; nx < dex; nx++) {
+		const byte *src = pixel_buffer + (src_width * 3 * dy) + dx * 3;
+		for (int nx = dx; nx < dex; nx++) {
 		    r += *src++;
 		    g += *src++;
 		    b += *src++;
-		    src++;
 		    count++;
 		}
 	    }
@@ -971,105 +971,43 @@ SCR_RSShot_f(void)
 	    *dest++ = r;
 	    *dest++ = g;
 	    *dest++ = b;
-	    dest++;
 	}
     }
 
     // convert to eight bit
-    for (y = 0; y < h; y++) {
-	src = newbuf + (w * 4 * y);
-	dest = newbuf + (w * y);
-
-	for (x = 0; x < w; x++) {
+    for (int y = 0; y < h; y++) {
+	const byte *src = pixel_buffer + (w * 3 * y);
+	byte *dest = pixel_buffer + (w * y);
+	for (int x = 0; x < w; x++) {
 	    *dest++ = MipColor(src[0], src[1], src[2]);
-	    src += 4;
+	    src += 3;
 	}
     }
-#else
-    D_EnableBackBufferAccess();	// enable direct drawing of console to back
-    //  buffer
 
-    w = (vid.width < RSSHOT_WIDTH) ? vid.width : RSSHOT_WIDTH;
-    h = (vid.height < RSSHOT_HEIGHT) ? vid.height : RSSHOT_HEIGHT;
-
-    fracw = (float)vid.width / (float)w;
-    frach = (float)vid.height / (float)h;
-
-    newbuf = malloc(w * h);
-
-    for (y = 0; y < h; y++) {
-	dest = newbuf + (w * y);
-
-	for (x = 0; x < w; x++) {
-	    r = g = b = 0;
-
-	    dx = x * fracw;
-	    dex = (x + 1) * fracw;
-	    if (dex == dx)
-		dex++;		// at least one
-	    dy = y * frach;
-	    dey = (y + 1) * frach;
-	    if (dey == dy)
-		dey++;		// at least one
-
-	    count = 0;
-	    for ( /* */ ; dy < dey; dy++) {
-		src = vid.buffer + (vid.rowbytes * dy) + dx;
-		for (nx = dx; nx < dex; nx++) {
-		    r += host_basepal[*src * 3];
-		    g += host_basepal[*src * 3 + 1];
-		    b += host_basepal[*src * 3 + 2];
-		    src++;
-		    count++;
-		}
-	    }
-	    r /= count;
-	    g /= count;
-	    b /= count;
-	    *dest++ = MipColor(r, g, b);
-	}
-    }
-#endif
-
+    time_t now;
     time(&now);
-    strcpy(st, ctime(&now));
-    st[strlen(st) - 1] = 0;
-    SCR_DrawStringToSnap(st, newbuf, w - strlen(st) * 8, 0, w, h);
 
-    strncpy(st, cls.servername, sizeof(st));
-    st[sizeof(st) - 1] = 0;
-    SCR_DrawStringToSnap(st, newbuf, w - strlen(st) * 8, 10, w, h);
+    char string_buffer[80];
+    qstrncpy(string_buffer, ctime(&now), sizeof(string_buffer));
+    SCR_DrawStringToSnap(string_buffer, pixel_buffer, w - strlen(string_buffer) * 8, 0, w, h);
 
-    strncpy(st, name.string, sizeof(st));
-    st[sizeof(st) - 1] = 0;
-    SCR_DrawStringToSnap(st, newbuf, w - strlen(st) * 8, 20, w, h);
+    qstrncpy(string_buffer, cls.servername, sizeof(string_buffer));
+    SCR_DrawStringToSnap(string_buffer, pixel_buffer, w - strlen(string_buffer) * 8, 10, w, h);
 
-    WritePCXfile(pcxname, newbuf, w, h, w, host_basepal, true);
+    qstrncpy(string_buffer, name.string, sizeof(string_buffer));
+    SCR_DrawStringToSnap(string_buffer, pixel_buffer, w - strlen(string_buffer) * 8, 20, w, h);
 
-    free(newbuf);
+    struct tga_hunkfile tga = TGA_CreateHunkFile8(pixel_buffer, w, h, w);
+    CL_StartUpload((byte *)tga.data, tga.size);
 
-#ifndef GLQUAKE
-    /* for adapters that can't stay mapped in for linear writes all the time */
-    D_DisableBackBufferAccess();
-#endif
-
-    Con_Printf("Wrote %s\n", pcxname);
-    Con_Printf("Sending shot to server...\n");
+    Hunk_FreeToLowMark(mark);
+    Con_Printf("Sending screenshot to server...\n");
 }
 
 #endif /* QW_HACK */
 
 #ifdef GLQUAKE
-typedef struct _TargaHeader {
-    unsigned char id_length, colormap_type, image_type;
-    unsigned short colormap_index, colormap_length;
-    unsigned char colormap_size;
-    unsigned short x_origin, y_origin, width, height;
-    unsigned char pixel_size, attributes;
-} TargaHeader;
-
-/* FIXME - poorly chosen globals? need to be global? */
-int glx, gly, glwidth, glheight;
+int glx, gly, glwidth, glheight; // TODO: cleanup these globals */
 #endif
 
 /*
@@ -1080,87 +1018,28 @@ SCR_ScreenShot_f
 static void
 SCR_ScreenShot_f(void)
 {
+    char filename_buffer[16];
+    const char *filename = SCR_ScreenShotFilename("quake", filename_buffer, sizeof(filename_buffer));
+    if (!filename) {
+        Con_Printf("%s: Couldn't create a TGA file\n", __func__);
+        return;
+    }
+
+    int mark = Hunk_LowMark();
+
 #ifdef GLQUAKE
-    byte *buffer;
-    char tganame[80];
-    char checkname[MAX_OSPATH];
-    int i, c, temp;
-
-//
-// find a file name to save it to
-//
-    strcpy(tganame, "quake00.tga");
-
-    for (i = 0; i <= 99; i++) {
-	tganame[5] = i / 10 + '0';
-	tganame[6] = i % 10 + '0';
-	qsnprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, tganame);
-	if (Sys_FileTime(checkname) == -1)
-	    break;		// file doesn't exist
-    }
-    if (i == 100) {
-	Con_Printf("%s: Couldn't create a TGA file\n", __func__);
-	return;
-    }
-
-    /* Construct the TGA header */
-    buffer = malloc(glwidth * glheight * 3 + 18);
-    memset(buffer, 0, 18);
-    buffer[2] = 2;		// uncompressed type
-    buffer[12] = glwidth & 255;
-    buffer[13] = glwidth >> 8;
-    buffer[14] = glheight & 255;
-    buffer[15] = glheight >> 8;
-    buffer[16] = 24;		// pixel size
-
-    glReadPixels(glx, gly, glwidth, glheight, GL_RGB, GL_UNSIGNED_BYTE,
-		 buffer + 18);
-
-    // swap rgb to bgr
-    c = 18 + glwidth * glheight * 3;
-    for (i = 18; i < c; i += 3) {
-	temp = buffer[i];
-	buffer[i] = buffer[i + 2];
-	buffer[i + 2] = temp;
-    }
-    COM_WriteFile(tganame, buffer, glwidth * glheight * 3 + 18);
-
-    free(buffer);
-    Con_Printf("Wrote %s\n", tganame);
+    byte *pixel_buffer = Hunk_AllocName(glwidth * glheight * 3, "screenshot");
+    glReadPixels(glx, gly, glwidth, glheight, GL_RGB, GL_UNSIGNED_BYTE, pixel_buffer);
+    struct tga_hunkfile tga = TGA_CreateHunkFile24(pixel_buffer, glwidth, glheight, glwidth);
 #else
-    int i;
-    char pcxname[80];
-    char checkname[MAX_OSPATH];
-
-//
-// find a file name to save it to
-//
-    strcpy(pcxname, "quake00.pcx");
-
-    for (i = 0; i <= 99; i++) {
-	pcxname[5] = i / 10 + '0';
-	pcxname[6] = i % 10 + '0';
-	qsnprintf(checkname, sizeof(checkname), "%s/%s", com_gamedir, pcxname);
-	if (Sys_FileTime(checkname) == -1)
-	    break;		// file doesn't exist
-    }
-    if (i == 100) {
-	Con_Printf("%s: Couldn't create a PCX file\n", __func__);
-	return;
-    }
-//
-// save the pcx file
-//
-    D_EnableBackBufferAccess();	// enable direct drawing of console to back buffer
-
-    WritePCXfile(pcxname, vid.buffer, vid.width, vid.height, vid.rowbytes,
-		 host_basepal, false);
-
-    D_DisableBackBufferAccess();	// for adapters that can't stay mapped in
-    //  for linear writes all the time
-
-    Con_Printf("Wrote %s\n", pcxname);
+    D_EnableBackBufferAccess();
+    struct tga_hunkfile tga = TGA_CreateHunkFile8(vid.buffer, vid.width, vid.height, vid.rowbytes);
+    D_DisableBackBufferAccess();
 #endif
+
+    COM_WriteFile(filename, tga.data, tga.size);
+    Hunk_FreeToLowMark(mark);
+    Con_Printf("Wrote %s\n", filename);
 }
 
 //=============================================================================

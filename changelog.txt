@@ -2,6 +2,10 @@
   CHANGELOG
 \-----------/
 
+(future)
+=====
+- Screenshots on WinQuake/QWCL now write the same TGA files as GLQuake, instead of PCX
+
 v0.71
 =====
 - Fix crash in SDL renderer triggered by certain screen resolutions

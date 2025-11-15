@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "console.h"
 #include "client.h"
 #include "sys.h"
+#include "tga.h"
 
 texture_t skytextures[6];
 char map_skyboxname[256];

@@ -26,9 +26,16 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "common.h"
 #include "console.h"
 #include "qpic.h"
+#include "sys.h"
+#include "tga.h"
 #include "zone.h"
 
-#include "sys.h"
+#ifdef NQ_HACK
+#include "host.h"
+#endif
+#ifdef QW_HACK
+#include "quakedef.h"
+#endif
 
 // ----------------------------------------------------------------------
 
@@ -53,6 +60,8 @@ typedef struct {
 #define TGA_PACKET_LENGTH_MASK 0x7f
 
 // ----------------------------------------------------------------------
+
+#ifdef GLQUAKE
 
 void
 TGA_SwapHeader(tga_header_t *header)
@@ -323,4 +332,66 @@ TGA_LoadHunkFile(const char *filename, const char *hunkname)
  fail_free:
     Hunk_FreeToLowMark(picmark);
     return NULL;
+}
+
+#endif // GLQUAKE
+
+struct tga_hunkfile
+TGA_CreateHunkFile8(const uint8_t *data, int32_t width, int32_t height, int32_t stride)
+{
+    const uint32_t file_size = sizeof(tga_header_t) + width * height * 3;
+    tga_header_t *header = Hunk_AllocName(file_size, "tga");
+    memset(header, 0, sizeof(*header));
+    header->datatypecode = 2; // Uncompressed "true color"
+    header->width = LittleShort(width);
+    header->height = LittleShort(height);
+    header->bitsperpixel = 24;
+
+    const byte *src = data;
+    if (stride < 0) {
+        src += stride * (height - 1);
+        stride = -stride;
+    }
+
+    byte *dst = (byte *)(header + 1);
+    for (uint32_t y = 0; y < height; y++, src += stride) {
+        for (uint32_t x = 0; x < width; x++) {
+            /* Translate palette and write BGR pixel format */
+            *dst++ = host_basepal[src[x] * 3 + 2];
+            *dst++ = host_basepal[src[x] * 3 + 1];
+            *dst++ = host_basepal[src[x] * 3 + 0];
+        }
+    }
+
+    return (struct tga_hunkfile) { .data = header, .size = file_size };
+}
+
+struct tga_hunkfile
+TGA_CreateHunkFile24(const uint8_t *data, int32_t width, int32_t height, int32_t stride)
+{
+    const uint32_t file_size = sizeof(tga_header_t) + width * height * 3;
+    tga_header_t *header = Hunk_AllocName(file_size, "tga");
+    memset(header, 0, sizeof(*header));
+    header->datatypecode = 2; // Uncompressed "true color"
+    header->width = LittleShort(width);
+    header->height = LittleShort(height);
+    header->bitsperpixel = 24;
+
+    const byte *src = data;
+    if (stride < 0) {
+        src += stride * 3 * (height - 1);
+        stride = -stride;
+    }
+
+    byte *dst = (byte *)(header + 1);
+    for (uint32_t y = 0; y < height; y++, src += stride * 3) {
+        for (uint32_t x = 0; x < width; x++) {
+            /* Write BGR pixel format */
+            *dst++ = src[x * 3 + 2];
+            *dst++ = src[x * 3 + 1];
+            *dst++ = src[x * 3 + 0];
+        }
+    }
+
+    return (struct tga_hunkfile) { .data = header, .size = file_size };
 }

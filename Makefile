@@ -728,6 +728,7 @@ CL_OBJS := \
 	snd_mix.o	\
 	snd_music.o \
 	sprite_model.o	\
+	tga.o		\
 	vid_mode.o	\
 	view.o		\
 	wad.o
@@ -801,8 +802,7 @@ GL_OBJS := \
 	gl_sky.o	\
 	gl_textures.o	\
 	gl_warp.o	\
-	qpic.o		\
-	tga.o
+	qpic.o
 
 NQSW_OBJS :=
 

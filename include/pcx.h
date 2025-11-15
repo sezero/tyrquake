@@ -37,7 +37,5 @@ typedef struct {
 } pcx_t;
 
 void SwapPCX(pcx_t *pcx);
-void WritePCXfile(const char *filename, const byte *data, int width, int height,
-		  int rowbytes, const byte *palette, qboolean upload);
 
 #endif // PCX_H
