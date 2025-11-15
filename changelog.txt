@@ -5,6 +5,7 @@
 (future)
 =====
 - Screenshots on WinQuake/QWCL now write the same TGA files as GLQuake, instead of PCX
+- Fixed user data directory on Windows when $HOME envinronment is in use (e.g. Msys/Cygwin)
 
 v0.71
 =====

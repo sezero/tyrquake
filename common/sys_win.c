@@ -125,8 +125,10 @@ const char *
 Sys_UserDataDirectory()
 {
     DWORD size = GetEnvironmentVariable("HOME", win32_userdir, sizeof(win32_userdir));
-    if (size > 0 && size < sizeof(win32_userdir))
+    if (size > 0 && size < sizeof(win32_userdir) - sizeof("/.tyrquake")) {
+        qstrncpy(win32_userdir + size, "/.tyrquake", sizeof(win32_userdir) - size);
         return win32_userdir;
+    }
 
     const char *data_directory;
     data_directory = Win32_Known_Path(win32_userdir, sizeof(win32_userdir), &FOLDERID_LocalAppData, "TyrQuake");
