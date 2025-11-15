@@ -848,17 +848,15 @@ SCR_DrawCharToSnap(int num, byte *dest, int width)
     int col = num & 15;
     const byte *source = draw_chars + (row << 10) + (col << 3);
 
-    const int stride = -128;
-    source -= 7 * stride;
-
-    int drawline = 8;
-    while (drawline--) {
-	for (int x = 0; x < 8; x++)
+    const int source_stride = 128;
+    for (int y = 0; y < 8; y++) {
+	for (int x = 0; x < 8; x++) {
 	    if (source[x])
 		dest[x] = source[x];
 	    else
 		dest[x] = 98;
-	source += stride;
+        }
+	source += source_stride;
 	dest += width;
     }
 }
@@ -866,7 +864,7 @@ SCR_DrawCharToSnap(int num, byte *dest, int width)
 static void
 SCR_DrawStringToSnap(const char *s, byte *buf, int x, int y, int width, int height)
 {
-    byte *dest = buf + (height - y - 8) * width + x;
+    byte *dest = buf + y * width + x;
     const byte *p = (const byte *)s;
     while (*p) {
 	SCR_DrawCharToSnap(*p++, dest, width);
@@ -908,18 +906,13 @@ SCR_RSShot_f(void)
 #else
     D_EnableBackBufferAccess();	// enable direct drawing of console to back
 
-    /* Converting to a 24-bit buffer just to share the code path with GLQuake */
+    /* Convert to a 24-bit bottom-up buffer just to share the code path with GLQuake */
     byte *pixel_buffer = Hunk_AllocName(vid.width * vid.height * 3, "screenshot");
     {
-        const byte *src = vid.buffer;
-        int stride = vid.rowbytes;
-        if (stride < 0) {
-            src += stride * (vid.height - 1);
-            stride = -stride;
-        }
-
+        const int stride = vid.rowbytes;
+        const byte *src = vid.buffer + stride * (vid.height - 1);
         byte *dst = pixel_buffer;
-        for (uint32_t y = 0; y < vid.height; y++, src += stride) {
+        for (uint32_t y = 0; y < vid.height; y++, src -= stride) {
             for (uint32_t x = 0; x < vid.width; x++) {
                 *dst++ = host_basepal[src[x] * 3 + 0];
                 *dst++ = host_basepal[src[x] * 3 + 1];
@@ -933,14 +926,15 @@ SCR_RSShot_f(void)
     const int src_height = vid.height;
 #endif
 
-    // Resample
+    // Resample and invert
     int w = qmin(src_width, RSSHOT_WIDTH);
     int h = qmin(src_height, RSSHOT_HEIGHT);
     float fracw = (float)src_width / (float)w;
     float frach = (float)src_height / (float)h;
 
-    for (int y = 0; y < h; y++) {
-	byte *dest = pixel_buffer + (w * 3 * y);
+    byte *scaled_pixel_buffer = Hunk_AllocName(w * h * 3, "screenshot");
+    byte *dest = scaled_pixel_buffer;
+    for (int y = h - 1; y >= 0; y--) {
 	for (int x = 0; x < w; x++) {
 	    int r = 0;
             int g = 0;
@@ -976,8 +970,8 @@ SCR_RSShot_f(void)
 
     // convert to eight bit
     for (int y = 0; y < h; y++) {
-	const byte *src = pixel_buffer + (w * 3 * y);
-	byte *dest = pixel_buffer + (w * y);
+	const byte *src = scaled_pixel_buffer + (w * 3 * y);
+	byte *dest = scaled_pixel_buffer + (w * y);
 	for (int x = 0; x < w; x++) {
 	    *dest++ = MipColor(src[0], src[1], src[2]);
 	    src += 3;
@@ -989,15 +983,15 @@ SCR_RSShot_f(void)
 
     char string_buffer[80];
     qstrncpy(string_buffer, ctime(&now), sizeof(string_buffer));
-    SCR_DrawStringToSnap(string_buffer, pixel_buffer, w - strlen(string_buffer) * 8, 0, w, h);
+    SCR_DrawStringToSnap(string_buffer, scaled_pixel_buffer, w - strlen(string_buffer) * 8, 0, w, h);
 
     qstrncpy(string_buffer, cls.servername, sizeof(string_buffer));
-    SCR_DrawStringToSnap(string_buffer, pixel_buffer, w - strlen(string_buffer) * 8, 10, w, h);
+    SCR_DrawStringToSnap(string_buffer, scaled_pixel_buffer, w - strlen(string_buffer) * 8, 10, w, h);
 
     qstrncpy(string_buffer, name.string, sizeof(string_buffer));
-    SCR_DrawStringToSnap(string_buffer, pixel_buffer, w - strlen(string_buffer) * 8, 20, w, h);
+    SCR_DrawStringToSnap(string_buffer, scaled_pixel_buffer, w - strlen(string_buffer) * 8, 20, w, h);
 
-    struct tga_hunkfile tga = TGA_CreateHunkFile8(pixel_buffer, w, h, w);
+    struct tga_hunkfile tga = TGA_CreateHunkFile8(scaled_pixel_buffer, w, h, w);
     CL_StartUpload((byte *)tga.data, tga.size);
 
     Hunk_FreeToLowMark(mark);

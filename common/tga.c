@@ -347,14 +347,10 @@ TGA_CreateHunkFile8(const uint8_t *data, int32_t width, int32_t height, int32_t 
     header->height = LittleShort(height);
     header->bitsperpixel = 24;
 
-    const byte *src = data;
-    if (stride < 0) {
-        src += stride * (height - 1);
-        stride = -stride;
-    }
-
+    /* Write it out from the bottom up */
+    const byte *src = data + stride * (height - 1);
     byte *dst = (byte *)(header + 1);
-    for (uint32_t y = 0; y < height; y++, src += stride) {
+    for (uint32_t y = 0; y < height; y++, src -= stride) {
         for (uint32_t x = 0; x < width; x++) {
             /* Translate palette and write BGR pixel format */
             *dst++ = host_basepal[src[x] * 3 + 2];
