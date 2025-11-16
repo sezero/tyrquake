@@ -333,11 +333,6 @@ VID_InitModeList(void)
 	if (devmode.dmBitsPerPel < 15)
 	    continue;
 
-	devmode.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
-	result = ChangeDisplaySettings(&devmode, CDS_TEST | CDS_FULLSCREEN);
-	if (result != DISP_CHANGE_SUCCESSFUL)
-	    continue;
-
         Hunk_AllocExtend(vid_modelist, sizeof(qvidmode_t));
         mode = &vid_modelist[vid_nummodes++];
 	mode->width = devmode.dmPelsWidth;
