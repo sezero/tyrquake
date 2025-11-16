@@ -873,9 +873,6 @@ VID_Init(const byte *palette)
     if (!mode)
 	mode = &vid_windowed_mode;
 
-    if (hwnd_dialog)
-	DestroyWindow(hwnd_dialog);
-
     /* keep the window minimized until we're ready for the first mode set */
     hide_window = true;
     VID_SetMode(mode, palette);
@@ -883,6 +880,11 @@ VID_Init(const byte *palette)
 
     vid_initialized = true;
     VID_SetMode(mode, palette);
+
+    if (hwnd_dialog) {
+        DestroyWindow(hwnd_dialog);
+        hwnd_dialog = NULL;
+    }
 
     VID_SetPalette(palette);
     vid_menudrawfn = VID_MenuDraw;
@@ -907,10 +909,14 @@ VID_Shutdown(void)
 	AppActivate(false, false);
 	VID_ShutdownDIB();
 
-	if (hwnd_dialog)
-	    DestroyWindow(hwnd_dialog);
-	if (mainwindow)
-	    DestroyWindow(mainwindow);
+        if (hwnd_dialog) {
+            DestroyWindow(hwnd_dialog);
+            hwnd_dialog = NULL;
+        }
+        if (mainwindow) {
+            DestroyWindow(mainwindow);
+            mainwindow = NULL;
+        }
 
 	vid_initialized = 0;
     }

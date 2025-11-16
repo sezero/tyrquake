@@ -388,6 +388,13 @@ VID_Init(const byte *palette)
 
     VID_SetMode(mode, palette);
 
+#ifdef _WIN32
+    if (hwnd_dialog) {
+        DestroyWindow(hwnd_dialog);
+        hwnd_dialog = NULL;
+    }
+#endif
+
     vid_menudrawfn = VID_MenuDraw;
     vid_menukeyfn = VID_MenuKey;
 
