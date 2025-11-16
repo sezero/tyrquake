@@ -210,8 +210,12 @@ xlib_rgb24(int r, int g, int b)
 static void
 st1_fixup(XImage *framebuf, const vrect_t *rect)
 {
-    if (vid.output.scale == 1)
+    if (vid.output.scale == 1) {
+        // TODO: We could eliminate this copy to improve performance in this
+        // special case, but probably not worth it (measure the impact)
+        memcpy(framebuf->data, vid.buffer, vid.width * vid.height);
         return;
+    }
 
     const int x = rect->x;
     const int y = rect->y;
@@ -222,7 +226,7 @@ st1_fixup(XImage *framebuf, const vrect_t *rect)
 
     if (vid.output.scale == 2) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + yi * vid.width;
             byte *dest0 = (byte *)&framebuf->data[(2 * yi + 0) * framebuf->bytes_per_line];
             byte *dest1 = (byte *)&framebuf->data[(2 * yi + 1) * framebuf->bytes_per_line];
             for (int xi = (x + width - 1); xi >= x; xi--) {
@@ -233,7 +237,7 @@ st1_fixup(XImage *framebuf, const vrect_t *rect)
         }
     } else if (vid.output.scale == 4) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + yi * vid.width;
             byte *dest0 = (byte *)&framebuf->data[(4 * yi + 0) * framebuf->bytes_per_line];
             byte *dest1 = (byte *)&framebuf->data[(4 * yi + 1) * framebuf->bytes_per_line];
             byte *dest2 = (byte *)&framebuf->data[(4 * yi + 2) * framebuf->bytes_per_line];
@@ -255,7 +259,7 @@ st1_fixup(XImage *framebuf, const vrect_t *rect)
         for (int yi = vid.output.height - 1; yi >= 0; yi--) {
             byte *dst = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
             const int src_row = yi * vid.height / vid.output.height;
-            const byte *src = (byte *)&framebuf->data[src_row * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + src_row * vid.width;
             int frac = (vid.width - 1) << 16;
             for (int xi = vid.output.width - 1; xi >= 0; xi--) {
                 dst[xi] = src[frac >> 16];
@@ -277,15 +281,15 @@ st2_fixup(XImage *framebuf, const vrect_t *rect)
 
     if (vid.output.scale == 1) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
-            PIXEL16 *dest = ((PIXEL16 *)src);
+            const byte *src = vid.buffer + yi * vid.width;
+            PIXEL16 *dest = (PIXEL16 *)&framebuf->data[yi * framebuf->bytes_per_line];
             for(int xi = (x + width - 1); xi >= x; xi--) {
                 dest[xi] = st2d_8to16table[src[xi]];
             }
         }
     } else if (vid.output.scale == 2) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + yi * vid.width;
             PIXEL16 *dest0 = (PIXEL16 *)&framebuf->data[(2 * yi + 0) * framebuf->bytes_per_line];
             PIXEL16 *dest1 = (PIXEL16 *)&framebuf->data[(2 * yi + 1) * framebuf->bytes_per_line];
             for (int xi = (x + width - 1); xi >= x; xi--) {
@@ -296,7 +300,7 @@ st2_fixup(XImage *framebuf, const vrect_t *rect)
         }
     } else if (vid.output.scale == 4) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + yi * vid.width;
             PIXEL16 *dest0 = (PIXEL16 *)&framebuf->data[(4 * yi + 0) * framebuf->bytes_per_line];
             PIXEL16 *dest1 = (PIXEL16 *)&framebuf->data[(4 * yi + 1) * framebuf->bytes_per_line];
             PIXEL16 *dest2 = (PIXEL16 *)&framebuf->data[(4 * yi + 2) * framebuf->bytes_per_line];
@@ -318,7 +322,7 @@ st2_fixup(XImage *framebuf, const vrect_t *rect)
         for (int yi = vid.output.height - 1; yi >= 0; yi--) {
             PIXEL16 *dst = (PIXEL16 *)&framebuf->data[yi * framebuf->bytes_per_line];
             const int src_row = yi * vid.height / vid.output.height;
-            const byte *src = (byte *)&framebuf->data[src_row * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + src_row * vid.width;
             int frac = (vid.width - 1) << 16;
             for (int xi = vid.output.width - 1; xi >= 0; xi--) {
                 dst[xi] = st2d_8to16table[src[frac >> 16]];
@@ -340,15 +344,15 @@ st3_fixup(XImage *framebuf, const vrect_t *rect)
 
     if (vid.output.scale == 1) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
-            PIXEL24 *dest = ((PIXEL24 *)src);
+            const byte *src = vid.buffer + yi * vid.width;
+            PIXEL24 *dest = (PIXEL24 *)&framebuf->data[yi * framebuf->bytes_per_line];
             for(int xi = (x + width - 1); xi >= x; xi--) {
                 dest[xi] = st2d_8to24table[src[xi]];
             }
         }
     } else if (vid.output.scale == 2) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + yi * vid.width;
             PIXEL24 *dest0 = (PIXEL24 *)&framebuf->data[(2 * yi + 0) * framebuf->bytes_per_line];
             PIXEL24 *dest1 = (PIXEL24 *)&framebuf->data[(2 * yi + 1) * framebuf->bytes_per_line];
             for (int xi = (x + width - 1); xi >= x; xi--) {
@@ -359,7 +363,7 @@ st3_fixup(XImage *framebuf, const vrect_t *rect)
         }
     } else if (vid.output.scale == 4) {
         for (int yi = y + height - 1; yi >= y; yi--) {
-            const byte *src = (byte *)&framebuf->data[yi * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + yi * vid.width;
             PIXEL24 *dest0 = (PIXEL24 *)&framebuf->data[(4 * yi + 0) * framebuf->bytes_per_line];
             PIXEL24 *dest1 = (PIXEL24 *)&framebuf->data[(4 * yi + 1) * framebuf->bytes_per_line];
             PIXEL24 *dest2 = (PIXEL24 *)&framebuf->data[(4 * yi + 2) * framebuf->bytes_per_line];
@@ -381,7 +385,7 @@ st3_fixup(XImage *framebuf, const vrect_t *rect)
         for (int yi = vid.output.height - 1; yi >= 0; yi--) {
             PIXEL24 *dst = (PIXEL24 *)&framebuf->data[yi * framebuf->bytes_per_line];
             const int src_row = yi * vid.height / vid.output.height;
-            const byte *src = (byte *)&framebuf->data[src_row * framebuf->bytes_per_line];
+            const byte *src = vid.buffer + src_row * vid.width;
             int frac = (vid.width - 1) << 16;
             for (int xi = vid.output.width - 1; xi >= 0; xi--) {
                 dst[xi] = st2d_8to24table[src[frac >> 16]];
@@ -449,12 +453,17 @@ ResetFrameBuffer(void)
     vid_surfcachesize = D_SurfaceCacheForRes(vid.width, vid.height);
     X11_buffersize = vid.width * vid.height * sizeof(*d_pzbuffer);
     X11_buffersize += vid_surfcachesize;
+    X11_buffersize += 2 * vid.width * vid.height; // backbuffer, warpbuffer
+
     d_pzbuffer = Hunk_HighAllocName(X11_buffersize, "video");
     if (!d_pzbuffer)
 	Sys_Error("Not enough memory for video mode");
 
     vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
     D_InitCaches(vid_surfcache, vid_surfcachesize);
+
+    vid.buffer = (byte *)vid_surfcache + vid_surfcachesize;
+    r_warpbuffer = (byte *)vid.buffer + vid.width * vid.height;
 
     int framebuffer_width = qmax(vid.width, vid.output.width);
     int framebuffer_height = qmax(vid.height, vid.output.height);
@@ -473,12 +482,8 @@ ResetFrameBuffer(void)
     if (!x_framebuffer[0])
 	Sys_Error("VID: XCreateImage failed");
 
-    /* Make the warpbuffer match the X11 shared memory buffer */
-    r_warpbuffer = Hunk_HighAllocName(framebuffer_bytes, "warpbuf");
-
     R_AllocSurfEdges(false);
 
-    vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
     current_framebuffer = 0;
 }
@@ -503,12 +508,16 @@ ResetSharedFrameBuffers(void)
     vid_surfcachesize = D_SurfaceCacheForRes(vid.width, vid.height);
     X11_buffersize = vid.width * vid.height * sizeof(*d_pzbuffer);
     X11_buffersize += vid_surfcachesize;
+    X11_buffersize += 2 * vid.width * vid.height;
     d_pzbuffer = Hunk_HighAllocName(X11_buffersize, "video");
     if (!d_pzbuffer)
 	Sys_Error("Not enough memory for video mode");
 
     vid_surfcache = (byte *)d_pzbuffer + vid.width * vid.height * sizeof(*d_pzbuffer);
     D_InitCaches(vid_surfcache, vid_surfcachesize);
+
+    vid.buffer = (byte *)vid_surfcache + vid_surfcachesize;
+    r_warpbuffer = (byte *)vid.buffer + vid.width * vid.height;
 
     int framebuffer_width = qmax(vid.width, vid.output.width);
     int framebuffer_height = qmax(vid.height, vid.output.height);
@@ -556,12 +565,8 @@ ResetSharedFrameBuffers(void)
 	shmctl(x_shminfo[frm].shmid, IPC_RMID, 0);
     }
 
-    /* Make the warpbuffer match the X11 shared memory buffer */
-    r_warpbuffer = Hunk_HighAllocName(framebuffer_bytes, "warpbuf");
-
     R_AllocSurfEdges(false);
 
-    vid.buffer = (byte *)x_framebuffer[0]->data;
     vid.conbuffer = vid.buffer;
     current_framebuffer = 0;
 }
@@ -763,7 +768,7 @@ VID_SetMode(const qvidmode_t *mode, const byte *palette)
 	ResetFrameBuffer();
     }
 
-    vid.rowbytes = x_framebuffer[0]->bytes_per_line;
+    vid.rowbytes = vid.width;
     vid.conrowbytes = vid.rowbytes;
     vid.recalc_refdef = 1;
 
@@ -1019,8 +1024,7 @@ VID_Update(vrect_t *rects)
 	else
 	    ResetFrameBuffer();
 
-	vid.rowbytes = x_framebuffer[0]->bytes_per_line;
-	vid.buffer = (byte *)x_framebuffer[current_framebuffer]->data;
+	vid.rowbytes = vid.width;
 	vid.conbuffer = vid.buffer;
 	vid.conwidth = vid.width;
 	vid.conheight = vid.height;
@@ -1054,7 +1058,6 @@ VID_Update(vrect_t *rects)
 	    rects = rects->pnext;
 	}
 	current_framebuffer = !current_framebuffer;
-	vid.buffer = (byte *)x_framebuffer[current_framebuffer]->data;
 	vid.conbuffer = vid.buffer;
 	XSync(x_disp, False);
     } else {
